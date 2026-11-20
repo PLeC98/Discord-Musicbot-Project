@@ -8,12 +8,12 @@ import path from "node:path";
 const SRC = path.join(import.meta.dirname, "..", "..", "dashboard", "src");
 const walk = (dir: string): string[] => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(dir, e.name)) : /\.(vue|ts)$/.test(e.name) ? [path.join(dir, e.name)] : []));
 
-// 언어를 선택하는 호출: toLocale…(…), Intl 의 언어별 형식, localeCompare
+// 언어를 선택하는 호출: toLocale…(…), Intl의 언어별 형식, localeCompare
 const LOCALE_CALL = /\.toLocale(?:String|DateString|TimeString)\(|new Intl\.(?:Collator|DateTimeFormat|NumberFormat|RelativeTimeFormat|PluralRules|ListFormat)\(|\.localeCompare\(/g;
-// 디자인으로 영어 표기를 쓰는 곳(잠금 화면 결, 터미널 결). 그 위치에서 "en-US" 를 적는다
+// 디자인으로 영어 표기를 쓰는 곳(잠금 화면 결, 터미널 결). 그 위치에서 "en-US"를 적는다
 const ENGLISH_BY_DESIGN = new Set(["views/LoginView.vue", "components/BotInfo.vue"]);
 
-test("언어를 선택하는 호출은 utils/locale 에만(디자인으로 영어인 두 곳은 en-US 를 적는다)", () => {
+test("언어를 선택하는 호출은 utils/locale 에만(디자인으로 영어인 두 곳은 en-US를 적는다)", () => {
   const stray: string[] = [];
   for (const file of walk(SRC)) {
     const rel = path.relative(SRC, file).split(path.sep).join("/");

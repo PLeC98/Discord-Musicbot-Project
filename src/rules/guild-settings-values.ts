@@ -1,10 +1,10 @@
-// 대시보드 서버 설정 화면이 주고받는 서버별 설정 값의 타입과 비교 함수. 화면(dashboard/src)과 봇이 같이 쓴다(Node 를 부르지 않는다).
+// 대시보드 서버 설정 화면이 주고받는 서버별 설정 값의 타입과 비교 함수. 화면(dashboard/src)과 봇이 같이 쓴다(Node를 부르지 않는다).
 
 import type { AgePlace } from "./age-place.ts";
 
 /**
  * 서버 설정 화면이 주고받는 값. 키가 없으면 그 카드가 보이지 않는다.
- * sponsorblock.categories 가 null 이면 운영자의 기본 구간을 따른다(기본 구간을 그대로 적어 둔 배열과 다르다).
+ * sponsorblock.categories가 null이면 운영자의 기본 구간을 따른다(기본 구간을 그대로 적어 둔 배열과 다르다).
  */
 type SettingsValues = {
   botChannelId?: string | null;
@@ -26,7 +26,7 @@ function valueAt(values: SettingsValues, key: SettingsKey): unknown {
   return values[key];
 }
 
-/** 키 하나를 바꾼 새 값. undefined 를 주면 그 키를 뺀다 */
+/** 키 하나를 바꾼 새 값. undefined를 주면 그 키를 뺀다 */
 function withValue(values: SettingsValues, key: SettingsKey, value: unknown): SettingsValues {
   const next: Record<string, unknown> = { ...values };
   if (key === "sponsorblock.enabled" || key === "sponsorblock.categories") {

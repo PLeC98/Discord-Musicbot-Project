@@ -19,7 +19,7 @@ import { fake, fakeBot } from "../helpers/fake.ts";
 import { requestJson } from "../helpers/dashboard.ts";
 import { userGuildsFixture } from "../helpers/user-guilds.ts";
 
-// 서버 하나. member 면 가져오기가 되고, 가져오면 진짜처럼 캐시에 남는다(캐시에 있으면 조회하지 않고, force 면 조회한다). fetched: 디스코드에 조회한 사용자
+// 서버 하나. member면 가져오기가 되고, 가져오면 진짜처럼 캐시에 남는다(캐시에 있으면 조회하지 않고, force면 조회한다). fetched: 디스코드에 조회한 사용자
 const guild = (id: string, member: boolean) => {
   const cache = new Map<string, object>();
   const fetched: string[] = [];
@@ -142,7 +142,7 @@ test("서버 목록을 받지 못하면(토큰 없음, 거절) 이미 확인한 
   await open();
   await open();
   assert.deepEqual(visible(subscribed[0].canSee, ["g1", "g2"]), ["g1"]);
-  assert.equal(tokens.state.asked.length, 1, "401 을 받은 세션은 다시 로그인할 때까지 묻지 않는다");
+  assert.equal(tokens.state.asked.length, 1, "401을 받은 세션은 다시 로그인할 때까지 묻지 않는다");
 });
 
 test("사용 불가 서버(재연결 직후)는 캐시에 있어도 보이지 않는다", async () => {
@@ -155,7 +155,7 @@ test("사용 불가 서버(재연결 직후)는 캐시에 있어도 보이지 �
   assert.deepEqual(visible(subscribed[0].canSee, ["g1"]), ["g1"]);
 });
 
-test("Server Members Intent 가 꺼진 채 로그인했으면 연결을 열지 않는다(409, 멤버도 묻지 않는다)", async (t) => {
+test("Server Members Intent가 꺼진 채 로그인했으면 연결을 열지 않는다(409, 멤버도 묻지 않는다)", async (t) => {
   t.after(() => _resetIntents());
   useLoggedIn({ messageContent: true, guildMembers: false });
   const res = await open();
@@ -191,13 +191,13 @@ test("게이트웨이에 재연결해 사용 불가 서버가 다시 사용 가�
   await open();
   const g1 = guilds.get("g1");
   assert.ok(g1);
-  // discord.js 가 GUILD_CREATE 에서 멤버 캐시를 비우고 봇, 음성 채널 사람만 채운다
+  // discord.js가 GUILD_CREATE에서 멤버 캐시를 비우고 봇, 음성 채널 사람만 채운다
   g1.members.cache.clear();
   g1.fetched.length = 0;
   assert.deepEqual(visible(subscribed[0].canSee, ["g1"]), [], "비운 캐시로는 보이지 않는다");
   await guildBack(stream, fake<Parameters<typeof guildBack>[1]>(g1));
   assert.deepEqual(visible(subscribed[0].canSee, ["g1"]), ["g1"]);
-  assert.deepEqual(g1.fetched, ["u1"], "그 서버를 보던 사람만 묻는다(운영자 연결은 g1 을 보지 않았다)");
+  assert.deepEqual(g1.fetched, ["u1"], "그 서버를 보던 사람만 묻는다(운영자 연결은 g1을 보지 않았다)");
   assert.deepEqual(nudged, ["g1"]);
 });
 

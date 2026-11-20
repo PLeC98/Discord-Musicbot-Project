@@ -25,7 +25,7 @@ const register = (...args: Parameters<typeof registry.register>) => {
 const row = (pid: number) => registry.list().find((one) => one.pid === pid);
 
 test("실행한 문맥의 서버와 작업을 적는다. 작업을 주면 문맥보다 앞서고, 문맥 밖이면 둘 다 null", () => {
-  // 경로는 이 OS 의 모양으로(POSIX 의 basename 은 역슬래시를 구분자로 보지 않는다)
+  // 경로는 이 OS의 모양으로(POSIX의 basename은 역슬래시를 구분자로 보지 않는다)
   const warm = inGuild("g1", () => register(child(path.join("C:", "bin", "yt-dlp.exe")), "yt-dlp"), "prefetch");
   const play = inGuild("g1", () => register(child("/usr/bin/ffmpeg"), "ffmpeg:playback", { job: "play" }), "prefetch");
   const helper = register(child(process.execPath), "bgutil", { job: "pot-server" });
@@ -45,7 +45,7 @@ test("문맥은 await 뒤에도 잇는다", async () => {
   assert.equal(row(pid)?.guildId, "g2");
 });
 
-test("메모리: tasklist CSV(자릿점은 로캘마다), ps 의 RSS 를 MB 로, 물은 pid 만", () => {
+test("메모리: tasklist CSV(자릿점은 로캘마다), ps의 RSS를 MB로, 물은 pid만", () => {
   const csv = ['"ffmpeg.exe","4120","Console","1","31,456 K"', '"yt-dlp.exe","4200","Console","1","104.857 K"', '"other.exe","999","Console","1","5,000 K"'].join("\r\n");
   assert.deepEqual(
     [...parseTasklist(csv, new Set([4120, 4200]))],
@@ -56,10 +56,10 @@ test("메모리: tasklist CSV(자릿점은 로캘마다), ps 의 RSS 를 MB 로,
   );
   assert.deepEqual([...parsePs("  4120 32212\n 4200  104857\n", new Set([4120]))], [[4120, 31]]);
   assert.equal(parseProcStatus("Name:\tffmpeg\nVmPeak:\t  120000 kB\nVmRSS:\t   32212 kB\nThreads:\t4\n"), 32212);
-  assert.equal(parseProcStatus("Name:\tkthreadd\nThreads:\t1\n"), null, "커널 스레드에는 VmRSS 가 없다");
+  assert.equal(parseProcStatus("Name:\tkthreadd\nThreads:\t1\n"), null, "커널 스레드에는 VmRSS가 없다");
 });
 
-test("메모리를 못 읽은 까닭: 상한을 넘겨 끊었는지, 종료 코드와 stderr, 실행조차 못 했는지", () => {
+test("메모리를 못 읽은 원인: 상한을 넘겨 끊었는지, 종료 코드와 stderr, 실행조차 못 했는지", () => {
   const failed = (fields: object) => Object.assign(new Error("Command failed: tasklist /FO CSV /NH"), fields);
   assert.equal(memoryInternals.failure(failed({ killed: true, signal: "SIGTERM", code: null }), Buffer.alloc(0)), "30초 초과로 강제 종료(SIGTERM)");
   assert.equal(memoryInternals.failure(failed({ killed: false, code: 1 }), Buffer.from("ERROR: Invalid argument.\r\n")), "종료 코드 1 · ERROR: Invalid argument.");
@@ -70,7 +70,7 @@ test("메모리를 못 읽은 까닭: 상한을 넘겨 끊었는지, 종료 코�
 test("메모리: 이 프로세스를 실제로 잰다", { timeout: 60_000 }, async (t) => {
   const started = Date.now();
   const memory = await processMemory([process.pid]);
-  // 부하가 큰 시스템에서는 tasklist 가 상한을 넘긴다. 그때는 못 잰 것이지 틀린 것이 아니다
+  // 부하가 큰 시스템에서는 tasklist가 상한을 넘긴다. 그때는 못 잰 것이지 틀린 것이 아니다
   if (!memory?.has(process.pid) && Date.now() - started >= memoryInternals.TIMEOUT_MS) return t.skip("tasklist, ps가 상한 안에 끝나지 않음");
   assert.ok((memory?.get(process.pid) ?? 0) > 10, `${memory?.get(process.pid)}MB`);
   assert.equal((await processMemory([]))?.size, 0);

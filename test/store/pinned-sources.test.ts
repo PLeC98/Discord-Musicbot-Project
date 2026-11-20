@@ -58,7 +58,7 @@ test("처음 선택한 것으로 오디오 캐시를 초기화하면 직접 지�
   pins.unpin("https://www.youtube.com/watch?v=ddddddddddd", "https://soundcloud.com/c/d");
 });
 
-test("캐시 DB 를 삭제하라는 멈춤 안내는 직접 지정한 음원도 사라진다고 말한다", () => {
+test("캐시 DB를 삭제하라는 멈춤 안내는 직접 지정한 음원도 사라진다고 말한다", () => {
   const mismatch = cacheDb.spec.onMismatch;
   assert.ok("lost" in mismatch && mismatch.lost.includes("직접 지정한 음원"));
 });

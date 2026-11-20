@@ -1,7 +1,7 @@
 // 봇이 플레이어 없이 음성 채널에만 남은 서버(src/player/voice-leave).
 // 이전 실행이 남긴 음성 상태는 나가기(op 4 null)만으로는 빠지지 않는 일이 있어, 이 가짜는 넘겨받기 전의 나가기를 늘 무시한다.
-// 같은 채널 참가(op 4)를 보내면 넘겨받고(takeOver), 넘겨받은 뒤의 나가기는 먹힌다(gatewayLeaves).
-// atDiscord: 디스코드가 아는 봇의 채널(null 은 음성에 없음, Error 는 조회 실패), cached: 캐시의 봇 채널
+// 같은 채널 참가(op 4)를 보내면 넘겨받고(takeOver), 넘겨받은 뒤의 나가기는 통한다(gatewayLeaves).
+// atDiscord: 디스코드가 아는 봇의 채널(null은 음성에 없음, Error는 조회 실패), cached: 캐시의 봇 채널
 
 import { EventEmitter } from "node:events";
 import { Status, type Guild } from "discord.js";

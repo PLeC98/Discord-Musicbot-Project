@@ -15,7 +15,7 @@ type Decision = { action: "seek"; toSec: number; prevSec: number } | { action: "
 //
 // 구간 시작을 자연 재생으로 넘어설 때만 건너뛴다. prevSec→curSec 사이에
 // seg.start가 들어오면 발동하고, play()(위치 이동 포함)마다 prevSec를 시작 위치로 다시 잡는다.
-// 그래서 사용자가 구간 안으로 직접 옮기면 seg.start > prevSec 가 거짓이라 건너뛰지 않는다
+// 그래서 사용자가 구간 안으로 직접 옮기면 seg.start > prevSec가 거짓이라 건너뛰지 않는다
 // (따로 상태를 두지 않고 경계를 넘었는지만 본다).
 //
 // 구간 처리:
@@ -67,7 +67,7 @@ class SponsorSkipper {
   onPlayStart(seekMs = 0) {
     const segs = this.player.sponsor?.skipSegments;
     this.segments = Array.isArray(segs) ? segs : [];
-    // 처음부터 틀면(seekMs 0) prevSec를 -1로 두어 start 0 인 인트로도 넘어선 것으로 본다.
+    // 처음부터 틀면(seekMs 0) prevSec를 -1로 두어 start 0인 인트로도 넘어선 것으로 본다.
     this._prevSec = seekMs > 0 ? seekMs / 1000 : -1;
     if (this.segments.length) this._start();
     else this.stop();
@@ -109,7 +109,7 @@ class SponsorSkipper {
     this._prevSec = d.prevSec;
 
     if (d.action === "end") {
-      // 스킵과 트랙 종료 줄이 원인=sponsorblock 을 달고 따라나온다. 세 줄이 한 사건이다.
+      // 스킵과 트랙 종료 줄이 원인=sponsorblock을 달고 따라나온다. 세 줄이 한 사건이다.
       log.debug(`${logTitle(p.currentTrack?.title)}: 종료 구간 도달, 트랙 종료`);
       p.skip("sponsorblock"); // 스킵 버튼과 같다(다음 곡, 반복을 따른다)
     } else if (d.action === "seek") {

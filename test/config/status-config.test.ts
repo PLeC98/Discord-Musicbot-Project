@@ -1,4 +1,4 @@
-// src/config/status.ts, src/ui/bot-presence.ts: 상태 문구 설정(settings.db 의 "status" 문서)과 그것을 읽는 BotPresence.
+// src/config/status.ts, src/ui/bot-presence.ts: 상태 문구 설정(settings.db의 "status" 문서)과 그것을 읽는 BotPresence.
 //
 // 이 문서도 주인이 둘이라(손으로 고치는 운영자, 대시보드) 조용히 틀리는 것을 막는 게 핵심이다.
 // 특히 날짜, 시간 비교가 문자열 비교라, 한 자리로 적으면 "형식 오류"가 아니라 "엉뚱한 날에 걸린다".
@@ -27,7 +27,7 @@ test("기본 문서는 아무 문제가 없다", () => {
 });
 
 test("활동 종류 목록은 BotPresence와 같다", () => {
-  // 설정(config/)은 ui/ 의 BotPresence 를 부를 수 없어(층 방향) 목록을 따로 들고 있다
+  // 설정(config/)은 ui/ 의 BotPresence를 부를 수 없어(층 방향) 목록을 따로 들고 있다
   assert.deepEqual(Object.keys(BotPresence.TYPE_MAP), statusConfig.ACTIVITY_TYPES);
 });
 
@@ -81,8 +81,8 @@ test("항목 이름 규칙은 장르와 같다", () => {
 
 // ── 읽기 ──────────────────────────────────────────────────────────────────
 
-// 문서는 DB 에 있고 고칠 대시보드가 실행돼야 하므로, 처음부터 틀렸어도 기동을 멈추지 않는다
-test("처음 읽을 때 틀렸으면 문제를 한 줄씩 알리고 활동 문구 없이 돈다(던지지 않는다)", () => {
+// 문서는 DB에 있고 고칠 대시보드가 실행돼야 하므로, 처음부터 틀렸어도 기동을 멈추지 않는다
+test("처음 읽을 때 틀렸으면 문제를 한 줄씩 알리고 활동 문구 없이 돈다(예외를 던지지 않는다)", () => {
   const from = sink.buffer.length;
   useDocument("status", { interval: 1, messages: [] });
   assert.deepEqual(statusConfig.status(), { messages: [] });
@@ -90,8 +90,8 @@ test("처음 읽을 때 틀렸으면 문제를 한 줄씩 알리고 활동 문�
   assert.ok(said?.text.startsWith(["활동 문구 설정 읽기 실패:", "   interval은 10초 이상이어야 해요", "   평소 문구: 문구가 하나는 있어야 해요"].join("\n")), said?.text);
 });
 
-test("돌던 중에 틀리면 던지지 않고 직전에 맞던 설정으로 돈다. 고치면 새 설정이 들어간다", () => {
-  // status()는 회전 주기마다 setInterval 안에서 불리므로, 던지면 타이머에서 잡히지 않는 예외가 된다.
+test("돌던 중에 틀리면 예외를 던지지 않고 직전에 맞던 설정으로 돈다. 고치면 새 설정이 들어간다", () => {
+  // status()는 회전 주기마다 setInterval 안에서 불리므로, 예외를 던지면 타이머에서 잡히지 않는 예외가 된다.
   useDocument("status", { interval: 30, messages: ["맞는 문구"] });
   assert.deepEqual(statusConfig.status().messages, ["맞는 문구"]);
 
@@ -206,7 +206,7 @@ test("문구를 활동으로 건다. 종류를 안 적으면 듣는 중", () => 
   assert.equal(set.length, 2);
 });
 
-test("간격마다 다음 문구로 돌리고, 간격은 10초보다 짧아지지 않는다. stop 이 멈춘다", (t) => {
+test("간격마다 다음 문구로 돌리고, 간격은 10초보다 짧아지지 않는다. stop이 멈춘다", (t) => {
   t.mock.timers.enable({ apis: ["setInterval"] });
   const { set, client } = presenceClient();
   const manager = new BotPresence(client, { load: () => ({ interval: 3, messages: ["하나", "둘"] }) });
@@ -255,7 +255,7 @@ test("오늘, 음력 오늘, 지금은 MM-DD, HH:MM 모양", () => {
   assert.match(calendar.now(), /^\d{2}:\d{2}$/);
 });
 
-test("load 는 설정 로더의 status() 를 부른다", () => {
+test("load는 설정 로더의 status()를 부른다", () => {
   assert.equal(new BotPresence(NOT_READY).load(), statusConfig.status());
 });
 

@@ -1,5 +1,5 @@
-// SQLite 파일 하나를 여는 래퍼. DB 파일마다(설정, 실행 상태, 캐시, AI 리퀘스트 로그, 로그인 세션) 이것으로 자기 파일을 정한다(stores.ts 가 함께 연다).
-// 불러와도 열리지 않는다. 열기 전에 get() 을 부르면 던진다(테스트, 스크립트가 실제 DB 를 건드리지 않게).
+// SQLite 파일 하나를 여는 래퍼. DB 파일마다(설정, 실행 상태, 캐시, AI 리퀘스트 로그, 로그인 세션) 이것으로 자기 파일을 정한다(stores.ts가 함께 연다).
+// 불러와도 열리지 않는다. 열기 전에 get()을 부르면 예외를 던진다(테스트, 스크립트가 실제 DB를 건드리지 않게).
 
 import Database from "better-sqlite3";
 import path from "path";
@@ -7,6 +7,7 @@ import fs from "fs";
 import { ownerOnly } from "../infra/owner-only.ts";
 import logger from "../infra/log/logger.ts";
 import { messageOf } from "../rules/error-kind.ts";
+import { josa } from "../rules/josa.ts";
 const log = logger.child({ category: "core" });
 
 type Db = Database.Database;
@@ -24,7 +25,7 @@ type OnMismatch = { lost: string } | { hint: (found: number, file: string) => st
 type DbSpec = {
   /** 로그, 오류에 쓰는 이름 */
   label: string;
-  /** 기본 파일 이름(stores 가 폴더와 잇는다) */
+  /** 기본 파일 이름(stores가 폴더와 잇는다) */
   fileName: string;
   /** 구조를 맞지 않게 바꿀 때마다 올린다. 표를 더하기만 하면 올리지 않는다(CREATE TABLE IF NOT EXISTS) */
   version: number;
@@ -47,14 +48,14 @@ class DbFile {
     this.spec = spec;
   }
 
-  /** 이미 열었으면 그대로. 버전이 맞지 않으면 spec.onMismatch 의 안내로 던진다 */
+  /** 이미 열었으면 그대로. 버전이 맞지 않으면 spec.onMismatch의 안내로 예외를 던진다 */
   open(file: string) {
     if (this.conn) return;
     fs.mkdirSync(path.dirname(file), { recursive: true });
 
     const next = new Database(file);
     try {
-      // -wal, -shm 은 SQLite 가 본체와 같은 권한으로 만든다
+      // -wal, -shm은 SQLite가 본체와 같은 권한으로 만든다
       ownerOnly(file);
       if (this.spec.autoVacuum) next.pragma(`auto_vacuum = ${this.spec.autoVacuum}`);
       next.pragma("journal_mode = WAL");
@@ -75,7 +76,7 @@ class DbFile {
     }
   }
 
-  // 이 설정 없이 만든 파일을 VACUUM으로 바꾼다(한 번). 파일 크기만큼의 여유 공간이 더 든다. 못 바꿔도 파일은 그대로 쓴다(다음 기동에 다시 해 본다)
+  // 이 설정 없이 만든 파일을 VACUUM으로 바꾼다(한 번). 파일 크기만큼의 여유 공간이 더 든다. 못 바꿔도 파일은 그대로 쓴다(다음 기동에 재시도한다)
   vacuum(db: Db, file: string) {
     const bytes = fs.statSync(file).size;
     log.info(`${this.spec.label}를 한 번 다시 씀(삭제한 공간을 돌려주는 설정, ${Math.ceil(bytes / 1024 / 1024)}MB)`);
@@ -85,7 +86,7 @@ class DbFile {
       log.warn(`${this.spec.label} 다시 쓰기 실패(그대로 열고 다음 기동 시 다시 시도): ${messageOf(error)}. 그때까지 기록을 삭제해도 파일이 줄지 않음`);
     }
     // VACUUM이 쓴 만큼 커진 -wal을 체크포인트해 줄인다. 실패했어도 한다(롤백된 쓰기도 -wal에 남는다).
-    // 다른 연결이 읽는 중이면 던지지 않고 결과의 busy로 알린다
+    // 다른 연결이 읽는 중이면 예외를 던지지 않고 결과의 busy로 알린다
     try {
       const [result] = db.pragma("wal_checkpoint(TRUNCATE)") as Array<{ busy: number }>;
       if (result?.busy) log.warn(`${this.spec.label}의 -wal 줄이기 실패(다른 프로그램이 읽는 중). 봇이 쓰는 동안 차차 줄어듦`);
@@ -105,7 +106,7 @@ class DbFile {
   }
 
   get(): Db {
-    if (!this.conn) throw Object.assign(new Error(`${this.spec.label} 를 열기 전에 불렀다(store/stores.open 을 먼저)`), { code: "DB_NOT_OPEN" });
+    if (!this.conn) throw Object.assign(new Error(`${this.spec.label}${josa(this.spec.label, "을")} 열기 전에 불렀다(store/stores.open을 먼저)`), { code: "DB_NOT_OPEN" });
     return this.conn;
   }
 
@@ -120,7 +121,7 @@ class DbFile {
   }
 }
 
-/** 파일과 -wal 의 크기 합. 없으면 0 */
+/** 파일과 -wal의 크기 합. 없으면 0 */
 function fileBytes(file: string) {
   const sizeOf = (target: string) => (fs.existsSync(target) ? fs.statSync(target).size : 0);
   return sizeOf(file) + sizeOf(`${file}-wal`);

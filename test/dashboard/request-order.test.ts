@@ -58,13 +58,13 @@ const SIGNED_IN = { id: "u1", username: "u1" };
 
 test("익명 사용자의 상태 변경 요청은 본문을 파싱하기 전에 요청 수를 세어 한도를 넘으면 429를 반환한다(CSRF 403이 먼저가 아니다)", () =>
   withLimits({ apiMax: 2 }, async () => {
-    // 100-continue 를 앱으로 넘기는 운영 서버(dashboard/binding)로 띄운다
+    // 100-continue를 앱으로 넘기는 운영 서버(dashboard/binding)로 띄운다
     const server = createServer(appOf()).listen(0, "127.0.0.1");
     servers.push(server);
     if (!server.listening) await once(server, "listening");
     const port = (server.address() as AddressInfo).port;
-    // 원시 소켓으로, 큰 본문을 100-continue 로 알리고 보내지 않는다. 서버는 검사를 통과한 요청에만 100 을 보내므로 거절은 본문 없이 온다.
-    // 본문을 보내는 중에 서버가 답하고 닫으면 받지 않은 본문 때문에 연결이 리셋돼, 받아 둔 응답까지 버려질 수 있다(Windows)
+    // 원시 소켓으로, 큰 본문을 100-continue로 알리고 보내지 않는다. 서버는 검사를 통과한 요청에만 100을 보내므로 거절은 본문 없이 온다.
+    // 본문을 보내는 중에 서버가 응답하고 닫으면 받지 않은 본문 때문에 연결이 리셋돼, 받아 둔 응답까지 버려질 수 있다(Windows)
     const put = async () => (await raw(port, "PUT /api/admin/ai/settings HTTP/1.1\r\nHost: x\r\nContent-Type: application/json\r\nContent-Length: 500000\r\nExpect: 100-continue\r\n\r\n")).got.slice(0, 12);
     assert.deepEqual([await put(), await put()], ["HTTP/1.1 403", "HTTP/1.1 403"]);
     assert.equal(await put(), "HTTP/1.1 429");
@@ -142,7 +142,7 @@ test("본문을 다 받지 않은 채 응답하면 연결을 닫는다(거절, �
   const chunked = await raw(port, "POST /api/me HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n", "5\r\nhello\r\n");
   assert.equal(chunked.closed, true);
 
-  // 남은 본문이 작으면 받아 버리고 연결을 이어 쓴다(올리는 도중의 브라우저도 연결 끊김이 아니라 답을 받는다)
+  // 남은 본문이 작으면 받아 버리고 연결을 이어 쓴다(올리는 도중의 브라우저도 연결 끊김이 아니라 응답을 받는다)
   const small = JSON.stringify({ x: "y".repeat(20_000) });
   const kept = await raw(port, `PUT /api/admin/ai/settings HTTP/1.1\r\nHost: x\r\nContent-Type: application/json\r\nContent-Length: ${small.length}\r\n\r\n`, small, { waitMs: 500 });
   assert.match(kept.got, /^HTTP\/1\.1 403/);
@@ -215,7 +215,7 @@ test("본문은 /api만 파싱한다(로그아웃은 잘못된 JSON이어도 400
   }
 });
 
-test("대문자 /API도 화면 폴백이 답하지 않고 API로 가서 센다", () =>
+test("대문자 /API도 화면 폴백이 응답하지 않고 API로 가서 센다", () =>
   withLimits({ apiMax: 1 }, async () => {
     const at = await fresh();
     const first = await at("/API/admin/status");
@@ -274,7 +274,7 @@ test("JSON이 아닌 업로드(이미지)는 JSON 상한을 적용받지 않는�
     assert.match(declared.got, /^HTTP\/1\.1 \d{3}/);
     assert.doesNotMatch(declared.got, /^HTTP\/1\.1 413/);
     const chunked = await raw(port, `POST /api/app-emojis HTTP/1.1\r\nHost: x\r\nContent-Type: image/png\r\nTransfer-Encoding: chunked\r\nx-csrf-token: ${TOKEN}\r\n\r\n`, `${image.length.toString(16)}\r\n${image}\r\n0\r\n\r\n`);
-    assert.match(chunked.got, /^HTTP\/1\.1 \d{3}/, "끊지 않고 답한다");
+    assert.match(chunked.got, /^HTTP\/1\.1 \d{3}/, "끊지 않고 응답한다");
     assert.doesNotMatch(chunked.got, /^HTTP\/1\.1 413/);
   } finally {
     user = null;
@@ -294,7 +294,7 @@ test("요청 제한에 걸린 요청은 그 요청에서만 세션을 떼어 응
   assert.equal(session.user, SIGNED_IN, "세션 자체는 그대로다");
 });
 
-test("종료 중이면 상태를 바꾸는 API 요청은 핸들러에 닿기 전에 503 bot-shutting-down 으로 거절하고, 읽기 요청은 그대로 받는다", async (t) => {
+test("종료 중이면 상태를 바꾸는 API 요청은 핸들러에 닿기 전에 503 bot-shutting-down으로 거절하고, 읽기 요청은 그대로 받는다", async (t) => {
   user = SIGNED_IN;
   t.after(() => {
     _resetShutdown();

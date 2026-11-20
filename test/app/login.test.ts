@@ -36,7 +36,7 @@ test("게이트웨이 정보가 5xx, 네트워크로 안 오면 기다렸다가 
   assert.deepEqual(c.steps, ["token:T", "get:/gateway/bot", "get:/gateway/bot", "get:/gateway/bot", "login:T"]);
 });
 
-test("토큰이 틀리면(401) 다시 묻지 않고 설정 문제로 던진다", async () => {
+test("토큰이 틀리면(401) 다시 묻지 않고 설정 문제로 예외를 던진다", async () => {
   const c = client([Object.assign(new Error("401: Unauthorized"), { status: 401 })]);
   const waited: number[] = [];
   const error = await loginWithRetry(c, "T", { waits: [5], wait: async (ms) => void waited.push(ms) }).catch((e: unknown) => e);
@@ -53,7 +53,7 @@ test("정한 횟수를 다 물어도 안 오면 마지막 오류를 던진다(�
   assert.ok(!c.steps.some((s) => s.startsWith("login")));
 });
 
-test("로그인 자체가 실패하면 다시 하지 않고 던진다(discord.js 가 실패 때 클라이언트를 정리하기 때문)", async () => {
+test("로그인 자체가 실패하면 다시 하지 않고 예외를 던진다(discord.js가 실패 때 클라이언트를 정리하기 때문)", async () => {
   const c = client([{ url: "wss://gateway" }], { loginFails: true });
   await assert.rejects(loginWithRetry(c, "T", { waits: [1], wait: async () => {} }), /502/);
   assert.equal(c.steps.filter((s) => s.startsWith("login")).length, 1);

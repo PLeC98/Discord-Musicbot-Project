@@ -94,9 +94,18 @@ jobs:
           HOMEBREW_NO_AUTO_UPDATE: "1"
           HOMEBREW_NO_INSTALL_CLEANUP: "1"
 
-      # postinstall 이 대시보드 화면도 빌드한다(빌드가 깨지면 여기서 멈춘다). yt-dlp 도 설치한다
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      # 운영에서는 봇이 켜질 때 하는 일이지만, 테스트가 실제 yt-dlp와 ffmpeg를 쓰므로 여기서 미리 한다. 화면 빌드가 깨지면 여기서 멈춘다
+      - name: Build dashboard
+        run: pnpm run build:dashboard
+
+      - name: Install ffmpeg
+        run: pnpm run install:ffmpeg
+
+      - name: Install yt-dlp
+        run: pnpm run update:ytdlp
 
       - name: Lint
         run: pnpm run lint

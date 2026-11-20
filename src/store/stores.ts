@@ -1,5 +1,5 @@
 // DB 파일들을 함께 열고 닫는다. 구조 버전이 맞지 않으면 어느 파일이든 열지 않고 멈춘다(store/sqlite). 무엇을 어느 파일에 두나:
-//   settings.db  사람이 정한 값(서버별 설정, 설정 문서, 비밀값). 삭제하지 않는다. 멈출 때 그 DB 를 만든 버전의 봇으로 실행하라고 안내한다
+//   settings.db  사람이 정한 값(서버별 설정, 설정 문서, 비밀값). 삭제하지 않는다. 멈출 때 그 DB를 만든 버전의 봇으로 실행하라고 안내한다
 //   state.db     다시 시작했을 때 이어 갈 실행 상태(저장된 대기열, 음성 채널 상태, 재생 패널 위치). 멈출 때 삭제하고 다시 시작하라고 안내한다
 //   cache.db     다시 다운로드하면 되는 것(캐시 파일 기록, 오디오 링크 데이터, 직접 지정한 음원, 외부 서비스의 응답). 같다. 오디오 캐시 초기화는 선택한 것의 표를 비운다
 //   ai-requests.db  AI 리퀘스트 로그, 사용량 통계. 같다. 오디오 캐시 초기화, 백업과 무관하다(봇 전체 초기화는 모두 삭제한다, store/full-reset)
@@ -20,7 +20,7 @@ import { sessionDb } from "./session-db.ts";
 // 여는 순서. 설정이 깨졌으면 다른 파일을 건드리기 전에 멈춘다
 const FILES: DbFile[] = [settingsDb, stateDb, cacheDb, aiLogDb, sessionDb];
 
-/** dir: DB 를 둘 폴더. 운영은 database/, 테스트는 임시 폴더. 하나라도 못 열면 연 것을 닫고 던진다 */
+/** dir: DB를 둘 폴더. 운영은 database/, 테스트는 임시 폴더. 하나라도 못 열면 연 것을 닫고 예외를 던진다 */
 function open(dir = PROJECT.database) {
   try {
     for (const file of FILES) openOne(file, dir);
@@ -31,7 +31,7 @@ function open(dir = PROJECT.database) {
   log.info({ tags: ["startup"] }, "DB 준비 완료 (설정, 실행 상태, 캐시, AI 리퀘스트 로그, 로그인 세션)");
 }
 
-// 못 열면 어느 파일인지 오류에 단다(dbFile: 그 파일의 라벨). 설정 DB 면 기동이 복원하는 법을 알린다
+// 못 열면 어느 파일인지 오류에 단다(dbFile: 그 파일의 라벨). 설정 DB면 기동이 복원하는 법을 알린다
 function openOne(file: DbFile, dir: string) {
   try {
     file.open(path.join(dir, file.spec.fileName));

@@ -26,7 +26,7 @@ function intOf(raw: unknown): number | undefined {
 }
 const textOf = (raw: unknown) => (typeof raw === "string" ? raw : "");
 
-/** 필터. levels 가 없으면 모든 레벨, 빈 글이면 아무 레벨도 아니다(화면에서 레벨을 모두 끈 것) */
+/** 필터. levels가 없으면 모든 레벨, 빈 글이면 아무 레벨도 아니다(화면에서 레벨을 모두 끈 것) */
 function filterOf(req: Request): LogFilter {
   const levels = req.query.levels;
   return {

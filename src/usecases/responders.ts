@@ -13,10 +13,10 @@ import { LIFETIME, postNew, unlessGone } from "../ui/delivery.ts";
  * 곡 추가 결과를 사용자에게 알리는 매체별 어댑터. 코어는 매체를 모르고 아래 두 메서드만 부른다
  * (대시보드처럼 디스코드에 아무것도 보내지 않는 진입점도 있다).
  *
- *   notifyQueued(view)     담은 안내(ui/added-notice 의 화면)를 표시한다
+ *   notifyQueued(view)     담은 안내(ui/added-notice의 화면)를 표시한다
  *   dismissPlaceholder()   진입점이 표시한 "검색 중…" 자리표시자를 정리한다 (멱등)
  *
- * 둘 다 던지지 않는다. 안내 실패가 재생을 망가뜨리면 안 된다.
+ * 둘 다 예외를 던지지 않는다. 안내 실패가 재생을 망가뜨리면 안 된다.
  * 실패 경로에서는 코어가 dismissPlaceholder를 부르지 않는다. 진입점이 자리표시자를 오류로 덮어쓸 수 있게.
  */
 

@@ -2,8 +2,8 @@
   문자열 목록을 칩으로 다룬다. 검색어와 제외 키워드가 같은 성질이라 한 곳에 모은다.
   Enter로 추가, 지우기 버튼 또는 빈 입력란에서 Backspace로 제거, 칩을 누르면 고친다.
 
-  suggest 를 주면 입력하는 동안 후보를 표시한다(VocaDB 태그, 가수). 후보는 돕는 것일 뿐이라
-  목록에 없는 말도 Enter 로 추가할 수 있다. 저쪽이 느리거나 죽어 있어도 입력할 수 있어야 한다.
+  suggest를 주면 입력하는 동안 후보를 표시한다(VocaDB 태그, 가수). 후보는 돕는 것일 뿐이라
+  목록에 없는 말도 Enter로 추가할 수 있다. 저쪽이 느리거나 죽어 있어도 입력할 수 있어야 한다.
 -->
 <template>
   <div ref="root">
@@ -67,7 +67,7 @@ import { useListCursor } from "../composables/list-cursor.ts";
 import { problemText } from "../utils/problem.ts";
 import { text } from "../text/index.ts";
 
-/** 후보 하나. hint 는 이름 옆에 흐리게 보인다 */
+/** 후보 하나. hint는 이름 옆에 흐리게 보인다 */
 type Suggestion = { value: string; hint?: string };
 
 const props = withDefaults(
@@ -96,13 +96,13 @@ const hits = ref<Suggestion[]>([]);
 // 후보 불러오기: idle(입력한 말이 없다), loading, done, failed
 const state = ref("idle");
 const failReason = ref("");
-// 방향키로 선택한 후보. -1 이면 선택한 것이 없어 Enter 가 입력한 말을 그대로 추가한다
+// 방향키로 선택한 후보. -1이면 선택한 것이 없어 Enter가 입력한 말을 그대로 추가한다
 const { at, move: moveCursor, reset } = useListCursor(panel, () => hits.value.length, -1);
 const { style } = useAnchoredPanel({ root, anchor: box, panel, open, maxHeight: rem(15) });
 
 const normalize = (text: string) => (props.lowercase ? text.trim().toLowerCase() : text.trim());
 
-// 입력하는 동안 매 글자마다 요청하지 않는다. 늦게 온 답이 지금 입력한 말과 다르면 버린다
+// 입력하는 동안 매 글자마다 요청하지 않는다. 늦게 온 응답이 지금 입력한 말과 다르면 버린다
 const SUGGEST_WAIT_MS = 250;
 let timer: ReturnType<typeof setTimeout> | undefined;
 watch(entry, (text) => {

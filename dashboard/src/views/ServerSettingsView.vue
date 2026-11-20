@@ -22,7 +22,7 @@
     <template v-else>
       <!-- 카드는 폭을 다 쓰고 바탕화면이 넓어질수록 열이 는다(카드 한 장 360px 쯤: 768px~ 2열, 1152px~ 3열). 높이를 맞춘 격자가 아니라 열마다 위에서부터 채운다(카드 높이가 제각각이라 빈칸이 생기지 않게) -->
       <div class="columns-1 @3xl/desk:columns-2 @6xl/desk:columns-3 gap-(--gap-in) *:break-inside-avoid">
-        <!-- 상주 모드(디스코드 /247, DJ 부터). 바꿀 수 없으면 스위치 줄 자리에 같은 높이의 안내 상자: 까닭(봇 문장표)과 잠근 스위치(지금 상태는 툴팁) -->
+        <!-- 상주 모드(디스코드 /247, DJ부터). 바꿀 수 없으면 스위치 줄 자리에 같은 높이의 안내 상자: 이유(봇 문장표)와 잠근 스위치(지금 상태는 툴팁) -->
         <BaseCard v-if="s.stay" icon="local_convenience_store" :title="T.stay.title" class="mb-(--gap-in)">
           <p class="text-on-surface-variant text-sm mb-3">{{ T.stay.desc }}</p>
           <label v-if="!s.stay.refusal" class="flex items-center justify-between gap-3 py-2 text-sm cursor-pointer">
@@ -37,12 +37,12 @@
           </label>
           <NoticeBox v-else variant="gate" :icon="REFUSAL_ICON[s.stay.refusal] ?? 'block'" icon-class="text-on-surface-variant" class="min-h-0! py-2!">
             <span class="flex-1 min-w-0">{{ noticeText(s.stay.refusal).title }}</span>
-            <!-- 꺼진 입력은 마우스 이벤트를 받지 않아 덮개가 툴팁을 받는다 -->
+            <!-- 꺼진 입력은 마우스 이벤트를 받지 않아 오버레이가 툴팁을 받는다 -->
             <span v-tooltip="T.stay.locked(stayShown)" class="relative inline-flex shrink-0"><BaseSwitch :model-value="stayShown" disabled /><span class="absolute inset-0 z-20"></span></span>
           </NoticeBox>
         </BaseCard>
 
-        <!-- 볼륨 정규화(디스코드 /normalize, DJ 부터). 봇이 음성 채널 밖이어도 바꿀 수 있다. 바꿀 수 없으면 상주 모드 카드와 같은 안내 상자 -->
+        <!-- 볼륨 정규화(디스코드 /normalize, DJ부터). 봇이 음성 채널 밖이어도 바꿀 수 있다. 바꿀 수 없으면 상주 모드 카드와 같은 안내 상자 -->
         <BaseCard v-if="s.normalize" icon="graphic_eq" :title="T.normalize.title" class="mb-(--gap-in)">
           <p class="text-on-surface-variant text-sm mb-3">{{ T.normalize.desc }}</p>
           <label v-if="!s.normalize.refusal" class="flex items-center justify-between gap-3 py-2 text-sm cursor-pointer">
@@ -67,7 +67,7 @@
 
           <SearchInput v-model="roleFilter" :placeholder="text.fields.searchAmong(s.dj.roles.length)" :input-class="[FIELD, 'w-full disabled:opacity-38']" class="mb-2" />
 
-          <!-- 스크롤바 트랙은 테두리 안쪽 모서리(12px - 1px)에 맞춰 위아래 11 - 5 = 6px 을 비우고, 넘치면 오른쪽 여백을 6 - 3 = 3px 로(useOverflowing) -->
+          <!-- 스크롤바 트랙은 테두리 안쪽 모서리(12px - 1px)에 맞춰 위아래 11 - 5 = 6px을 비우고, 넘치면 오른쪽 여백을 6 - 3 = 3px로(useOverflowing) -->
           <div ref="roleListEl" class="h-66.5 overflow-y-auto rounded-(--r-inner) border border-outline-variant/50 flex flex-col [&::-webkit-scrollbar-track]:my-1.5" :class="roleListOverflowing ? 'py-1 pl-1 pr-px' : 'p-1'">
             <label v-for="r in filteredRoles" :key="r.id" class="state-layer cursor-pointer shrink-0 flex items-center gap-2 h-10 px-3 rounded-(--r-row) text-sm">
               <input type="checkbox" class="size-4 accent-primary shrink-0" :checked="selectedRoles.includes(r.id)" @change="toggleRole(r.id)" />
@@ -102,9 +102,7 @@
           <!-- 이어 붙은 버튼 그룹(M3E): 선택한 버튼은 완전히 둥글게, 체크. 카드가 좁으면(384px 미만, 작은 휴대폰) 버튼 안 여백, 체크 간격을 줄여 카드 안에 들게 -->
           <div class="flex gap-0.5 mb-3" role="radiogroup" :aria-label="T.playlistAdd.choose">
             <button type="button" role="radio" :aria-checked="paUseDefault" @click="paUseDefault = true" :class="[segment(paUseDefault, 0, paPresets.length + 1), SEG_TIGHT]">
-              <Icon v-if="paUseDefault" name="check" :size="18" /><span class="hidden @[18rem]/card:inline">{{ T.playlistAdd.defaultLong }}</span
-              ><span class="@[18rem]/card:hidden">{{ T.playlistAdd.defaultShort }}</span
-              >{{ T.playlistAdd.songs(paClamp(s.playlistAdd.default)) }}
+              <Icon v-if="paUseDefault" name="check" :size="18" />{{ T.playlistAdd.songs(paClamp(s.playlistAdd.default)) }}<span class="hidden @[18rem]/card:inline">{{ T.playlistAdd.defaultMark }}</span>
             </button>
             <button v-for="(n, i) in paPresets" :key="n" type="button" role="radio" :aria-checked="!paUseDefault && paCount === n" @click="pickPreset(n)" :class="[segment(!paUseDefault && paCount === n, i + 1, paPresets.length + 1), SEG_TIGHT]"><Icon v-if="!paUseDefault && paCount === n" name="check" :size="18" />{{ T.playlistAdd.songs(n) }}</button>
           </div>
@@ -118,7 +116,7 @@
             <template v-if="paInvalid">{{ T.playlistAdd.invalid(s.playlistAdd.min, s.playlistAdd.max) }}</template>
             <template v-else
               >{{ T.playlistAdd.effectiveBefore }}<strong class="font-semibold text-on-surface">{{ T.playlistAdd.songs(paEffective) }}</strong
-              >{{ T.playlistAdd.effectiveAfter(s.playlistAdd.min, s.playlistAdd.max) }}<code>/setplaylistlimit</code></template
+              >{{ T.playlistAdd.effectiveAfter(s.playlistAdd.min, s.playlistAdd.max) }}<code>/setplaylistlimit</code>{{ T.playlistAdd.effectiveEnd }}</template
             >
           </div>
         </BaseCard>
@@ -186,7 +184,7 @@ const user = useUserStore();
 /** 불러오기 전에는 이름이 없고 카드도 없다. 카드의 값은 보이는 카드만 온다 */
 type SettingsSeen = Omit<GuildSettings, "guildName"> & { guildName: string | null };
 
-// 좁은 카드에서 곡 수 입력란을 촘촘하게(아니면 iPhone SE 375px 에서 카드 밖으로 넘친다)
+// 좁은 카드에서 곡 수 입력란을 촘촘하게(아니면 iPhone SE 375px에서 카드 밖으로 넘친다)
 const SEG_TIGHT = "@max-sm/card:px-2 @max-sm/card:gap-1";
 const route = useRoute();
 const router = useRouter();
@@ -242,7 +240,7 @@ function pickPreset(n: number) {
   paCount.value = n;
 }
 
-// type="number" 를 안 쓴다. 입력란 위에서 휠을 굴리면 값이 바뀐다. 대신 숫자만 받는다.
+// type="number"를 안 쓴다. 입력란 위에서 휠을 굴리면 값이 바뀐다. 대신 숫자만 받는다.
 function onPaInput(e: Event) {
   const input = e.target as HTMLInputElement;
   const raw = valueOf(e).replace(/[^0-9]/g, "");
@@ -269,9 +267,9 @@ function toggleRole(id: string) {
 }
 
 // ── 상주 모드 ──
-// 켜고 끄기는 저장(PATCH)이 아니라 바로 보낸다(/247 과 같은 처리). 보내는 동안은 바꾼 상태를 보여 주고, 실패하면 되돌린다. 요청은 저장과 같은 큐에 넣는다
+// 켜고 끄기는 저장(PATCH)이 아니라 바로 보낸다(/247과 같은 처리). 보내는 동안은 바꾼 상태를 보여 주고, 실패하면 되돌린다. 요청은 저장과 같은 큐에 넣는다
 
-/** 바꿀 수 없는 까닭의 아이콘(곡 추가 칸과 같은 짝). 그 밖은 막힘 */
+/** 바꿀 수 없는 이유의 아이콘(곡 추가 칸과 같은 짝). 그 밖은 막힘 */
 const REFUSAL_ICON: Partial<Record<Code, IconName>> = { "must-be-in-voice": "headset_off", "must-be-in-same-voice": "headphones" };
 const stayBusy = ref(false);
 const stayWant = ref<boolean | null>(null);
@@ -294,7 +292,7 @@ function toggleStay(on: boolean) {
 }
 
 // ── 볼륨 정규화 ──
-// 상주 모드처럼 저장(PATCH)이 아니라 바로 보낸다(/normalize 와 같은 처리)
+// 상주 모드처럼 저장(PATCH)이 아니라 바로 보낸다(/normalize와 같은 처리)
 const normalizeBusy = ref(false);
 const normalizeWant = ref<boolean | null>(null);
 const normalizeShown = computed(() => normalizeWant.value ?? Boolean(s.value.normalize?.on));
@@ -365,7 +363,7 @@ function retryLoad() {
 }
 
 // ── 자동 저장 ──
-// 고치면 0.4초 뒤 저장한다. 언제 무엇을 보낼지, 응답과 다시 읽은 값을 어떻게 반영할지는 utils/settings-draft 의 저장 컨트롤러가 정한다.
+// 고치면 0.4초 뒤 저장한다. 언제 무엇을 보낼지, 응답과 다시 읽은 값을 어떻게 반영할지는 utils/settings-draft의 저장 컨트롤러가 정한다.
 // 곡 수를 직접 입력하는 동안(typing)이나 값이 범위를 벗어난 동안에는 그 카드만 저장하지 않는다(입력란 아래 안내). 실패 표시는 다음에 저장될 때까지 둔다
 const typing = ref(false);
 const saveState = ref<SaveState>("idle");

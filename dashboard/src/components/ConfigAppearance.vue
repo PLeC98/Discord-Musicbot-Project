@@ -9,7 +9,7 @@
       <template #actions><DocLink file="docs/favicon.md" /></template>
       <p class="mb-3 flex items-center gap-1 text-sm text-on-surface-variant">{{ T.faviconDesc }}<Icon name="info" :size="16" class="shrink-0 cursor-help" v-tooltip="T.faviconTip" /></p>
 
-      <!-- 크기 슬롯: 쓰이는 곳, 지금 내는 이미지(슬롯 폭의 미리보기 화면, 이미지는 실제 크기, 큰 것은 128px 로 줄여), 어디서 왔는지, 기록 개수(이미지를 삭제해도 기록이 있으면 보인다), 추가하기(변경), 삭제.
+      <!-- 크기 슬롯: 쓰이는 곳, 지금 내는 이미지(슬롯 폭의 미리보기 화면, 이미지는 실제 크기, 큰 것은 128px로 줄여), 어디서 왔는지, 기록 개수(이미지를 삭제해도 기록이 있으면 보인다), 추가하기(변경), 삭제.
            슬롯에 드래그해서 놓아도 된다. 남는 폭은 슬롯들이 나눠 갖는다 -->
       <div class="grid grid-cols-[repeat(auto-fit,minmax(10rem,1fr))] gap-2">
         <div v-for="slot in state?.slots ?? []" :key="slot.size" class="flex flex-col items-center gap-2 rounded-2xl bg-surface-container px-3 py-4 transition-[outline-color] outline-2 outline-dashed" :class="over === slot.size ? 'outline-primary' : 'outline-transparent'" @dragover.prevent="over = slot.size" @dragleave="over = null" @drop.prevent="onDrop($event, slot.size)">
@@ -111,7 +111,7 @@ async function run(job: () => Promise<void>) {
   }
 }
 
-/** 올리기 전에 화면에서 필터링한다(서버도 다시 본다). 까닭이 있으면 그 글. 래스터면 크기도 돌려준다 */
+/** 업로드 전에 화면에서 먼저 검사한다(서버도 다시 검사한다). 걸리면 why에 이유를 넣고, 래스터 이미지면 가로세로 크기도 반환한다 */
 async function check(file: File): Promise<{ why: string; width: number; height: number }> {
   const no = (why: string) => ({ why, width: 0, height: 0 });
   if (!TYPES.includes(file.type)) return no(T.refuse.format(file.name));
@@ -172,7 +172,7 @@ function fromLink(url: string) {
       const name = decodeURIComponent(new URL(url).pathname.split("/").pop() || "link") || "link";
       file = new File([res.data], name, { type: res.data.type });
     } catch (err) {
-      // 봇이 까닭을 문제 코드로 답한다(가져오지 못함, 이미지가 아님)
+      // 봇이 이유를 문제 코드로 응답한다(가져오지 못함, 이미지가 아님)
       notifyProblem(err, T.slotDialog.linkFailed);
       return;
     }

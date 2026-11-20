@@ -1,23 +1,23 @@
-// 대시보드 HTTP 오류 응답(RFC 9457 problem details)으로 답한다. 본문의 모양은 contract/problem 이 만든다.
-// GET /problems/<코드> 는 그 코드의 설명이다(RFC 9457: 열 수 있는 type 은 사람이 읽을 설명을 준다)
+// 대시보드 HTTP 오류 응답(RFC 9457 problem details)을 보낸다. 본문의 모양은 contract/problem이 만든다.
+// GET /problems/<코드> 는 그 코드의 설명이다(RFC 9457: 열 수 있는 type은 사람이 읽을 설명을 준다)
 
 import express, { type Request, type Response } from "express";
 import type { RateLimitInfo } from "express-rate-limit";
 import { PROBLEMS, isCode, type Code, type LooseProblem, type Params } from "../rules/problems.ts";
 import { PROBLEM_PATH, problemBody, type Extra } from "./contract/problem.ts";
 
-/** 문제로 답한다. 상태는 목록의 것 */
+/** 문제로 응답한다. 상태는 목록의 것 */
 function sendProblem(res: Response, code: Code, params?: Params, extra?: Extra) {
   const body = problemBody(code, params, extra);
   return res.status(body.status).type("application/problem+json").json(body);
 }
 
-/** 거절 결과(코드와 값)로 답한다. 값은 받는 쪽(화면)이 그 코드의 목록과 비교한다 */
+/** 거절 결과(코드와 값)로 응답한다. 값은 받는 쪽(화면)이 그 코드의 목록과 비교한다 */
 function refuseWith(res: Response, { code, ...params }: LooseProblem, extra?: Extra) {
   return sendProblem(res, code, params, extra);
 }
 
-/** 요청 제한(express-rate-limit)에 걸렸다. 다시 보낼 수 있을 때까지의 초를 Retry-After 에 */
+/** 요청 제한(express-rate-limit)에 걸렸다. 다시 보낼 수 있을 때까지의 초를 Retry-After에 */
 function tooManyRequests(req: Request & { rateLimit?: RateLimitInfo }, res: Response) {
   // 걸린 요청은 응답 끝에 세션을 갱신, 저장하지 않는다(그 요청에서만 뗀다. 세션은 그대로다)
   (req as { session: unknown }).session = null;

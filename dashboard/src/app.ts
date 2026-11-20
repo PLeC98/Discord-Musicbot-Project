@@ -1,4 +1,4 @@
-// 화면 앱을 만든다(마운트하지는 않는다). main.ts 가 마운트하고, 개발 도구는 라우트를 더해 만든 뒤 마운트한다
+// 화면 앱을 만든다(마운트하지는 않는다). main.ts가 마운트하고, 개발 도구는 라우트를 더해 만든 뒤 마운트한다
 
 import { createApp } from "vue";
 import { createPinia } from "pinia";
@@ -10,6 +10,7 @@ import tooltip from "./directives/tooltip.ts";
 import { installRequests } from "./utils/request.ts";
 import { session, loginWindow, useLoginCheck, waitForReauth } from "./composables/session.ts";
 import { useUserStore } from "./stores/user.ts";
+import { noteBoot } from "./composables/bot-boot.ts";
 
 /** extraRoutes: 더할 라우트. 라우터를 앱에 거는 순간 첫 주소를 정하므로 그 전에 더한다 */
 function createDashboard({ extraRoutes = [] }: { extraRoutes?: RouteRecordRaw[] } = {}) {
@@ -18,6 +19,7 @@ function createDashboard({ extraRoutes = [] }: { extraRoutes?: RouteRecordRaw[] 
     onSessionEnd: () => loginWindow.sessionEnded(),
     onReauth: waitForReauth,
     onReach: (ok) => (session.offline = !ok),
+    onBoot: (id) => noteBoot(id),
     user: () => useUserStore().data?.id ?? null,
     onAccountChanged: () => (session.switched = true),
     switched: () => session.switched,

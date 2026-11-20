@@ -48,7 +48,7 @@ test("봇이 준비되지 않았으면 503", async () => {
   assert.deepEqual(fetched, []);
 });
 
-test("Server Members Intent 가 꺼진 채 로그인했으면 멤버 캐시가 갱신되지 않아 서버를 열지 않는다(409, 멤버를 묻지도 않는다)", async (t) => {
+test("Server Members Intent가 꺼진 채 로그인했으면 멤버 캐시가 갱신되지 않아 서버를 열지 않는다(409, 멤버를 묻지도 않는다)", async (t) => {
   t.after(() => _resetIntents());
   useLoggedIn({ messageContent: true, guildMembers: false });
   const { req, res, sent, fetched } = setup();
@@ -67,7 +67,7 @@ test("세션 사용자가 지금 그 서버 멤버가 아니면 403", async () =
   const { req, res, sent, fetched } = setup({ member: false });
   assert.equal(await openGuild(req, res, "g1"), null);
   assert.deepEqual(codeOf(sent), [403, "no-guild-access"]);
-  assert.deepEqual(fetched, ["u1"], "세션 사용자 ID 로 서버에 묻는다");
+  assert.deepEqual(fetched, ["u1"], "세션 사용자 ID로 서버에 묻는다");
 });
 
 test("멤버면 응답을 쓰지 않고 서버, 플레이어, 멤버를 돌려준다. 조작하는 사람은 그 멤버다", async () => {
@@ -100,7 +100,7 @@ test("권한 수준 오버라이드(viewAs)가 걸려 있으면 권한만 바꾼
   assert.notEqual(member.permissions, REAL_PERMISSIONS);
 });
 
-test("memberOf: 캐시 → REST, 답은 캐시하지 않는다(멤버 아님도 다음에 다시 묻는다), 사용 불가(unavailable) 서버는 캐시를 건너뛴다", async () => {
+test("memberOf: 캐시 → REST, 응답은 캐시하지 않는다(멤버 아님도 다음에 다시 묻는다), 사용 불가(unavailable) 서버는 캐시를 건너뛴다", async () => {
   const asked: unknown[] = [];
   const cache = new Map<string, Member>([["cached", { id: "cached" }]]);
   const g = {

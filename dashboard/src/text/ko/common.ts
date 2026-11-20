@@ -3,7 +3,7 @@
 const cancel = "취소";
 const close = "닫기";
 /** 저절로 닫히는 닫기 버튼의 툴팁 */
-const closeIn = (seconds: number) => `닫기 · ${seconds}초 뒤 사라져요`;
+const closeIn = (seconds: number) => `닫기(${seconds}초 뒤 자동으로 닫혀요)`;
 const remove = "삭제";
 const reset = "초기화";
 const all = "전체";

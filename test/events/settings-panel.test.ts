@@ -1,5 +1,5 @@
 // src/discord/interactions/settings-panel-handler.ts, commands/setting: /setting 한 화면(DJ 역할, SponsorBlock, 연령 제한 콘텐츠).
-// 선택하거나 누르면 바로 저장하고 화면을 지금 값으로 다시 그린다. 봇 전체에서 끈 기능의 부분은 없다. 서버 설정은 진짜를 임시 DB 로 쓴다.
+// 선택하거나 누르면 바로 저장하고 화면을 지금 값으로 다시 그린다. 봇 전체에서 끈 기능의 부분은 없다. 서버 설정은 진짜를 임시 DB로 쓴다.
 
 import { test, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
@@ -28,7 +28,7 @@ beforeEach(() => {
   documents._use("age-content", { enabled: true, changedAt: 1 });
 });
 
-// rbot 은 봇 역할(사람에게 줄 수 없어 DJ 역할로 받지 않는다)
+// rbot은 봇 역할(사람에게 줄 수 없어 DJ 역할로 받지 않는다)
 const guild = {
   id: "g1",
   roles: {
@@ -130,7 +130,7 @@ test("봇 전체에서 SponsorBlock, 연령 제한 콘텐츠를 껐으면 그 �
     buttonsOf(shown).map((b) => b.custom_id),
     ["setting:close"],
   );
-  assert.equal(screenOf(shown).rows, 2, "역할 메뉴 줄 · 닫기 줄");
+  assert.equal(screenOf(shown).rows, 2, "역할 메뉴 줄, 닫기 줄");
 });
 
 test("역할 메뉴: 고르면 바로 저장하고 화면을 다시 그린다. 서버에 없는 역할, 봇 역할은 빼고, 비우면 푼다", async () => {
@@ -164,7 +164,7 @@ test("연령 제한 콘텐츠: 고른 쪽이 색 버튼, 모든 채널이면 경
   const all = await run(fakeInteraction("button", "setting:age-all"));
   assert.equal(settings.resolveAgePlace("g1"), "all");
   const styles = Object.fromEntries(buttonsOf(all.updatedWith!).map((b) => [b.custom_id, b.style]));
-  assert.deepEqual([styles["setting:age-all"], styles["setting:age-channel"]], [1, 2], "Primary · Secondary");
+  assert.deepEqual([styles["setting:age-all"], styles["setting:age-channel"]], [1, 2], "Primary, Secondary");
   assert.match(textOf(all.updatedWith), /모든 음성 채널에서 연령 제한이 걸린 곡을 재생할 수 있어요/);
 
   documents._use("age-content", { enabled: false, changedAt: 3 });

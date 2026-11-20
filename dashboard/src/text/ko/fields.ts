@@ -11,8 +11,8 @@ const rangeStart = (label: string) => `${label} 시작`;
 const rangeEnd = (label: string) => `${label} 끝`;
 const typeForSuggestions = "입력하면 후보가 표시돼요";
 const suggestLoading = "후보를 찾는 중이에요";
-const suggestFailed = "후보를 불러오지 못했어요. Enter 로 그대로 입력할 수 있어요";
-const suggestNone = "후보가 없어요. Enter 로 그대로 입력할 수 있어요";
+const suggestFailed = "후보를 불러오지 못했어요. Enter로 그대로 입력할 수 있어요";
+const suggestNone = "후보가 없어요. Enter로 그대로 입력할 수 있어요";
 /** 마크다운 링크를 넣을 때 선택한 글이 없으면 그 자리 */
 const linkText = "링크 텍스트";
 /** 마크다운 미리보기에서 멘션 자리(누구인지 모른다) */
@@ -42,7 +42,7 @@ const colorHex = "HEX 값(#RRGGBB)";
 /** RGB, HSV 입력란마다 읽어 줄 이름 */
 const colorChannel = { r: "빨강(0~255)", g: "초록(0~255)", b: "파랑(0~255)", h: "색상(0~359도)", s: "채도(0~100%)", v: "밝기(0~100%)" } as const;
 
-// 마크다운 서식 도구(디스코드와 같은 단축키는 부르는 쪽이 붙인다)
+// 마크다운 서식 도구(디스코드와 같은 단축키는 쓰는 쪽이 붙인다)
 const format = {
   bold: "굵게",
   italic: "기울임",

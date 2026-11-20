@@ -4,7 +4,7 @@
 //   - 다시 실행하는 것은 다시 시작 코드일 때만. 다른 코드로 끝나면 실행기도 같은 코드로 끝난다(크래시, 기동 실패는 바깥 감시가 정한 대로 다룬다)
 //   - 받은 종료 신호는 봇에 넘기고 봇이 끝날 때까지 기다린다(봇이 세션을 저장한다). 그 뒤에는 다시 시작 코드여도 다시 실행하지 않는다
 //   - 봇이 완전히 끝난 뒤에(exit) 다시 실행한다. DB 파일, 실행 잠금(infra/instance-lock)을 앞 프로세스가 쥔 채 겹치지 않게
-// Windows 는 신호를 넘기지 않는다. 콘솔의 Ctrl+C 는 같은 콘솔의 봇에도 바로 가고, Windows 의 kill 은 신호가 아니라 강제 종료라 세션을 저장하지 못한다.
+// Windows는 신호를 넘기지 않는다. 콘솔의 Ctrl+C는 같은 콘솔의 봇에도 바로 가고, Windows의 kill은 신호가 아니라 강제 종료라 세션을 저장하지 못한다.
 
 import os from "node:os";
 import type { ChildProcess, SpawnOptions } from "node:child_process";

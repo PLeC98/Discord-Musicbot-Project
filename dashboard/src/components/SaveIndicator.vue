@@ -7,7 +7,7 @@
         <circle cx="20" cy="20" r="17" fill="none" stroke="currentColor" stroke-opacity="0.15" stroke-width="2.5" />
         <circle cx="20" cy="20" r="17" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" :stroke-dasharray="CIRC" :stroke-dashoffset="state === 'saving' ? CIRC * 0.75 : 0" class="origin-center transition-[stroke-dashoffset] duration-300 ease-smooth" :class="state === 'saving' && 'animate-[spin_0.9s_linear_infinite]'" />
       </svg>
-      <!-- type="transition": 떠나는 플로피는 도는 애니메이션(무한)을 단 채라, 정하지 않으면 Vue 가 그 길이(1.4초)를 기다린 뒤에야 다음 것을 넣는다.
+      <!-- type="transition": 떠나는 플로피는 도는 애니메이션(무한)을 단 채라, 정하지 않으면 Vue가 그 길이(1.4초)를 기다린 뒤에야 다음 것을 넣는다.
            체크는 글꼴 기호가 아니라 SVG 선이라 왼쪽 아래에서 오른쪽 위로 그어진다(check-draw, style.css). 느낌표는 작았다가 커지며 들어온다 -->
       <Transition mode="out-in" type="transition" :enter-from-class="state === 'done' ? '' : 'opacity-0 scale-50'" leave-to-class="opacity-0 scale-50" enter-active-class="[transition:opacity_250ms_var(--ease-effects),scale_390ms_var(--ease-spring-fast)]" leave-active-class="[transition:opacity_160ms_var(--ease-effects),scale_160ms_var(--ease-effects)]">
         <svg v-if="state === 'done'" key="done" :width="ICON_SIZE" :height="ICON_SIZE" viewBox="0 0 24 24" aria-hidden="true">

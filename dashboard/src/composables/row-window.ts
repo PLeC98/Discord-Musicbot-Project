@@ -7,14 +7,14 @@ import { LIST_WINDOW_MAX, type Span } from "../../../src/dashboard/contract/admi
 
 type Rows = { first: number; last: number };
 
-/** 보이는 행 [first, last). 영역 높이가 0 이면(숨은 탭) null */
+/** 보이는 행 [first, last). 영역 높이가 0이면(숨은 탭) null */
 export function visibleRows(scrollTop: number, viewHeight: number, rowHeight: number, total: number): Rows | null {
   if (viewHeight <= 0 || rowHeight <= 0) return null;
   const first = Math.min(Math.max(0, Math.floor(scrollTop / rowHeight)), total);
   return { first, last: Math.min(total, Math.ceil((scrollTop + viewHeight) / rowHeight)) };
 }
 
-/** 보이는 행 위아래로 한 화면씩 오버스캔을 붙인 구간(total 안, 개수는 LIST_WINDOW_MAX 까지) */
+/** 보이는 행 위아래로 한 화면씩 오버스캔을 붙인 구간(total 안, 개수는 LIST_WINDOW_MAX까지) */
 export function aroundRows({ first, last }: Rows, total: number): Span {
   const screen = Math.max(1, last - first);
   const from = Math.max(0, first - screen);
@@ -26,7 +26,7 @@ export function covers(have: Span, { first, last }: Rows) {
   return have.from <= first && last <= have.from + have.count;
 }
 
-/** 그릴 구간 [from, to): 보이는 행 위아래 한 화면씩, keep(드래그 중인 행)이 밖이면 거기까지 이어서. 숨었으면(vis 가 null) 비운다(at 에서 스페이서만) */
+/** 그릴 구간 [from, to): 보이는 행 위아래 한 화면씩, keep(드래그 중인 행)이 밖이면 거기까지 이어서. 숨었으면(vis가 null) 비운다(at에서 스페이서만) */
 export function drawnRows(vis: Rows | null, total: number, keep: number | null, at: number) {
   if (!vis) return { from: Math.min(at, total), to: Math.min(at, total) };
   const around = aroundRows(vis, total);
@@ -34,7 +34,7 @@ export function drawnRows(vis: Rows | null, total: number, keep: number | null, 
   return keep === null || keep >= total ? { from: around.from, to } : { from: Math.min(around.from, keep), to: Math.max(to, keep + 1) };
 }
 
-/** 그릴 구간의 자리마다 번호와 받은 행(받지 못한 자리는 row 가 null 이라 화면이 스켈레톤 행으로 그린다). from, rows: 받은 구간 */
+/** 그릴 구간의 자리마다 번호와 받은 행(받지 못한 자리는 row가 null이라 화면이 스켈레톤 행으로 그린다). from, rows: 받은 구간 */
 export function slotsOf<T>(range: { from: number; to: number }, from: number, rows: readonly T[], keyOf: (row: T, index: number) => string | number) {
   return Array.from({ length: range.to - range.from }, (_, k) => {
     const index = range.from + k;
@@ -46,7 +46,7 @@ export function slotsOf<T>(range: { from: number; to: number }, from: number, ro
 /**
  * el: 스크롤 영역. rowHeight: 행 높이(px). total: 필터링된 수. have: 받은 구간(시작, 받은 행 수). request: 그 구간을 받게 한다(다 받아 둔 목록은 없다).
  * keep: 구간 밖이어도 그려 둘 행(드래그 중인 행. 드래그하는 동안 자동 스크롤로 구간이 옮겨 가도 그 행까지 이어 그린다).
- * 영역이 숨어 높이가 0 이면(v-show 로 숨은 탭) 행을 그리지도 받게 하지도 않는다(스페이서로 높이만).
+ * 영역이 숨어 높이가 0이면(v-show로 숨은 탭) 행을 그리지도 받게 하지도 않는다(스페이서로 높이만).
  * 돌려주는 것: 그릴 구간 [from, to), 위, 아래 스페이서 높이, 맨 위로(필터링, 정렬을 바꿨을 때)
  */
 export function useRowWindow(opts: { el: Ref<HTMLElement | null>; rowHeight: () => number; total: () => number; have: () => Span; request?: (span: Span) => void; keep?: () => number | null }) {
@@ -63,7 +63,7 @@ export function useRowWindow(opts: { el: Ref<HTMLElement | null>; rowHeight: () 
     resize?.disconnect();
     attached = null;
   };
-  // v-if 로 늦게 생기는 영역도 있어 영역이 바뀔 때마다 다시 붙인다
+  // v-if로 늦게 생기는 영역도 있어 영역이 바뀔 때마다 다시 붙인다
   watch(
     opts.el,
     (box) => {

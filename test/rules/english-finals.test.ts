@@ -46,6 +46,6 @@ test("표는 지금 사전에서 만든 그대로다(바뀌었으면 node script
   assert.match(saved.source, /^cmu-pronouncing-dictionary \d+\.\d+\.\d+$/);
 });
 
-test("prototype 의 이름(constructor 등)은 표에 없는 낱말로 다룬다", () => {
+test("prototype의 이름(constructor 등)은 표에 없는 낱말로 다룬다", () => {
   for (const word of ["constructor", "toString", "hasOwnProperty", "valueOf"]) assert.equal(englishFinal(word), spellingFinal(word.toLowerCase()), word);
 });

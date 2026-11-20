@@ -16,7 +16,7 @@ function serve(res: () => Response) {
 }
 const redirect = (location: string) => new Response(null, { status: 302, headers: { location } });
 
-test("넘겨주는 주소의 태그를 읽는다. 따라가지 않고(manual) API 가 아닌 최신 릴리스 링크를 연다", async () => {
+test("넘겨주는 주소의 태그를 읽는다. 따라가지 않고(manual) API가 아닌 최신 릴리스 링크를 연다", async () => {
   const seen = serve(() => redirect("https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/tag/2026.11.04.232659"));
   assert.equal(await latestReleaseTag("yt-dlp/yt-dlp-nightly-builds"), "2026.11.04.232659");
   assert.deepEqual(seen, [{ url: "https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest", redirect: "manual" }]);
@@ -27,7 +27,7 @@ test("태그의 퍼센트 인코딩은 푼다", async () => {
   assert.equal(await latestReleaseTag("a/b"), "v1.0+build");
 });
 
-test("저장소가 없거나(404) 릴리스가 없거나(태그 없는 주소) 넘겨주지 않으면 던진다", async () => {
+test("저장소가 없거나(404) 릴리스가 없거나(태그 없는 주소) 넘겨주지 않으면 예외를 던진다", async () => {
   serve(() => new Response("Not Found", { status: 404 }));
   await assert.rejects(latestReleaseTag("a/없음"), /최신 릴리스 조회 404/);
   serve(() => redirect("https://github.com/a/b/releases"));

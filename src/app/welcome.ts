@@ -1,4 +1,4 @@
-// 봇이 새 서버에 들어왔을 때 올리는 안내 메시지 하나(시작하는 법, 전용 채널, /help, 웹 대시보드, 소스 저장소). 운영 조절값 WELCOME_MESSAGE_ENABLED 로 끈다.
+// 봇이 새 서버에 들어왔을 때 올리는 안내 메시지 하나(시작하는 법, 전용 채널, /help, 웹 대시보드, 소스 저장소). 운영 설정값 WELCOME_MESSAGE_ENABLED로 끈다.
 // 공개로 올려 지울 수 없으니, 들어온 지 얼마 안 된 서버에만 올린다(이벤트가 이미 있던 서버로 와도 올리지 않게)
 
 import { readsMessageContent } from "../infra/gateway-intents.ts";
@@ -58,7 +58,7 @@ function welcomeView(guild: Guild) {
   return { components: [container, new ActionRowBuilder<ButtonBuilder>().addComponents(buttons)], flags: [MessageFlags.IsComponentsV2] as const, allowedMentions: { parse: [] } };
 }
 
-/** 새 서버에 안내를 올린다. 보내다 실패하면 던진다(부르는 쪽이 남긴다) */
+/** 새 서버에 안내를 올린다. 보내다 실패하면 예외를 던진다(호출부가 남긴다) */
 async function welcomeGuild(guild: Guild, now = Date.now()) {
   if (!config.bot.welcomeMessage) return;
   if (!guild.joinedTimestamp || now - guild.joinedTimestamp > RECENT_MS) {

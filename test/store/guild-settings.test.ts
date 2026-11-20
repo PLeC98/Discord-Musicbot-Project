@@ -1,7 +1,7 @@
 // src/store/guild-settings.ts: 서버별 설정(guildSettings)의 지금 동작을 고정한다.
 //
 // 서버 설정 표 위에 메모리 캐시를 얹은 층이다. 설정마다 읽기, 쓰기, 지우기, 메모리 캐시,
-// DB 가 실패했을 때 돌려주는 값을 적어 둔다. 진짜 표를 임시 DB 로 쓴다.
+// DB가 실패했을 때 돌려주는 값을 적어 둔다. 진짜 표를 임시 DB로 쓴다.
 
 import fs from "node:fs";
 import os from "node:os";
@@ -36,7 +36,7 @@ after(() => {
   fs.rmSync(TMP, { recursive: true, force: true, maxRetries: 5 });
 });
 
-// 메모리 캐시를 비우고 다시 읽는다. DB 에 실제로 남았는지 본다
+// 메모리 캐시를 비우고 다시 읽는다. DB에 실제로 남았는지 본다
 const fresh = () => settings.forgetCache();
 
 // 서버 설정 표가 망가진 동안(읽기, 쓰기가 SQLite 오류로 실패한다)
@@ -63,7 +63,7 @@ test("DJ 역할: 저장, 읽기, 지우기. 미설정은 빈 배열", async () =
   assert.deepEqual(await settings.getDjRoles("g1"), []);
 });
 
-test("패널 위치(실행 상태 DB): 저장하면 { channelId, messageId }, messageId 가 null 이면 비운다", async () => {
+test("패널 위치(실행 상태 DB): 저장하면 { channelId, messageId }, messageId가 null이면 비운다", async () => {
   assert.equal(await panelRecords.getPanel("g1"), null);
   await panelRecords.setPanel("g1", "c1", "m1");
   panelRecords._reset();
@@ -74,7 +74,7 @@ test("패널 위치(실행 상태 DB): 저장하면 { channelId, messageId }, me
   assert.equal(await panelRecords.getPanel("g1"), null);
 });
 
-test("재생목록 한 번에 넣는 곡 수: 범위와 기본값, 저장, null 로 되돌리기", async () => {
+test("재생목록 한 번에 넣는 곡 수: 범위와 기본값, 저장, null로 되돌리기", async () => {
   const limits = settings.playlistAddLimits();
   assert.equal(limits.min, 1);
   assert.equal(limits.default, PLAYLIST_ADD_DEFAULT);
@@ -96,14 +96,14 @@ test("재생목록 곡 수는 읽을 때마다 범위로 자른다(저장 뒤 �
   try {
     config.bot.maxQueueSize = 50;
     assert.equal(settings.resolvePlaylistAddMax("g1"), 50);
-    config.bot.maxQueueSize = 0; // 상한 없음 → 1000 이 위쪽 끝
+    config.bot.maxQueueSize = 0; // 상한 없음 → 1000이 위쪽 끝
     assert.equal(settings.resolvePlaylistAddMax("g1"), 500);
   } finally {
     config.bot.maxQueueSize = saved;
   }
 });
 
-test("재생목록 곡 수: DB 를 열기 전에는 읽지 않고 기본값", () => {
+test("재생목록 곡 수: DB를 열기 전에는 읽지 않고 기본값", () => {
   stores.close();
   try {
     const { min, max, default: d } = settings.playlistAddLimits();
@@ -127,7 +127,7 @@ test("볼륨: 저장하면 새 플레이어가 그 값으로 시작하고, 기�
   assert.equal(guildTable.getVolume("g1"), null, "기본값은 남기지 않는다");
 });
 
-test("SponsorBlock: 부분 갱신. 준 필드만 바꾸고 null 은 상속으로 되돌린다", async () => {
+test("SponsorBlock: 부분 갱신. 준 필드만 바꾸고 null은 상속으로 되돌린다", async () => {
   assert.deepEqual(await settings.getSponsorBlock("g1"), { enabled: null, categories: null });
   await settings.setSponsorBlock("g1", { enabled: false });
   await settings.setSponsorBlock("g1", { categories: ["intro"] });
@@ -174,7 +174,7 @@ test("볼륨 정규화: 프레임마다 읽으므로 읽기 실패는 끔으로 
       for (let i = 0; i < 50; i++) assert.equal(settings.resolveNormalize("g3"), false);
     });
     assert.equal(sink.buffer.slice(from).filter((e) => e.text.startsWith("볼륨 정규화 설정 읽기 실패")).length, 1);
-    assert.equal(settings.resolveNormalize("g3"), false, "DB 가 돌아와도 바꾸거나 초기화하기 전에는 기억한 끔");
+    assert.equal(settings.resolveNormalize("g3"), false, "DB가 돌아와도 바꾸거나 초기화하기 전에는 기억한 끔");
     fresh();
     assert.equal(settings.resolveNormalize("g3"), true);
   } finally {
@@ -182,14 +182,14 @@ test("볼륨 정규화: 프레임마다 읽으므로 읽기 실패는 끔으로 
   }
 });
 
-test("읽은 값은 메모리에 남아 DB 를 다시 안 읽는다", async () => {
+test("읽은 값은 메모리에 남아 DB를 다시 안 읽는다", async () => {
   await settings.setBotChannel("g1", "c1");
   await whenDbDown(async () => {
     assert.equal(await settings.getBotChannel("g1"), "c1");
   });
 });
 
-test("DB 가 실패하면 쓰기는 던지고 캐시는 그대로, 읽기는 비어 있는 값(null, 빈 배열, 상속)", async () => {
+test("DB가 실패하면 쓰기는 예외를 던지고 캐시는 그대로, 읽기는 비어 있는 값(null, 빈 배열, 상속)", async () => {
   await settings.setBotChannel("g1", "c0");
   for (const write of [() => settings.setBotChannel("g1", "c1"), () => settings.clearBotChannel("g1"), () => settings.setDjRoles("g1", ["r"]), () => settings.clearDjRoles("g1"), () => settings.setPlaylistAddMax("g1", 3), () => settings.setSponsorBlock("g1", { enabled: true }), () => settings.setAgePlace("g1", "all"), () => settings.saveVolume("g1", 30), () => settings.setNormalize("g1", true)]) {
     await assert.rejects(() => whenDbDown(write));
@@ -203,7 +203,7 @@ test("DB 가 실패하면 쓰기는 던지고 캐시는 그대로, 읽기는 비
   assert.deepEqual(await whenDbDown(() => settings.getSponsorBlock("g2")), { enabled: null, categories: null });
 });
 
-test("실패한 읽기는 기억하지 않는다. DB 가 돌아오면 다시 읽는다", async () => {
+test("실패한 읽기는 기억하지 않는다. DB가 돌아오면 다시 읽는다", async () => {
   await settings.setBotChannel("g3", "c3");
   fresh();
   assert.equal(await whenDbDown(() => settings.getBotChannel("g3")), null);
@@ -211,7 +211,7 @@ test("실패한 읽기는 기억하지 않는다. DB 가 돌아오면 다시 읽
 });
 
 // 열기 전에 부른 것은 조립 순서가 틀린 것이다. 그 서버의 설정이 없다는 뜻이 아니다
-test("DB 를 열기 전에 부르면 기본값으로 삼키지 않고 던진다", async () => {
+test("DB를 열기 전에 부르면 기본값으로 삼키지 않고 예외를 던진다", async () => {
   fresh();
   stores.close();
   try {
@@ -292,7 +292,7 @@ test("봇 채널: 저장/조회/해제. DJ 설정과 같은 문서에서 서로 
 
 // ── 쓰기 한 곳(update) ──────────────────────────────────────
 
-// 읽기는 되고 쓰기만 실패하게 한다. 한 번에 한 종류만 걸고 늘 지운다(남은 DELETE 막기는 뒤 시험을 막는다)
+// 읽기는 되고 쓰기만 실패하게 한다. 한 번에 한 종류만 걸고 늘 지운다(남은 DELETE 막기는 뒤 테스트를 막는다)
 async function whenWriteFails<T>(kind: "INSERT" | "UPDATE" | "DELETE", fn: () => T | Promise<T>): Promise<T> {
   const db = settingsDb.get();
   db.exec(`CREATE TRIGGER block_write BEFORE ${kind} ON guild_settings BEGIN SELECT RAISE(ABORT, 'blocked'); END`);
@@ -318,10 +318,10 @@ test("update: 기본값은 문서에서 빼고, 마지막 필드를 지우면 �
   assert.equal(settingsDb.get().prepare("SELECT COUNT(*) FROM guild_settings WHERE guild_id = 'u2'").pluck().get(), 0);
 });
 
-test("update: SponsorBlock 은 준 하위 키만 바꾸고 나머지는 행의 값이다(캐시가 낡아도). 구간의 [] 는 남고 null 과 다르다", async () => {
+test("update: SponsorBlock은 준 하위 키만 바꾸고 나머지는 행의 값이다(캐시가 낡아도). 구간의 []는 남고 null과 다르다", async () => {
   settings.update("u3", { sponsorBlock: { enabled: true, categories: ["intro"] } });
   assert.deepEqual(await settings.getSponsorBlock("u3"), { enabled: true, categories: ["intro"] });
-  guildTable.setGuildSponsorBlock("u3", { enabled: true, categories: ["outro"] }); // 캐시를 거치지 않는 쓰기라 캐시는 intro 로 낡았다
+  guildTable.setGuildSponsorBlock("u3", { enabled: true, categories: ["outro"] }); // 캐시를 거치지 않는 쓰기라 캐시는 intro로 낡았다
   settings.update("u3", { sponsorBlock: { enabled: false } });
   assert.deepEqual(guildTable.getGuildSponsorBlock("u3"), { enabled: false, categories: ["outro"] });
   const empty = settings.update("u3", { sponsorBlock: { categories: [] } });
@@ -331,7 +331,7 @@ test("update: SponsorBlock 은 준 하위 키만 바꾸고 나머지는 행의 �
   assert.deepEqual(guildTable.getGuildSponsorBlock("u3"), { enabled: false, categories: null });
 });
 
-test("update: check 가 키를 돌려주면 아무것도 쓰지 않고 그때의 문서를 돌려준다", () => {
+test("update: check가 키를 돌려주면 아무것도 쓰지 않고 그때의 문서를 돌려준다", () => {
   settings.update("u4", { botChannelId: "c1" });
   const result = settings.update("u4", { botChannelId: "c2", playlistAddMax: 9 }, (doc) => (doc.botChannelId === "c1" ? ["botChannelId"] : []));
   assert.equal(result.ok, false);
@@ -363,7 +363,7 @@ test("update: 바뀐 것이 없는 쓰기도 패치에 든 필드의 캐시를 �
   assert.equal(settings.resolveNormalize("u6"), true);
 });
 
-test("onChanged: 커밋 뒤 바뀐 필드로 한 번(볼륨 포함). 바뀐 것이 없거나 실패하면 알리지 않고, 듣는 쪽이 던져도 저장은 된다", async () => {
+test("onChanged: 커밋 뒤 바뀐 필드로 한 번(볼륨 포함). 바뀐 것이 없거나 실패하면 알리지 않고, 듣는 쪽이 예외를 던져도 저장은 된다", async () => {
   const heard: Array<[string, string[]]> = [];
   const off = settings.onChanged((guildId, fields) => heard.push([guildId, fields]));
   const offThrow = settings.onChanged(() => {

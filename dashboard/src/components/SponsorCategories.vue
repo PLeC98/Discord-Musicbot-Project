@@ -1,6 +1,6 @@
 <!--
-  SponsorBlock 에서 건너뛸 구간 선택: 라벨(정보 버튼을 누르면 구간마다 설명 창) + 체크박스 목록.
-  서버 설정의 SponsorBlock 카드와 운영 조절값의 "기본으로 건너뛸 구간"이 같이 쓴다. 설명은 rules/sponsor-categories.
+  SponsorBlock에서 건너뛸 구간 선택: 라벨(정보 버튼을 누르면 구간마다 설명 창) + 체크박스 목록.
+  서버 설정의 SponsorBlock 카드와 운영 설정값의 "기본으로 건너뛸 구간"이 같이 쓴다. 설명은 rules/sponsor-categories.
   목록은 카드가 넓으면(32rem 이상) 2열.
 -->
 <template>

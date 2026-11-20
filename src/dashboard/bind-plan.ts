@@ -2,7 +2,7 @@
 // 1. DASHBOARD_HOST  2. 컨테이너 안이면 모든 주소  3. 공개 주소가 없거나 이 기기 주소면 127.0.0.1과 ::1
 // 4. 인증서 파일이 있으면 모든 주소(봇이 직접 TLS를 처리하므로 앞에 프록시가 없다고 본다)
 // 5. 공개 주소가 https면 127.0.0.1과 ::1(앞의 프록시가 같은 기기에 있다고 본다)  6. 그 밖(http, 이 기기 주소 아님)은 모든 주소.
-// 환경 판별은 추정이므로 기동 로그에 선택한 주소와 까닭, 접속할 수 있는 주소를 늘 보인다
+// 환경 판별은 추정이므로 기동 로그에 선택한 주소와 이유, 접속할 수 있는 주소를 늘 보인다
 
 import fs from "node:fs";
 import os from "node:os";
@@ -32,7 +32,7 @@ function planBind({ envHost, url, container, certs }: { envHost: string | null; 
   return { hosts: ALL, all: true, reason: "plain-url" };
 }
 
-// 그 주소로 연 까닭만. 판단이 틀렸을 때 고칠 곳은 docs/dashboard-network.md
+// 그 주소로 연 이유만. 판단이 틀렸을 때 고칠 곳은 docs/dashboard-network.md
 const REASONS: Record<BindReason, string> = {
   env: "DASHBOARD_HOST",
   container: "컨테이너 안. 밖에 여는 범위는 -p가 정함",
@@ -66,7 +66,7 @@ function bindNotes(plan: BindPlan, { url, port, envHost, container, reachable, s
   const notes: Note[] = [];
   const https = url.startsWith("https:");
   const addresses = reachable.map((ip) => `${scheme}://${isIP(ip) === 6 ? `[${ip}]` : ip}:${port}`).join(", ");
-  if (plan.reason === "loopback-url" && !container) notes.push({ level: "info", text: `다른 기기에서 쓰려면 .env의 DASHBOARD_URL에 그 기기에서 접속할 주소를 넣으세요.${addresses ? ` 이 기기의 주소: ${addresses}` : ""}` });
+  if (plan.reason === "loopback-url" && !container) notes.push({ level: "info", text: `다른 기기에서 쓰려면 .env의 DASHBOARD_URL에 그 기기에서 접속할 주소를 넣으세요.${addresses ? `이 기기의 주소: ${addresses}` : ""}` });
   if (container) notes.push(...containerNotes(url));
   if (plan.all && plan.reason !== "container" && addresses) notes.push({ level: "info", text: `다른 기기에서 접속할 수 있는 주소: ${addresses}` });
   if (https && plan.reason === "env" && !envHostIsLoopback(envHost)) notes.push({ level: "info", text: "공개 주소가 https라 다른 기기에서 평문으로 바로 접속하면 로그인되지 않음(브라우저가 Secure 쿠키를 받지 않음)" });

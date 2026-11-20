@@ -1,4 +1,4 @@
-// 음성 상태 이벤트 해석. 봇 자신의 상태(빠짐, 이동)는 음성 연결(voiceLink)에 넘기고, 봇 채널에 관한 이벤트면 억제 사유를 지금 상태로 맞춘다(player.syncHolds). 언제 나가는지는 idleLeave 가 정한다.
+// 음성 상태 이벤트 해석. 봇 자신의 상태(빠짐, 이동)는 음성 연결(voiceLink)에 넘기고, 봇 채널에 관한 이벤트면 억제 사유를 지금 상태로 맞춘다(player.syncHolds). 언제 나가는지는 idleLeave가 정한다.
 
 import * as playerEvents from "./events.ts";
 import { ChannelType, type Client, type VoiceState } from "discord.js";

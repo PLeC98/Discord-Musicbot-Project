@@ -1,5 +1,5 @@
-// src/media/ffmpeg/job.ts: 긴 작업의 시간 상한이 setTimeout 의 32비트 한계를 넘어도 곧바로 끊지 않는다(4시간 영상의 로그인 배경 상한이 약 51일이다).
-// 리눅스에서는 작업 ffmpeg 에 glibc 아레나를 하나로 제한하는 환경 변수를 넘긴다
+// src/media/ffmpeg/job.ts: 긴 작업의 시간 상한이 setTimeout의 32비트 한계를 넘어도 곧바로 끊지 않는다(4시간 영상의 로그인 배경 상한이 약 51일이다).
+// 리눅스에서는 작업 ffmpeg에 glibc 아레나를 하나로 제한하는 환경 변수를 넘긴다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -20,7 +20,7 @@ test("상한이 32비트를 넘으면 한계로 깎아 건다: 경고 없이 끝
   }
 });
 
-test("리눅스에서는 작업 ffmpeg 에 MALLOC_ARENA_MAX=1 을 넘긴다. 운영자가 준 값이 있으면 그 값을 쓰고, 다른 플랫폼에는 환경 변수를 그대로 넘긴다", () => {
+test("리눅스에서는 작업 ffmpeg에 MALLOC_ARENA_MAX=1을 넘긴다. 운영자가 준 값이 있으면 그 값을 쓰고, 다른 플랫폼에는 환경 변수를 그대로 넘긴다", () => {
   const env = { PATH: "/usr/bin", HOME: "/home/bot" };
   assert.deepEqual(jobEnv("linux", env), { MALLOC_ARENA_MAX: "1", PATH: "/usr/bin", HOME: "/home/bot" });
   assert.equal(jobEnv("linux", { ...env, MALLOC_ARENA_MAX: "4" }).MALLOC_ARENA_MAX, "4", "운영자가 준 값");

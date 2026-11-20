@@ -1,9 +1,10 @@
-// 끝까지 돌리는 ffmpeg 작업(테스트, 검사, 인코딩). 재생의 spawnFfmpeg 와 달리 출력을 모아 끝난 코드와 함께 돌려준다.
-// signal 로 멈추고, timeoutMs 를 넘거나 진행(-progress)이 stallMs 동안 멈추면 끊는다. 표준 오류는 끝의 64KB 만 둔다(긴 인코딩의 경고가 쌓이지 않게). 줄마다 받으려면 onStderrLine.
-// 실행한 것은 자식 프로세스 레지스트리에 올린다(봇이 갑자기 꺼져도 다음 기동에 치운다). bindCores 면 CPU 선호도를 인코딩용 코어로 설정한다(infra/cpu-affinity)
+// 끝까지 돌리는 ffmpeg 작업(테스트, 검사, 인코딩). 재생의 spawnFfmpeg와 달리 출력을 모아 끝난 코드와 함께 돌려준다.
+// signal로 멈추고, timeoutMs를 넘거나 진행(-progress)이 stallMs 동안 멈추면 끊는다. 표준 오류는 끝의 64KB만 둔다(긴 인코딩의 경고가 쌓이지 않게). 줄마다 받으려면 onStderrLine.
+// 실행한 것은 자식 프로세스 레지스트리에 올린다(봇이 갑자기 꺼져도 다음 기동에 치운다). bindCores면 CPU 선호도를 인코딩용 코어로 설정한다(infra/cpu-affinity)
 
 import { spawn } from "node:child_process";
 import { ffmpegPath } from "./path.ts";
+import { toolEnv } from "../../config/tool-env.ts";
 import * as procRegistry from "../../infra/process-registry.ts";
 import { bindCommand, bindProcess } from "../../infra/cpu-affinity.ts";
 import type { Job } from "../../infra/process-job.ts";
@@ -13,7 +14,7 @@ const log = logger.child({ category: "ffmpeg" });
 
 /** 남겨 둘 표준 오류의 끝 */
 const STDERR_KEEP = 64 * 1024;
-/** 진행을 받는 인자(-progress 를 표준 오류로). stallMs 를 쓰려면 인자에 있어야 한다(없으면 진행이 오지 않아 stallMs 에 끊긴다) */
+/** 진행을 받는 인자(-progress를 표준 오류로). stallMs를 쓰려면 인자에 있어야 한다(없으면 진행이 오지 않아 stallMs에 끊긴다) */
 const PROGRESS_ARGS = ["-progress", "pipe:2", "-nostats"];
 
 type FfmpegJob = {
@@ -21,7 +22,7 @@ type FfmpegJob = {
   input?: Buffer;
   signal?: AbortSignal;
   timeoutMs?: number;
-  /** 진행(-progress 의 out_time_us)이 이만큼 늘지 않으면 끊는다. 느린 기기에서 길게 도는 인코딩은 끊지 않고 멈춘 것만 끊는다 */
+  /** 진행(-progress의 out_time_us)이 이만큼 늘지 않으면 끊는다. 느린 기기에서 길게 도는 인코딩은 끊지 않고 멈춘 것만 끊는다 */
   stallMs?: number;
   /** 표준 출력을 모으지 않는다(파일로 쓰는 일) */
   discardStdout?: boolean;
@@ -32,7 +33,7 @@ type FfmpegJob = {
   /** CPU 선호도를 인코딩용 코어로 설정한다 */
   bindCores?: boolean;
 };
-/** 진행 감시: feed 에 표준 오류 줄을 주면 out_time_us 가 늘 때마다 다시 잰다. stallMs 동안 늘지 않으면 onStall */
+/** 진행 감시: feed에 표준 오류 줄을 주면 out_time_us가 늘 때마다 다시 잰다. stallMs 동안 늘지 않으면 onStall */
 function progressWatch(stallMs: number, onStall: () => void) {
   let last = -1;
   let timer = setTimeout(onStall, stallMs);
@@ -48,16 +49,16 @@ function progressWatch(stallMs: number, onStall: () => void) {
   };
 }
 
-/** 끝난 코드(실행하지 못했거나 신호로 끝났으면 null), 끝낸 신호, 모은 출력(글, 바이트 그대로), 멈춘 까닭 */
+/** 종료 코드(실행하지 못했거나 신호로 종료됐으면 null), 종료 신호, 모은 출력(텍스트, 바이트 그대로), 중단된 원인(취소, 시간 초과) */
 type FfmpegResult = { code: number | null; signal: NodeJS.Signals | null; stdout: string; output: Buffer; stderr: string; aborted: boolean; timedOut: boolean };
 
 /**
- * 작업 ffmpeg 에 넘길 환경 변수. 리눅스의 glibc 는 스레드마다 메모리 아레나를 따로 만들어서, 스레드가 많은 인코더(SVT-AV1)를 돌리면 인코딩이 길어질수록 메모리 사용량이 는다.
- * 아레나를 하나로 제한하면 늘지 않고 속도는 그대로다. 운영자가 MALLOC_ARENA_MAX 를 줬으면 그 값을 쓴다. glibc 가 아닌 환경은 이 변수를 읽지 않는다
+ * 작업 ffmpeg에 넘길 환경 변수(봇의 비밀값 환경 변수는 뺀다). 리눅스의 glibc는 스레드마다 메모리 아레나를 따로 만들어서, 스레드가 많은 인코더(SVT-AV1)를 돌리면 인코딩이 길어질수록 메모리 사용량이 는다.
+ * 아레나를 하나로 제한하면 늘지 않고 속도는 그대로다. 운영자가 MALLOC_ARENA_MAX를 줬으면 그 값을 쓴다. glibc가 아닌 환경은 이 변수를 읽지 않는다
  */
-const jobEnv = (platform: NodeJS.Platform = process.platform, env: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv => (platform === "linux" ? { MALLOC_ARENA_MAX: "1", ...env } : env);
+const jobEnv = (platform: NodeJS.Platform = process.platform, env: NodeJS.ProcessEnv = toolEnv()): NodeJS.ProcessEnv => (platform === "linux" ? { MALLOC_ARENA_MAX: "1", ...env } : env);
 
-/** setTimeout 이 받는 가장 긴 지연(ms, 32비트 부호 정수, 약 24.8일). 넘기면 Node 가 1ms 로 바꿔 곧바로 끊는다(긴 영상의 작업 시간 상한이 넘는다) */
+/** setTimeout이 받는 가장 긴 지연(ms, 32비트 부호 정수, 약 24.8일). 넘기면 Node가 1ms로 바꿔 곧바로 끊는다(긴 영상의 작업 시간 상한이 넘는다) */
 const MAX_TIMER_MS = 2 ** 31 - 1;
 
 function runFfmpeg(args: string[], { input, signal, timeoutMs, stallMs, discardStdout = false, onStderrLine, label = "job", job, bindCores = false }: FfmpegJob = {}): Promise<FfmpegResult> {
@@ -86,7 +87,7 @@ function runFfmpeg(args: string[], { input, signal, timeoutMs, stallMs, discardS
     });
     child.stderr?.on("data", (chunk: Buffer) => {
       const text = chunk.toString("utf8");
-      // -progress 의 "키=값" 줄은 남기지 않는다(실패했을 때 끝 줄이 오류가 아니라 진행으로 채워진다)
+      // -progress의 "키=값" 줄은 남기지 않는다(실패했을 때 끝 줄이 오류가 아니라 진행으로 채워진다)
       stderr = (stderr + text.replace(/^[a-z_]+=[^\n]*\n?/gm, "")).slice(-STDERR_KEEP);
       if (!onStderrLine && !watch) return;
       const lines = (partial + text).split(/\r\n|\r|\n/);
@@ -108,7 +109,7 @@ function runFfmpeg(args: string[], { input, signal, timeoutMs, stallMs, discardS
     child.on("error", (error) => done(null, String(error)));
     child.on("close", (code, ended) => done(code, "", ended));
     if (input) {
-      // ffmpeg 가 입력을 다 읽기 전에 끝나면 쓰기가 EPIPE 로 터진다. 끝난 코드, 표준 오류는 close 가 넘긴다
+      // ffmpeg가 입력을 다 읽기 전에 끝나면 쓰기가 EPIPE로 터진다. 끝난 코드, 표준 오류는 close가 넘긴다
       child.stdin?.on("error", (error) => log.trace(`ffmpeg(${label}) 입력 쓰기 실패: ${messageOf(error)}`));
       child.stdin?.end(input);
     }

@@ -1,8 +1,8 @@
-// src/discord/commands 의 표시, 설정 명령: 지금 동작을 고정한다(/setting 의 버튼, 메뉴는 test/events/settings-panel).
-// /nowplaying, /queue, /help, /system, /cachestatus, /setchannel, /setting.
+// src/discord/commands의 표시, 설정 명령: 지금 동작을 고정한다(/setting의 버튼, 메뉴는 test/events/settings-panel).
+// /nowplaying, /queue, /help, /system, /ping, /license, /setchannel, /setting.
 //
-// 문구 전부가 아니라 "무엇을 선택해 담았나 ·
-// 무엇을 저장했나"를 본다. 서버 설정과 캐시 통계는 진짜 저장소(임시 DB)로 돈다.
+// 문구 전부가 아니라 "무엇을 선택해 담았나, 무엇을 저장했나"를 본다.
+// 서버 설정과 캐시 통계는 진짜 저장소(임시 DB)로 돈다.
 
 import fs from "node:fs";
 import os from "node:os";
@@ -30,7 +30,6 @@ import { COMMANDS as COMMAND_LIST } from "../../src/discord/commands/index.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "commands-info-"));
 const audioCache = await import("../../src/store/audio-cache.ts");
-const trackLookup = await import("../../src/store/track-lookup.ts");
 audioCache._setCacheDir(path.join(TMP, "audio_cache"));
 stores.open(TMP);
 audioCache.initialize();
@@ -60,8 +59,7 @@ type Sent = {
 };
 type Logged = [name: string, payload: Sent];
 
-const fieldsOf = (payload: Sent) => Object.fromEntries((payload.embeds[0].data.fields || []).map((f) => [f.name, f.value]));
-// /nowplaying 의 글 줄들(위에서부터)
+// /nowplaying의 글 줄들(위에서부터)
 const nowLines = (payload: unknown) => textOf(payload).split("\n");
 
 type InteractionOptions = { player?: object | null; options?: Record<string, unknown>; userId?: string; guildRoles?: string[]; manage?: boolean; channelId?: string };
@@ -74,12 +72,15 @@ function interaction({ player = null, options = {}, userId = "u1", guildRoles = 
   const client = fakeWith<Client<true>>()({
     guilds: { cache: Object.assign(guilds, { reduce: (fn: (acc: number, g: { memberCount: number }) => number, init: number) => [...guilds.values()].reduce(fn, init) }) },
     user: { username: "뮤직봇", displayAvatarURL: () => "https://avatar.test/a.png" },
+    // /system이 대시보드와 같은 상태 값을 모을 때 읽는다
+    ws: { ping: 42, status: 0 },
+    isReady: () => true,
   });
   const bot = fakeBot({
     client,
     players: new Map<string, Player>(player ? [["g1", fakePlayer(player)]] : []),
     panels: { onBotChannelChanged: async () => seen.push("movePanel") },
-    // 실행 목록. /help 가 이것으로 명령 줄을 만든다
+    // 실행 목록. /help가 이것으로 명령 줄을 만든다
     commands: new Map(COMMAND_LIST.map((command) => [command.data.name, command])),
   });
   const it = {
@@ -150,13 +151,13 @@ test("/nowplaying: 패널과 같은 머리, 진행, 이 곡(상태, 요청, 출�
   assert.deepEqual(log[0][1].flags, [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral], "본인에게만(패널이 모두에게 이미 보인다)");
 });
 
-test("/nowplaying: 유튜브 큰 썸네일 확인을 기다리지 않고 답한다(아는 답, 모르면 hqdefault)", async () => {
+test("/nowplaying: 유튜브 큰 썸네일 확인을 기다리지 않고 응답한다(아는 답, 모르면 hqdefault)", async () => {
   let release!: (value: { ok: boolean; status: number }) => void;
   discordArt.useHead(() => new Promise((resolve) => (release = resolve)));
   try {
     const { it, log, bot } = interaction({ player: nowPlayer({ title: "곡", pageUrl: "https://youtu.be/nowplaying1", thumbnail: "https://i.ytimg.com/vi/nowplaying1/mqdefault.jpg", duration: 200 }) });
     await run(await command("nowplaying"), it, bot);
-    assert.equal(log.length, 1, "확인이 끝나기 전에 답했다");
+    assert.equal(log.length, 1, "확인이 끝나기 전에 응답했다");
     assert.equal(thumbnailOf(log[0][1] as never), "https://i.ytimg.com/vi/nowplaying1/hqdefault.jpg");
   } finally {
     release({ ok: true, status: 200 });
@@ -205,7 +206,7 @@ test("/nowplaying: 직접 링크 곡은 찾아 둔 파일 태그 그림을 첨�
   );
 });
 
-test("/nowplaying: 멈춤, 준비 중, 대기열 반복, 길이를 모르면 진행을 뺀다, 던지면 진입점이 알린다", async () => {
+test("/nowplaying: 멈춤, 준비 중, 대기열 반복, 길이를 모르면 진행을 뺀다, 예외를 던지면 진입점이 알린다", async () => {
   const paused = interaction({ player: nowPlayer({ title: "곡", url: "u", platform: "direct", duration: 0 }, { playing: false, paused: true, volume: 10, loop: "queue" }) });
   await run(await command("nowplaying"), paused.it, paused.bot);
   const lines = nowLines(paused.log[0][1]);
@@ -234,7 +235,10 @@ test("/nowplaying: 멈춤, 준비 중, 대기열 반복, 길이를 모르면 진
 
 // ── /queue ────────────────────────────────────────────────────────────
 
-const queuePlayer = (current: object | null, queue: object[]) => ({ currentTrack: current, queue });
+const queuePlayer = (current: object | null, queue: object[]) => ({ currentTrack: current, queue, isLive: false, paused: false, loop: false, autoplay: false, sessionId: "S", getCurrentTime: () => 0 });
+// 대기열 화면은 보는 사람의 역할로 버튼을 고른다. 서버 관리자는 DJ다
+const queueViewer = { id: "u1", permissions: { has: () => true }, roles: { cache: new Map() }, guild: { id: "g1", roles: { cache: new Map() } } };
+const viewing = <T extends { it: object }>(one: T) => (Object.assign(one.it, { member: queueViewer }), one);
 
 test("/queue: 플레이어가 없거나 비었으면 알린다", async () => {
   const none = interaction();
@@ -249,39 +253,34 @@ test("/queue: 플레이어가 없거나 비었으면 알린다", async () => {
   assert.deepEqual(onlyNow.log[0][1], noticeReply(errors.notice("queue-empty")));
 });
 
-// 대기열은 본문(description)에 싣는다. 필드(field)에 나눠 실으면 필드마다 이름 줄이 생겨 빈 여백이 낀다
-const descriptionOf = (payload: Sent) => String(payload.embeds[0].data.description ?? "");
-
 test("/queue: 다음 곡만 페이지마다 나눠 보인다. 없는 페이지는 마지막 페이지로", async () => {
   const queue = Array.from({ length: 25 }, (_, i) => ({ title: `곡${i + 1}`, pageUrl: `u${i}`, duration: 60 }));
-  const first = interaction({ player: queuePlayer({ title: "지금", pageUrl: "now" }, queue) });
+  const first = viewing(interaction({ player: queuePlayer({ title: "지금", pageUrl: "now", duration: 0 }, queue) }));
   await run(await command("queue"), first.it, first.bot);
-  const p1 = first.log[0][1];
-  assert.match(descriptionOf(p1), /^`1\.` \*\*\[곡1\]\(u0\)\*\*/);
-  assert.doesNotMatch(descriptionOf(p1), /지금/, "지금 곡은 재생 패널이 보인다");
-  assert.equal(p1.embeds[0].data.fields, undefined, "필드를 쓰지 않는다");
-  assert.equal(p1.embeds[0].data.footer?.text, "모두 25곡 • 1/3 페이지");
+  const p1 = textOf(first.log[0][1]);
+  assert.ok(p1.includes("`1` **[곡1](u0)** · 1:00"), p1);
+  assert.ok(!p1.includes("지금"), "지금 곡은 재생 패널이 보인다");
+  assert.ok(p1.includes("-# 총 25곡 · 25분"), p1);
+  assert.ok(JSON.stringify(first.log[0][1]).includes('"label":"1/3"'), "페이지 버튼");
   assert.deepEqual(lifetimesOf(first.it), [LIFETIME.screen], "읽는 화면의 수명");
 
-  const last = interaction({ player: queuePlayer({ title: "지금", pageUrl: "now" }, queue), options: { page: 9 } });
+  const last = viewing(interaction({ player: queuePlayer({ title: "지금", pageUrl: "now", duration: 0 }, queue), options: { page: 9 } }));
   await run(await command("queue"), last.it, last.bot);
-  const p3 = last.log[0][1];
-  assert.match(descriptionOf(p3), /`21\.` \*\*\[곡21\]/, "번호는 쪽을 이어 센다");
-  assert.equal(p3.embeds[0].data.footer?.text, "모두 25곡 • 3/3 페이지");
+  assert.ok(textOf(last.log[0][1]).includes("`21` **[곡21]"), "번호는 페이지를 이어 센다");
+  assert.ok(JSON.stringify(last.log[0][1]).includes('"label":"3/3"'));
 });
 
-// 필드 하나(1024자)에 실으면 링크가 붙은 긴 유튜브 제목 열 줄로 넘쳐 명령이 통째로 실패한다.
-// 본문은 4096자지만 서명된 직접 링크, 한글이 인코딩된 주소는 수백 자라, 넘치면 주소가 긴 곡부터 링크를 뗀다
-test("/queue: 긴 주소가 섞여도 본문 상한 안에 열 줄이 다 들어가고, 링크는 주소가 긴 곡부터 뗀다", async () => {
+// 화면 글은 모두 합쳐 4000자지만 서명된 직접 링크, 한글이 인코딩된 주소는 수백 자라, 넘치면 주소가 긴 곡부터 링크를 뗀다
+test("/queue: 긴 주소가 섞여도 글 상한 안에 열 곡이 다 들어가고, 링크는 주소가 긴 곡부터 뗀다", async () => {
   const who = { id: "123456789012345678" };
   const long = (i: number) => ({ title: "가".repeat(150), pageUrl: `https://cdn.example.com/${"x".repeat(1000)}/${i}.mp3`, duration: 60, requestedBy: who });
   const short = { title: "짧은 곡", pageUrl: "https://www.youtube.com/watch?v=bbbbbbbbbbb", duration: 60, requestedBy: who };
   const queue = [long(1), short, ...Array.from({ length: 8 }, (_, i) => long(i + 2))];
-  const it = interaction({ player: queuePlayer(long(0), queue) });
+  const it = viewing(interaction({ player: queuePlayer(long(0), queue) }));
   await run(await command("queue"), it.it, it.bot);
-  const text = descriptionOf(it.log[0][1]);
-  assert.ok(text.length <= 4096, `${text.length}자`);
-  assert.equal(text.split("\n").filter((line) => /^`\d+\.`/.test(line)).length, 10, "줄은 빠지지 않는다");
+  const text = textOf(it.log[0][1]);
+  assert.ok(text.length <= 4000, `${text.length}자`);
+  assert.equal(text.split("\n").filter((line) => /^`\d+`/.test(line)).length, 10, "곡은 빠지지 않는다");
   assert.match(text, /\[짧은 곡\]\(https:\/\/www\.youtube\.com/, "짧은 주소는 링크가 남는다");
   assert.match(text, /\*\*가{57}\.\.\.\*\*/, "제목은 60자에서 잘라 ...을 붙이고, 링크를 뗀 곡은 제목만");
 });
@@ -319,7 +318,7 @@ test("/help: 분류마다의 설명과 분류 메뉴를 본인에게만. 대시�
   assert.equal(JSON.stringify(off.log[0][1]).includes('"style":5'), false, "링크 버튼 없음");
 });
 
-/** 권한을 보는 데 쓰는 멤버. manage 면 서버 관리자 */
+/** 권한을 보는 데 쓰는 멤버. manage면 서버 관리자 */
 const helpMember = (manage: boolean) => ({ id: "u1", permissions: { has: () => manage }, roles: { cache: new Map() }, guild: { id: "g1", roles: { cache: new Map() }, channels: { cache: new Map() } } });
 
 test("/help 분류: 그 분류를 바로 보이고, 보는 사람이 못 쓰는 명령에 자물쇠와 그 뜻", async () => {
@@ -331,7 +330,7 @@ test("/help 분류: 그 분류를 바로 보이고, 보는 사람이 못 쓰는 
     await run(await command("help"), user.it, user.bot);
     const text = textOf(user.log[0][1]);
     assert.ok(text.includes("`/setchannel`: 제 전용 채널을 설정해요 (곡 요청 및 공지에 사용돼요) 🛡️ 🔒"), text);
-    assert.ok(text.includes("`/leave`: 대기열을 저장하고 음성 채널에서 나가요 💿\n"), "DJ 역할이 없는 서버는 모두가 DJ 라 열림");
+    assert.ok(text.includes("`/leave`: 대기열을 저장하고 음성 채널에서 나가요 💿\n"), "DJ 역할이 없는 서버는 모두가 DJ라 열림");
     assert.ok(text.includes("🔒 지금 내 권한으로는 쓸 수 없어요."), text);
     assert.deepEqual(lifetimesOf(user.it), [LIFETIME.screen]);
 
@@ -349,7 +348,7 @@ test("/help 분류: 그 분류를 바로 보이고, 보는 사람이 못 쓰는 
   }
 });
 
-/** 분류 메뉴, 뒤로 버튼을 누른 것. update 로 고친 화면을 모은다. 첫 응답(상호작용 i0)의 메시지 m1 에 달려 있다 */
+/** 분류 메뉴, 뒤로 버튼을 누른 것. update로 고친 화면을 모은다. 첫 응답(상호작용 i0)의 메시지 m1에 달려 있다 */
 function pressed(bot: ReturnType<typeof interaction>["bot"], { values = [] as string[] } = {}) {
   const shown: unknown[] = [];
   const it = fakeWith<StringSelectMenuInteraction<"cached"> & ButtonInteraction<"cached">>()({
@@ -409,7 +408,7 @@ test("/help: 모든 분류를 합치면 켜진 명령이 다 있다(/help 자신
   );
 });
 
-test("/help: 만들다 던지면 진입점이 알린다", async () => {
+test("/help: 만들다 예외를 던지면 진입점이 알린다", async () => {
   const { it, log, bot } = interaction();
   Object.defineProperty(it, "guildId", {
     get() {
@@ -431,7 +430,7 @@ test("/invite: 초대 버튼, 웹사이트가 있으면 웹사이트 버튼. 끄
   assert.ok(!names(false).includes("invite"));
 });
 
-test("/system: 봇 운영자만. 운영자면 미뤄 두고 시스템 상태로 바꾼다", async () => {
+test("/system: 봇 운영자만. 운영자면 그리는 중 자리표시자(V2, 본인에게만)를 먼저 보여 주고 이미지 두 장을 첨부해 고친다", async () => {
   const saved = config.dashboard.ownerId;
   config.dashboard.ownerId = "owner";
   try {
@@ -441,67 +440,91 @@ test("/system: 봇 운영자만. 운영자면 미뤄 두고 시스템 상태로 
 
     const owner = interaction({ userId: "owner" });
     await run(await command("system"), owner.it, owner.bot);
-    assert.deepEqual(owner.log[0], ["deferReply", { flags: MessageFlags.Ephemeral }]);
-    const f = fieldsOf(owner.log[1][1]);
-    assert.match(f["🎵 봇 현황"], /서버:\*\* 1개/);
-    assert.match(f["🎵 봇 현황"], /사용자:\*\* 5명/, "서버 멤버 수의 합");
-    assert.equal(owner.log[1][1].components[0].components[0].data.custom_id, "system:refresh");
+    assert.deepEqual(
+      owner.log.map(([kind]) => kind),
+      ["reply", "editReply"],
+    );
+    const [, placeholder] = owner.log[0];
+    assert.deepEqual(placeholder.flags, [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral]);
+    assert.match(textOf(placeholder), /### 🖥️ 시스템 상태\n-# 봇 v\S+/);
+    assert.ok(textOf(placeholder).includes("상태 이미지를 그리는 중이에요"));
+    assert.equal(thumbnailOf(placeholder as never), "https://avatar.test/a.png");
+    const [, done] = owner.log[1];
+    assert.deepEqual(
+      (done as unknown as { files: Array<{ name: string }> }).files.map((f) => f.name),
+      ["system.png", "history.png"],
+    );
+    assert.match(textOf(done), /갱신: <t:\d+:f>/);
+    assert.ok(JSON.stringify(done.components).includes('"custom_id":"system:refresh"'));
+    assert.deepEqual(lifetimesOf(owner.it), [LIFETIME.screen]);
   } finally {
     config.dashboard.ownerId = saved;
   }
 });
 
-// ── /cachestatus ──────────────────────────────────────────────────────
-
-test("/cachestatus: 모든 서버의 캐시이므로 봇 운영자만 쓸 수 있고, 서버 관리 권한으로는 열리지 않는다", async () => {
+test("/system: 자리표시자를 보여 준 뒤 실패하면(이미지 첨부 거부 등) 그 자리표시자를 오류 안내로 바꾼다", async () => {
   const saved = config.dashboard.ownerId;
   config.dashboard.ownerId = "owner";
   try {
-    const { it, log, bot } = interaction({ userId: "u1" });
-    await run(await command("cachestatus"), it, bot);
-    assert.deepEqual(log, [["reply", noticeReply(errors.notice("must-owner"))]]);
+    const owner = interaction({ userId: "owner" });
+    let edits = 0;
+    owner.it.editReply = async (p: Sent) => {
+      if (++edits === 1) throw new Error("첨부 거절");
+      return owner.log.push(["editReply", p]);
+    };
+    await runViaEntrance(await command("system"), owner.it, owner.bot);
+    assert.deepEqual(
+      owner.log.map(([kind]) => kind),
+      ["reply", "editReply"],
+    );
+    assert.ok(textOf(owner.log[1][1]).includes(errors.notice("command-failed").title));
+    assert.equal(textOf(owner.log[1][1]).includes("상태 이미지를 그리는 중이에요"), false);
   } finally {
     config.dashboard.ownerId = saved;
   }
-  const json = (await command("cachestatus")).data.toJSON();
-  assert.equal(json.default_member_permissions ?? null, null, "운영자에게 서버 관리 권한이 없는 서버에서도 목록에 뜬다");
-});
-
-test("/cachestatus: 캐시 통계를 담는다(재생 수, 플랫폼 분포, TOP, 최근)", async () => {
-  const seed = (key: string, title: string, plays: number) => {
-    const file = audioCache.getFilePath(key);
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, "x".repeat(1000));
-    audioCache.recordDownloadStart(key, { title });
-    audioCache.recordDownloadComplete(key, file, 1000, { title }, { durationSec: 125 });
-    for (let i = 0; i < plays; i++) audioCache.recordPlayback(key);
-  };
-  seed("yt:aaaaaaaaaaa", "많이 튼 곡", 3);
-  seed("sc:1", "사운드클라우드", 0);
-  seed("dl:abc", "직접", 1);
-  trackLookup.recordTrackLookup({ requestKey: "https://youtu.be/aaaaaaaaaaa", pageUrl: "https://youtu.be/aaaaaaaaaaa", audioUrl: "https://www.youtube.com/watch?v=aaaaaaaaaaa", platform: "youtube", title: "많이 튼 곡", artist: "가수" });
-
-  const saved = config.dashboard.ownerId;
-  config.dashboard.ownerId = "owner";
-  const { it, log, bot } = interaction({ userId: "owner" });
-  try {
-    await run(await command("cachestatus"), it, bot);
-  } finally {
-    config.dashboard.ownerId = saved;
-  }
-
-  assert.deepEqual(log[0], ["deferReply", { flags: MessageFlags.Ephemeral }]);
-  const f = fieldsOf(log[1][1]);
-  assert.match(f["📊 재생 통계"], /총 재생 횟수:\*\* 4회/);
-  assert.match(f["📊 재생 통계"], /한 번도 안 튼 곡:\*\* 1개/);
-  assert.match(f["📊 재생 통계"], /평균 곡 길이:\*\* 2분 5초/);
-  assert.equal(f["🌐 플랫폼 분포"], "🔴 YouTube: **1**개\n🟠 SoundCloud: **1**개\n🔗 직접 링크: **1**개");
-  assert.match(f["🔧 기타"], /링크 데이터:\*\* 1개/);
-  assert.match(f["🏆 재생 TOP 5"], /^`1\.` \*\*많이 튼 곡\*\*: 3회 \(2:05\)/);
-  assert.deepEqual(lifetimesOf(it), [LIFETIME.screen]);
 });
 
 // ── /ping ─────────────────────────────────────────────────────────────
+
+test("/ping: 측정 중 화면(V2, 본인에게만)을 먼저 보여 주고 잰 값으로 고친다. 응답 시간은 명령과 응답 메시지의 디스코드 시각 차", async () => {
+  const { it, log, bot } = interaction();
+  Object.assign(it, {
+    createdTimestamp: 1_000,
+    guildId: "g1",
+    inCachedGuild: () => true,
+    reply: async (p: Sent) => {
+      it.replied = true;
+      log.push(["reply", p]);
+      return { resource: { message: { createdTimestamp: 1_186 } } };
+    },
+  });
+  await run(await command("ping"), it, bot);
+  assert.deepEqual(
+    log.map(([kind]) => kind),
+    ["reply", "editReply"],
+  );
+  assert.deepEqual(log[0][1].flags, [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral]);
+  assert.ok(textOf(log[0][1]).includes("핑 측정 중..."));
+  const done = textOf(log[1][1]);
+  assert.ok(done.includes("**응답 시간** `186ms`"), done);
+  assert.ok(done.includes("**게이트웨이** `42ms`"), "봇의 게이트웨이 하트비트 왕복");
+  assert.equal(done.includes("**음성**"), false, "음성 채널에 없으면 음성 줄이 없다");
+  assert.ok(JSON.stringify(log[1][1].components).includes('"custom_id":"ping:again"'));
+  assert.deepEqual(lifetimesOf(it), [LIFETIME.screen]);
+});
+
+test("/license: 라이선스 및 운영 소스 코드 링크 (본인만 볼 수 있는 메시지)", async () => {
+  const { it, log, bot } = interaction();
+  await run(await command("license"), it, bot);
+  assert.deepEqual(
+    log.map(([kind]) => kind),
+    ["reply"],
+  );
+  assert.deepEqual(log[0][1].flags, [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral]);
+  assert.ok(textOf(log[0][1]).includes("`AGPL-3.0-or-later`"));
+  assert.ok(JSON.stringify(log[0][1].components).includes(`"url":"${config.bot.sourceRepo}"`));
+  assert.deepEqual(lifetimesOf(it), [LIFETIME.screen]);
+});
 
 test("/ping: 누구나 쓸 수 있으므로(응답 시간은 실행한 사람에게만 보인다) 기본 권한을 걸지 않는다", async () => {
   const json = (await command("ping")).data.toJSON();
@@ -547,7 +570,7 @@ test("/setchannel remove: 해제하고 안내한 뒤 패널을 옮긴다. 저장
   });
 });
 
-test("/setchannel: 지정, 해제 모두 안내를 먼저 보낸 뒤 패널을 옮기고(옮기기를 기다리지 않고 답한다), 안내가 실패해도 패널은 옮긴다", async () => {
+test("/setchannel: 지정, 해제 모두 안내를 먼저 보낸 뒤 패널을 옮기고(옮기기를 기다리지 않고 응답한다), 안내가 실패해도 패널은 옮긴다", async () => {
   for (const action of ["set", "remove"]) {
     const ok = interaction({ channelId: "c5", options: { action } });
     let repliedFirst = false;
@@ -568,7 +591,7 @@ test("/setchannel: 지정, 해제 모두 안내를 먼저 보낸 뒤 패널을 �
   await settings.clearBotChannel("g1");
 });
 
-test("/setting: 본인에게만 서버 설정 한 화면을 띄운다. 서버에 남아 있는 역할만 지금 DJ 로 보이고 메뉴의 기본값으로 둔다", async () => {
+test("/setting: 본인에게만 서버 설정 한 화면을 띄운다. 서버에 남아 있는 역할만 지금 DJ로 보이고 메뉴의 기본값으로 둔다", async () => {
   await settings.setDjRoles("g1", ["r1", "gone"]);
   const { it, log, bot } = interaction({ guildRoles: ["r1", "r2"] });
   await run(await command("setting"), it, bot);

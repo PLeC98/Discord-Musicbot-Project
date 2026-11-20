@@ -46,7 +46,7 @@ async function answerUnreadable(message: Message<true>) {
   scheduleDelete(reply, noticeMs(notice));
 }
 
-// 전용 채널에 온 곡 요청(검색어). 받을 메시지가 아니면 null. 내용을 읽지 못하는데 일반 메시지가 왔으면 /play 를 쓰라고 안내하고 null
+// 전용 채널에 온 곡 요청(검색어). 받을 메시지가 아니면 null. 내용을 읽지 못하는데 일반 메시지가 왔으면 /play를 쓰라고 안내하고 null
 async function requestIn(message: Message<true>) {
   const content = queryOf(message.content, message.client.user?.id);
   // 내용을 읽는데 비었으면(스티커, 첨부만) 할 것이 없다
@@ -94,7 +94,7 @@ const exported: ClientEvent<Events.MessageCreate> = {
     // 삭제할 수도 없는 유령 메시지로 남는다(앱을 다시 시작해야 사라진다). 잠깐 뒤에 삭제한다
     scheduleDelete(message, USER_MESSAGE_DELETE_MS);
 
-    // "검색 중" 자리표시자. 처음부터 Components V2 로 보내야 뒤의 현재 재생 메시지 흐름과 맞는다
+    // "검색 중" 자리표시자. 처음부터 Components V2로 보내야 뒤의 현재 재생 메시지 흐름과 맞는다
     const preview = content.length > 60 ? content.slice(0, 60) + "…" : content;
     const loadingMsg = await message.channel.send(post(frame({ body: searchText.searching(preview) })));
 

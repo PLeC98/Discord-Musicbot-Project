@@ -1,8 +1,8 @@
 <template>
-  <!-- 영역보다 긴 글은 천천히 스크롤해 보여 준다. 기본은 좌우로 오가고, loop 면 뉴스 티커처럼 한 방향으로 흐르며 같은 글 사본이 간격(3em)을 두고 뒤따라 이어진다(스포티파이 재생 화면).
-       짧으면 그대로, 움직임 줄이기를 켰으면 "…" 로 자른다.
-       양끝을 FADE 만큼 페이드로 지우되, 겉을 그만큼 바깥으로 넓혀(음수 여백) 멈춰 있는 글의 첫 글자에는 페이드가 걸리지 않게 한다 -->
-  <!-- tip: 넘칠 때(흐르거나 "…" 로 잘릴 때)만 전체 글을 툴팁으로 -->
+  <!-- 영역보다 긴 글은 천천히 스크롤해 보여 준다. 기본은 좌우로 오가고, loop면 뉴스 티커처럼 한 방향으로 흐르며 같은 글 사본이 간격(3em)을 두고 뒤따라 이어진다(스포티파이 재생 화면).
+       짧으면 그대로, 움직임 줄이기를 켰으면 "…"로 자른다.
+       양끝을 FADE만큼 페이드로 지우되, 겉을 그만큼 바깥으로 넓혀(음수 여백) 멈춰 있는 글의 첫 글자에는 페이드가 걸리지 않게 한다 -->
+  <!-- tip: 넘칠 때(흐르거나 "…"로 잘릴 때)만 전체 글을 툴팁으로 -->
   <span ref="box" class="block overflow-hidden whitespace-nowrap" :class="reduced && 'truncate'" :style="moving ? edge : undefined" v-tooltip="tip && cut ? text : null">
     <span ref="track" :class="reduced ? 'inline' : 'inline-flex'"
       ><span ref="line">{{ text }}</span
@@ -24,7 +24,7 @@ const FADE_REM = 0.5;
 /** 오가는 빠르기(rem/초, 가감속 없이 고르게. 기본 글자 크기면 18px/초)와 양끝에서 멈추는 시간(ms) */
 const SPEED_REM = 1.125;
 const REST = 2200;
-/** loop 의 빠르기(rem/초, 40px/초). 글이 한 방향으로 계속 흘러 오갈 때보다 빠르게 */
+/** loop의 빠르기(rem/초, 40px/초). 글이 한 방향으로 계속 흘러 오갈 때보다 빠르게 */
 const LOOP_SPEED_REM = 2.5;
 
 const box = ref<HTMLElement | null>(null);

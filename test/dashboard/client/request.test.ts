@@ -8,10 +8,10 @@ import { problemBody } from "../../../src/dashboard/contract/problem.ts";
 import type { Code } from "../../../src/rules/problems.ts";
 
 type Sent = { method: string; url: string; token: string | undefined; user?: string };
-/** blob: 파일 다운로드 요청처럼 문제 응답을 Blob 으로 준다 */
+/** blob: 파일 다운로드 요청처럼 문제 응답을 Blob으로 준다 */
 type Reply = { problem?: Code; data?: unknown; fail?: string; blob?: boolean };
 
-/** 가짜 서버. route 가 요청마다 답을 고르고, 보낸 요청(토큰 받기 포함)을 순서대로 적는다. signsIn: 재로그인 안내에서 로그인을 마치는가(기본은 그만둔다) */
+/** 가짜 서버. route가 요청마다 응답을 고르고, 보낸 요청(토큰 받기 포함)을 순서대로 적는다. signsIn: 재로그인 안내에서 로그인을 마치는가(기본은 그만둔다) */
 function harness(route: (req: Sent, sent: Sent[]) => Reply, { signsIn = false, user = null as string | null, blocked = { on: false } }: { signsIn?: boolean; user?: string | null; blocked?: { on: boolean } } = {}) {
   const sent: Sent[] = [];
   const ends: string[] = [];
@@ -91,7 +91,7 @@ test("다시 보내도 거절되면 더 보내지 않고 실패한다", async ()
   assert.equal(sent.filter((one) => one.url === "/api/x").length, 2);
 });
 
-test("401 이면 세션 끝을 알리고 요청은 그대로 실패한다. quietSession 이면 알리지 않는다", async () => {
+test("401이면 세션 끝을 알리고 요청은 그대로 실패한다. quietSession이면 알리지 않는다", async () => {
   const { http, ends } = harness(() => ({ problem: "login-required" }));
   await assert.rejects(http.get("/api/guilds"));
   assert.deepEqual(ends, ["end"]);
@@ -99,15 +99,15 @@ test("401 이면 세션 끝을 알리고 요청은 그대로 실패한다. quiet
   assert.deepEqual(ends, ["end"]);
 });
 
-test("reauth-required 면 다시 로그인을 묻는다. 그만두면 거절대로 실패한다. 세션 끝이 아니다", async () => {
+test("reauth-required면 다시 로그인을 묻는다. 그만두면 거절대로 실패한다. 세션 끝이 아니다", async () => {
   const { http, ends, reauths } = harness((req) => tokenRoute(req) ?? { problem: "reauth-required" });
   await assert.rejects(http.put("/api/admin/secrets/x"), (error: AxiosError) => error.response?.status === 403);
   assert.deepEqual(reauths, ["reauth"]);
   assert.deepEqual(ends, []);
 });
 
-// 그림을 Blob 으로 받는 요청(파비콘 링크로 추가)은 거절도 Blob 으로 오므로 풀어서 읽어야 다시 로그인을 묻는다
-test("Blob 으로 온 문제 응답도 문제로 읽는다(Blob 으로 받는 요청의 reauth-required)", async () => {
+// 그림을 Blob으로 받는 요청(파비콘 링크로 추가)은 거절도 Blob으로 오므로 풀어서 읽어야 다시 로그인을 묻는다
+test("Blob으로 온 문제 응답도 문제로 읽는다(Blob으로 받는 요청의 reauth-required)", async () => {
   const { http, reauths } = harness((req) => tokenRoute(req) ?? { problem: "reauth-required", blob: true });
   await assert.rejects(http.post("/api/admin/appearance/favicon/fetch", { url: "https://example.com/a.png" }, { responseType: "blob" }), (error: AxiosError) => (error.response?.data as { code?: string }).code === "reauth-required");
   assert.deepEqual(reauths, ["reauth"]);
@@ -140,7 +140,7 @@ test("다시 로그인을 마치면 그 요청을 새 토큰으로 한 번 다�
   assert.deepEqual(stubborn.reauths, ["reauth"], "한 번만 묻는다");
 });
 
-test("토큰을 받다 401 이면 그 요청의 실패다. 보낸 요청의 quietSession 을 따른다", async () => {
+test("토큰을 받다 401이면 그 요청의 실패다. 보낸 요청의 quietSession을 따른다", async () => {
   const { http, ends, sent } = harness(() => ({ problem: "login-required" }));
   await assert.rejects(http.post("/auth/logout", undefined, { quietSession: true } as AxiosRequestConfig), (error: AxiosError) => error.response?.status === 401);
   assert.deepEqual(ends, []);
@@ -163,7 +163,7 @@ test("응답 없는 실패의 종류", () => {
   assert.equal(failureKind(new AxiosError("a", "ECONNABORTED")), "aborted");
   assert.equal(failureKind(new AxiosError("c", "ERR_CANCELED")), "aborted");
   assert.equal(failureKind({ response: { status: 500 }, code: "ERR_BAD_RESPONSE" }), null);
-  // 봇이 꺼져 앞의 프록시가 답했다(문제 응답이 아니다). 봇이 낸 503(준비 전)은 봇이 답한 것
+  // 봇이 꺼져 앞의 프록시가 응답했다(문제 응답이 아니다). 봇이 낸 503(준비 전)은 봇이 응답한 것
   assert.equal(failureKind({ response: { status: 502, data: "<html>Bad Gateway</html>" } }), "offline");
   assert.equal(failureKind({ response: { status: 504 } }), "offline");
   assert.equal(failureKind({ response: { status: 503, data: { code: "bot-not-ready" } } }), null);

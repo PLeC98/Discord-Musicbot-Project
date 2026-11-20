@@ -1,5 +1,5 @@
 // dashboard/src/utils/settings-draft.ts: 서버 설정 화면의 저장 차례와 값 합치기. 저장 중에 고치거나 되돌린 것, 저장 중에 온 넛지,
-// 답이 보낸 키만 바꾸는 것, 충돌과 실패의 갈래, 숫자 입력 중인 카드, 운영자 기본 구간을 따르는 구간을 지킨다
+// 응답이 보낸 키만 바꾸는 것, 충돌과 실패의 경우, 숫자 입력 중인 카드, 운영자 기본 구간을 따르는 구간을 지킨다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -25,7 +25,7 @@ function settingsOf(values: SettingsValues, more: Partial<GuildSettings> = {}, d
 // 문제 응답처럼 보이는 요청 오류
 const problem = (status: number, code: string, extra: Record<string, unknown> = {}) => ({ response: { status, data: { code, status, ...extra } } });
 
-// 답을 시험이 정할 때까지 늦추는 가짜 화면
+// 응답을 테스트가 정할 때까지 늦추는 가짜 화면
 function harness(initial: SettingsValues) {
   let form: SettingsValues = { ...initial };
   const sent: SettingsPatch[] = [];
@@ -85,12 +85,12 @@ function harness(initial: SettingsValues) {
   };
 }
 
-// 저장 예약(debounceMs 0, Node 에서는 1ms)과 같은 1ms 타이머를 몇 번 차례로 기다린다. 지연 시간이 같은 타이머는 건 순서대로 돌므로, 대기 도중 걸린 저장 예약이 다음 타이머보다 먼저 돈다(경과 시간에 의존하지 않는다)
+// 저장 예약(debounceMs 0, Node에서는 1ms)과 같은 1ms 타이머를 몇 번 차례로 기다린다. 지연 시간이 같은 타이머는 건 순서대로 돌므로, 대기 도중 걸린 저장 예약이 다음 타이머보다 먼저 돈다(경과 시간에 의존하지 않는다)
 async function tick() {
   for (let round = 0; round < 5; round++) await new Promise((resolve) => setTimeout(resolve, 1));
 }
 
-test("보낼 본문: 고친 키만, 키마다 기준값(from)과 고치는 값(to). SponsorBlock 은 하위 키로", () => {
+test("보낼 본문: 고친 키만, 키마다 기준값(from)과 고치는 값(to). SponsorBlock은 하위 키로", () => {
   const base: SettingsValues = { botChannelId: null, djRoleIds: ["r1"], sponsorblock: { enabled: true, categories: null } };
   const draft = withValue(withValue(base, "djRoleIds", ["r2"]), "sponsorblock.enabled", false);
   assert.deepEqual(patchOf(base, draft, ["djRoleIds", "sponsorblock.enabled"]), { djRoleIds: { from: ["r1"], to: ["r2"] }, sponsorblock: { enabled: { from: true, to: false } } });
@@ -120,7 +120,7 @@ test("운영자 기본 구간을 따르던 서버에서 눌렀다 되돌리면 �
   assert.deepEqual(valueAt(inheritCategories(base, withValue(base, "sponsorblock.categories", ["intro"]), DEFAULTS), "sponsorblock.categories"), ["intro"]);
 });
 
-test("필드 오류의 키: 맨 위 코드(전용 채널, 역할 수)와 bad-settings 의 pointer. 하위 키를 가리키지 않는 sponsorblock 은 둘 다, 모르는 위치면 고르지 않는다", () => {
+test("필드 오류의 키: 맨 위 코드(전용 채널, 역할 수)와 bad-settings의 pointer. 하위 키를 가리키지 않는 sponsorblock은 둘 다, 모르는 위치면 고르지 않는다", () => {
   assert.deepEqual(fieldKeysOf({ code: "bad-bot-channel" }), ["botChannelId"]);
   assert.deepEqual(fieldKeysOf({ code: "too-many-dj-roles" }), ["djRoleIds"]);
   assert.deepEqual(fieldKeysOf({ code: "bad-settings", errors: [{ pointer: "/playlistAddMax/to" }] }), ["playlistAddMax"]);
@@ -129,7 +129,7 @@ test("필드 오류의 키: 맨 위 코드(전용 채널, 역할 수)와 bad-set
   assert.deepEqual(fieldKeysOf({ code: "bad-settings", errors: [{ pointer: "" }] }), []);
 });
 
-test("실패 종류는 문제 코드로 구분한다: 충돌은 conflicts 가 있는 settings-changed 만, account-changed 같은 다른 409 는 그 밖의 실패", () => {
+test("실패 종류는 문제 코드로 구분한다: 충돌은 conflicts가 있는 settings-changed만, account-changed 같은 다른 409는 그 밖의 실패", () => {
   assert.equal(failureOf(problem(409, "settings-changed", { conflicts: ["djRoleIds"], current: {} })).kind, "conflict");
   assert.equal(failureOf(problem(409, "config-changed")).kind, "other");
   assert.equal(failureOf(problem(409, "account-changed")).kind, "other");
@@ -167,7 +167,7 @@ test("요청은 한 번에 하나: 저장 중에 온 넛지는 저장이 끝난 
   assert.deepEqual(h.sent.at(-1), { djRoleIds: { from: ["r1"], to: ["r9"] } }, "다시 읽은 값을 기준으로 보낸다");
 });
 
-test("저장의 답은 보낸 키만, 서버가 거른 값으로 받아들인다(걸러진 역할이 화면에서도 빠진다)", async () => {
+test("저장의 응답은 보낸 키만, 서버가 거른 값으로 받아들인다(걸러진 역할이 화면에서도 빠진다)", async () => {
   const h = harness({ djRoleIds: [], botChannelId: "a" });
   h.edit("djRoleIds", ["r1", "ghost"]);
   await tick();

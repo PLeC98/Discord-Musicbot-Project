@@ -1,12 +1,12 @@
-// 열린 판(드롭다운, 팝업, 대화상자, 바텀 시트, 서랍)을 맨 위 것부터 하나씩 닫는다. 닫는 입력은 Esc 와 기기의 뒤로(안드로이드의 뒤로 손짓, 버튼)다.
+// 열린 판(드롭다운, 팝업, 대화상자, 바텀 시트, 서랍)을 맨 위 것부터 하나씩 닫는다. 닫는 입력은 Esc와 기기의 뒤로(안드로이드의 뒤로 손짓, 버튼)다.
 // 브라우저의 뒤로 버튼, 마우스의 뒤로 버튼은 판과 상관없이 이전 화면으로 간다(기록은 건드리지 않는다).
 //
-// 둘을 가르는 것은 브라우저의 CloseWatcher 다. 판이 열릴 때 하나 만들고 닫힐 때 없앤다. Esc 와 기기의 뒤로는 맨 위(가장 나중에 만든) 것만 닫는다.
-// CloseWatcher 가 없는 브라우저(사파리)는 열린 판을 여기서 쌓아 두고 Esc 로 맨 위 판을 닫는다. 기기의 뒤로는 브라우저의 뒤로와 같다.
+// 둘을 가르는 것은 브라우저의 CloseWatcher다. 판이 열릴 때 하나 만들고 닫힐 때 없앤다. Esc와 기기의 뒤로는 맨 위(가장 나중에 만든) 것만 닫는다.
+// CloseWatcher가 없는 브라우저(사파리)는 열린 판을 여기서 쌓아 두고 Esc로 맨 위 판을 닫는다. 기기의 뒤로는 브라우저의 뒤로와 같다.
 //
-// 판 안에서 Esc 를 먼저 쓸 곳(검색어 지우기, 고치던 입력란 되돌리기)은 그 keydown 의 preventDefault 를 부른다. 막힌 Esc 로는 판이 닫히지 않는다.
-// close 가 닫지 않을 수도 있다(요청을 보내는 중인 대화상자). 그러면 그 판이 그대로 맨 위에 남는다.
-// CloseWatcher 는 사용자 입력 없이 만든 것(저절로 뜨는 판, 닫기를 거절해 다시 건 것)을 아래 판과 한 그룹으로 둘 수 있다. 그때는 한 번에 함께 닫힌다
+// 판 안에서 Esc를 먼저 쓸 곳(검색어 지우기, 고치던 입력란 되돌리기)은 그 keydown의 preventDefault를 부른다. 막힌 Esc로는 판이 닫히지 않는다.
+// close가 닫지 않을 수도 있다(요청을 보내는 중인 대화상자). 그러면 그 판이 그대로 맨 위에 남는다.
+// CloseWatcher는 사용자 입력 없이 만든 것(저절로 뜨는 판, 닫기를 거절해 다시 건 것)을 아래 판과 한 그룹으로 둘 수 있다. 그때는 한 번에 함께 닫힌다
 
 import { nextTick, onScopeDispose, watch, type Ref } from "vue";
 
@@ -16,7 +16,7 @@ interface Watcher {
 }
 const Native = (window as unknown as { CloseWatcher?: new () => Watcher }).CloseWatcher;
 
-/** CloseWatcher 가 없을 때 열린 판의 닫기(나중에 연 것이 뒤) */
+/** CloseWatcher가 없을 때 열린 판의 닫기(나중에 연 것이 뒤) */
 const stack: Array<() => void> = [];
 if (!Native) {
   document.addEventListener("keydown", (event) => {
@@ -36,13 +36,13 @@ export function useCloseLayer(open: Readonly<Ref<boolean>>, close: () => void) {
       watcher.onclose = () => {
         stop = null;
         close();
-        // 닫지 않았다면 CloseWatcher 는 이미 쓰였으니 새로 건다. v-model 로 받은 open 은 다시 그린 뒤에 내려가므로 그때 본다
+        // 닫지 않았다면 CloseWatcher는 이미 쓰였으니 새로 건다. v-model로 받은 open은 다시 그린 뒤에 내려가므로 그때 본다
         void nextTick(() => open.value && !stop && start());
       };
       stop = () => watcher.destroy();
       return;
     }
-    // 닫으면 open 이 내려가 아래 watch 가 쌓은 것에서 뺀다. 닫지 않으면 그대로 맨 위에 남는다
+    // 닫으면 open이 내려가 아래 watch가 쌓은 것에서 뺀다. 닫지 않으면 그대로 맨 위에 남는다
     const entry = () => close();
     stack.push(entry);
     stop = () => {

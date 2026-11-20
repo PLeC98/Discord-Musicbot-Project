@@ -1,14 +1,14 @@
 // 설정 내보내기, 불러오기. ZIP 하나: settings.json(사람이 읽는 JSON) + 파비콘이면 favicon/(파비콘 폴더 그대로: index.json, 이미지 png). 공유 타입은 contract/settings-archive.
-//   settings  봇 설정만: 운영 조절값(PC 에 매인 쿠키 출처, POToken 쓰기도), 장르, 활동 문구, AI 설정, 프롬프트. 서버별 설정, 키, 쿠키는 없다(설정 스냅샷, 명령 전체 백업에 든다).
+//   settings  봇 설정만: 운영 설정값(PC에 매인 쿠키 출처, POToken 쓰기도), 장르, 활동 문구, AI 설정, 프롬프트. 서버별 설정, 키, 쿠키는 없다(설정 스냅샷, 명령 전체 백업에 든다).
 //   favicon   파비콘: 슬롯, 기록(봇 설정 백업에는 들지 않는다. 봇 설정과 함께 파비콘을 담은 옛 형식 파일도 불러온다)
 //   login-background  로그인 배경: 다 만든 배경, 화면 값, 한도(login-background/archive). 불러오면 통째로 바꾼다
 //   audio-cache  오디오 캐시: 캐시 파일, 링크 데이터, 직접 지정한 음원, 연령 제한, SponsorBlock 구간(audio-cache-archive). 불러오면 지금 캐시에 합친다
 // 내보내기는 담을 항목을 넘기고 경로가 스트리밍으로 쓴다(writeZip). 불러오기는 올린 파일(archive-uploads)을 열어 중앙 디렉터리만 읽고 필요한 항목만 메모리로 읽는다
-// .env 는 어느 쪽에도 없다. 대시보드는 비밀을 읽어 내지도, .env 를 쓰지도 않는다(그건 봇 폴더의 몫: scripts/backup).
-// 불러오기는 선택한 항목을 모두 저장과 같은 검사로 먼저 보고, DB 는 한 트랜잭션으로 쓴다(하나라도 틀리면 아무것도 바꾸지 않는다).
+// .env는 어느 쪽에도 없다. 대시보드는 비밀을 읽어 내지도, .env를 쓰지도 않는다(그건 봇 폴더의 몫: scripts/backup).
+// 불러오기는 선택한 항목을 모두 저장과 같은 검사로 먼저 보고, DB는 한 트랜잭션으로 쓴다(하나라도 틀리면 아무것도 바꾸지 않는다).
 // 로그인 배경은 DB 앞에 풀어 두고(실패하면 푼 것만 삭제한다), 파비콘, 로그인 배경은 DB 뒤에 교체한다.
-// 남이 준 파일일 수 있으니 바깥으로 나가는 값(AI 요청이 가는 곳, 봇 웹사이트 주소), PC 에 매인 값(쿠키 출처, POToken)이 바뀌면 미리 보기가 표시해 준다.
-// 불러온 뒤 다시 시작해야 적용되는 값이 바뀌었거나 쿠키 출처가 바뀌었으면 답이 알린다(화면이 다시 시작 창, 연령 제한 탭 안내를 연다).
+// 남이 준 파일일 수 있으니 바깥으로 나가는 값(AI 요청이 가는 곳, 봇 웹사이트 주소), PC에 매인 값(쿠키 출처, POToken)이 바뀌면 미리 보기가 표시해 준다.
+// 불러온 뒤 다시 시작해야 적용되는 값이 바뀌었거나 쿠키 출처가 바뀌었으면 응답이 알린다(화면이 다시 시작 창, 연령 제한 탭 안내를 연다).
 
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -40,31 +40,31 @@ const FULL_BACKUP_MARK = "database/settings.restore.db";
 const JSON_MAX_BYTES = 4 * 1024 * 1024;
 // 파비콘 파일을 모두 합친 상한(슬롯 일곱 × 기록 여섯 × png 두 장 남짓)
 const FAVICON_MAX_BYTES = 64 * 1024 * 1024;
-// 그 PC 에 매인 운영 조절값. 담고 불러오되, 바뀌면 미리 보기가 알린다
-// (쿠키 출처를 남이 정하면 봇이 이 PC 의 브라우저 쿠키를 읽는다. POToken 은 설치 여부에 매인다)
+// 그 PC에 매인 운영 설정값. 담고 불러오되, 바뀌면 미리 보기가 알린다
+// (쿠키 출처를 남이 정하면 봇이 이 PC의 브라우저 쿠키를 읽는다. POToken은 설치 여부에 매인다)
 const COOKIES_KEY = "COOKIES_SOURCE";
 const POTOKEN_KEY = "BGUTIL_ENABLED";
 
 type DocItem = Extract<ArchiveItem, documents.DocName>;
 const DOC_ITEMS: readonly DocItem[] = ["genres", "status", "ai", "ai-prompt"];
 const isDocItem = (item: ArchiveItem): item is DocItem => (DOC_ITEMS as readonly string[]).includes(item);
-/** 설정 DB 가 아니라 저장 위치의 파일, 캐시 DB 인 항목(스냅샷을 뜨지 않는다) */
+/** 설정 DB가 아니라 저장 위치의 파일, 캐시 DB인 항목(스냅샷을 뜨지 않는다) */
 const FILE_ITEMS: readonly ArchiveItem[] = ["favicon", "login-background", ...audioArchive.AUDIO_ITEMS];
 
-/** settings.json 의 형식. 읽을 때는 필드마다 따로 본다(빠진 필드는 그 항목이 파일에 없는 것) */
+/** settings.json의 형식. 읽을 때는 필드마다 따로 본다(빠진 필드는 그 항목이 파일에 없는 것) */
 type ArchiveJson = {
   format: number;
   kind: ArchiveKind;
   exportedAt: string;
   botVersion: string;
-  /** settings 만 */
+  /** settings만 */
   tunables?: Record<string, string>;
   documents?: Partial<Record<DocItem, unknown>>;
-  /** favicon 만(옛 형식 파일은 settings 에도). 함께 담은 파비콘 파일 이름(favicon/ 아래, index.json 과 이미지 png). index.json 이 없으면 파비콘이 없는 파일로 본다 */
+  /** favicon만(옛 형식 파일은 settings에도). 함께 담은 파비콘 파일 이름(favicon/ 아래, index.json과 이미지 png). index.json이 없으면 파비콘이 없는 파일로 본다 */
   favicons?: string[];
 };
 
-/** 읽은 파일. favicons 는 favicon/ 아래 파일들, file 은 올린 파일(로그인 배경은 거기서 스트리밍으로 읽는다) */
+/** 읽은 파일. favicons는 favicon/ 아래 파일들, file은 올린 파일(로그인 배경은 거기서 스트리밍으로 읽는다) */
 type Parsed = { json: Partial<ArchiveJson>; favicons: Array<{ name: string; data: Buffer }>; file: string };
 
 const badArchive = (why: string) => codedError("BAD_ARCHIVE", why);
@@ -83,7 +83,7 @@ const jsonEntry = (json: ArchiveJson) => ({ name: JSON_NAME, data: Buffer.from(`
 const KEEP_NOTHING = () => undefined;
 
 /**
- * 지금 설정 중 그 종류를 ZIP 에 담을 항목으로(경로가 스트리밍으로 쓴다). release 는 다 보냈거나 끊겼을 때 부른다(오디오 캐시가 담을 파일을 지키는 것을 푼다)
+ * 지금 설정 중 그 종류를 ZIP에 담을 항목으로(경로가 스트리밍으로 쓴다). release는 다 보냈거나 끊겼을 때 부른다(오디오 캐시가 담을 파일을 지키는 것을 푼다)
  * @param withFiles  오디오 캐시: 캐시 파일까지(아니면 행 목록만)
  */
 function build(kind: ArchiveKind, { withFiles = true }: { withFiles?: boolean } = {}): { inputs: ZipInput[]; release: () => void } {
@@ -141,8 +141,17 @@ function stable(value: unknown): string {
 const absent = (item: ArchiveItem): ArchiveRow => ({ item, inFile: false, same: false, problems: [], warnings: [], count: null });
 
 const textOf = (values: Record<string, unknown>, key: string) => (typeof values[key] === "string" ? (values[key] as string) : "");
-// 쿠키 출처의 이름(빈 값은 쓰지 않음, file 은 직접 입력, 그 밖은 브라우저 이름)
+// 쿠키 출처의 이름(빈 값은 쓰지 않음, file은 직접 입력, 그 밖은 브라우저 이름)
 const cookiesName = (value: string) => (value === "" ? "쓰지 않음" : value === "file" ? "쿠키 직접 입력" : value);
+
+// 도구의 버전 고정이 바뀌는가. yt-dlp는 저장하자마자 그 버전으로 맞추고, bgutil은 설치된 것을 혼자서 바꾸지 않는다(카드의 설치 버튼)
+function pinWarnings(value: Record<string, unknown>, now: Record<string, string>): string[] {
+  const shown = (pin: string) => pin || "없음";
+  const ytdlp = [textOf(value, "YTDLP_VERSION"), now.YTDLP_VERSION ?? ""];
+  const bgutil = [textOf(value, "BGUTIL_VERSION"), now.BGUTIL_VERSION ?? ""];
+  const bgutilMoved = bgutil[0] !== bgutil[1] || textOf(value, "BGUTIL_COMMIT") !== (now.BGUTIL_COMMIT ?? "");
+  return [...(ytdlp[0] !== ytdlp[1] ? [`yt-dlp 버전 고정이 바뀌어요: ${shown(ytdlp[1])} → ${shown(ytdlp[0])}(불러오면 바로 그 버전으로 맞춰요)`] : []), ...(bgutilMoved ? [`bgutil 버전 고정이 바뀌어요: ${shown(bgutil[1])} → ${shown(bgutil[0])}(업데이트 탭의 bgutil 카드에서 설치해요)`] : [])];
+}
 
 function tunablesRow(json: Partial<ArchiveJson>): ArchiveRow {
   if (!isTable(json.tunables)) return absent("tunables");
@@ -153,10 +162,11 @@ function tunablesRow(json: Partial<ArchiveJson>): ArchiveRow {
   if (website !== (now.WEBSITE ?? "")) warnings.push(website ? `봇 웹사이트 주소가 바뀌어요: ${website}` : "봇 웹사이트 주소가 비워져요.");
   if (cookies !== (now[COOKIES_KEY] ?? "")) warnings.push(`쿠키 출처가 바뀌어요: ${cookiesName(now[COOKIES_KEY] ?? "")} → ${cookiesName(cookies)}`);
   if (textOf(value, POTOKEN_KEY) !== (now[POTOKEN_KEY] ?? "")) warnings.push("POToken 사용이 바뀌어요(다시 시작해야 적용돼요)");
+  warnings.push(...pinWarnings(value, now));
   return { item: "tunables", inFile: true, same: stable(value) === stable(now), problems: tunables.problemsOf(value), warnings, count: null };
 }
 
-/** 문서 하나의 검사. 프롬프트는 AI 를 켠 설정과 함께일 때만 {{list}} 를 따진다 */
+/** 문서 하나의 검사. 프롬프트는 AI를 켠 설정과 함께일 때만 {{list}}를 따진다 */
 function docProblems(item: DocItem, data: unknown, aiDoc: unknown): string[] {
   if (item === "ai-prompt") return Array.isArray(data) ? promptProblems(data, !aiSwitchedOff(aiDoc)) : ["프롬프트가 섹션 목록이 아니에요"];
   if (!isTable(data)) return ["객체 형식이 아니에요"];
@@ -199,7 +209,7 @@ function docRow(item: DocItem, json: Partial<ArchiveJson>, aiDoc: unknown): Arch
   return { item, inFile: true, same: stable(value) === stable(documents.get(item)), problems: docProblems(item, value, aiDoc), warnings: docWarnings(item, value), count: null };
 }
 
-// 파비콘 검사에 걸린 까닭을 한 줄로
+// 파비콘 검사에 걸린 이유를 한 줄로
 const FAVICON_WHY: Record<appearance.FaviconFault, string> = {
   index: "파비콘 목록(index.json)을 읽을 수 없어요",
   missing: "목록에 있는 이미지 파일이 빠져 있어요",
@@ -261,7 +271,7 @@ async function preview(file: string): Promise<Omit<ArchivePreview, "token">> {
 
 /** 항목 이름(검사 문제, 로그) */
 const ITEM_LABELS: Record<ArchiveItem, string> = {
-  tunables: "운영 조절값",
+  tunables: "운영 설정값",
   genres: "자동재생 장르",
   status: "활동 문구",
   ai: "AI 설정",
@@ -275,7 +285,7 @@ const ITEM_LABELS: Record<ArchiveItem, string> = {
   "audio-sponsorblock": "SponsorBlock 구간",
 };
 
-// 선택한 항목이 모두 파일에 있고 검사를 지나는지. 아니면 CONFIG_INVALID(problems: "항목: 까닭"). 지나면 저장할 파비콘, 불러올 로그인 배경(선택하지 않았으면 null)
+// 선택한 항목이 모두 파일에 있고 검사를 지나는지. 아니면 CONFIG_INVALID(problems: "항목: 원인"). 지나면 저장할 파비콘, 불러올 로그인 배경(선택하지 않았으면 null)
 async function checkChosen(parsed: Parsed, items: ArchiveItem[]): Promise<{ favicons: appearance.Prepared | null; background: loginBackground.Plan | null }> {
   const aiDoc = aiDocFor(parsed.json, items.includes("ai"));
   const background = items.includes("login-background") ? await loginBackground.check(parsed.file) : null;
@@ -289,7 +299,7 @@ async function checkChosen(parsed: Parsed, items: ArchiveItem[]): Promise<{ favi
   return { favicons: checked?.ok ? checked.prepared : null, background: background?.plan ?? null };
 }
 
-// DB 에 쓴다(한 트랜잭션)
+// DB에 쓴다(한 트랜잭션)
 function writeChosen(json: Partial<ArchiveJson>, items: ArchiveItem[]) {
   const docs = isTable(json.documents) ? json.documents : {};
   const docItems = items.filter(isDocItem);
@@ -300,11 +310,6 @@ function writeChosen(json: Partial<ArchiveJson>, items: ArchiveItem[]) {
   return docItems;
 }
 
-/**
- * 선택한 항목을 덮어쓴다. 파일에 없거나 검사에 걸린 항목이 있으면 CONFIG_INVALID(problems: "항목: 까닭")로 아무것도 바꾸지 않는다.
- * before: DB 를 쓰기 바로 앞에 부른다(스냅샷).
- * restart: 다시 시작해야 적용되는 값이 기동 시 값과 다르다, cookiesSource: 쿠키 출처가 바뀌었으면 새 값(꺼졌거나 그대로면 null)
- */
 // 쓰기 직전: 설정 DB 항목을 불러올 때만 스냅샷을 뜨고(파비콘, 로그인 배경만이면 뜨지 않는다), 그다음 확인한다
 async function beforeWrite(items: ArchiveItem[], before?: () => Promise<unknown>, go?: () => void) {
   if (items.some((item) => !FILE_ITEMS.includes(item))) await before?.();
@@ -312,7 +317,9 @@ async function beforeWrite(items: ArchiveItem[], before?: () => Promise<unknown>
 }
 
 /**
- * 선택한 항목을 불러온다. before: 쓰기 직전(설정 DB 항목일 때만, 스냅샷). go: 쓰기 바로 앞의 확인(대시보드: 세션이 살아 있나. 예외를 던지면 풀어 둔 로그인 배경을 버리고 아무것도 쓰지 않는다).
+ * 선택한 항목을 불러온다. 파일에 없거나 검사에 걸린 항목이 있으면 CONFIG_INVALID(problems: "항목: 원인")로 아무것도 바꾸지 않는다.
+ * before: 쓰기 직전(설정 DB 항목일 때만, 스냅샷). go: 쓰기 바로 앞의 확인(대시보드: 세션이 살아 있나. 예외를 던지면 풀어 둔 로그인 배경을 버리고 아무것도 쓰지 않는다).
+ * 결과의 restart: 다시 시작해야 적용되는 값이 기동 시 값과 다르다, cookiesSource: 쿠키 출처가 바뀌었으면 새 값(꺼졌거나 그대로면 null).
  * 쓴 뒤의 오디오 캐시 합치기는 끝까지 한다
  */
 async function apply(file: string, items: ArchiveItem[], { before, go }: { before?: () => Promise<unknown>; go?: () => void } = {}): Promise<ArchiveImported> {
@@ -323,7 +330,7 @@ async function apply(file: string, items: ArchiveItem[], { before, go }: { befor
   const cookiesBefore = tunables.view().values[COOKIES_KEY] ?? "";
   let docItems: DocItem[];
   try {
-    // 스냅샷은 설정 DB 의 것이라 DB 항목을 불러올 때만(파비콘, 로그인 배경만이면 뜨지 않는다. 불러오기 전 스냅샷은 몇 개만 남는다)
+    // 스냅샷은 설정 DB의 것이라 DB 항목을 불러올 때만(파비콘, 로그인 배경만이면 뜨지 않는다. 불러오기 전 스냅샷은 몇 개만 남는다)
     await beforeWrite(items, before, go);
     docItems = writeChosen(parsed.json, items);
   } catch (error) {
@@ -331,7 +338,7 @@ async function apply(file: string, items: ArchiveItem[], { before, go }: { befor
     throw error;
   }
 
-  // 메모리를 DB 에 맞춘다(설정 문서, 운영 조절값)
+  // 메모리를 DB에 맞춘다(설정 문서, 운영 설정값)
   if (docItems.length) documents.reload();
   if (items.includes("ai")) fetchIfMissing();
   if (items.includes("tunables")) tunables.reload();
@@ -353,7 +360,7 @@ const STAGED_AUDIO = "audio-cache.restore.zip";
 
 /**
  * 기동 시(설정을 올린 뒤, 봇을 켜기 전). 명령 전체 백업의 오디오 캐시 번들이 있으면 대시보드 불러오기와 같은 합치기로 파일에 있는 항목을 모두 불러오고 삭제한다.
- * 번들이 없으면 null. 읽을 수 없는 번들(ZIP 이 깨졌거나 오디오 캐시가 아님)은 삭제하고 던진다(매번 다시 하지 않게). 그 밖의 실패는 번들을 남기고 던진다(다음 기동이 다시 한다)
+ * 번들이 없으면 null. 읽을 수 없는 번들(ZIP이 깨졌거나 오디오 캐시가 아님)은 삭제하고 예외를 던진다(매번 다시 하지 않게). 그 밖의 실패는 번들을 남기고 예외를 던진다(다음 기동이 다시 한다)
  */
 async function applyStagedAudio(dir: string): Promise<ArchiveImported | null> {
   const file = path.join(dir, STAGED_AUDIO);

@@ -9,7 +9,7 @@ const serverList = "서버 목록";
 const serverSettingsSuffix = "- 서버 설정";
 const adminPanel = "운영자 패널";
 const openMenu = "메뉴 열기";
-/** 권한 수준 오버라이드 중임을 알리는 줄. tier 는 선택한 계층의 이름 */
+/** 권한 수준 오버라이드 중임을 알리는 줄. tier는 선택한 계층의 이름 */
 const viewingAs = "권한으로 보는 중";
 const clearViewAs = "해제";
 
@@ -41,6 +41,11 @@ const inboxUnread = (count: number) => `알림 ${count}개 안 읽음`;
 const inboxClear = "지우기";
 const inboxRemoveOne = "이 알림 지우기";
 const inboxEmpty = "알림 없음";
+/** 알림 카드의 때 */
+const ago = { now: "지금", minutes: (n: number) => `${n}분`, hours: (n: number) => `${n}시간` };
+/** 알림 카드의 복사 버튼(제목, 본문, 세부, 코드 줄) */
+const noticeCopy = "알림 내용 복사";
+const noticeCopied = "복사했어요";
 
 // 세션이 끝났거나 연결이 끊겼을 때
 const loginAgain = "다시 로그인";
@@ -63,6 +68,9 @@ const clockLabel = (hh: string, mm: string) => `${hh}시 ${mm}분`;
 const year = (n: number) => `${n}년`;
 const month = (n: number) => `${n}월`;
 const day = (n: number) => `${n}일`;
+
+/** 열려 있는 동안 봇이 다시 켜졌는데 저장하지 않은 편집이 있어 새로고침하지 않았다 */
+const botRestarted = { title: "봇이 다시 시작됐어요", body: "저장하지 않은 변경 사항이 있어 화면을 새로고침하지 않았어요. 먼저 저장한 뒤 새로고침하면 최신 상태를 볼 수 있어요.", action: "새로고침" };
 
 export {
   notFoundTitle,
@@ -95,6 +103,9 @@ export {
   inboxClear,
   inboxRemoveOne,
   inboxEmpty,
+  ago,
+  noticeCopy,
+  noticeCopied,
   loginAgain,
   retry,
   reconnecting,
@@ -111,4 +122,5 @@ export {
   year,
   month,
   day,
+  botRestarted,
 };

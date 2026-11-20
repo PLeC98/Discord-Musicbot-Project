@@ -1,5 +1,5 @@
 // 대시보드에서 한 조작의 결과를 패널이 있는 채널에 디스코드 조작과 같은 화면으로 보낸다. 푸터는 "요청한 사람 @사람 (대시보드)".
-// 알리지 못해도 조작의 HTTP 응답은 그대로다(남기기만 한다)
+// 알리지 못해도 조작의 HTTP 응답은 그대로다(남기기만 한다). 다시 시작 공지(restartNotices)는 종료 절차가 기다린다
 
 import type { ContainerBuilder } from "discord.js";
 import type { Request } from "express";
@@ -8,7 +8,13 @@ const log = logger.child({ category: "dashboard" });
 import { bestEffort } from "../infra/best-effort.ts";
 import { canSend } from "../ui/channels.ts";
 import { LIFETIME } from "../ui/delivery.ts";
+import { EmbedBuilder } from "discord.js";
 import { post } from "../ui/frame.ts";
+import { icon } from "../ui/icons.ts";
+import { ANNOUNCE_STYLE, type AnnounceKind } from "./contract/admin.ts";
+import { playState } from "../ui/player-status.ts";
+import * as announceText from "../ui/text/ko/announce.ts";
+import { messageOf } from "../rules/error-kind.ts";
 import { scheduleDelete } from "../ui/transient-messages.ts";
 import * as controlText from "../ui/text/ko/controls.ts";
 import type { Player } from "../player/player.ts";
@@ -56,4 +62,37 @@ function dashboardResponder(bot: Pick<BotContext, "players" | "panels">, guildId
   };
 }
 
-export { dashboardActor, announcer, dashboardResponder };
+/** 봇 운영자의 공지 임베드(서버 관리의 공지 보내기와 다시 시작 공지가 같이 쓴다): 종류의 아이콘, 색, 제목(주지 않으면 종류의 제목), 본문, 보낸 때, 바닥글(보낸 사람) */
+function announceEmbed(kind: AnnounceKind, body: string, title: string = announceText.titles[kind]) {
+  const style = ANNOUNCE_STYLE[kind];
+  return new EmbedBuilder()
+    .setTitle(`${icon(style.icon)} ${title}`)
+    .setDescription(body)
+    .setColor(style.color)
+    .setTimestamp()
+    .setFooter({ text: announceText.footer });
+}
+
+/**
+ * 다시 시작 공지: 재생 중인 서버(봇 상태 탭의 "재생 중"과 같은 판정)마다 패널 채널에 점검 공지 모양의 안내를 보내기 시작하고 그 끝을 돌려준다.
+ * 보냈으면 true, 보낼 채널이 없거나 실패하면 false(거절하지 않는다). 지우지 않는다(지우는 타이머는 프로세스와 함께 사라진다)
+ */
+function restartNotices(bot: Pick<BotContext, "players" | "panels">): Promise<boolean>[] {
+  return [...bot.players.values()]
+    .filter((player) => playState(player) === "playing")
+    .map(async (player) => {
+      try {
+        const channel = await bot.panels.panelChannel(player);
+        if (!canSend(channel)) return false;
+        // 문구는 서버마다 꺼낸다(서버마다 언어를 고르게 되면 그 서버의 문구표에서)
+        const { title, body } = announceText.restarting();
+        await channel.send({ embeds: [announceEmbed("maintenance", body, title)] });
+        return true;
+      } catch (error) {
+        log.warn(`다시 시작 공지 전송 실패(${player.guild.name}): ${messageOf(error)}`);
+        return false;
+      }
+    });
+}
+
+export { dashboardActor, announcer, dashboardResponder, announceEmbed, restartNotices };

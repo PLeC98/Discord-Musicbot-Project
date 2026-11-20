@@ -14,6 +14,7 @@ import { snapshotsRouter } from "./snapshots.ts";
 import { trackCacheRouter } from "./track-cache.ts";
 import { tunablesRouter } from "./tunables.ts";
 import { uploadsRouter } from "./uploads.ts";
+import { vendorRouter } from "./vendor.ts";
 
 /** [붙이는 주소, 라우터]. 앞의 것이 먼저 붙는다 */
 const ADMIN_MOUNTS: ReadonlyArray<readonly [string, Router]> = [
@@ -28,6 +29,7 @@ const ADMIN_MOUNTS: ReadonlyArray<readonly [string, Router]> = [
   ["/api/admin/ai", aiLogRouter],
   ["/api/admin/logs", logFilesRouter],
   ["/api/admin/uploads", uploadsRouter],
+  ["/api/admin/vendor", vendorRouter],
   ["/api/admin", adminRouter],
 ];
 

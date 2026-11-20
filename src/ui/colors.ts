@@ -6,7 +6,7 @@ import { FIXED_COLORS } from "./palette.ts";
 
 type Meaning = keyof typeof FIXED_COLORS | "brand";
 
-/** 그 뜻의 색. brand 는 운영자가 정한 색(부를 때 읽는다) */
+/** 그 뜻의 색. brand는 운영자가 정한 색(부를 때 읽는다) */
 function colorOf(meaning: Meaning): `#${string}` {
   return meaning === "brand" ? config.bot.embedColor : FIXED_COLORS[meaning];
 }

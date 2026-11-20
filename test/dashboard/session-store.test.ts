@@ -1,5 +1,5 @@
 // src/dashboard/session-store.ts: SQLite 세션 스토어
-// 다시 시작해도 세션이 남는다(MemoryStore 는 잃는다). 임시 DB 를 쓰고 운영 sessions.db 는 건드리지 않는다.
+// 다시 시작해도 세션이 남는다(MemoryStore는 잃는다). 임시 DB를 쓰고 운영 sessions.db는 건드리지 않는다.
 
 import fs from "node:fs";
 import os from "node:os";
@@ -52,7 +52,7 @@ test("set/get 라운드트립: 세션 객체 보존", async () => {
   assert.equal(await getAsync(store, "sid-없음"), null);
 });
 
-test("읽을 수 없는 세션 행은 없는 세션으로 보고 삭제한다(오류로 넘기면 그 쿠키의 요청이 모두 500 이 된다)", async () => {
+test("읽을 수 없는 세션 행은 없는 세션으로 보고 삭제한다(오류로 넘기면 그 쿠키의 요청이 모두 500이 된다)", async () => {
   const store = makeStore("broken.db");
   store.set("sid1", makeSession({ id: "u1" }));
   store.db.prepare("UPDATE sessions SET data = ? WHERE sid = ?").run("{깨짐", "sid1");
@@ -120,7 +120,7 @@ test("디스코드 토큰: 세션 행에 암호문으로 두고, 세션을 다�
 
     store.set("sid1", makeSession({ id: "u1", more: 1 }));
     assert.equal(store.readDiscordToken("sid1"), "tok-abc", "세션 저장은 토큰 열을 건드리지 않는다");
-    assert.equal(JSON.stringify(await getAsync(store, "sid1")).includes("tok-abc"), false, "세션 JSON 에는 없다");
+    assert.equal(JSON.stringify(await getAsync(store, "sid1")).includes("tok-abc"), false, "세션 JSON에는 없다");
 
     store.destroy("sid1");
     assert.equal(store.readDiscordToken("sid1"), null);
@@ -129,7 +129,7 @@ test("디스코드 토큰: 세션 행에 암호문으로 두고, 세션을 다�
   }
 });
 
-test("디스코드 토큰: 다른 세션 행으로 옮기거나 SECRETS_KEY 를 바꾸면 풀리지 않는다. DB 파일에 평문이 없다", () => {
+test("디스코드 토큰: 다른 세션 행으로 옮기거나 SECRETS_KEY를 바꾸면 풀리지 않는다. DB 파일에 평문이 없다", () => {
   secrets._useKey(newSecretsKey());
   try {
     const store = makeStore("token-move.db");
@@ -137,7 +137,7 @@ test("디스코드 토큰: 다른 세션 행으로 옮기거나 SECRETS_KEY 를 
     store.set("sid2", makeSession({ id: "u2" }));
     store.saveDiscordToken("sid1", "tok-secret-value");
     store.db.prepare("UPDATE sessions SET discord_token = (SELECT discord_token FROM sessions WHERE sid = 'sid1') WHERE sid = 'sid2'").run();
-    assert.equal(store.readDiscordToken("sid2"), null, "세션 ID 에 묶여 있다");
+    assert.equal(store.readDiscordToken("sid2"), null, "세션 ID에 묶여 있다");
 
     store.db.pragma("wal_checkpoint(TRUNCATE)");
     assert.equal(fs.readFileSync(path.join(tmpDir, "token-move.db")).includes("tok-secret-value"), false);

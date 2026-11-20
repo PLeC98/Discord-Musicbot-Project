@@ -73,14 +73,14 @@ test("모두 불러오기: 불러오는 중인 블록까지 기다려 시작한 
   const { asked, fetchOf } = deferred();
   const loaded = new Set<number>([1]);
   const loadOne = (block: number) => gens.load(block, fetchOf(block), () => void loaded.add(block));
-  // 보이는 구간이 블록 0 을 이미 불러오는 중이다
+  // 보이는 구간이 블록 0을 이미 불러오는 중이다
   const visible = loadOne(0);
   const all = gens.loadAll(3, (block) => loaded.has(block), loadOne);
   await tick();
   assert.deepEqual(
     asked.map((one) => one.block),
     [0],
-    "진행 중인 블록 0 을 함께 기다리고, 이미 불러온 블록 1 은 건너뛴다",
+    "진행 중인 블록 0을 함께 기다리고, 이미 불러온 블록 1은 건너뛴다",
   );
   asked[0].answer({ revision: 1, block: 0 });
   await tick();

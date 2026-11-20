@@ -1,7 +1,7 @@
 <template>
   <!-- 이미지에서 쓸 영역을 선택하는 편집 면(편집 창 안에 둔다). 틀은 aspect(가로 ÷ 세로)를 지킨다.
-       turn 이면 90도 회전, 좌우 반전 버튼도 둔다. 영역은 원본을 돌리고 그다음 뒤집은 이미지의 px 로 다룬다(봇이 원본에 같은 차례로 적용한다).
-       이미지는 원본 그대로 두고 CSS 로 돌려 보인다(움직이는 GIF, WebP 가 움직인다) -->
+       turn이면 90도 회전, 좌우 반전 버튼도 둔다. 영역은 원본을 돌리고 그다음 뒤집은 이미지의 px로 다룬다(봇이 원본에 같은 차례로 적용한다).
+       이미지는 원본 그대로 두고 CSS로 돌려 보인다(움직이는 GIF, WebP가 움직인다) -->
   <div class="flex flex-col gap-3">
     <!-- 보는 창: 편집 창 폭 전체, 처음 맞춘 높이. 이미지가 창보다 작으면 가운데, 확대해서 넘치면 그 안에서 스크롤한다.
                둘레에 틈을 두어 이미지 가장자리에 붙은 핸들도 잘리지 않게 한다 -->
@@ -41,7 +41,7 @@ import { imageStyle as turnedImageStyle, mirror as mirrored, turnedSize, turnRig
 import { text } from "../text/index.ts";
 const T = text.appearance.crop;
 
-/** file: 자를 이미지. aspect: 가로 ÷ 세로(1 이면 정사각형). turn: 회전, 반전 버튼을 둔다. maxHeight: 보는 창에 이미지가 차지할 높이의 상한(px, 없으면 화면 높이의 60%) */
+/** file: 자를 이미지. aspect: 가로 ÷ 세로(1이면 정사각형). turn: 회전, 반전 버튼을 둔다. maxHeight: 보는 창에 이미지가 차지할 높이의 상한(px, 없으면 화면 높이의 60%) */
 const props = withDefaults(defineProps<{ file: File | null; aspect: number; turn?: boolean; maxHeight?: number }>(), { turn: false, maxHeight: undefined });
 
 type Corner = "nw" | "ne" | "sw" | "se";
@@ -81,13 +81,13 @@ const fitScale = computed(() => {
 const viewHeight = computed(() => (props.turn ? Math.max(natural.width, natural.height) : size.value.height) * fitScale.value);
 
 const viewportEl = ref<HTMLElement | null>(null);
-/** 화면 확대: 0 ~ 100 을 1 배 ~ MAX_ZOOM 배로, 지수로 */
+/** 화면 확대: 0 ~ 100을 1 배 ~ MAX_ZOOM 배로, 지수로 */
 const zoomStep = ref(0);
 const zoom = computed(() => Math.pow(MAX_ZOOM, zoomStep.value / 100));
 const scale = computed(() => fitScale.value * zoom.value);
 const box = computed(() => ({ left: `${sel.x * scale.value}px`, top: `${sel.y * scale.value}px`, width: `${sel.w * scale.value}px`, height: `${sel.h * scale.value}px` }));
 
-/** 돌린 이미지 크기 × k 인 상자 안에 원본 이미지를 돌려 놓는 스타일 */
+/** 돌린 이미지 크기 × k인 상자 안에 원본 이미지를 돌려 놓는 스타일 */
 const imageStyle = (k: number) => turnedImageStyle(natural, k, turning.value);
 
 /** 비율을 지키며 가장 크게, 가운데 */
@@ -218,8 +218,8 @@ function moveTo(e: PointerEvent) {
 }
 
 /**
- * 부르는 쪽(편집 창)이 쓰는 것. sel, size: 돌리고 뒤집은 이미지의 px. image: 읽은 원본(읽기 전 null). viewportHeight: 보는 창의 높이(px, 틈 포함).
- * imageStyle 로 같은 돌림을 미리보기에도 쓴다
+ * 부모 컴포넌트(편집 창)가 쓰는 것. sel, size: 돌리고 뒤집은 이미지의 px. image: 읽은 원본(읽기 전 null). viewportHeight: 보는 창의 높이(px, 틈 포함).
+ * imageStyle로 같은 돌림을 미리보기에도 쓴다
  */
 defineExpose({ url, natural, size, sel, rotate, flip, ready, image: () => image, imageStyle, reset, viewportHeight: computed(() => viewHeight.value + EDGE * 2) });
 </script>

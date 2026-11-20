@@ -1,5 +1,5 @@
 <template>
-  <!-- 라이선스(M3 대화상자, 설정 대화상자와 같은 모양): 이 봇(AGPL, 소스 코드 링크), 포크해 온 원본(MIT), 화면이 내보내는 글꼴, 이미지, 라이브러리, 봇이 함께 배포하는 데이터(data/).
+  <!-- 라이선스(M3 대화상자, 설정 대화상자와 같은 모양): 이 봇(AGPL, 소스 코드 링크), 화면이 내보내는 글꼴, 이미지, 라이브러리, 봇이 함께 배포하는 데이터(data/).
        이 봇의 소스는 로그인 화면과 같은 기준: 운영자가 고친 소스(SOURCE_REPO_URL)가 원본 프로젝트와 다르면 둘 다, 같으면 하나. 주소를 못 불러오면 링크 없이 알린다.
        행을 누르면 그 저장소, 웹사이트를 새 창으로 연다 -->
   <BaseDialog :open="open" width="md" scroll aria-labelledby="license-title" @close="close">
@@ -15,7 +15,7 @@
         <a :href="sourceRepo" target="_blank" rel="noopener" :class="row">
           <span class="flex-1 min-w-0">
             <span class="block text-body font-medium truncate">{{ botName || T.thisBot }}</span>
-            <span class="block text-label text-on-surface-variant">GNU AGPL-3.0-or-later · {{ modified ? T.runningSourceModified : T.runningSource }}</span>
+            <span class="block text-label text-on-surface-variant">GNU AGPL-3.0-or-later · {{ T.runningSource }}</span>
           </span>
           <Icon name="open_in_new" :size="20" class="shrink-0 text-on-surface-variant" />
         </a>
@@ -33,13 +33,6 @@
           <span class="block text-label text-on-surface-variant">GNU AGPL-3.0-or-later · {{ T.sourceUnknown }}</span>
         </span>
       </div>
-      <a :href="UPSTREAM.url" target="_blank" rel="noopener" :class="row">
-        <span class="flex-1 min-w-0">
-          <span class="block text-body font-medium truncate">{{ UPSTREAM.name }}</span>
-          <span class="block text-label text-on-surface-variant">{{ UPSTREAM.license }} · {{ T.upstreamPart }}</span>
-        </span>
-        <Icon name="open_in_new" :size="20" class="shrink-0 text-on-surface-variant" />
-      </a>
     </div>
 
     <template v-for="group in GROUPS" :key="group.title">
@@ -65,7 +58,7 @@ import { computed, ref, watch } from "vue";
 import axios from "axios";
 import BaseDialog from "./BaseDialog.vue";
 import Icon from "./BaseIcon.vue";
-import { DATA_FILES, FONTS_AND_ART, LIBRARIES, UPSTREAM, isModifiedSource } from "../utils/licenses.ts";
+import { DATA_FILES, FONTS_AND_ART, LIBRARIES, isModifiedSource } from "../utils/licenses.ts";
 import type { BotInfo } from "../../../src/dashboard/contract/identity.ts";
 import { text } from "../text/index.ts";
 const T = text.licenses;
@@ -79,7 +72,7 @@ const GROUPS = [
   { title: T.groupData, items: DATA_FILES },
 ];
 
-// 봇 이름, 소스 저장소(AGPL 의 소스 제공. 서버의 SOURCE_REPO_URL, 없으면 원본 프로젝트)는 열 때 읽는다
+// 봇 이름, 소스 저장소(AGPL의 소스 제공. 서버의 SOURCE_REPO_URL, 없으면 원본 프로젝트)는 열 때 읽는다
 const botName = ref("");
 const sourceRepo = ref("");
 const projectRepo = ref("");

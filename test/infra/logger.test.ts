@@ -1,4 +1,4 @@
-// src/infra/log/logger.ts, sink.ts: logger facade + LogSink sink 단위 테스트 (네트워크/DB 없음).
+// src/infra/log/logger.ts, sink.ts: logger facade와 LogSink sink(네트워크, DB 없이).
 // facade는 sink 없이 buildRecord/게이팅/child를, sink는 격리 인스턴스(intercept:false)로 검증.
 
 import { test, mock } from "node:test";
@@ -99,11 +99,11 @@ test("레드액션: msg 내 Bearer 토큰 마스킹", () => {
   assert.doesNotMatch(String(got[0].msg), /abcDEF123456/);
 });
 
-test("레드액션: msg 에 JSON 으로 실린 토큰, 암호 키(음성 연결의 진행 줄 모양 그대로)", () => {
+test("레드액션: msg에 JSON으로 실린 토큰, 암호 키(음성 연결의 진행 줄 모양 그대로)", () => {
   const lm = new LogSink({ intercept: false, terminal: quiet });
   const got: LogRecord[] = [];
   lm.destinations.push((r) => got.push(r));
-  // op 0 참가: 토큰 글. op 4 세션 설명: 암호 키 배열. 상태 바뀜: 연결 정보의 토큰과 Uint8Array 로 든 키(객체로 직렬화된다)
+  // op 0 참가: 토큰 글. op 4 세션 설명: 암호 키 배열. 상태 바뀜: 연결 정보의 토큰과 Uint8Array로 든 키(객체로 직렬화된다)
   const identify = `[WS] >> ${JSON.stringify({ op: 0, d: { server_id: "1", session_id: "abc", token: "voice-token-1234" } })}`;
   const description = `[WS] << ${JSON.stringify({ op: 4, d: { mode: "aead_aes256_gcm_rtpsize", secret_key: [11, 22, 33] } })}`;
   const state = `state change:\nfrom ${JSON.stringify({ code: 4, connectionOptions: { token: "voice-token-1234" }, connectionData: { secretKey: new Uint8Array([11, 22, 33]) } })}`;
@@ -116,7 +116,7 @@ test("레드액션: msg 에 JSON 으로 실린 토큰, 암호 키(음성 연결�
   assert.equal(plain, '[WS] << {"op":2,"d":{"ssrc":1}}', "비밀이 없는 줄은 그대로");
 });
 
-test("레드액션: 메시지 패턴은 msg 밖의 글 값에도 건다(Error 의 stack 은 err 에도 실린다)", () => {
+test("레드액션: 메시지 패턴은 msg 밖의 글 값에도 건다(Error의 stack은 err에도 실린다)", () => {
   const lm = new LogSink({ intercept: false, terminal: quiet });
   const got: LogRecord[] = [];
   lm.destinations.push((r) => got.push(r));
@@ -137,7 +137,7 @@ test("레드액션: 메시지 패턴은 msg 밖의 글 값에도 건다(Error �
 const HEAD = 12 * 1024;
 const TAIL = 4 * 1024;
 
-test("긴 글 값: 앞 12K자와 뒤 4K자를 남기고 가운데를 줄여 터미널, 줄 버퍼, 경고, SSE, destination 이 같은 값을 받는다", () => {
+test("긴 글 값: 앞 12K자와 뒤 4K자를 남기고 가운데를 줄여 터미널, 줄 버퍼, 경고, SSE, destination이 같은 값을 받는다", () => {
   const terminal: LogRecord[] = [];
   const lm = new LogSink({ intercept: false, terminal: (r) => terminal.push(r) });
   const res = fakeRes();
@@ -174,7 +174,7 @@ test("긴 글 값: 가린 뒤에 자른다(잘린 자리에 걸린 토큰이 남
   const lm = new LogSink({ intercept: false, terminal: quiet });
   const got: LogRecord[] = [];
   lm.destinations.push((r) => got.push(r));
-  // 토큰이 앞 12K자의 끝에 걸친다: 자른 뒤에 가리면 "Bearer SEC" 는 패턴(6자 이상)에 맞지 않아 남는다
+  // 토큰이 앞 12K자의 끝에 걸친다: 자른 뒤에 가리면 "Bearer SEC"는 패턴(6자 이상)에 맞지 않아 남는다
   const straddle = "가".repeat(HEAD - 10) + "Bearer SECRETTOKENVALUE123 " + "가".repeat(20_000);
   // 앞의 끝과 뒤의 시작이 이모지의 가운데
   const emoji = "가".repeat(HEAD - 1) + "😀" + "나".repeat(5_000) + "😀" + "다".repeat(TAIL - 1);
@@ -194,7 +194,7 @@ test("와이어 투영: {id,ts,level,text} + ANSI 스트립", () => {
   assert.deepEqual(entry, { id: 1, ts: 123, level: "warn", text: "노랑" });
 });
 
-// 브리지에 걸리는 console.log은 전부 서드파티라 info로 올리면 우리 로그가 묻힌다.
+// 브리지에 걸리는 console.log는 전부 서드파티라 info로 올리면 우리 로그가 묻힌다.
 test("브리지: console.log은 debug로 기록되고 와이어에도 debug로 나간다", () => {
   assert.equal(sink._internals.CONSOLE_LEVEL.log, 20);
   const lm = new LogSink({ intercept: false, terminal: quiet });
@@ -292,7 +292,7 @@ test("관리자 SSE: 연결 상한은 사용자마다 센다(설정 이름대로
 
   const over = fakeRes();
   assert.equal(lm.addClient(over, "owner"), false);
-  assert.equal(over.statusCode, null, "답은 부른 경로가 문제 응답(too-many-streams)으로 쓴다");
+  assert.equal(over.statusCode, null, "부른 경로가 문제 응답(too-many-streams)을 쓴다");
   assert.equal(lm.clients.size, maxPerUser, "상한을 넘는 연결은 등록하지 않는다");
 
   const other = fakeRes();
@@ -303,7 +303,7 @@ test("관리자 SSE: 연결 상한은 사용자마다 센다(설정 이름대로
 test("관리자 SSE: 쓰기가 잠깐 밀린 것으로는 끊지 않고, 밀린 양이 상한을 넘는(읽지 않는) 소비자만 끊는다", () => {
   const lm = new LogSink({ intercept: false, terminal: quiet });
 
-  // 붙을 때 쌓인 줄을 한꺼번에 보내면 write 가 false 를 돌려준다. 그것만으로 끊으면 붙는 순간 로그가 나면 끊긴다
+  // 붙을 때 쌓인 줄을 한꺼번에 보내면 write가 false를 돌려준다. 그것만으로 끊으면 붙는 순간 로그가 나면 끊긴다
   const busy = fakeRes({ writeResult: false, writableLength: 100_000 });
   lm.addClient(busy, "owner");
   lm.record({ level: 30, time: 1, msg: "한 줄" });
@@ -367,7 +367,7 @@ test("관리자 SSE: 이어 받을 줄이 쌓아 둔 줄 밖으로 밀려났으�
 
   const resumed = fakeRes();
   lm.addClient(resumed, "owner", `${lm.boot}.4`);
-  assert.deepEqual(gapOf(resumed), [{ missed: 3 }], "5 · 6 · 7 번이 밀려났다");
+  assert.deepEqual(gapOf(resumed), [{ missed: 3 }], "5, 6, 7번이 밀려났다");
   assert.ok(resumed.writes.findIndex((w) => w.startsWith("event: gap")) < resumed.writes.findIndex((w) => w.startsWith("id:")), "줄보다 먼저");
   assert.deepEqual(ids(resumed), [8, 9, 10]);
 
@@ -408,7 +408,7 @@ test("SSE 브로드캐스트: 등록된 클라이언트에 data 프레임 전송
   assert.deepEqual(parsed, { id: 1, ts: 7, level: "error", text: "err" });
 });
 
-test("지난 1시간 경고, 오류는 줄 버퍼와 따로 둔다(fatal 은 오류)", () => {
+test("지난 1시간 경고, 오류는 줄 버퍼와 따로 둔다(fatal은 오류)", () => {
   const m = new LogSink({ intercept: false, maxLines: 2, terminal: () => {} });
   const at = Date.now();
   m.record({ level: 40, time: at - 2 * 60 * 60_000, msg: "두 시간 전" });
@@ -425,7 +425,7 @@ test("지난 1시간 경고, 오류는 줄 버퍼와 따로 둔다(fatal 은 오
   );
 });
 
-// 하트비트는 연결 모두에 타이머 하나. 간격을 바꿔 저장하면 조립이 syncHeartbeat 를 불러 다시 건다
+// 하트비트는 연결 모두에 타이머 하나. 간격을 바꿔 저장하면 조립이 syncHeartbeat를 불러 다시 건다
 test("관리자 SSE: 하트비트는 바뀐 간격으로 다시 건다", () => {
   mock.timers.enable({ apis: ["setInterval"] });
   const sse = config.dashboard.sse;
@@ -450,8 +450,8 @@ test("관리자 SSE: 하트비트는 바뀐 간격으로 다시 건다", () => {
   }
 });
 
-// ── sink: destination 이 던지면 로거가 아니라 notice 로 알린다(로거로 알리면 record 로 되돌아온다) ─────
-test("destination 이 던지면 처음 한 번과 풀릴 때 notice 로 한 줄씩, 다른 destination 은 계속 받는다", () => {
+// ── sink: destination이 예외를 던지면 로거가 아니라 notice로 알린다(로거로 알리면 record로 되돌아온다) ─────
+test("destination이 예외를 던지면 처음 한 번과 풀릴 때 notice로 한 줄씩, 다른 destination은 계속 받는다", () => {
   const notes: string[] = [];
   const m = new LogSink({ intercept: false, terminal: quiet, notice: (line: string) => notes.push(line) });
   const got: LogRecord[] = [];
@@ -469,7 +469,7 @@ test("destination 이 던지면 처음 한 번과 풀릴 때 notice 로 한 줄�
   assert.deepEqual(notes, ["[log] 로그 출력 대상 기록 실패: 디스크 가득 참 (해당 로그 유실)\n", "[log] 로그 출력 대상 기록 복구(실패 2회)\n"]);
 });
 
-test("기동 초기 레코드를 재생하다 던지면 끝난 뒤 실패 수와 첫 오류를 notice 로 한 줄", () => {
+test("기동 초기 레코드를 재생하다 예외를 던지면 끝난 뒤 실패 수와 첫 오류를 notice로 한 줄", () => {
   const notes: string[] = [];
   const m = new LogSink({ intercept: false, terminal: quiet, notice: (line: string) => notes.push(line) });
   for (const msg of ["a", "b", "c"]) m.record({ level: LEVELS.info, time: Date.now(), msg });

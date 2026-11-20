@@ -1,4 +1,4 @@
-// src/config/env-file.ts(설치, 진입 파일이 부른다): .env 가 없으면 예시를 복사하고 무작위 비밀을 채운다. 있으면 손대지 않는다. 진입 파일은 그 뒤 읽는다
+// src/config/env-file.ts(설치, 진입 파일이 부른다): .env가 없으면 예시를 복사하고 무작위 비밀을 채운다. 있으면 손대지 않는다. 진입 파일은 그 뒤 읽는다
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -48,8 +48,8 @@ test("값을 넣어도 줄의 주석은 남는다. 값이 이미 있는 줄, 다
   assert.equal(fillLine(text, "SESSION_SECRET", "new"), text);
 });
 
-// 진입 파일이 부트스트랩을 맨 먼저 부르는지는 test/architecture 가 본다
-test("읽기: 파일의 값을 process.env 에 올리되 이미 있는 값(셸)은 덮지 않는다. 없으면 false", () => {
+// 진입 파일이 부트스트랩을 맨 먼저 부르는지는 test/architecture가 본다
+test("읽기: 파일의 값을 process.env에 올리되 이미 있는 값(셸)은 덮지 않는다. 없으면 false", () => {
   const target = path.join(dir, "load.env");
   fs.writeFileSync(target, "B96_FROM_FILE=file\nB96_FROM_SHELL=file\n");
   process.env.B96_FROM_SHELL = "shell";

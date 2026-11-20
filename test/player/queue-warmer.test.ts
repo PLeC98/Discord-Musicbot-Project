@@ -16,7 +16,7 @@ import type { QueuedTrack } from "../../src/player/track.ts";
 import type { Loop } from "../../src/rules/loop-cycle.ts";
 import { codedError } from "../../src/rules/error-kind.ts";
 
-// 캐시 키는 음원 주소 필드에 둔다. 주입한 keyOf 가 그대로 돌려준다. 키가 아직 없는 곡(스포티파이)은 음원 주소가 없다
+// 캐시 키는 음원 주소 필드에 둔다. 주입한 keyOf가 그대로 돌려준다. 키가 아직 없는 곡(스포티파이)은 음원 주소가 없다
 const track = (id: string, extra: Partial<QueuedTrack> = {}): QueuedTrack => ({ title: id, requestKey: `https://y/${id}`, pageUrl: "", platform: "youtube", duration: 0, audioUrl: `yt:${id}`, ...extra });
 
 type Options = {
@@ -151,7 +151,7 @@ test("캐시 상한보다 긴 곡은 대상이 아니다. 길이를 모르는 �
   }
 });
 
-test("캐시 길이 상한이 0 이면 긴 곡도 다운로드한다", async () => {
+test("캐시 길이 상한이 0이면 긴 곡도 다운로드한다", async () => {
   const saved = config.cache.maxTrackSec;
   config.cache.maxTrackSec = 0;
   try {
@@ -245,7 +245,7 @@ test("실패한 곡을 무한히 재시도하지 않는다", async () => {
 
   assert.equal(warmed.filter((k) => k === "yt:bad").length, 1, "이번 서명에서는 한 번만 시도한다");
   assert.ok(warmed.includes("yt:ok"), "실패가 나머지를 막지 않는다");
-  // 까닭은 다운로드가 error 로 남긴다. 여기서는 결과만 debug 로(두 줄이 되지 않게)
+  // 원인은 다운로드가 error로 남긴다. 여기서는 결과만 debug로(두 줄이 되지 않게)
   const lines = sink.buffer.filter((e) => e.text.includes("사전 캐싱 실패"));
   assert.ok(lines.length > 0 && lines.every((e) => e.level === "debug"), JSON.stringify(lines.map((e) => e.level)));
 });

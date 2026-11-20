@@ -8,7 +8,7 @@ import type { GuildEvent } from "./contract/guilds.ts";
 const log = logger.child({ category: "dashboard" });
 
 type StreamOptions = { heartbeatMs: number; maxPerUser: number; coalesceMs: number };
-/** 연결 하나. canSee 는 보낼 때 그 서버의 보기 권한을 확인한다. guilds 는 연결을 열 때(와 그 뒤 봇이 든 서버에서) 멤버로 확인한 서버: 게이트웨이에 재연결해 멤버 캐시가 비면 이 서버들만 다시 채운다 */
+/** 연결 하나. canSee는 보낼 때 그 서버의 보기 권한을 확인한다. guilds는 연결을 열 때(와 그 뒤 봇이 든 서버에서) 멤버로 확인한 서버: 게이트웨이에 재연결해 멤버 캐시가 비면 이 서버들만 다시 채운다 */
 type Sub = { res: Response; canSee: (guildId: string) => boolean; userKey: string; guilds: Set<string>; cleanup: () => void };
 /** 확보한 슬롯 하나(사용자당 연결 상한의 슬롯). 해제는 여러 번 호출해도 한 번만 동작한다 */
 type Slot = { userKey: string; release: () => void };
@@ -23,7 +23,7 @@ type Slot = { userKey: string; release: () => void };
  * per-user 권한/범위 지정은 GET 경로가 담당, 이 모듈은 "누가 구독 중인가"만 관리.
  */
 class PlayerStream {
-  /** 상한, 합치기 창은 쓸 때마다 읽는다(설정 객체를 넘기면 운영 조절값을 저장하자마자 적용된다) */
+  /** 상한, 합치기 창은 쓸 때마다 읽는다(설정 객체를 넘기면 운영 설정값을 저장하자마자 적용된다) */
   options: StreamOptions;
   heartbeatMs: number;
   subs = new Set<Sub>();
@@ -91,7 +91,7 @@ class PlayerStream {
     else this.perKey.set(userKey, c);
   }
 
-  /** 구독(슬롯 확보와 연결 열기를 함께 수행). 상한을 넘으면 too-many-streams로 답하고 false를 반환한다. 대기 없이 바로 여는 쪽(테스트)에서 쓴다 */
+  /** 구독(슬롯 확보와 연결 열기를 함께 수행). 상한을 넘으면 too-many-streams로 응답하고 false를 반환한다. 대기 없이 바로 여는 쪽(테스트)에서 쓴다 */
   addClient(res: Response, canSee: (guildId: string) => boolean, userKey: string, guilds = new Set<string>()) {
     const slot = this.reserve(userKey);
     if (!slot) {
@@ -145,7 +145,7 @@ class PlayerStream {
   notify(guildId: string | null | undefined) {
     if (!guildId) return;
     if (![...this.subs].some((sub) => sub.canSee(guildId))) return;
-    if (this.coalesceTimers.has(guildId)) return; // 이미 예약됨
+    if (this.coalesceTimers.has(guildId)) return;
     const t = setTimeout(() => {
       this.coalesceTimers.delete(guildId);
       this._emit(guildId);
@@ -155,7 +155,7 @@ class PlayerStream {
   }
 
   /**
-   * 봇이 그 서버에서 나갔다. 이제 그 서버를 볼 수 없어 canSee 를 묻지 않고, 나가기 전에 그 서버 멤버였던 사용자(userKeys)의 연결에 바로 보낸다.
+   * 봇이 그 서버에서 나갔다. 이제 그 서버를 볼 수 없어 canSee를 묻지 않고, 나가기 전에 그 서버 멤버였던 사용자(userKeys)의 연결에 바로 보낸다.
    * 받은 화면이 서버 목록을 다시 읽어 그 서버를 빼고, 초대 화면이 그 서버를 되돌린다
    */
   notifyLeft(guildId: string, userKeys: Set<string>) {

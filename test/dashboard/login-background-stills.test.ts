@@ -26,7 +26,7 @@ const animatedWebp = await withAnimatedWebp();
 const signal = new AbortController().signal;
 const sample = (name: string) => path.join(SAMPLES, name);
 
-/** PNG 의 IHDR 뒤에 청크 하나를 끼운다 */
+/** PNG의 IHDR 뒤에 청크 하나를 끼운다 */
 function withChunk(png: Buffer, type: string, data: Buffer): Buffer {
   const head = Buffer.alloc(8);
   head.writeUInt32BE(data.length);
@@ -47,7 +47,7 @@ before(async () => {
     .png()
     .toBuffer();
   fs.writeFileSync(sample("photo.png"), photo);
-  // 어두운 회색(20)에 감마 2.2 만 적힌 PNG: 브라우저는 sRGB 보다 어둡게 그린다
+  // 어두운 회색(20)에 감마 2.2만 적힌 PNG: 브라우저는 sRGB보다 어둡게 그린다
   const dark = await sharp({ create: { width: 1400, height: 800, channels: 3, background: { r: 20, g: 20, b: 20 } } })
     .png()
     .toBuffer();
@@ -80,7 +80,7 @@ async function applied(name: string, edit: store.Stored["edit"]) {
 const job = (one: store.Stored) => ({ item: one, folder: store.folderOf(one.id), signal, progress: () => {} });
 const FULL = { x: 0, y: 0, w: 1, h: 1 };
 const pixel = async (file: string) => [...(await sharp(file).raw().toBuffer()).subarray(0, 3)];
-/** 그 점이 빨강인가(정지 그림은 WebP 라 색이 조금 번진다) */
+/** 그 점이 빨강인가(정지 그림은 WebP라 색이 조금 번진다) */
 async function redAt(file: string, x: number, y: number) {
   const { data, info } = await sharp(file).raw().toBuffer({ resolveWithObject: true });
   const at = (y * info.width + x) * info.channels;
@@ -99,7 +99,7 @@ test("대표색: 화면과 같은 계산(Celebi, Score). 무채색이면 COLORLE
   assert.equal(hexOfSeed(COLORLESS), null);
 });
 
-test("PNG 의 gAMA: 감마만 적혔으면 그 값, sRGB 표시가 있으면 보지 않는다. 감마 2.2 → sRGB 표는 어두운 쪽을 낮춘다", () => {
+test("PNG의 gAMA: 감마만 적혔으면 그 값, sRGB 표시가 있으면 보지 않는다. 감마 2.2 → sRGB 표는 어두운 쪽을 낮춘다", () => {
   assert.equal(pngGamma(sample("gamma.png")), 0.45455);
   assert.equal(pngGamma(sample("gamma-srgb.png")), null);
   assert.equal(pngGamma(sample("photo.png")), null);
@@ -154,7 +154,7 @@ test("영상: 썸네일 장면도 자른 뒤 돌리고 뒤집는다", opts, asyn
   assert.ok(!(await redAt(stillFile(flipped.id, width), 170, 10)));
 });
 
-test("그림: 감마만 적힌 PNG 는 sRGB 로 다시 적어 브라우저에서 보이던 만큼 어둡다", async () => {
+test("그림: 감마만 적힌 PNG는 sRGB로 다시 적어 브라우저에서 보이던 만큼 어둡다", async () => {
   const one = await applied("gamma.png", { crop: FULL, range: null, thumbAt: null });
   await thumb(job(one));
   const [r] = await pixel(stillFile(one.id, 1280));
@@ -167,7 +167,7 @@ test("그림: 감마만 적힌 PNG 는 sRGB 로 다시 적어 브라우저에서
 test("영상: 썸네일은 선택한 장면(크롭), 대표색은 구간의 장면을 모아서", opts, async () => {
   const one = await applied("cuts.mp4", { crop: { x: 0.25, y: 0, w: 0.5, h: 1 }, range: [0, 6], thumbAt: 3 });
   const result = await thumb(job(one));
-  // 960 × 1080 으로 잘라 가장 작은 폭(원본 폭 960)
+  // 960 × 1080으로 잘라 가장 작은 폭(원본 폭 960)
   assert.deepEqual(result.media!.stills, [960]);
   const [r, g, b] = await pixel(stillFile(one.id, 960));
   assert.ok(b > r && b > g, `3초는 파랑 장면: ${r},${g},${b}`);
@@ -184,7 +184,7 @@ test("장면 바뀜과 장면마다의 색(구간 처음부터 초)", opts, asyn
   assert.equal(new Set(scenes.map((one) => one.color)).size, 3);
 });
 
-// 움직이는 WebP, APNG 는 입력 앞 -ss 로 찾아가면 장면이 없거나 깨진다: 처음부터 풀어 자른다
+// 움직이는 WebP, APNG는 입력 앞 -ss로 찾아가면 장면이 없거나 깨진다: 처음부터 풀어 자른다
 for (const name of ["cuts.webp", "cuts.png"]) {
   test(`움직이는 이미지(${name}): 썸네일은 선택한 장면, 장면 색은 구간 안의 장면 바뀜마다`, name.endsWith(".webp") ? animatedWebp : opts, async () => {
     const one = await applied(name, { crop: FULL, range: [1, 6], thumbAt: 3 });

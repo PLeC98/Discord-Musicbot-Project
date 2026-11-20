@@ -1,5 +1,5 @@
-// src/dashboard/track-cache.ts: 캐시 DB 화면의 읽기, 쓰기, 값 검사. 표 셋은 cache.db 의 표를 음원 키로 이은 것이고,
-// 쓰기는 모두 검사한 뒤 조작마다 화면이 본 값(expect)과 대조해 결과를 낸다. 바뀜 번호는 cache-db 의 트리거가 센다.
+// src/dashboard/track-cache.ts: 캐시 DB 화면의 읽기, 쓰기, 값 검사. 표 셋은 cache.db의 표를 음원 키로 이은 것이고,
+// 쓰기는 모두 검사한 뒤 조작마다 화면이 본 값(expect)과 대조해 결과를 낸다. 바뀜 번호는 cache-db의 트리거가 센다.
 
 import fs from "node:fs";
 import { test, after, beforeEach } from "node:test";
@@ -38,7 +38,7 @@ beforeEach(() => {
   for (const table of ["track_lookup", "pinned_sources", "audio_cache", "age_restricted", "source_checks"]) store.db().prepare(`DELETE FROM ${table}`).run();
   ledger(yt("aaaaaaaaaa1"), yt("aaaaaaaaaa1"), "youtube", "하나");
   file("yt:aaaaaaaaaa1", { size: 5 * MB, plays: 3, last: 3000 });
-  // 스포티파이, Last.fm 이 같은 음원(캐시 파일 하나를 함께 씀)
+  // 스포티파이, Last.fm이 같은 음원(캐시 파일 하나를 함께 씀)
   ledger(SPOTIFY, yt("aaaaaaaaaa2"), "spotify", "둘");
   ledger(LASTFM, yt("aaaaaaaaaa2"), "lastfm", "둘");
   file("yt:aaaaaaaaaa2", { size: 2 * MB, plays: 9, last: 1000 });
@@ -305,7 +305,7 @@ test("쓰기: 캐시 파일 삭제는 DB 몫 뒤에 하고, 쓰는 중, 바뀜, 
   }
 });
 
-test("쓰기: 파일 삭제만이면 첫 삭제의 정리 잠금 뒤에 한 번 확인한다(go가 던지면 삭제하지 않는다)", async () => {
+test("쓰기: 파일 삭제만이면 첫 삭제의 정리 잠금 뒤에 한 번 확인한다(go가 예외를 던지면 삭제하지 않는다)", async () => {
   const target = audioCache.getFilePath("yt:ggggggggggg");
   fs.mkdirSync(audioCache.cacheDir(), { recursive: true });
   fs.writeFileSync(target, "x");
@@ -329,7 +329,7 @@ test("쓰기: 파일 삭제만이면 첫 삭제의 정리 잠금 뒤에 한 번 
   assert.equal(fs.existsSync(target), false);
 });
 
-test("값 검사 미리 보기: 저장될 형식, 종류, 음원 키를 돌려주고, 유효하지 않으면 막힌 까닭을 돌려준다", async () => {
+test("값 검사 미리 보기: 저장될 형식, 종류, 음원 키를 돌려주고, 유효하지 않으면 막힌 이유를 돌려준다", async () => {
   assert.deepEqual(trackCache.inspect({ requestKey: "https://youtu.be/ccccccccccc?si=x", audioUrl: "https://www.youtube.com/watch?v=ddddddddddd&list=PL" }), {
     request: { ok: true, canonical: yt("ccccccccccc"), platform: "youtube" },
     audio: { ok: true, canonical: yt("ddddddddddd"), kind: "youtube", audioKey: "yt:ddddddddddd" },
@@ -356,7 +356,7 @@ test("정규식 필터: 다른 조건과 모두 맞는 행만 조회하고, 끝�
   );
 });
 
-test("정규식 필터: 취소된 요청(연결이 닫힘)은 큐에서 빼고 실행하지 않는다(답하지 않는다). 뒤의 것은 그만큼 일찍 돈다", async () => {
+test("정규식 필터: 취소된 요청(연결이 닫힘)은 큐에서 빼고 실행하지 않는다(응답하지 않는다). 뒤의 것은 그만큼 일찍 돈다", async () => {
   ledger(yt("aaaaaaaaaa8"), yt("aaaaaaaaaa8"), "youtube", `${"word ".repeat(10)}word!`);
   const done: string[] = [];
   const dropped = new AbortController();
@@ -371,7 +371,7 @@ test("정규식 필터: 취소된 요청(연결이 닫힘)은 큐에서 빼고 �
   assert.equal(done[0], "abandoned", "느린 것을 기다리지 않고 곧바로 빠진다");
 });
 
-test("정규식 필터: 돌기 시작한 뒤에 버려진 요청도 끝나면 결과 없이(null) 돌아온다(닫힌 연결에 답하지 않게)", async () => {
+test("정규식 필터: 돌기 시작한 뒤에 버려진 요청도 끝나면 결과 없이(null) 돌아온다(닫힌 연결에 응답하지 않게)", async () => {
   ledger(yt("aaaaaaaaaa9"), yt("aaaaaaaaaa9"), "youtube", `${"word ".repeat(10)}word!`);
   const dropped = new AbortController();
   const running = trackCache.read(query("requests", { filters: { title: String.raw`/(\w+\s?)+$/` } }), { signal: dropped.signal });

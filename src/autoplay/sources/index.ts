@@ -29,7 +29,7 @@ import { spotify, youtube } from "./playlists.ts";
 
 // ── 레지스트리 ────────────────────────────────────────────────────────────────
 
-/** 소스가 부르는 것의 가짜(테스트). 지금은 keyword 의 search 뿐이다 */
+/** 소스가 부르는 것의 가짜(테스트). 지금은 keyword의 search 뿐이다 */
 type FetchDeps = { search?: Search };
 type Fetcher = (source: GenreSource, deps: FetchDeps) => Promise<Candidate[]>;
 type YearRange = { min: number; max: number };
@@ -40,7 +40,7 @@ const FETCHERS: Record<string, Fetcher> = { keyword, lastfm, lbradio, animetheme
 
 const TYPES = Object.keys(FETCHERS);
 
-// AnimeThemes 에서 선택할 수 있는 방영 연도. 저쪽이 알려 주므로 올해로 추산하지 않는다(연말에는 다음 해 1분기가 이미
+// AnimeThemes에서 선택할 수 있는 방영 연도. 저쪽이 알려 주므로 올해로 추산하지 않는다(연말에는 다음 해 1분기가 이미
 // 등록돼 있다). 하루 한 번 불러오고, 화면은 오래 기다리지 않는다(http.remembered)
 const yearRange = remembered<YearRange>(
   async () => {
@@ -63,7 +63,7 @@ async function animeYearRange() {
 
 /**
  * 필드 하나에 저쪽에서 불러온 값을 얹는다.
- * 구간 필드가 둘인 소스(anisongdb: 연도와 인지도)는 `kind === "range"` 로 구분하면 한쪽 값이 다른 쪽에 얹히므로 필드 이름으로 구분한다.
+ * 구간 필드가 둘인 소스(anisongdb: 연도와 인지도)는 `kind === "range"`로 구분하면 한쪽 값이 다른 쪽에 얹히므로 필드 이름으로 구분한다.
  */
 function fill(field: Field, type: string, years: YearRange, anisong: AnisongStats | null) {
   if (type === "animethemes" && field.kind === "range") return years;
@@ -75,7 +75,7 @@ function fillAnisong(field: Field, years: YearRange, anisong: AnisongStats | nul
   // 분포를 같이 보낸다. 쏠림이 심해 화면이 슬라이더 옆에 그려야 사용자가 높은 쪽 후보가 얼마나
   // 적은지 알고 선택한다(안 보이면 "왜 같은 곡만 나오지"가 된다).
   if (field.key === "difficultyFrom") return anisong?.difficulty?.length ? { histogram: anisong.difficulty } : {};
-  // 태그는 수백 개라 SPEC 에 못 적는다. 저쪽에서 불러와 채운다.
+  // 태그는 수백 개라 SPEC에 못 적는다. 저쪽에서 불러와 채운다.
   if (field.key === "tags") return { options: opts(anisong?.tags || []) };
   if (field.key === "genres" && anisong?.genres?.length) return { options: opts(anisong.genres) };
   return {};
@@ -83,7 +83,7 @@ function fillAnisong(field: Field, years: YearRange, anisong: AnisongStats | nul
 
 /**
  * 대시보드가 그릴 소스 목록. 검증, 실행과 같은 표(SPEC)에서 만든다(화면이 따로 들고 있으면 소스를 더할 때 한쪽만 고치게 된다).
- * 필수 여부는 need 에서 끌어온다.
+ * 필수 여부는 need에서 끌어온다.
  */
 async function catalog(): Promise<SourceTypeView[]> {
   // 나란히 부른다. 한쪽이 느리다고 다른 쪽을 기다릴 이유가 없다.
@@ -97,7 +97,7 @@ async function catalog(): Promise<SourceTypeView[]> {
       hint: spec.hint || "",
       usable: usable(type),
       needs: spec.env || null,
-      // need 가 [["tags","prompt"]] 형식이면 "둘 중 하나"라는 뜻이다
+      // need가 [["tags","prompt"]] 형식이면 "둘 중 하나"라는 뜻이다
       either: spec.need.filter((g) => g.length > 1).map((g) => [...g]),
       fields: (spec.fields || []).map((one) => ({ ...one, required: required.has(one.key), ...fill(one, type, years, anisong) })),
       // 곡이 많을 때 선택하는 범위. 화면이 "상위 n곡 중에서"를 표시한다
@@ -106,7 +106,7 @@ async function catalog(): Promise<SourceTypeView[]> {
   });
 }
 
-/** 설정에 적힌 소스 하나를 곡 목록으로. 던지면 부르는 쪽이 다음 소스로 넘어간다. */
+/** 설정에 적힌 소스 하나를 곡 목록으로. 예외를 던지면 호출부가 다음 소스로 넘어간다. */
 async function fetchFrom(source: GenreSource, deps: FetchDeps = {}): Promise<Candidate[]> {
   const fetcher = FETCHERS[source?.type];
   if (!fetcher) throw new Error(`모르는 소스: ${source?.type}`);

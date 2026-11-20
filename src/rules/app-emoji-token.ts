@@ -1,11 +1,11 @@
 // 설정에 적어 두는 앱 이모지 토큰(디스코드 형식 <:이름:id>, 움직이면 <a:이름:id>)을 찾고 보낼 글로 바꾼다.
 // 봇(음성 상태, 공지, 장르 메뉴)과 대시보드(입력란, 미리보기, 장르 칸)가 같은 함수를 쓴다. 대시보드 빌드가 거쳐 가므로 아무것도 부르지 않는다.
-// 찾는 순서: id(스노플레이크는 다시 쓰이지 않아 살아 있으면 늘 맞다) → 이름(다시 올려 id 가 바뀐 아이콘, 다른 봇에서 옮겨 온 장르 파일)
+// 찾는 순서: id(스노플레이크는 다시 쓰이지 않아 살아 있으면 늘 맞다) → 이름(다시 올려 id가 바뀐 아이콘, 다른 봇에서 옮겨 온 장르 파일)
 // → 아이콘의 옛 이름(새 이름, 또는 빠진 아이콘의 유니코드) → 지금 아이콘 이름이면 그 유니코드(동기화 전, 실패) → 없음
 
 /** 앱 이모지 하나 */
 type AppEmoji = { id: string; name: string; animated: boolean };
-/** 찾을 때 쓰는 것. former: 아이콘의 옛 이름(ui/icons 의 FORMER_EMOJIS), iconUnicode: 지금 아이콘 이름의 유니코드. 대시보드는 없이 쓴다 */
+/** 찾을 때 쓰는 것. former: 아이콘의 옛 이름(ui/icons의 FORMER_EMOJIS), iconUnicode: 지금 아이콘 이름의 유니코드. 대시보드는 없이 쓴다 */
 type EmojiBook = {
   emojis: readonly AppEmoji[];
   former?: Readonly<Record<string, { renamed: string } | { unicode: string }>>;
@@ -14,7 +14,7 @@ type EmojiBook = {
 /** 찾은 것: 앱 이모지, 대신 쓸 유니코드, 또는 없음 */
 type Found = { emoji: AppEmoji } | { unicode: string } | null;
 
-/** 글 속의 토큰. 이름은 디스코드 규칙(2 ~ 32자 [A-Za-z0-9_]), id 는 스노플레이크 */
+/** 글 속의 토큰. 이름은 디스코드 규칙(2 ~ 32자 [A-Za-z0-9_]), id는 스노플레이크 */
 const TOKEN = /<(a?):(\w{2,32}):(\d{17,20})>/g;
 const ONE_TOKEN = /^<a?:\w{2,32}:\d{17,20}>$/;
 

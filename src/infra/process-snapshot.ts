@@ -81,14 +81,14 @@ function parseStat(pid: number, text: string): Proc | null {
   };
 }
 
-// Node 는 메인 스레드 이름을 바꿔(uv_thread_setname. 24 는 MainThread, 26 은 node-mainthread) comm 이 실행 파일 이름이 아니다. 그때만 실행 파일 경로에서 읽는다.
+// Node는 메인 스레드 이름을 바꿔(uv_thread_setname. 24는 MainThread, 26은 node-mainthread) comm이 실행 파일 이름이 아니다. 그때만 실행 파일 경로에서 읽는다.
 // 늘 경로로 읽지 않는 것은 shebang 스크립트(yt-dlp)의 경로가 인터프리터라서다
 const RENAMED_MAIN_THREAD = new Set(["mainthread", "node-mainthread"]);
 function exeImage(pid: number) {
   try {
     return imageName(path.basename(fs.readlinkSync(`/proc/${pid}/exe`).replace(/ \(deleted\)$/, "")));
   } catch {
-    // 다른 사용자의 프로세스는 EACCES, 이미 끝났으면 ENOENT 가 정상이다. 이름 없이 비교한다
+    // 다른 사용자의 프로세스는 EACCES, 이미 끝났으면 ENOENT가 정상이다. 이름 없이 비교한다
     return null;
   }
 }

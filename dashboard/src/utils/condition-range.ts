@@ -1,4 +1,4 @@
-// 상태 문구 조건(양력, 음력, 시간대)의 범위 ↔ 고르개(ConditionRangeField). 저장 형식은 "MM-DD ~ MM-DD", "HH:MM ~ HH:MM"(config/schema/status).
+// 상태 문구 조건(양력, 음력, 시간대)의 범위 ↔ 선택기(ConditionRangeField). 저장 형식은 "MM-DD ~ MM-DD", "HH:MM ~ HH:MM"(config/schema/status).
 // 끝이 시작보다 앞이면 연말, 자정을 넘기는 범위다(봇이 그렇게 판정한다, ui/bot-presence)
 
 import type { ConditionKey } from "./presence-rows.ts";

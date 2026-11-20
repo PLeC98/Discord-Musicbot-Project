@@ -13,7 +13,7 @@
 
     <Teleport to="body">
       <!-- 보통은 입력란 아래에 붙인다. 창 폭은 입력란이 아니라 달력이 정한다(입력란 왼쪽에, 안 들어가면 입력란 오른쪽 끝에 맞춘다).
-           휴대폰이거나 세로가 좁거나(755px 미만), 열 때 입력란 위아래 어느 쪽에도 창이 다 들어가지 않으면(필터 창 안처럼) 가운데 팝업으로 연다(대화상자와 같은 넘김, 아래에 붙일 때는 메뉴의 넘김). 뒤 누르기, 기기의 뒤로, Esc 로 닫는다.
+           휴대폰이거나 세로가 좁거나(755px 미만), 열 때 입력란 위아래 어느 쪽에도 창이 다 들어가지 않으면(필터 창 안처럼) 가운데 팝업으로 연다(대화상자와 같은 넘김, 아래에 붙일 때는 메뉴의 넘김). 뒤 누르기, 기기의 뒤로, Esc로 닫는다.
            휴대폰 가로처럼 낮은 화면(세로 512px 이하)은 위아래로 쌓으면 시, 분부터 잘리므로 왼쪽에 헤더, 달력, 오른쪽에 시, 분, 버튼을 둔다.
            드래그해서 넘기므로 글자는 선택되지 않게 -->
       <Transition :name="asDialog ? 'dialog' : 'menu'" :duration="asDialog ? DIALOG_MS : undefined">
@@ -178,7 +178,7 @@ function toggle() {
 }
 
 // ── 로그가 있는 기간 ──
-// [from, to) 와 겹치는 로그 기간이 있는가. 기간을 받지 않았으면 늘 참
+// [from, to)와 겹치는 로그 기간이 있는가. 기간을 받지 않았으면 늘 참
 const hasLogs = (from: number, to: number) => !props.ranges.length || props.ranges.some(([a, b]) => a < to && b >= from);
 const dayHasLogs = (d: Date) => hasLogs(new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(), new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime());
 const monthHasLogs = (y: number, m: number) => hasLogs(new Date(y, m, 1).getTime(), new Date(y, m + 1, 1).getTime());

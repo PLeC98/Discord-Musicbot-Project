@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { useVolumeControl } from "../../../dashboard/src/composables/volume-control.ts";
 
-// 서버(받아들이면 값이 바뀐다)와 보낸 기록. hold를 켜면 release를 부를 때까지 답하지 않는다. fail이면 거절한다.
+// 서버(받아들이면 값이 바뀐다)와 보낸 기록. hold를 켜면 release를 부를 때까지 응답하지 않는다. fail이면 거절한다.
 // 보낼지는 서버 값을 그때그때 읽어 정하므로 서버 값은 반응형이 아니어도 된다
 function setup(start = 50) {
   const server = { value: start as number | undefined };

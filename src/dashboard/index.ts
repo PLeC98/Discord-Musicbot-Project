@@ -17,6 +17,7 @@ import * as sessionRequests from "./session-requests.ts";
 import { requireSameAccount } from "./middleware/same-account.ts";
 import { issueCsrfToken, requireCsrfToken } from "./middleware/csrf.ts";
 import { securityHeaders } from "./middleware/security-headers.ts";
+import { bootMark } from "./middleware/boot-mark.ts";
 import { errorHandler, notFoundJson } from "./middleware/error-handler.ts";
 import type { Server } from "node:http";
 import type { X509Certificate } from "node:crypto";
@@ -60,7 +61,7 @@ import { bindLine, bindNotes, inContainer, planBind, reachableAddresses, scopeOf
 import { isLoopbackName } from "../rules/net-address.ts";
 import { checkTls, findTlsFiles, rotateTicketKeys, tlsOptions, watchExpiry, worldReadable, type TlsFiles } from "./tls-files.ts";
 
-/** 조립이 넘기는 것. sessionMiddleware, clientDist(빌드한 화면) 는 테스트가 바꿔 넘긴다 */
+/** 조립이 넘기는 것. sessionMiddleware, clientDist(빌드한 화면)는 테스트가 바꿔 넘긴다 */
 type AppDeps = { stream: PlayerStream; deployCommands: Express.Locals["deployCommands"]; restart?: Express.Locals["restart"]; sessionMiddleware?: RequestHandler; clientDist?: string };
 
 // 세션 비밀: .env의 SESSION_SECRET이 표준 경로. 미설정이면 랜덤 폴백.
@@ -144,7 +145,7 @@ function createSessionMiddleware({ store = new SqliteSessionStore(), secret = re
 const READ_ONLY = new Set(["GET", "HEAD", "OPTIONS"]);
 
 // 빌드한 화면 파일(assets/ 아래)은 이름이나 경로에 내용 해시, 판이 붙어 바뀌면 이름도 바뀐다. 한 해 동안 묻지 않고 쓰게 한다(글꼴, 스크립트, 스타일, 이모지 그림).
-// index.html 처럼 이름이 고정된 파일은 매번 바뀌었는지 묻는다(그래야 새 빌드의 새 이름을 받는다)
+// index.html처럼 이름이 고정된 파일은 매번 바뀌었는지 묻는다(그래야 새 빌드의 새 이름을 받는다)
 const ASSETS = /[\\/]assets[\\/]/;
 // 공개 요청 제한에서 건너뛰는 경로(아래에서 따로 센다)와, 그중 세션 미들웨어 앞에서 응답하는 공개 경로. Express처럼 대소문자와 끝의 /를 가리지 않는다
 const COUNTED_LATER = /^\/(?:api|auth)(?:\/|$)/i;
@@ -153,7 +154,7 @@ function cacheAssets(res: Response, file: string) {
   res.setHeader("Cache-Control", ASSETS.test(file) ? "public, max-age=31536000, immutable" : "no-cache");
 }
 
-// 미들웨어 등록만 하고 listen은 하지 않는다. 등록 순서 자체를 지켜야 해서(정적 자산이
+// 미들웨어 등록만 하고 listen은 하지 않는다. 등록 순서 자체를 지켜야 해서(정적 에셋이
 // 세션보다 앞, 오류 핸들러가 맨 뒤) 테스트가 실제 앱을 임의 포트에 열어 검증한다.
 // sessionMiddleware: 로그인 세션. 기본은 SQLite 세션이고, 테스트가 저장소가 죽은 상태를 넘긴다
 // deployCommands: 슬래시 명령 등록(운영자의 재등록 버튼), restart: 봇 다시 시작(실행기로 켰을 때만). 조립이 넘긴다
@@ -172,6 +173,7 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   // 소켓의 마지막 요청을 기록한다(세션이 끝나 소켓을 닫을 때 keep-alive의 다음 요청을 건드리지 않게 한다). 정적 파일 미들웨어보다 앞에 둔다
   app.use(sessionRequests.noteSocket);
   app.use(securityHeaders);
+  app.use(bootMark);
   app.use(strictTransport(url));
   // 허용하지 않은 호스트로 온 요청(DNS 리바인딩)을 막는다. 정적 파일, 세션보다 앞에 둔다
   app.use(hostCheck(url));
@@ -181,14 +183,14 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   // (세션 앞에서 응답하는 /api의 공개 경로와, 아래 CORS가 집계 전에 응답하는 OPTIONS는 여기서 센다). 빌드한 화면 파일(assets/)은 세지 않는다. 브라우저가 한 번 캐시하면 재요청하지 않고, 이모지 선택기는 이미지 1900여 장을 한 장씩 받는다
   app.use(limiter(() => config.dashboard.rateLimit.publicMax, { byIp: true, skip: (req) => (COUNTED_LATER.test(req.path) && !PUBLIC_API.test(req.path) && req.method !== "OPTIONS") || ASSETS.test(req.path) }));
 
-  // 오류 코드의 설명(type 의 주소). 화면(SPA) 폴백보다 앞에
+  // 오류 코드의 설명(type의 주소). 화면(SPA) 폴백보다 앞에
   app.use(problemsRouter);
   // 파비콘, 매니페스트(로그인 없이). 화면 폴백보다 앞에
   app.use(publicAppearanceRouter);
   // 로그인 배경의 배경 정보, 파일(로그인 없이). 화면 폴백보다 앞에
   app.use(publicLoginBackgroundRouter);
 
-  // 정적 자산과 SPA 폴백은 세션보다 앞에 둔다. 세션 스토어(SQLite)가 죽어도 앱 껍데기는 떠서
+  // 정적 에셋과 SPA 폴백은 세션보다 앞에 둔다. 세션 스토어(SQLite)가 죽어도 앱 껍데기는 떠서
   // 오류를 화면에 표시할 수 있어야 한다. 세션 뒤에 두면 CSS/JS까지 500이라 백지가 된다.
   // 빌드가 있는지는 요청 때 본다. 봇을 켠 뒤 빌드해도 다시 시작하지 않고 보인다
   const indexHtml = path.join(clientDist, "index.html");
@@ -341,7 +343,7 @@ function logTls(tls: LoadedTls) {
 }
 
 /**
- * 인증서 파일을 찾아 확인한다(dashboard/tls-files). 없으면 null, 문제가 있으면 까닭을 error로 남기고 "error"(대시보드를 열지 않는다)
+ * 인증서 파일을 찾아 확인한다(dashboard/tls-files). 없으면 null, 문제가 있으면 원인을 error로 남기고 "error"(대시보드를 열지 않는다)
  */
 function loadTls(certsDir: string): LoadedTls | null | "error" {
   const { url, tlsCert, tlsKey } = config.dashboard;
@@ -387,7 +389,7 @@ function logOpened(plan: BindPlan, scopeFile: string, container: boolean, scheme
   writeScope(scopeFile, scopeOf(plan));
   // 로그인이 디스코드 승인 화면에서 막히면(콜백 주소 미등록) 봇은 알 길이 없다. 등록할 주소를 늘 보인다
   log.info(`디스코드 개발자 포털 OAuth2 → Redirects에 등록할 주소: ${callbackUrl()}`);
-  // 업데이트 뒤 화면을 다시 빌드하지 않으면 옛 화면이 새 서버와 어긋난다(pnpm install은 의존성이 그대로면 빌드를 건너뛴다)
+  // 기동 준비(app/startup-prepare) 단계에서 빌드하지 못했으면 기존 화면이 새 서버와 어긋난다
   const stale = freshnessWarning(clientFreshness(PROJECT.dashboardDist, PROJECT.root));
   if (stale) log.warn(stale);
   // 평상시 실행과 다른 상태로 떠 있다는 것은 드러나 있어야 한다

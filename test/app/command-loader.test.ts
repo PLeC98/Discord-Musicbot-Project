@@ -1,5 +1,5 @@
 // src/app/command-loader.ts: 커맨드 로드 + 배포(등록 요청은 가짜를 넘겨 실제로 배포하지 않는다).
-// 배포 해시는 임시 파일에 써서 운영 database/deployed-commands.json 을 건드리지 않는다.
+// 배포 해시는 임시 파일에 써서 운영 database/deployed-commands.json을 건드리지 않는다.
 
 import fs from "node:fs";
 import os from "node:os";
@@ -18,7 +18,7 @@ after(() => fs.rmSync(tmpDir, { recursive: true, force: true, maxRetries: 5 }));
 
 // 등록 요청 가짜. 보낸 정의의 이름을 등록한 것으로 돌려준다
 const echo: PutCommands = async (_route, body) => fake<RESTPutAPIApplicationCommandsResult>(body.map((c) => ({ name: c.name, id: `id-${c.name}` })));
-// 등록된 목록 읽기 가짜(등록을 건너뛴 기동). getImpl 을 바꿔 실패를 낸다
+// 등록된 목록 읽기 가짜(등록을 건너뛴 기동). getImpl을 바꿔 실패를 낸다
 let getImpl: GetCommands = async () => definitions().map((c) => ({ name: c.name, id: `got-${c.name}` }));
 let getCalls = 0;
 const get: GetCommands = (route) => {
@@ -38,7 +38,7 @@ const { COMMANDS } = await import("../../src/discord/commands/index.ts");
 const commands: RESTPostAPIApplicationCommandsJSONBody[] = definitions();
 const config = (await import("../../src/config/index.ts")).default;
 
-test("봇 전체에서 SponsorBlock 을 껐으면 /highlight 를 등록하지도 실행 목록에 올리지도 않는다. /setting 은 늘 있다(그리는 화면에서 그 부분이 빠진다)", async () => {
+test("봇 전체에서 SponsorBlock을 껐으면 /highlight를 등록하지도 실행 목록에 올리지도 않는다. /setting은 늘 있다(그리는 화면에서 그 부분이 빠진다)", async () => {
   const { withConfig } = await import("../helpers/config.ts");
   const names = () => definitions().map((c) => c.name);
   assert.deepEqual(
@@ -52,7 +52,7 @@ test("봇 전체에서 SponsorBlock 을 껐으면 /highlight 를 등록하지도
   assert.equal(off.length, COMMANDS.length - 1, "다른 명령은 그대로");
 });
 
-test("운영 조절값을 저장해 켜진 명령이 바뀌면 실행 목록을 다시 만들고 등록을 맞춘다. 바뀌지 않은 저장에는 아무것도 하지 않는다", async () => {
+test("운영 설정값을 저장해 켜진 명령이 바뀌면 실행 목록을 다시 만들고 등록을 맞춘다. 바뀌지 않은 저장에는 아무것도 하지 않는다", async () => {
   const { withConfig } = await import("../helpers/config.ts");
   const calls: string[] = [];
   const off = withConfig({ sponsorblock: { enabled: true } }, () =>
@@ -65,7 +65,7 @@ test("운영 조절값을 저장해 켜진 명령이 바뀌면 실행 목록을 
     withConfig({ sponsorblock: { enabled: true } }, () => tunablesChanged());
     assert.deepEqual(calls, [], "켜진 명령이 그대로다");
     withConfig({ sponsorblock: { enabled: false } }, () => tunablesChanged());
-    assert.deepEqual(calls, ["load", "deploy"], "SponsorBlock 을 껐다");
+    assert.deepEqual(calls, ["load", "deploy"], "SponsorBlock을 껐다");
     withConfig({ sponsorblock: { enabled: false } }, () => tunablesChanged());
     assert.deepEqual(calls, ["load", "deploy"]);
     withConfig({ sponsorblock: { enabled: true } }, () => tunablesChanged());
@@ -143,7 +143,7 @@ test("deployCommands: 정의 변경 없는 재기동은 PUT 생략, force는 항
   assert.equal(putCalls.length, 2, "force는 지문이 같아도 PUT");
 });
 
-test("deployCommands: 실패 시 던지지 않고 {ok:false, error} 반환 + 지문 미기록(다음 기동 재시도)", async () => {
+test("deployCommands: 실패 시 예외를 던지지 않고 {ok:false, error} 반환 + 지문 미기록(다음 기동 재시도)", async () => {
   const hashPath = freshHashPath();
   putImpl = async () => {
     throw Object.assign(new Error("Missing Access"), { code: 50001 });
@@ -162,7 +162,7 @@ test("deployCommands: 실패 시 던지지 않고 {ok:false, error} 반환 + 지
   assert.equal(putCalls.length, 1);
 });
 
-test("deployCommands: 등록한 명령의 id 로 멘션을 만든다. 등록을 건너뛴 기동은 등록된 목록을 읽어 오고, 못 읽으면 글자로 남긴다", async () => {
+test("deployCommands: 등록한 명령의 id로 멘션을 만든다. 등록을 건너뛴 기동은 등록된 목록을 읽어 오고, 못 읽으면 글자로 남긴다", async () => {
   const { commandMention } = await import("../../src/ui/command-mentions.ts");
   const hashPath = freshHashPath();
   getCalls = 0;

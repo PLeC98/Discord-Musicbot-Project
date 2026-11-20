@@ -1,5 +1,5 @@
 // 문제(오류, 거절) 코드 목록. 디스코드 안내와 대시보드 HTTP 오류(RFC 9457)가 같은 코드를 쓴다.
-// 코드 하나에 뜻 하나. 코드를 바꾸면 받는 쪽이 깨지니 새 뜻은 새 코드로. 문장에 드는 값은 params 에 이름을 적는다.
+// 코드 하나에 뜻 하나. 코드를 바꾸면 받는 쪽이 깨지니 새 뜻은 새 코드로. 문장에 드는 값은 params에 이름을 적는다.
 // HTTP 상태: 400 입력이 틀림, 403 요청한 사람에게 권한이 없음, 404 대상이나 핸들러가 없음, 409 지금 상태로는 못 함,
 // 410 그 사이 사라짐, 422 받을 수 없는 내용, 500 봇 안쪽 실패, 502 외부(플랫폼, 디스코드) 실패, 503 운영자 설정, 잠시 못 함
 
@@ -79,7 +79,7 @@ const SHARED = {
   "more-nothing-found": { status: 404, title: "No more tracks found" },
   // 받을 수 없는 내용
   "unsupported-link": { status: 422, title: "Unsupported link" },
-  // 옛 SHOUTcast(v1) 방송. 첫 줄이 ICY 라 받지 못한다
+  // 옛 SHOUTcast(v1) 방송. 첫 줄이 ICY라 받지 못한다
   "shoutcast-v1": { status: 422, title: "Legacy SHOUTcast stream" },
   "yt-unplayable": { status: 422, title: "Unsupported YouTube link" },
   "sc-unsupported": { status: 422, title: "Unsupported SoundCloud link" },
@@ -89,7 +89,7 @@ const SHARED = {
   "yt-age-no-cookies": { status: 422, title: "Age-restricted video" },
   // 운영자가 연령 제한 콘텐츠를 꺼 두었다(config/age-content)
   "age-content-off": { status: 422, title: "Age-restricted content is off" },
-  // 서버가 연령 제한 콘텐츠를 연령 제한 음성 채널에서만 튼다(store/guild-settings 의 agePlace)
+  // 서버가 연령 제한 콘텐츠를 연령 제한 음성 채널에서만 튼다(store/guild-settings의 agePlace)
   "age-channel-only": { status: 422, title: "Age-restricted content needs an age-restricted channel" },
   "sc-preview-only": { status: 422, title: "Preview-only track" },
   "geo-blocked": { status: 422, title: "Region-blocked content" },
@@ -119,7 +119,7 @@ const SHARED = {
   "channel-set-failed": { status: 500, title: "Could not set the bot channel" },
   "settings-save-failed": { status: 500, title: "Could not save settings" },
   "dj-role-save-failed": { status: 500, title: "Could not save the DJ role" },
-  // /join 이 저장한 세션을 복원하지 못했다
+  // /join이 저장한 세션을 복원하지 못했다
   "restore-nothing-left": { status: 500, title: "Could not play the saved track" },
   "restore-parked": { status: 500, title: "Could not open the saved track, paused on it" },
   "restore-failed": { status: 500, title: "Could not restore the session" },
@@ -131,7 +131,7 @@ const SHARED = {
 const WEB = {
   // 대시보드: 접속, 권한
   "login-required": { status: 401, title: "Login required" },
-  // 위험한 조작(비밀값, 주소 바꾸기 등)은 로그인한 지 얼마 안 됐어야 한다. 세션은 살아 있어 401 이 아니다
+  // 위험한 조작(비밀값, 주소 바꾸기 등)은 로그인한 지 얼마 안 됐어야 한다. 세션은 살아 있어 401이 아니다
   "reauth-required": { status: 403, title: "Recent login required" },
   "bad-csrf-token": { status: 403, title: "Invalid CSRF token" },
   // 탭이 알고 있는 사용자와 세션의 사용자가 다르다(다른 탭에서 다른 계정으로 로그인했다)
@@ -148,7 +148,24 @@ const WEB = {
   "members-intent-off": { status: 409, title: "Server pages are off because the Server Members Intent is disabled" },
   // 실행기 없이 시작해서 다시 실행해 줄 쪽이 없다
   "restart-unavailable": { status: 409, title: "Restart is not available" },
-  // 대시보드 초대 화면: 공개 봇이 아니고 앱 소유자도 아니거나, code grant 를 요구하는 봇이거나, 앱 정보를 아직 못 받았다
+  // 외부 도구 카드(yt-dlp): 최신 릴리스를 조회하지 못했다
+  "tool-check-failed": { status: 502, title: "Could not look up the latest release" },
+  // 확인한 뒤 채널이 바뀌었거나, 보낸 태그가 봇이 마지막으로 확인한 최신이 아니다
+  "tool-check-stale": { status: 409, title: "The checked release is out of date" },
+  // 버전을 고정한 동안에는 할 수 없는 조작(최신으로 업데이트, 채널 변경)
+  "tool-version-pinned": { status: 409, title: "Not available while a version is pinned" },
+  "tool-no-previous": { status: 409, title: "No previous version to go back to" },
+  // 외부 프로그램 이전 버전 카드: 이전 버전 삭제 중 도구별로 처리하지 못한 예외
+  "tool-cleanup-failed": { status: 500, title: "Could not delete previous versions" },
+  // 설치 후 다시 시작: bgutil이 설치돼 있지도 않고 설치하는 중도 아니다(설치 실패, 필요한 도구가 없음)
+  "bgutil-not-installing": { status: 409, title: "The POToken provider is not being installed" },
+  // bgutil 버전 고정: 설치가 도는 중이다(끝난 목표가 바뀐 설정 아래에서 끝나지 않게)
+  "bgutil-installing": { status: 409, title: "The POToken provider is being installed" },
+  // bgutil 버전 고정: 저장소에 그 태그가 없다, 태그의 커밋을 조회하지 못했다, 확인한 커밋이 없거나 오래됐거나 화면이 보낸 것과 다르다
+  "bgutil-tag-missing": { status: 404, title: "The tag is not in the repository" },
+  "bgutil-resolve-failed": { status: 502, title: "Could not look up the tag's commit" },
+  "bgutil-resolve-stale": { status: 409, title: "Check the tag's commit again" },
+  // 대시보드 초대 화면: 공개 봇이 아니고 앱 소유자도 아니거나, code grant를 요구하는 봇이거나, 앱 정보를 아직 못 받았다
   "invite-unavailable": { status: 403, title: "Inviting is not available" },
   "guild-not-found": { status: 404, title: "Server not found" },
   "bot-not-in-voice": { status: 409, title: "Bot is not in a voice channel" },
@@ -195,7 +212,7 @@ const WEB = {
   // 대시보드 서버 설정: 화면에서 읽은 뒤 같은 설정이 다른 곳(디스코드 명령, 다른 탭, 다른 관리자)에서 먼저 바뀌어 그 설정은 저장하지 않았다
   "settings-changed": { status: 409, title: "Server settings changed since they were read" },
   "config-save-failed": { status: 409, title: "Config could not be saved" },
-  // 설정 불러오기: ZIP 이 깨졌거나 이 봇의 내보내기가 아니다
+  // 설정 불러오기: ZIP이 깨졌거나 이 봇의 내보내기가 아니다
   "bad-archive": { status: 400, title: "Not a settings archive" },
   // 올린 파일을 둘 디스크의 남은 크기가 모자라다(size: 남은 크기)
   "disk-full": { status: 409, title: "Not enough free disk space", params: ["size"] },
@@ -219,7 +236,7 @@ const WEB = {
   "bad-image": { status: 400, title: "Not a supported image" },
   "image-not-square": { status: 400, title: "Image must be square" },
   "image-too-small": { status: 400, title: "Image is too small", params: ["min"] },
-  // 링크에서 이미지를 다운로드하지 못했다(접속, 내부 주소, 크기, 시간). 까닭은 로그에만
+  // 링크에서 이미지를 다운로드하지 못했다(접속, 내부 주소, 크기, 시간). 원인은 로그에만
   "image-link-failed": { status: 502, title: "Could not get the image from the link", params: ["max"] },
   "appearance-save-failed": { status: 500, title: "Could not save the image" },
   // 대시보드: 앱 이모지 올리기, 이름 바꾸기, 지우기(운영자 패널)
@@ -244,15 +261,15 @@ const WEB = {
   "upload-busy": { status: 409, title: "Another upload is still in progress" },
   // 청크 업로드: 보낸 위치가 받은 위치(received)와 다르거나 그 업로드가 다른 청크를 받는 중이다. 화면은 받은 위치부터 다시 보낸다
   "upload-offset": { status: 409, title: "Upload offset does not match", params: ["received"] },
-  // 단계가 실패했다(까닭은 로그에). 배경의 실패 까닭으로도 싣는다
+  // 단계가 실패했다(원인을 로그에). 배경의 실패 사유로도 싣는다
   "background-failed": { status: 500, title: "Could not make the background" },
   // 가져온 파일이 쓸 수 있는 이미지, 영상이 아니다(형식, 해상도, 길이, 초당 장면 수)
   "background-bad-source": { status: 422, title: "Not a usable image or video" },
-  // 링크에서 다운로드하지 못했다(접속, 내부 주소, 형식, 유튜브). 까닭은 로그에만
+  // 링크에서 다운로드하지 못했다(접속, 내부 주소, 형식, 유튜브). 원인은 로그에만
   "background-link-failed": { status: 502, title: "Could not get the file from the link" },
-  // 봇의 ffmpeg 에 영상 배경을 만들 인코더(H.264, VP9)가 없다. 이미지 배경은 된다
+  // 봇의 ffmpeg에 영상 배경을 만들 인코더(H.264, VP9)가 없다. 이미지 배경은 된다
   "background-no-video-encoder": { status: 409, title: "No encoder for video backgrounds" },
-  // 원본이 HDR 인데 봇의 ffmpeg 에 SDR 로 톤 매핑할 필터(zscale)가 없다. SDR 영상, 이미지 배경은 된다
+  // 원본이 HDR인데 봇의 ffmpeg에 SDR로 톤 매핑할 필터(zscale)가 없다. SDR 영상, 이미지 배경은 된다
   "background-hdr-unsupported": { status: 409, title: "No filter to convert HDR video" },
   // 대시보드: 캐시 DB. 필터 식(열마다, 아무 열에서나)과 읽는 구간
   "bad-filter": { status: 400, title: "Invalid filter expression" },
@@ -290,7 +307,7 @@ type ParamsOf<C extends Code> = { [K in ParamNames<C>]: Exclude<Params[K], undef
 type NeedsParams<C extends Code> = [ParamNames<C>] extends [never] ? false : true;
 /** 문제 하나: 코드와 그 코드의 문장에 드는 값 */
 type Problem = { [C in Code]: { code: C } & ParamsOf<C> }[Code];
-/** 실행 중에 코드가 정해져 값을 아직 검사하지 않은 문제(대시보드 응답, 곡 추가 결과). 그리기 전에 errors.noticeFor 가 검사한다 */
+/** 실행 중에 코드가 정해져 값을 아직 검사하지 않은 문제(대시보드 응답, 곡 추가 결과). 그리기 전에 errors.noticeFor가 검사한다 */
 type LooseProblem = { code: Code } & Params;
 
 /** 목록에 있는 코드인가 */

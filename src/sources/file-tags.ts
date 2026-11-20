@@ -1,6 +1,6 @@
 // 음원 파일의 태그(제목, 가수, 앨범, 앨범아트)를 읽는다(music-metadata). 외부에서 온 바이트라 바이트, 시간 상한을 먼저 건다.
-// 파일은 라이브러리가 위치를 옮겨 가며 읽으므로(MP4 의 끝 moov 도) 그대로 넘긴다. 스트림은 태그가 있는 헤더까지만 읽고 끊는다.
-// MP4 는 스트림으로 주면 라이브러리가 mdat 을 끝까지 읽어서, 맨 위 박스를 직접 훑어 ftyp + moov 만 버퍼로 넘긴다(moov 가 끝에 있으면 그 위치부터 따로 받는다)
+// 파일은 라이브러리가 위치를 옮겨 가며 읽으므로(MP4의 끝 moov도) 그대로 넘긴다. 스트림은 태그가 있는 헤더까지만 읽고 끊는다.
+// MP4는 스트림으로 주면 라이브러리가 mdat을 끝까지 읽어서, 맨 위 박스를 직접 훑어 ftyp + moov만 버퍼로 넘긴다(moov가 끝에 있으면 그 위치부터 따로 받는다)
 
 import { PassThrough, type Readable } from "node:stream";
 import { parseBuffer, parseFile, parseStream, selectCover, type IAudioMetadata, type IOptions } from "music-metadata";
@@ -12,7 +12,7 @@ type Picture = { data: Uint8Array; format: string };
 type Tags = { title: string | null; artist: string | null; album: string | null; picture: Picture | null };
 /**
  * maxBytes: 받는 바이트 상한(따로 받는 moov 포함), timeoutMs: 다 읽기까지의 시간 상한.
- * rangeFrom: MP4 의 moov 가 mdat 뒤에 있을 때 그 위치(start 바이트)부터 받는 스트림. 없거나 null(서버가 이어 받기를 따르지 않음)이면 그 파일은 읽지 않는다
+ * rangeFrom: MP4의 moov가 mdat 뒤에 있을 때 그 위치(start 바이트)부터 받는 스트림. 없거나 null(서버가 이어 받기를 따르지 않음)이면 그 파일은 읽지 않는다
  */
 type StreamLimits = { maxBytes: number; timeoutMs: number; rangeFrom?: (start: number) => Promise<Readable | null> };
 
@@ -93,7 +93,7 @@ function reader(stream: Readable) {
   return () => {
     const pending = it.next();
     pending.catch(() => {
-      /* 받는 쪽(next 를 부른 곳)이 그 거부를 따로 받는다 */
+      /* 받는 쪽(next를 부른 곳)이 그 거부를 따로 받는다 */
     });
     return pending;
   };
@@ -101,7 +101,7 @@ function reader(stream: Readable) {
 
 type Box = { type: string; start: number; size: number; header: number };
 
-/** prefix 의 at 위치 박스 헤더. 크기 0(파일 끝까지)은 null */
+/** prefix의 at 위치 박스 헤더. 크기 0(파일 끝까지)은 null */
 async function boxAt(prefix: Prefix, at: number): Promise<Box | null> {
   if (!(await prefix.fill(at + 8))) return null;
   const bytes = prefix.bytes();
@@ -116,7 +116,7 @@ async function boxAt(prefix: Prefix, at: number): Promise<Box | null> {
   return size >= header ? { type, start: at, size, header } : null;
 }
 
-/** 박스를 차례로 훑어 moov 의 바이트를 돌려준다. 못 찾으면 null. mdat 을 만나면 onMdat 이 그 뒤를 맡는다 */
+/** 박스를 차례로 훑어 moov의 바이트를 돌려준다. 못 찾으면 null. mdat을 만나면 onMdat이 그 뒤를 맡는다 */
 async function moovFrom(prefix: Prefix, onMdat: (after: number) => Promise<Buffer | null>): Promise<Buffer | null> {
   for (let at = 0; ;) {
     const box = await boxAt(prefix, at);
@@ -128,7 +128,7 @@ async function moovFrom(prefix: Prefix, onMdat: (after: number) => Promise<Buffe
   }
 }
 
-/** MP4: ftyp + moov 만 이은 버퍼를 읽는다 */
+/** MP4: ftyp + moov만 이은 버퍼를 읽는다 */
 async function mp4Tags(prefix: Prefix, limits: StreamLimits, budget: { left: number }, opened: Readable[]): Promise<Tags | null> {
   const ftyp = await boxAt(prefix, 0);
   if (!ftyp || !(await prefix.fill(ftyp.size))) return null;

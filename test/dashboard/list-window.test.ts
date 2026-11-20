@@ -11,7 +11,7 @@ test("쿼리가 없으면 화면의 처음 값", () => {
   assert.deepEqual(statusQueryOf({}), STATUS_QUERY);
 });
 
-test("화면이 보낸 쿼리를 그대로 읽는다(statusParams 와 맞물린다)", () => {
+test("화면이 보낸 쿼리를 그대로 읽는다(statusParams와 맞물린다)", () => {
   const query = { players: { from: 40, count: 25 }, states: ["idle" as const], q: "음악", procs: { from: 0, count: 0 }, sort: "job" as const, desc: false };
   assert.deepEqual(statusQueryOf(statusParams(query)), query);
 });
@@ -31,7 +31,7 @@ test("states: 빈 값은 아무 상태도, 모르는 값은 뺀다", () => {
   assert.deepEqual(statusQueryOf({ states: "idle,stopped,playing" }).states, ["playing", "idle"]);
 });
 
-test("자르기: 구간 안이면 그대로, 시작이 필터링된 수를 넘으면 마지막 구간으로 당긴다, 개수 0 은 행 없이", () => {
+test("자르기: 구간 안이면 그대로, 시작이 필터링된 수를 넘으면 마지막 구간으로 당긴다, 개수 0은 행 없이", () => {
   const rows = Array.from({ length: 10 }, (_, i) => i);
   assert.deepEqual(cut(rows, { from: 2, count: 3 }), { from: 2, rows: [2, 3, 4] });
   assert.deepEqual(cut(rows, { from: 8, count: 5 }), { from: 8, rows: [8, 9] }, "끝에 걸치면 당기지 않는다");

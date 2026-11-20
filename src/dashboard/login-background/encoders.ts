@@ -1,6 +1,6 @@
 // 로그인 배경을 인코딩하는 인코더. 봇이 켜질 때마다 코덱마다 후보를 작은 테스트로 돌려 쓸 수 있는 첫 것을 선택한다(뒤에서, 봇 시작을 막지 않는다).
-// 기록해 두지 않는다: 기기가 바뀌었는지 알아보는 비용(Windows 의 장치 정보 읽기)이 테스트와 비교해 작지 않고, 드라이버, 라이브러리만 바뀌어도 늘 맞는다. 인코딩하다 인코더가 실패하면 다시 테스트한다(recheck).
-// 후보는 같은 화질이 되는 값을 재 둔 인코더만이다: AV1 은 SVT-AV1, VP9 은 libvpx, H.264 는 NVENC → OpenH264 → x264(OpenH264 가 없는 ffmpeg 몫. 720p 는 고정 비트레이트 규격이라 같은 규격으로).
+// 기록해 두지 않는다: 기기가 바뀌었는지 알아보는 비용(Windows의 장치 정보 읽기)이 테스트와 비교해 작지 않고, 드라이버, 라이브러리만 바뀌어도 늘 맞는다. 인코딩하다 인코더가 실패하면 다시 테스트한다(recheck).
+// 후보는 같은 화질이 되는 값을 재 둔 인코더만이다: AV1은 SVT-AV1, VP9은 libvpx, H.264는 NVENC → OpenH264 → x264(OpenH264가 없는 ffmpeg 몫. 720p는 고정 비트레이트 규격이라 같은 규격으로).
 // 하드웨어 AV1, VP9 인코더는 같은 화질이 되는 값을 아직 재지 않아 후보에 없다
 
 import logger from "../../infra/log/logger.ts";
@@ -10,7 +10,7 @@ import { readsAnimatedWebp, tryEncoder, tryFilter } from "../../media/ffmpeg/tri
 import { HDR_TO_SDR } from "./ladder.ts";
 import { LOGIN_BG_CODECS, type LoginBackgroundCodec, type LoginBackgroundEncoder } from "../contract/login-background.ts";
 
-/** 후보 하나. options 는 테스트에 거는 옵션(실제 인코딩의 핵심만: 10비트, 비트레이트 방식 등, 거기서 실패하면 인코딩도 실패한다) */
+/** 후보 하나. options는 테스트에 거는 옵션(실제 인코딩의 핵심만: 10비트, 비트레이트 방식 등, 거기서 실패하면 인코딩도 실패한다) */
 type Candidate = { encoder: string; hardware: boolean; options: string[] };
 const CANDIDATES: Record<LoginBackgroundCodec, Candidate[]> = {
   av1: [{ encoder: "libsvtav1", hardware: false, options: ["-preset", "12", "-pix_fmt", "yuv420p10le"] }],
@@ -21,18 +21,18 @@ const CANDIDATES: Record<LoginBackgroundCodec, Candidate[]> = {
     { encoder: "libx264", hardware: false, options: ["-b:v", "2500k", "-bf", "0"] },
   ],
 };
-/** 장치가 없어서 못 쓰는 것(까닭으로 보이지 않는다). 그 밖의 실패(드라이버가 낡음 등)는 운영자에게 까닭을 보인다 */
+/** 장치가 없어서 못 쓰는 것(원인으로 보이지 않는다). 그 밖의 실패(드라이버가 낡음 등)는 운영자에게 원인을 보인다 */
 const ABSENT = /cannot load|no .*capable devices|CUDA_ERROR_NO_DEVICE|could not dynamically load|dlopen/i;
 
 let encoders: LoginBackgroundEncoder[] = [];
 let animatedWebp = false;
-// HDR 을 SDR 로 톤 매핑할 수 있나. 아직 보지 않았으면 null(막지 않고 ffmpeg 에 맡긴다)
+// HDR을 SDR로 톤 매핑할 수 있나. 아직 보지 않았으면 null(막지 않고 ffmpeg에 맡긴다)
 let hdrToSdr: boolean | null = null;
 // 톤 매핑 확인의 입력: 10비트 PQ, BT.2020 테스트 영상
 const HDR_TRIAL_SOURCE = "testsrc2=size=64x36:rate=30,format=yuv420p10le,setparams=color_trc=smpte2084:color_primaries=bt2020:colorspace=bt2020nc";
 let running: Promise<void> | null = null;
 
-/** 코덱 하나: 후보를 순서대로 테스트해 처음 되는 것. 앞 후보가 장치가 있는데 실패했으면 그 까닭을 남긴다 */
+/** 코덱 하나: 후보를 순서대로 테스트해 처음 되는 것. 앞 후보가 장치가 있는데 실패했으면 그 원인을 남긴다 */
 async function pick(codec: LoginBackgroundCodec): Promise<LoginBackgroundEncoder> {
   let why: string | null = null;
   for (const candidate of CANDIDATES[codec]) {
@@ -77,7 +77,7 @@ const isChecking = () => running !== null;
 /** 그 코덱으로 인코딩하는 인코더(없으면 null) */
 const encoderFor = (codec: LoginBackgroundCodec) => encoders.find((one) => one.codec === codec)?.encoder ?? null;
 const canReadAnimatedWebp = () => animatedWebp;
-/** HDR 원본을 SDR 로 톤 매핑할 수 있나(아직 보지 않았으면 참) */
+/** HDR 원본을 SDR로 톤 매핑할 수 있나(아직 보지 않았으면 참) */
 const canToneMapHdr = () => hdrToSdr !== false;
 
 /** 테스트: 선택한 인코더를 바꿔 넣는다(인코더가 없는 기기 흉내) */
@@ -85,7 +85,7 @@ function _useEncoders(list: LoginBackgroundEncoder[]) {
   encoders = list;
 }
 
-/** 테스트: 톤 매핑을 할 수 있는지 바꿔 넣는다(zscale 이 없는 ffmpeg 흉내) */
+/** 테스트: 톤 매핑을 할 수 있는지 바꿔 넣는다(zscale이 없는 ffmpeg 흉내) */
 function _useHdrToSdr(value: boolean | null) {
   hdrToSdr = value;
 }

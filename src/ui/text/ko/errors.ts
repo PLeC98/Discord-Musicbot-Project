@@ -1,4 +1,4 @@
-// 오류, 거절 안내. 코드(rules/problems)마다 문장 하나. 부르는 쪽은 코드와 값만 넘긴다.
+// 오류, 거절 안내. 코드(rules/problems)마다 문장 하나. 호출부는 코드와 값만 넘긴다.
 // 안내는 무엇에 관한 것인지(topic), 심각한 정도(severity), 헤더 줄, 본문이고, 헤더 줄의 이모지와 색은 그리는 쪽(ui/frame)이 붙인다
 
 import { formatBytes, formatMs } from "../../format.ts";
@@ -13,7 +13,7 @@ const error = (topic: Topic, title: string, body?: string) => noticeOf("error", 
 const warning = (topic: Topic, title: string, body?: string) => noticeOf("warning", topic, title, body);
 
 /**
- * 그리는 쪽마다 다른 값의 형식. 디스코드는 채널을 멘션으로, 봇 개발자를 저장소 링크로 적는다(ui/mentions 의 DISCORD_LOOK).
+ * 그리는 쪽마다 다른 값의 형식. 디스코드는 채널을 멘션으로, 봇 개발자를 저장소 링크로 적는다(ui/mentions의 DISCORD_LOOK).
  * 대시보드는 글자로 적고, 보고할 곳은 화면이 따로 붙인다(utils/problem)
  */
 type Look = { channel: (id: string) => string; developer: () => string };
@@ -41,16 +41,16 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "must-owner": () => warning("permission", "이 조작을 할 권한이 없어요.", "이 조작은 봇 운영자 전용이에요."),
   // 검색 결과 버튼은 검색한 사람만 누른다
   "search-owner-only": () => warning("permission", "다른 사람의 패널이에요!", "검색한 사람만 선택할 수 있어요."),
-  // 전용 채널이 있으면 /dashboard 는 그 채널에서만. channelId 는 전용 채널
+  // 전용 채널이 있으면 /dashboard는 그 채널에서만. channelId는 전용 채널
   "only-in-bot-channel": ({ channelId = "" }, look) => warning("permission", "전용 채널이 아니에요!", `이 명령어는 ${look.channel(channelId)} 채널에서만 사용할 수 있어요.`),
-  // DM 에서 서버 명령을 불렀다
+  // DM에서 서버 명령을 불렀다
   "guild-only": () => warning("permission", "마음만 받을게요.", "아쉽게도 서버에서만 사용할 수 있는 명령어예요. 서버에서 사용해 주세요!"),
   // 봇에게 디스코드 권한이 없음
-  // 봇이 그 음성 채널에 들어가거나 말할 권한이 없다. 디스코드가 음성 채널 상태를 권한 없음으로 거절해도 이것이다
+  // 봇이 그 음성 채널에 들어가거나 말할 권한이 없다. 디스코드가 음성 채널 상태를 권한 없음으로 거절해도 permission-voice다
   "permission-voice": () => error("permission", "제게 권한이 없어요.", "봇이 그 음성 채널에 접속하거나 말할 권한이 없어요."),
   // 봇이 서버에서 타임아웃돼 음성 채널에 들어갈 수 없다
   "bot-timed-out": () => warning("permission", "제가 타임아웃 상태예요.", "타임아웃이 풀릴 때까지 음성 채널에 들어갈 수 없어요."),
-  // 디스코드가 권한 없음으로 거절했다. 글(메시지, 고정, 웹훅), 그 밖(rules/error-kind 가 거절된 요청의 주소로 구분한다)
+  // 디스코드가 권한 없음으로 거절했다. 글(메시지, 고정, 웹훅), 그 밖(rules/error-kind가 거절된 요청의 주소로 구분한다)
   "permission-text": () => error("permission", "제게 권한이 없어요.", "봇이 그 텍스트 채널에 메시지를 올릴 권한이 없어요. 서버 관리자에게 봇의 권한을 확인해 달라고 해 주세요."),
   "permission-other": () => error("permission", "제게 권한이 없어요.", "봇이 그 행동을 하는 데에 필요한 권한이 없어요. 서버 관리자에게 봇의 권한 설정을 확인해 달라고 해 주세요."),
   // 지금 상태로는 못 함
@@ -72,7 +72,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "ended-while-adding": () => warning("state", "그 사이에 재생이 끝나버렸어요!", "플레이어가 만료됐어요. 링크를 다시 넣어서 재생해주세요."),
   "live-no-seek": () => warning("live", "라이브 방송은 이동을 할 수 없어요!", "라이브 방송은 실시간으로만 재생이 가능해요."),
   "live-no-loop": () => warning("live", "라이브 방송은 반복 모드를 지원하지 않아요!", "라이브 방송이 재생중이거나 대기열에 있을 때는 반복 모드를 설정할 수 없어요. 해당 곡을 빼고 시도해 주세요."),
-  "pinned-live": () => warning("live", "지정된 음원이 라이브 방송이에요!", "라이브는 곡으로 지정할 수 없어요. 운영자에게 캐시 DB 에서 바꿔 달라고 해 주세요."),
+  "pinned-live": () => warning("live", "지정된 음원이 라이브 방송이에요!", "라이브는 곡으로 지정할 수 없어요. 운영자에게 캐시 DB에서 바꿔 달라고 해 주세요."),
   "live-upcoming": () => warning("live", "아직 시작되지 않은 라이브예요!", "예정된 라이브는 아직 재생할 수 없어요. 라이브가 시작된 뒤에 다시 넣어 주세요."),
   "live-ended": () => warning("live", "이미 끝난 라이브 방송이에요!", "방송이 끝나서 라이브로는 틀 수 없어요. 다시보기로 들으려면 링크를 다시 넣어 주세요."),
   // 그 사이 사라짐
@@ -87,14 +87,14 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "more-expired": () => warning("stale", "시간이 지나 닫힌 메뉴예요. 링크를 다시 넣어 주세요."),
   // 입력이 틀림
   // 시간 입력(/seek)을 읽지 못했다
-  "bad-time": () => warning("input", "알 수 없는 시간 형식이에요!", "제가 읽을 수 없는 형식이에요. `1:30`, `3m20s`, `90` 처럼 적어 주세요!"),
+  "bad-time": () => warning("input", "알 수 없는 시간 형식이에요!", "제가 읽을 수 없는 형식이에요. `1:30`, `3m20s`, `90`처럼 적어 주세요!"),
   "bad-volume": () => warning("input", "정해진 범위의 숫자로 입력해 주세요!", `볼륨은 0에서 ${VOLUME_MAX}까지의 숫자로 적어야 해요.`),
   "bad-position": ({ size }) => warning("input", "그 번호의 곡은 존재하지 않아요!", `대기열에는 ${size}곡만 있어요. 1~${size} 사이로 적어 주세요.`),
   "same-position": () => warning("input", "제자리로 옮길 수는 없어요!", "옮길 곡의 번호와 옮겨질 위치가 같아요. 번호를 다시 확인해주세요."),
   "beyond-end": ({ durationMs }) => warning("input", "곡이 그만큼 길지 않아요!", `곡 길이(${formatMs(durationMs, "--:--")})보다 뒤로 이동할 수는 없어요.`),
   "genre-unusable": ({ genre = "", keys = "" }) => warning("state", "지금은 쓸 수 없는 장르예요!", `\`${genre}\` 장르가 쓰는 소스(${keys})의 키가 아직 없어요. 봇 운영자에게 알려 주세요.`),
   "unknown-genre": ({ genre = "" }) => warning("stale", "알 수 없는 장르예요!", `그 사이 장르 목록이 변경되어 \`${genre}\`${josa(genre, "은")} 없어졌어요. 장르를 다시 선택해 주세요.`),
-  // 재생목록 한 번에 넣는 곡 수가 범위 밖이다. queueCap 은 범위의 끝이 대기열 상한이라 그렇다면 그 상한
+  // 재생목록 한 번에 넣는 곡 수가 범위 밖이다. queueCap은 범위의 끝이 대기열 상한이라 그렇다면 그 상한
   "playlist-limit-out-of-range": ({ min, max, queueCap }) => warning("input", "범위를 벗어난 수치예요!", `한 번에 넣을 곡 수는 ${queueCap ? `대기열 상한치인 ${queueCap}곡을 넘을 수 없고, ` : ""}${min}에서 ${max}곡 사이여야 해요.`),
   "more-bad-count": () => warning("input", "넣을 곡 수를 1 이상의 숫자로 적어 주세요."),
   "more-not-requester": () => warning("permission", "목록을 넣은 사람만 더 넣을 수 있어요."),
@@ -116,7 +116,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "shoutcast-v1": () => warning("link", "열 수 없는 인터넷 라디오예요!", "옛 방식(SHOUTcast v1)으로 보내는 방송이라 틀 수 없어요. 방송사가 주는 다른 스트림 주소로 넣어 주세요."),
   "yt-unplayable": () => warning("link", "지원하지 않는 유튜브 링크예요!", "영상이나 재생목록의 주소를 넣어주세요."),
   "sc-unsupported": () => warning("link", "지원하지 않는 사운드클라우드 링크예요!", "곡이나 플레이리스트의 링크를 넣어 주세요."),
-  // 막힌 주소 같은 까닭은 운영자 로그에만(내부망 탐지 도구가 되지 않게)
+  // 막힌 주소 같은 세부 내용은 운영자 로그에만(내부망 탐지 도구가 되지 않게)
   "direct-unavailable": () => warning("link", "재생할 수 없는 링크예요!", "해당 링크가 오디오나 영상이 맞는지, 용량이 너무 크지는 않은지, 접속이 정상적으로 가능한지 확인해주세요."),
   "unavailable-contents": () => warning("blocked", "접근할 수 없거나 존재하지 않는 영상이에요!", "비공개이거나 삭제된 콘텐츠는 틀 수 없어요."),
   "unavailable-playlist": () => warning("blocked", "접근할 수 없거나 존재하지 않는 재생 목록이에요!", "비공개이거나 삭제된 재생 목록은 재생할 수 없어요."),
@@ -127,7 +127,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   // 사운드클라우드 Go+, 음반사 곡은 30초 조각만 열린다. 조각을 곡처럼 틀지 않는다
   "sc-preview-only": () => warning("blocked", "미리듣기만 가능한 곡이라 틀 수 없어요.", "다른 곡을 재생하거나, 다른 플랫폼으로 시도해 주세요."),
   "geo-blocked": () => warning("blocked", "지역 제한 콘텐츠예요!", "이 링크의 콘텐츠는 제가 있는 곳에서 접근할 수 없어요. 다른 링크로 시도해 보세요."),
-  // skipped 는 받을 수 없어 뺀 곡 수
+  // skipped는 받을 수 없어 뺀 곡 수
   "nothing-playable": ({ skipped }) => warning("blocked", `앞의 ${skipped}곡이 전부 재생할 수 없는 곡이에요.`, "미리듣기만 가능하거나 지역 제한 등이 걸린 곡들이에요."),
   "more-nothing-playable": ({ skipped }) => warning("blocked", "해당 구간에는 재생할 수 없는 곡뿐이에요.", `미리듣기나 지역 제한 등이 걸린 곡들이라 넣지 못했어요. (${skipped}곡)`),
   // 바깥 실패
@@ -136,39 +136,39 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "network-error": () => error("failed", "연결 오류가 발생했어요!", "해당 플랫폼에 연결하지 못했어요. 보통은 일시적인 오류이니 잠시 뒤에 다시 시도해 보세요. 오류가 계속되면 봇 운영자에게 알려주세요."),
   "stream-failed": () => error("failed", "오디오를 받아오지 못했어요!", "링크에 성공적으로 접속했지만 정상적으로 재생 가능한 음원을 가져오지 못했어요. 다시 시도하거나 다른 버전을 넣어 주세요."),
   "voice-failed": () => error("voice", "음성 채널에 들어가지 못했어요!", "채널 인원 제한이나 네트워크 문제일 수 있어요. 잠시 후 다시 시도해 보고, 계속되면 서버 관리자에게 알려 주세요."),
-  // 플레이어 없이 음성 채널에만 남은 봇을 게이트웨이로도, REST 로도 빼지 못했다(멤버 옮기기 권한이 없는 등)
+  // 플레이어 없이 음성 채널에만 남은 봇을 게이트웨이로도, REST로도 빼지 못했다(멤버 옮기기 권한이 없는 등)
   "leave-failed": () => error("voice", "음성 채널에서 나가지 못했어요!", "잠시 후 다시 시도해 보고, 계속되면 서버 관리자에게 봇을 음성 채널에서 내보내 달라고 해 주세요."),
   // 나가기를 기다리는 사이 누가 봇을 다시 불렀다. 새로 붙은 연결은 쫓아내지 않는다
   "leave-superseded": () => warning("stale", "그사이 누가 봇을 다시 불렀어요!", "그래서 나가지 않았어요. 나가게 하려면 다시 실행해 주세요."),
   // 운영자 설정, 잠시 못 함
-  "rate-limited": () => error("failed", "요청이 너무 많아요...!", "해당 플랫폼이 제 요청을 차단했어요. 몇 분 뒤에 다시 해 보고, 계속되거나 자주 발생하면 봇 운영자에게 알려주세요."),
+  "rate-limited": () => error("failed", "요청이 너무 많아요...!", "해당 플랫폼이 제 요청을 차단했어요. 몇 분 뒤에 재시도하고, 계속되거나 자주 발생하면 봇 운영자에게 알려주세요."),
   // 운영자가 쿠키를 다시 넣으면 풀린다
   "yt-age-cookies-invalid": () => error("blocked", "일시적으로 연령 제한 영상을 틀 수 없어요!", "오류가 계속되면 봇 운영자에게 알려주세요."),
-  // 설치된 ffmpeg 가 라이브를 열 수 없다. 고치는 법은 운영자 로그에
+  // 설치된 ffmpeg가 라이브를 열 수 없다. 고치는 법은 운영자 로그에
   "live-no-ffmpeg": () => error("live", "라이브 방송을 틀 수 없어요!", "의도된 동작이 아니니 봇 운영자에게 알려 주세요."),
   "still-starting": () => warning("waiting", "잠시만 기다려 주세요...!", "아직 재생을 준비하는 중이에요. 잠시 뒤에 다시 시도해 주세요."),
   // 재생 인코딩 워커가 잇달아 죽어 잠시 새 워커를 띄우지 않는다. 경위는 운영자 로그에
   "encoder-unavailable": () => error("failed", "지금은 재생할 수 없어요!", "봇에서 오디오를 처리하는 부분에 문제가 생겼어요. 몇 분 뒤에 다시 시도해 보고, 계속되면 봇 운영자에게 알려 주세요."),
   // 봇 안쪽 실패
   "unknown-error": () => error("failed", "예상치 못한 오류예요!", "잠시 후 재시도해 보세요. 오류가 계속되면 봇 운영자에게 알려 주세요."),
-  // 명령 핸들러가 던졌는데 종류를 구분할 수 없다
+  // 명령 핸들러가 예외를 던졌는데 종류를 구분할 수 없다
   "command-failed": () => error("failed", "예상치 못한 오류예요!", "명령어 처리 중 오류가 발생했어요. 오류가 반복되면 봇 운영자에게 알려주세요."),
-  // 버튼, 메뉴의 처리가 던졌다(전용 채널 입력 포함)
+  // 버튼, 메뉴의 처리가 예외를 던졌다(전용 채널 입력 포함)
   "processing-failed": () => error("failed", "예상치 못한 오류예요!", "처리 중에 오류가 발생했어요. 오류가 반복되면 봇 운영자에게 알려주세요."),
   "control-failed": () => error("failed", "작업이 실패했어요!", "잠시 뒤 재시도해 보고, 계속되면 봇 운영자에게 알려주세요."),
   "add-failed": () => error("failed", "오류가 발생했어요!", "곡을 넣는 중에 오류가 발생했어요."),
-  // 까닭을 모르고 곡을 못 틀었다
+  // 원인을 모르고 곡을 못 틀었다
   "cannot-start": () => error("failed", "예상치 못한 오류예요!", "곡을 재생하지 못했어요. 오류가 반복되면 봇 운영자에게 알려주세요."),
   // 새로고침 버튼이 화면(/help, /system)을 다시 그리다 실패했다
   "refresh-failed": () => error("failed", "정보를 새로고침하지 못했어요.", "명령어를 다시 입력하여 새 패널로 조회해 주세요."),
   "channel-set-failed": () => error("failed", "채널 지정에 실패했어요.", "채널을 조회하지 못했거나 저장에 실패했어요. 권한 설정을 확인해보고, 잠시 후 시도해도 오류가 발생한다면 봇 운영자에게 알려주세요."),
   "settings-save-failed": () => error("failed", "설정을 저장하지 못했어요.", "데이터베이스나 저장소에 문제가 있어요. 봇 운영자에게 알려주세요."),
   "dj-role-save-failed": () => error("failed", "저장하지 못했어요", "DJ 역할 저장 중에 오류가 발생했어요. 잠시 후 다시 시도해 주세요."),
-  // /join 이 저장한 세션을 복원하지 못했다. 다시 틀다 실패하고 남은 곡이 없다, 연달아 실패해 멈췄다, 복원하다가 오류
+  // /join이 저장한 세션을 복원하지 못했다. 다시 틀다 실패하고 남은 곡이 없다, 연달아 실패해 멈췄다, 복원하다가 오류
   "restore-nothing-left": () => error("failed", "이어 들을 곡을 틀지 못했어요", "저장된 곡을 다시 틀다 실패했고 남은 곡이 없어요. `/play`로 곡을 넣어 주세요."),
   "restore-parked": () => error("failed", "대기열을 불러왔지만 곡이 재생되지 않아 일시정지했어요", "재생 버튼을 누르면 다시 시도해요."),
-  // 디스코드 /join 과 대시보드 참가 버튼이 같이 쓴다
-  "restore-failed": () => error("failed", "오류가 발생했어요!", "이전에 듣던 곡을 복구하던 중 오류가 발생했어요. 잠시 후에 `/join` 이나 대시보드의 참가 버튼으로 다시 시도해 보세요. 여전히 문제가 있다면 봇 운영자에게 알려주세요."),
+  // 디스코드 /join과 대시보드 참가 버튼이 같이 쓴다
+  "restore-failed": () => error("failed", "오류가 발생했어요!", "이전에 듣던 곡을 복구하던 중 오류가 발생했어요. 잠시 후에 `/join`이나 대시보드의 참가 버튼으로 다시 시도해 보세요. 여전히 문제가 있다면 봇 운영자에게 알려주세요."),
 
   // 대시보드: 웹 오류 화면처럼 무엇이 안 됐는지, 왜, 어떻게 하면 되는지(코드는 화면이 끝 줄에 붙인다). 접속, 권한
   "login-required": () => warning("permission", "로그인이 필요해요!", "로그인하지 않았거나 로그인이 만료됐어요. 다시 로그인한 뒤에 시도해 주세요."),
@@ -179,9 +179,19 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "no-guild-access": () => warning("permission", "이 서버를 볼 수 없어요!", "봇이 있는 서버 중 내가 멤버인 서버만 볼 수 있어요. 그 서버에서 나갔다면 서버 목록에서도 빠져요."),
   "bad-tier": (_, look) => warning("input", "알 수 없는 권한 수준이에요!", stalePage(look)),
   // 대시보드: 상태
-  "restart-unavailable": () => warning("state", "대시보드에서 다시 시작할 수 없어요!", "봇을 다시 시작해 줄 실행기 없이 실행했어요. 봇 폴더에서 `pnpm start` 로 실행하면 대시보드에서 다시 시작할 수 있어요."),
+  "restart-unavailable": () => warning("state", "대시보드에서 다시 시작할 수 없어요!", "봇을 다시 시작해 줄 실행기 없이 실행했어요. 봇 폴더에서 `pnpm start`로 실행하면 대시보드에서 다시 시작할 수 있어요."),
   "invite-unavailable": () => warning("permission", "대시보드에서 봇을 초대할 수 없어요!", "이 봇은 디스코드 설정상 봇 주인만 초대할 수 있거나, 대시보드의 초대 링크로는 넣을 수 없어요. 봇 운영자에게 알려주세요."),
   "bot-shutting-down": () => error("waiting", "봇이 종료 중이에요!", "봇이 다시 시작되면 그때 시도해 주세요."),
+  "tool-check-failed": () => error("failed", "최신 버전을 확인하지 못했어요!", "GitHub에서 릴리스 정보를 가져오지 못했어요. 아래 오류 내용을 확인해 주세요."),
+  "tool-check-stale": () => warning("stale", "업데이트를 다시 확인해 주세요!", "확인한 뒤에 채널이 바뀌었거나 새 버전이 나왔어요."),
+  "tool-version-pinned": () => warning("state", "버전을 고정한 상태에서는 할 수 없어요!", "버전 고정을 해제한 뒤 다시 시도해 주세요."),
+  "bgutil-not-installing": () => warning("state", "bgutil을 설치하고 있지 않아요!", "설치에 실패했거나 설치에 필요한 프로그램이 없어요. 업데이트 탭의 bgutil 카드를 확인해 주세요."),
+  "bgutil-installing": () => warning("state", "bgutil을 설치하는 중이에요!", "설치가 끝난 뒤에 다시 시도해 주세요."),
+  "bgutil-tag-missing": () => warning("input", "저장소에 없는 태그예요!", "bgutil 저장소의 태그 목록에서 이름을 확인해 주세요."),
+  "bgutil-resolve-failed": () => error("failed", "태그의 커밋을 확인하지 못했어요!", "저장소에서 태그 정보를 가져오지 못했어요. 아래 오류 내용을 확인해 주세요."),
+  "bgutil-resolve-stale": () => warning("stale", "태그의 커밋을 다시 확인해 주세요!", "확인한 지 오래됐거나 아직 확인하지 않은 태그예요."),
+  "tool-cleanup-failed": () => error("failed", "이전 버전을 삭제하지 못했어요!", "아래 오류 내용을 확인해 주세요."),
+  "tool-no-previous": () => warning("state", "되돌릴 이전 버전이 없어요!", "이전 버전의 기록이나 파일이 남아 있지 않아요. 되돌릴 버전을 직접 입력해 고정해 주세요."),
   // 운영자 패널의 특권 인텐트 켜기
   "intent-needs-approval": () => warning("permission", "바로 켤 수 없어요.", "서버가 100개 이상이라 디스코드 승인을 받아야 켤 수 있어요. 개발자 포털에서 신청해 주세요."),
   "intent-flags-unknown": () => error("failed", "인텐트 상태를 알 수 없어요.", "디스코드에서 받은 앱 설정에 인텐트 플래그가 없어요. 개발자 포털에서 직접 켜 주세요."),
@@ -230,7 +240,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "config-invalid": () => warning("input", "설정에 문제가 있어요!", "값을 고친 뒤 다시 시도해 주세요."),
   "config-changed": () => warning("stale", "설정이 그사이 바뀌었어요!", "다른 탭이나 다른 사람이 먼저 저장했어요. 새로 불러온 뒤 다시 고쳐 주세요."),
   "settings-changed": () => warning("stale", "설정이 그사이 바뀌었어요!", "다른 곳에서 먼저 바뀐 설정은 덮어쓰지 않고 지금 값을 불러왔어요. 바뀐 값을 확인하고 그래도 바꾸려면 다시 고쳐 주세요."),
-  "config-save-failed": () => error("failed", "설정을 저장하지 못했어요!", "설정 DB 에 저장하다 실패했어요. 아래 오류 내용을 확인해 주세요."),
+  "config-save-failed": () => error("failed", "설정을 저장하지 못했어요!", "설정 DB에 저장하다 실패했어요. 아래 오류 내용을 확인해 주세요."),
   "bad-archive": () => warning("input", "불러올 수 없는 파일이에요!", "이 봇의 설정 내보내기 ZIP이 아니거나 파일이 깨졌어요. 아래 오류 내용을 확인해 주세요."),
   "disk-full": ({ size }) => warning("state", "저장 공간이 모자라요!", `남은 공간이 ${formatBytes(size ?? 0)} 뿐이에요. 디스크를 비운 뒤 다시 시도해 주세요.`),
   "archive-too-many-files": ({ max }) => warning("state", "캐시 파일이 너무 많아요!", `한 번에 ${max ?? 0}개까지 내보낼 수 있어요. 캐시 파일 제외로 내보내 주세요.`),
@@ -246,7 +256,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "bad-image": () => warning("input", "쓸 수 없는 이미지예요!", "png, webp, jpg, svg 이미지만 쓸 수 있어요."),
   "image-not-square": () => warning("input", "정사각형 이미지만 쓸 수 있어요!", "가로와 세로가 같은 이미지를 올려 주세요."),
   "image-too-small": ({ min }) => warning("input", "이미지가 너무 작아요!", `한 변이 ${min}px 이상인 이미지를 올려 주세요.`),
-  "image-link-failed": ({ max }) => warning("input", "링크에서 이미지를 가져오지 못했어요!", `주소가 이미지 파일을 바로 가리키는지, 그 사이트에 접속이 되는지 확인해 주세요.${max ? ` ${formatBytes(max)} 보다 큰 이미지는 가져오지 않아요.` : ""}`),
+  "image-link-failed": ({ max }) => warning("input", "링크에서 이미지를 가져오지 못했어요!", `주소가 이미지 파일을 바로 가리키는지, 그 사이트에 접속이 되는지 확인해 주세요.${max ? ` ${formatBytes(max)}보다 큰 이미지는 가져오지 않아요.` : ""}`),
   "appearance-save-failed": () => error("failed", "이미지를 저장하지 못했어요!", "파일을 저장하다 실패했어요. 아래 오류 내용을 확인해 주세요."),
   // 대시보드: 앱 이모지(운영자 패널)
   "emoji-name-bad": () => warning("input", "쓸 수 없는 이모지 이름이에요!", "영문, 숫자, 밑줄(_)로 2 ~ 32자를 입력해 주세요."),
@@ -268,8 +278,8 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "background-failed": () => error("failed", "배경을 만들지 못했어요!", "봇 로그에 적힌 원인을 확인하고 다시 올려 주세요."),
   "background-bad-source": () => warning("input", "쓸 수 없는 파일이에요!", "이미지, 영상, 움짤 파일인지, 너무 크거나 깨지지 않았는지 확인해 주세요."),
   "background-link-failed": () => warning("input", "링크에서 가져오지 못했어요!", "주소가 이미지나 영상 파일, 또는 유튜브 영상을 가리키는지, 그 사이트에 접속이 되는지 확인해 주세요."),
-  "background-no-video-encoder": () => warning("state", "이 기기에서는 영상 배경을 만들 수 없어요!", "봇의 ffmpeg 에 H.264 나 VP9 인코더가 있어야 해요. 이미지 배경은 쓸 수 있어요."),
-  "background-hdr-unsupported": () => warning("state", "이 기기에서는 HDR 영상을 쓸 수 없어요!", "봇의 ffmpeg 에 HDR 을 SDR 로 바꾸는 zscale 필터가 있어야 해요. SDR 영상이나 이미지 배경은 쓸 수 있어요."),
+  "background-no-video-encoder": () => warning("state", "이 기기에서는 영상 배경을 만들 수 없어요!", "봇의 ffmpeg에 H.264나 VP9 인코더가 있어야 해요. 이미지 배경은 쓸 수 있어요."),
+  "background-hdr-unsupported": () => warning("state", "이 기기에서는 HDR 영상을 쓸 수 없어요!", "봇의 ffmpeg에 HDR을 SDR로 바꾸는 zscale 필터가 있어야 해요. SDR 영상이나 이미지 배경은 쓸 수 있어요."),
   // 대시보드: 캐시 DB
   "bad-filter": () => warning("input", "필터 식을 읽을 수 없어요!", "식을 확인해 주세요. 필터 입력란을 오른쪽 클릭하면 쓸 수 있는 식이 나와요."),
   "filter-too-long": ({ max }) => warning("input", "필터 식이 너무 길어요!", `${max}자까지 쓸 수 있어요.`),
@@ -282,7 +292,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "not-single-track": () => warning("input", "곡 하나의 링크가 아니에요!", "재생목록, 앨범, 짧은 링크가 아닌 곡 하나의 주소를 적어 주세요."),
   "not-audio-source": () => warning("input", "재생할 수 없는 음원이에요!", "유튜브 영상, 사운드클라우드 곡, 오디오 파일 주소를 적어 주세요."),
   "nothing-to-clear": () => warning("state", "지울 자동 검색 결과가 없어요!", "이 요청은 요청 링크를 그대로 재생해요."),
-  "track-cache-write-failed": () => error("failed", "변경 사항을 저장하지 못했어요!", "캐시 DB 에 저장하다 실패했어요. 운영자 로그를 확인해 주세요."),
+  "track-cache-write-failed": () => error("failed", "변경 사항을 저장하지 못했어요!", "캐시 DB에 저장하다 실패했어요. 운영자 로그를 확인해 주세요."),
   // 대시보드: 초기화
   "reset-name-mismatch": () => warning("input", "봇 이름이 맞지 않아요!", "확인 창에 적힌 봇 이름을 그대로 입력해 주세요."),
   "reset-already-staged": () => warning("state", "봇 전체 초기화가 이미 예약돼 있어요!", "봇을 다시 시작하면 삭제돼요. 취소하려면 초기화 카드에서 예약 취소를 눌러 주세요."),
@@ -290,7 +300,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "reset-failed": () => error("failed", "초기화하지 못했어요!", "초기화하다 실패했어요. 운영자 로그를 확인해 주세요."),
 };
 
-/** 코드의 안내. params 는 그 코드의 문장에 드는 값(rules/problems 의 params, 모두 있어야 한다), look 은 그리는 쪽의 값 형식 */
+/** 코드의 안내. params는 그 코드의 문장에 드는 값(rules/problems의 params, 모두 있어야 한다), look은 그리는 쪽의 값 형식 */
 function notice<C extends Code>(code: C, ...[params, look = PLAIN]: NeedsParams<C> extends true ? [params: ParamsOf<C>, look?: Look] : [params?: ParamsOf<C>, look?: Look]): Notice {
   // 코드마다 다른 값 타입을 한 테이블에서 꺼내므로 여기서만 넓힌다(위 시그니처가 맞춰 넘겼다)
   const text = TEXT[code] as (p: Params, look: Look) => Notice;
@@ -299,7 +309,7 @@ function notice<C extends Code>(code: C, ...[params, look = PLAIN]: NeedsParams<
 
 /**
  * 실행 중에 코드가 정해진 문제의 안내(대시보드 응답, 곡 추가 결과). 그 코드에 드는 값이 빠졌으면 문장을 그리지 않고 알 수 없는 오류로,
- * 빠진 이름은 missing 으로 넘긴다(봇은 로그에 남기고, 화면은 그대로 보인다)
+ * 빠진 이름은 missing으로 넘긴다(봇은 로그에 남기고, 화면은 그대로 보인다)
  */
 function noticeFor(code: Code, params: Params = {}, look: Look = PLAIN, missing?: (names: string[]) => void): Notice {
   const names = ((PROBLEMS[code] as { params?: readonly (keyof Params)[] }).params ?? []).filter((name) => params[name] === undefined);

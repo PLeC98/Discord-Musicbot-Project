@@ -29,7 +29,7 @@ test("중단되면(go가 예외를 던짐) 남은 플레이어를 정리하지�
   assert.equal(players.get("g-join"), existing, "그대로");
 });
 
-test("종료 중이면 플레이어를 만들기 전에 bot-shutting-down 으로 거절한다. 남은 플레이어의 정리를 기다린 뒤에도 다시 확인하고 go 를 다시 호출한다", async (t) => {
+test("종료 중이면 플레이어를 만들기 전에 bot-shutting-down으로 거절한다. 남은 플레이어의 정리를 기다린 뒤에도 다시 확인하고 go를 다시 호출한다", async (t) => {
   t.after(() => _resetShutdown());
   const channel = fake<VoiceBasedChannel>({ id: "v1", permissionsFor: () => ({ has: () => true }) });
   const guild = fake<Guild>({ id: "g-stop", members: { me: { voice: { channel: null } } }, channels: { cache: new Map() } });
@@ -51,7 +51,7 @@ test("종료 중이면 플레이어를 만들기 전에 bot-shutting-down 으로
   assert.equal(players.get("g-stop"), existing, "새 플레이어를 만들지 않는다");
   _resetShutdown();
 
-  // 정리하는 사이 상주 설정이 바뀌었다(go 가 두 번째 호출에서 예외를 던진다)
+  // 정리하는 사이 상주 설정이 바뀌었다(go가 두 번째 호출에서 예외를 던진다)
   let goes = 0;
   const replaced = fake<Player>({ voice: { isAlive: () => false }, dispose: async () => undefined });
   const go = () => {
@@ -62,7 +62,7 @@ test("종료 중이면 플레이어를 만들기 전에 bot-shutting-down 으로
   assert.equal(goes, 2);
 });
 
-test("세션을 복원하다 종료 중이라 붙지 못하면 bot-shutting-down 으로 거절하고 세션을 남긴 채 플레이어를 정리한다", async () => {
+test("세션을 복원하다 종료 중이라 붙지 못하면 bot-shutting-down으로 거절하고 세션을 남긴 채 플레이어를 정리한다", async () => {
   const channel = fake<VoiceBasedChannel>({ id: "v1", permissionsFor: () => ({ has: () => true }) });
   const guild = fake<Guild>({ id: "g-rs", members: { me: { voice: { channel: null } } }, channels: { cache: new Map() } });
   const member = fake<GuildMember>({ id: "u1", voice: { channel } });
@@ -82,7 +82,7 @@ test("세션을 복원하다 종료 중이라 붙지 못하면 bot-shutting-down
   sessions().removeSession("g-rs");
 });
 
-test("붙는 사이 종료가 시작돼 연결이 거절되면 voice-failed 가 아니라 bot-shutting-down 으로 거절하고 플레이어를 정리한다(세션은 남긴다)", async () => {
+test("붙는 사이 종료가 시작돼 연결이 거절되면 voice-failed가 아니라 bot-shutting-down으로 거절하고 플레이어를 정리한다(세션은 남긴다)", async () => {
   const channel = fake<VoiceBasedChannel>({ id: "v1", permissionsFor: () => ({ has: () => true }) });
   const guild = fake<Guild>({ id: "g-cf", members: { me: { voice: { channel: null } } }, channels: { cache: new Map() } });
   const member = fake<GuildMember>({ id: "u1", voice: { channel } });
@@ -97,7 +97,7 @@ test("붙는 사이 종료가 시작돼 연결이 거절되면 voice-failed 가 
   assert.deepEqual(disposed, ["replaced:keep", "connect-failed:keep"]);
 });
 
-test("24/7 자리 지킴이(joinChannel)는 /join 으로만 이어 듣게 남긴 세션을 이어 틀지 않고 곡 없이 붙는다. 세션은 남는다. /join 은 이어 튼다", async () => {
+test("24/7 자리 지킴이(joinChannel)는 /join으로만 이어 듣게 남긴 세션을 이어 틀지 않고 곡 없이 붙는다. 세션은 남는다. /join은 이어 튼다", async () => {
   const channel = fake<VoiceBasedChannel>({ id: "v1", permissionsFor: () => ({ has: () => true }) });
   const guild = fake<Guild>({ id: "g-auto", members: { me: { voice: { channel: null } } }, channels: { cache: new Map() } });
   const text = fake<GuildTextBasedChannel>({ id: "t1" });
@@ -132,11 +132,11 @@ test("24/7 자리 지킴이(joinChannel)는 /join 으로만 이어 듣게 남긴
   save(false);
   const member = fake<GuildMember>({ id: "u1", voice: { channel } });
   assert.equal((await join({ players }, { guild, member, textChannel: text })).kind, "restored");
-  assert.deepEqual(steps, ["restore"], "/join 은 이어 튼다");
+  assert.deepEqual(steps, ["restore"], "/join은 이어 튼다");
   sessions().removeSession("g-auto");
 });
 
-test("명령의 받아들임(accepted): 동기 거절이면 부르지 않는다. 답한 사이 사람이 나갔거나 다른 채널로 옮겼으면 지금 채널로 다시 본다", async () => {
+test("명령의 받아들임(accepted): 동기 거절이면 부르지 않는다. 응답한 사이 사람이 나갔거나 다른 채널로 옮겼으면 지금 채널로 다시 본다", async () => {
   const ok = { permissionsFor: () => ({ has: () => true }) };
   const guild = fake<Guild>({ id: "g-accept", members: { me: { voice: { channel: null } } }, channels: { cache: new Map() } });
   const players = new Map<string, Player>();
@@ -148,12 +148,12 @@ test("명령의 받아들임(accepted): 동기 거절이면 부르지 않는다.
   assert.deepEqual(await join({ players }, { guild, member: nowhere, textChannel: text }, { accepted: async () => void calls.push("accepted") }), { kind: "refused", code: "must-be-in-voice" });
   assert.deepEqual(calls, []);
 
-  // 답하는 사이 음성에서 나갔다
+  // 응답하는 사이 음성에서 나갔다
   const leaving = { id: "u2", voice: { channel: fake<VoiceBasedChannel>({ id: "v1", ...ok }) as VoiceBasedChannel | null } };
   const left = await join({ players }, { guild, member: fake<GuildMember>(leaving), textChannel: text }, { accepted: async () => void (leaving.voice.channel = null) });
   assert.deepEqual(left, { kind: "refused", code: "must-be-in-voice" });
 
-  // 답하는 사이 봇이 들어갈 수 없는 채널로 옮겼다
+  // 응답하는 사이 봇이 들어갈 수 없는 채널로 옮겼다
   const moving = { id: "u3", voice: { channel: fake<VoiceBasedChannel>({ id: "v1", ...ok }) } };
   const locked = fake<VoiceBasedChannel>({ id: "v2", permissionsFor: () => ({ has: () => false }) });
   const moved = await join({ players }, { guild, member: fake<GuildMember>(moving), textChannel: text }, { accepted: async () => void (moving.voice.channel = locked) });

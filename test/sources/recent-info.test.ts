@@ -34,7 +34,7 @@ test("줄이기: 소리만 있는 포맷과 고른 포맷만, 자막, 썸네일 
   assert.deepEqual(
     (out.formats as Array<{ format_id: string }>).map((f) => f.format_id),
     ["251", "140", "18"],
-    "스토리보드(소리 · 영상 모두 없음)와 영상만 있는 것은 뺀다",
+    "스토리보드(소리와 영상 모두 없음)와 영상만 있는 것은 뺀다",
   );
   for (const key of ["automatic_captions", "subtitles", "thumbnails", "description", "cookies"]) assert.equal(key in out, false, key);
   assert.deepEqual(out.http_headers, { "User-Agent": "UA" });
@@ -97,7 +97,7 @@ test("개수: 다시 쓴 수, 밀려난 뒤 필요해져 놓친 수(처음부터
   const one = JSON.stringify(trimmed(info("x"))).length;
   useRecentInfo(one + 10);
   remember(info("a"));
-  remember(info("b")); // a 가 밀려난다
+  remember(info("b")); // a가 밀려난다
   assert.ok(recall("b"));
   assert.equal(recall("a"), null);
   assert.equal(recall("a"), null, "놓친 것은 한 번만 센다");
@@ -105,7 +105,7 @@ test("개수: 다시 쓴 수, 밀려난 뒤 필요해져 놓친 수(처음부터
   assert.deepEqual(reuseLoad(), { reused: 1, missed: 1 });
 });
 
-test("상한은 메모리로: 1GB 마다 2MB, 8 ~ 64MB. 프로세스에 걸린 상한이 있으면 그것으로", () => {
+test("상한은 메모리로: 1GB마다 2MB, 8 ~ 64MB. 프로세스에 걸린 상한이 있으면 그것으로", () => {
   assert.equal(budgetFor(0, 16 * GB), 32 * MB);
   assert.equal(budgetFor(0, 2 * GB), 8 * MB);
   assert.equal(budgetFor(0, 128 * GB), 64 * MB);

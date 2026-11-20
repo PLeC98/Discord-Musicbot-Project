@@ -1,4 +1,4 @@
-// src/media/convert.ts: 캐시 변환을 작업 실행기로 돌린다. 진행이 오는 동안은 오래 걸려도 두고, 실패는 표준 오류의 끝을 실어 던진다
+// src/media/convert.ts: 캐시 변환을 작업 실행기로 돌린다. 진행이 오는 동안은 오래 걸려도 두고, 실패는 표준 오류의 끝을 실어 예외를 던진다
 
 import path from "node:path";
 import os from "node:os";
@@ -30,10 +30,10 @@ test("진행이 오는 동안은 멈춤 한도보다 오래 걸려도 끊지 않
   const took = Date.now() - started;
   assert.equal(made.action, "transcode");
   assert.ok(fs.statSync(at("long.opus")).size > 0);
-  if (took < 1500) t.diagnostic(`굽기가 ${took}ms 로 한도(1000ms)를 넉넉히 넘지 않아 이 기기에서는 약한 확인이다`);
+  if (took < 1500) t.diagnostic(`굽기가 ${took}ms로 한도(1000ms)를 넉넉히 넘지 않아 이 기기에서는 약한 확인이다`);
 });
 
-test("실패하면 표준 오류의 끝을 실어 stream-failed 로 던진다. 자식은 레지스트리에 남지 않는다", async () => {
+test("실패하면 표준 오류의 끝을 실어 stream-failed 예외를 던진다. 자식은 레지스트리에 남지 않는다", async () => {
   fs.writeFileSync(at("junk.raw"), Buffer.alloc(4096, 7));
   const before = registry.size();
   const error = await audioConvert.toCacheOpus(at("junk.raw"), at("junk.opus")).then(

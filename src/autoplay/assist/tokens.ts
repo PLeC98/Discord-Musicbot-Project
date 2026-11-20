@@ -1,11 +1,11 @@
 /**
  * 토큰 세기. 요청이 몇 토큰짜리인지.
  *
- * 어느 토크나이저를 쓸지는 모델 프로필의 `recommendedTokenizer` 가 정한다
- *   tik     OpenAI 계열. gpt-tokenizer (o200k_base). 4o, 4.1, o1, o3, 5.x, 6 이 같은 인코딩이다
+ * 어느 토크나이저를 쓸지는 모델 프로필의 `recommendedTokenizer`가 정한다
+ *   tik     OpenAI 계열. gpt-tokenizer (o200k_base). 4o, 4.1, o1, o3, 5.x, 6이 같은 인코딩이다
  *   gemma   제미니, 젬마. data/gemma-tokenizer.model (SentencePiece BPE)
- *   claude  앤트로픽은 공개 토크나이저가 없고 tik 로 세면 한국어에서 크게 모자라, 저쪽 count_tokens 로 잰다(무료, 정확).
- *           키가 없거나 못 부르면 tik 로 떨어지고, 그때만 추산값이다
+ *   claude  앤트로픽은 공개 토크나이저가 없고 tik로 세면 한국어에서 크게 모자라, 저쪽 count_tokens로 잰다(무료, 정확).
+ *           키가 없거나 못 부르면 tik로 떨어지고, 그때만 추산값이다
  * 토크나이저로 세는 것은 따로 도는 스레드가 맡는다(아래 "세는 스레드")
  */
 import { Worker } from "worker_threads";
@@ -20,15 +20,15 @@ import type { Counted } from "./tokenizers.ts";
 const log = logger.child({ category: "autoplay" });
 const anthropicFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "Anthropic count_tokens 조회");
 
-/** 셀 메시지. 본문은 content 나 text 에 */
+/** 셀 메시지. 본문은 content나 text에 */
 type Message = { role?: string; content?: string; text?: string };
 
 /**
  * 메시지를 역할과 함께 감싸는 데 드는 토큰. 규격마다 다르다(응답이 센 토큰 수에 맞춘 값).
  *
  *   openai     한 메시지 3 + 요청 3
- *   gemini     0. promptTokenCount 가 본문 토큰과 그대로 같다
- *              (countTokens 엔드포인트는 1 을 더 세는데 그 값은 청구되지 않는다)
+ *   gemini     0. promptTokenCount가 본문 토큰과 그대로 같다
+ *              (countTokens 엔드포인트는 1을 더 세는데 그 값은 청구되지 않는다)
  *   anthropic  요청당 6(세대마다 조금 다르다)
  */
 const FRAMING: Record<string, { perMessage: number; perRequest: number }> = {
@@ -39,7 +39,7 @@ const FRAMING: Record<string, { perMessage: number; perRequest: number }> = {
 };
 
 // ── 세는 스레드 ────────────────────────────────────────────────────────────
-// 세기는 따로 도는 스레드 하나가 맡는다. tik 은 공백 없는 긴 글에서 글 길이의 제곱이 들어
+// 세기는 따로 도는 스레드 하나가 맡는다. tik은 공백 없는 긴 글에서 글 길이의 제곱이 들어
 // 이 스레드에서 세면 그동안 봇 전체가 멈춘다. 스레드는 처음 셀 때 시작하고 계속 쓴다(표를 다시 읽지 않게).
 
 // 맡긴 작업 하나의 시간 상한. 넘기면 스레드를 끝내고 다음 세기에 새로 시작한다
@@ -69,7 +69,7 @@ function spawn() {
     if (thread === one) log.warn(`토크나이저 워커 비정상 종료(다음 계산 시 다시 실행): 종료 코드=${code} | 대기 작업 ${waiting.size}개 실패 처리`);
     stop(one, new Error("토큰 계산 워커가 종료됨"));
   });
-  one.unref(); // 봇이 끝날 때 붙잡지 않는다. message 를 들으면 다시 붙잡으므로 들은 뒤에 푼다
+  one.unref(); // 봇이 끝날 때 붙잡지 않는다. message를 들으면 다시 붙잡으므로 들은 뒤에 푼다
   return one;
 }
 
@@ -120,7 +120,7 @@ function tokenizerFor(registry: Parameters<typeof models.modelsOf>[0] | null | u
 
 /**
  * 요청 하나가 몇 토큰인지. 메시지를 감싸는 몫까지 더한 값.
- * 본문만 세려면 `count` 를 쓴다(프롬프트 입력란이 그렇게 쓴다).
+ * 본문만 세려면 `count`를 쓴다(프롬프트 입력란이 그렇게 쓴다).
  */
 async function countMessages(messages: Message[] | null | undefined, tokenizer = "tik", dialect = "openai") {
   const wrap = FRAMING[dialect] || FRAMING.openai;
@@ -133,12 +133,12 @@ async function countMessages(messages: Message[] | null | undefined, tokenizer =
 }
 
 /**
- * 앤트로픽 count_tokens 로 정확히 잰다(무료). 못 재면 null.
- * 감싸는 몫까지 든 값이라 본문만 필요하면 FRAMING 만큼 뺀다
+ * 앤트로픽 count_tokens로 정확히 잰다(무료). 못 재면 null.
+ * 감싸는 몫까지 든 값이라 본문만 필요하면 FRAMING만큼 뺀다
  */
 async function countByAnthropic(messages: Message[] | null | undefined, { model, apiKey, timeoutMs = 15000, fetch: send = fetch }: { model?: string; apiKey?: string; timeoutMs?: number; fetch?: typeof fetch } = {}): Promise<number | null> {
   if (!apiKey || !model) return null;
-  // system 은 본문 맨 위 필드 하나로. 역할을 바꾸기 전에 분리해야 user 로 한 번 더 들어가지 않는다
+  // system은 본문 맨 위 필드 하나로. 역할을 바꾸기 전에 분리해야 user로 한 번 더 들어가지 않는다
   const all = messages || [];
   const body: { model: string; messages: Array<{ role: string; content: string }>; system?: string } = {
     model,

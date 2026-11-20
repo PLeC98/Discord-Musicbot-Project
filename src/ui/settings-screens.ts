@@ -17,7 +17,7 @@ const saved = ({ icon, title, description }: Card) => frame({ icon, title, body:
 /** 설정 화면을 닫았다, 지금 값을 보인다 */
 const shown = ({ icon, title, description }: Card) => frame({ icon, title, body: description });
 
-/** 전용 채널을 정했다. channel 은 채널 멘션 */
+/** 전용 채널을 정했다. channel은 채널 멘션 */
 function channelSet(channel: string) {
   // 메시지 내용을 읽지 못하면(Message Content Intent 꺼짐) 입력할 수 있는 것을 보이지 않는다
   const typed = readsMessageContent();
@@ -25,9 +25,9 @@ function channelSet(channel: string) {
   return saved({ icon: t.icon, title: t.title, description: typed ? `${t.description}\n\n**${t.inputs}**\n${t.inputsValue}` : t.description });
 }
 
-/** 선택지 하나. default 면 선택한 채로 */
+/** 선택지 하나. default면 선택한 채로 */
 type Option = { label: string; value: string; default: boolean };
-/** /setting 에 그릴 것. sponsor, agePlace 가 null 이면 그 부분이 없다(봇 전체에서 SponsorBlock, 연령 제한 콘텐츠를 껐다) */
+/** /setting에 그릴 것. sponsor, agePlace가 null이면 그 부분이 없다(봇 전체에서 SponsorBlock, 연령 제한 콘텐츠를 껐다) */
 type PanelView = { djRoleIds: string[]; sponsor: { enabled: boolean; options: Option[] } | null; agePlace: AgePlace | null };
 
 /**

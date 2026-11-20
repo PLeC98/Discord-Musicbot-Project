@@ -12,7 +12,7 @@ import * as screens from "../../ui/settings-screens.ts";
 import { noticeSelf } from "../../ui/delivery.ts";
 const log = logger.child({ category: "commands" });
 
-// 저장에 실패하면 로그를 남기고 false 를 돌려준다(부르는 쪽은 실패를 알리고 패널은 옮기지 않는다)
+// 저장에 실패하면 로그를 남기고 false를 돌려준다(호출부는 실패를 알리고 패널은 옮기지 않는다)
 async function saved(interaction: ChatInputCommandInteraction<"cached">, work: () => Promise<unknown>): Promise<boolean> {
   try {
     await work();
@@ -38,7 +38,7 @@ const exported: GuildCommand = {
     const guildId = interaction.guild.id;
     const action = interaction.options.getString("action") || "set";
 
-    // 안내를 먼저 보내고(패널 옮기기를 기다리지 않고 답한다) 패널은 그 뒤에 옮긴다. 안내가 실패해도 설정과 패널이 어긋나지 않게 끝까지 옮긴다
+    // 안내를 먼저 보내고(패널 옮기기를 기다리지 않고 응답한다) 패널은 그 뒤에 옮긴다. 안내가 실패해도 설정과 패널이 어긋나지 않게 끝까지 옮긴다
     if (action === "remove") {
       if (!(await saved(interaction, () => guildSettings.clearBotChannel(guildId)))) return noticeSelf(interaction, errors.notice("channel-set-failed"));
       try {

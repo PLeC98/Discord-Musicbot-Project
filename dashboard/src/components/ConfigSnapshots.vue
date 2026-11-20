@@ -1,14 +1,14 @@
 <template>
   <!-- 설정 DB 스냅샷. 선택하면 예약하고 다시 시작해 교체한다(실행기 없이 실행했으면 다음에 시작할 때). 복원은 최근 로그인만 -->
-  <!-- 루트 하나(받은 class 가 카드 쪽에 붙게) -->
+  <!-- 루트 하나(받은 class가 카드 쪽에 붙게) -->
   <div>
     <BaseCard icon="history" :title="T.title">
       <p class="mb-3 flex items-center gap-1 text-sm text-on-surface-variant">{{ T.desc }}<Icon name="info" :size="16" class="cursor-help" v-tooltip="T.descTip" /></p>
       <NoticeBox v-if="loadError" variant="note" tone="error" icon="cancel" class="mt-0!">{{ loadError }}</NoticeBox>
       <NoticeBox v-if="view?.staged" variant="note" tone="info" icon="history" class="mt-0! mb-3">
-        <span class="flex items-center gap-3 flex-wrap"
+        <span class="flex-1 min-w-0 flex items-center gap-3 flex-wrap"
           ><span class="flex-1 min-w-0 break-all">{{ T.staged(view.staged) }}</span
-          ><BaseButton variant="ghost" size="sm" :disabled="busy" @click="unstage">{{ T.unstage }}</BaseButton></span
+          ><BaseButton variant="ghost" size="sm" class="-my-1.5" :disabled="busy" @click="unstage">{{ T.unstage }}</BaseButton></span
         >
       </NoticeBox>
       <p v-if="view && !view.rows.length" class="text-sm text-on-surface-variant">{{ T.empty }}</p>
@@ -38,7 +38,7 @@ import { formatDateTime } from "../utils/locale.ts";
 import { formatBytes } from "../../../src/ui/format.ts";
 import { problemText } from "../utils/problem.ts";
 import { notifyDone, notifyProblem } from "../composables/toasts.ts";
-import { restartNow } from "../composables/bot-restart.ts";
+import { askRestart } from "../composables/bot-restart.ts";
 import { ensureRecentLogin } from "../composables/session.ts";
 import type { Snapshot, SnapshotsView } from "../../../src/rules/snapshots.ts";
 import { text } from "../text/index.ts";
@@ -72,8 +72,8 @@ async function restore() {
   try {
     view.value = (await axios.post<SnapshotsView>(`${BASE}/restore`, { name: asking.value.name })).data;
     asking.value = null;
-    // 실행기가 있으면 곧바로 다시 시작해 교체한다(다시 뜨면 화면을 새로고침한다)
-    if (props.canRestart) await restartNow();
+    // 실행기가 있으면 다시 시작할지 묻는다(나중에를 고르면 걸어 둔 채로 남는다)
+    if (props.canRestart) askRestart("snapshot");
     else notifyDone(T.stagedDone, T.stagedDoneBody);
   } catch (err) {
     notifyProblem(err, T.failed);

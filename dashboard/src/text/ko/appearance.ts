@@ -22,11 +22,11 @@ const from = {
 /** 이 크기보다 작은 이미지를 늘려 쓸 때 */
 const blurryTip = "이 크기보다 작은 이미지를 늘려서 흐릿하게 보일 수 있어요.";
 
-/** 올리기 전에 거절한 까닭(화면이 미리 본다). name 은 파일 이름 */
+/** 올리기 전에 거절한 이유(화면이 미리 본다). name은 파일 이름 */
 const refuse = {
   format: (name: string) => `${name}: 이 형식은 올릴 수 없어요.`,
-  tooBig: (name: string, max: string) => `${name}: ${max} 보다 큰 파일은 올릴 수 없어요.`,
-  tooSmall: (name: string, min: number) => `${name}: ${min}px 보다 작은 이미지는 쓸 수 없어요.`,
+  tooBig: (name: string, max: string) => `${name}: ${max}보다 큰 파일은 올릴 수 없어요.`,
+  tooSmall: (name: string, min: number) => `${name}: ${min}px보다 작은 이미지는 쓸 수 없어요.`,
   unreadable: (name: string) => `${name}: 이미지를 읽지 못했어요.`,
 };
 const refusedTitle = "추가하지 않았어요";
@@ -34,7 +34,7 @@ const uploadFailed = (name: string) => `${name}${josa(name, "을")} 추가하지
 const uploaded = (size: number) => `${size}px 파비콘 이미지를 적용했어요`;
 const cleared = (size: number) => `${size}px 파비콘 이미지를 삭제했어요`;
 const clearFailed = (size: number) => `${size}px 파비콘 이미지를 삭제하지 못했어요.`;
-const loadFailed = "파비콘 상태를 읽지 못했어요.";
+const loadFailed = "파비콘 상태를 불러오지 못했어요.";
 
 /** 이미지 편집 대화상자 */
 const crop = {
@@ -45,14 +45,14 @@ const crop = {
   flip: "좌우 반전",
   picked: (width: number, height: number) => `선택한 영역 ${width} × ${height}`,
   /** 선택한 영역이 쓸 크기보다 작을 때만 */
-  tooSmall: (target: number) => `${target}px 보다 작아서 흐릿하게 보일 수 있어요`,
+  tooSmall: (target: number) => `${target}px보다 작아서 흐릿하게 보일 수 있어요`,
   use: "적용하기",
 };
 
 /** 크기별 팝업: 이미지 업로드, 링크로 추가, 기록 */
 const slotDialog = {
   title: (size: number) => `${size}px 파비콘`,
-  /** 업로드, 링크로 추가 위에 한 줄(상한은 MB 로 나눠 떨어진다) */
+  /** 업로드, 링크로 추가 위에 한 줄(상한은 MB로 나눠 떨어진다) */
   maxSize: (bytes: number) => `최대 파일 크기는 ${bytes / 1024 / 1024}MB예요.`,
   fromFile: "이미지 업로드",
   fromFileHint: "png, webp, jpg, svg",

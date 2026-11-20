@@ -6,7 +6,7 @@ import { parsePlaylist, chooseMedia, lengthOf, type MasterPlaylist, type MediaPl
 
 const BASE = "https://cdn.test/live/master.m3u8";
 
-test("HLS 가 아니면 null", () => {
+test("HLS가 아니면 null", () => {
   assert.equal(parsePlaylist("<html></html>", BASE), null);
   assert.equal(parsePlaylist("[playlist]\nFile1=x", BASE), null);
 });
@@ -70,7 +70,7 @@ https://other.test/seg3.ts
   assert.equal(lengthOf(media), 16.49);
 });
 
-test("http(s) 가 아닌 주소(file, data, 그 밖)는 버리고, 그 밖의 암호는 OTHER(SAMPLE-AES 등)", () => {
+test("http(s)가 아닌 주소(file, data, 그 밖)는 버리고, 그 밖의 암호는 OTHER(SAMPLE-AES 등)", () => {
   const media = parsePlaylist(
     `#EXTM3U
 #EXT-X-KEY:METHOD=SAMPLE-AES,URI="skd://drm"
@@ -88,7 +88,7 @@ data:text/plain,abc
     ["https://cdn2.test/ok.ts"],
   );
   assert.equal(media.segments[0].key?.method, "OTHER");
-  assert.equal(media.segments[0].key?.url, null, "http(s) 가 아닌 키 주소는 없음");
+  assert.equal(media.segments[0].key?.url, null, "http(s)가 아닌 키 주소는 없음");
   assert.equal(media.ended, false, "끝 표시가 없으면 라이브");
 });
 
@@ -111,7 +111,7 @@ test("하위 목록의 비정상 값: 목표 길이는 0 ~ 60초, 세그먼트 �
   assert.deepEqual([long.targetDuration, long.mediaSequence, long.segments[0].duration], [60, 7, 86_400]);
 });
 
-test("읽을 수 없는 바이트 구간(길이 0, 안전한 정수를 넘음, 빈 값, 끝이 넘침)은 이 구간을 쓰는 세그먼트에 unreadable 로 표시한다. 파일 전체 다운로드로 바꾸지 않는다", () => {
+test("읽을 수 없는 바이트 구간(길이 0, 안전한 정수를 넘음, 빈 값, 끝이 넘침)은 이 구간을 쓰는 세그먼트에 unreadable로 표시한다. 파일 전체 다운로드로 바꾸지 않는다", () => {
   const huge = "9".repeat(400);
   const max = "9007199254740991";
   const list = (...lines: string[]) => `${["#EXTM3U", ...lines].join("\n")}\n`;

@@ -13,8 +13,7 @@ import { codeOf, codedError, describeError, errorKind, messageOf } from "../rule
 
 const log = logger.child({ category: "voice" });
 
-/** 음성 라이브러리에서 부르는 것 */
-/** newSessionAt: 그 샤드가 마지막으로 게이트웨이 새 세션을 받은 때(ms, infra/gateway-sessions). 없으면 새 세션을 모르는 것으로 본다 */
+/** 음성 라이브러리에서 부르는 것. newSessionAt: 그 샤드가 마지막으로 게이트웨이 새 세션을 받은 때(ms, infra/gateway-sessions). 없으면 새 세션을 모르는 것으로 본다 */
 type VoiceLib = { joinVoiceChannel: typeof joinVoiceChannel; entersState: typeof entersState; newSessionAt?: (shardId: number) => number | null };
 /** 연결을 맡으며 읽고 바꾸는 플레이어 필드 */
 type VoiceHost = Pick<Player, "audioPlayer" | "connection" | "dispose" | "currentTrack" | "guild" | "onVoiceRecovered" | "voiceChannel" | "syncHolds" | "movedVoiceStatus" | "noticeStage">;
@@ -23,12 +22,12 @@ type LinkState = "idle" | "joining" | "ready" | "waiting" | "recovering" | "clos
 type BotStateChange = { left: boolean; moved: boolean };
 
 const VOICE_LIB: VoiceLib = { joinVoiceChannel, entersState };
-const JOIN_READY_MS = 30_000; // 처음 붙을 때 Ready 까지
-const RECOVER_READY_MS = 15_000; // 재연결할 때 Ready 까지
+const JOIN_READY_MS = 30_000; // 처음 붙을 때 Ready까지
+const RECOVER_READY_MS = 15_000; // 재연결할 때 Ready까지
 const MOVE_BOUNCE_MS = 1500; // 옮겨진 뒤 이만큼 안에, 방금 고치지 않은 참가 요청을 보낸 채널로 돌아오면 라이브러리의 되돌림으로 본다
 const STUCK_MS = 5000; // 참가 요청에 이만큼 답이 없으면 풀어 본다(_unstick)
-const MAX_LIB_REJOINS = 5; // 라이브러리가 Ready 없이 스스로 다시 참가하는 횟수의 상한. 넘으면 우리 복구(시도 사이를 둔다)로
-const RENEWED_WINDOW_MS = 30_000; // 4014 앞으로 이만큼 안에 받은 게이트웨이 새 세션은 그 4014 의 까닭으로 본다
+const MAX_LIB_REJOINS = 5; // 라이브러리가 Ready 없이 자동으로 다시 참가하는 횟수의 상한. 넘으면 우리 복구(시도 사이를 둔다)로
+const RENEWED_WINDOW_MS = 30_000; // 4014 앞으로 이만큼 안에 받은 게이트웨이 새 세션은 그 4014의 원인으로 본다
 const UNKNOWN_CHANNEL = RESTJSONErrorCodes.UnknownChannel;
 const DO_NOT_RECONNECT = 4014; // 음성 서버의 닫힘 코드. 쫓겨났거나 옮겨졌다
 const CALL_TERMINATED = 4022; // 음성 서버의 닫힘 코드. 통화를 끝내 모두를 끊었다(스테이지 종료, 채널 삭제 등)
@@ -42,7 +41,7 @@ const RECOVERY_ATTEMPTS_MAX = 5; // 한 번 끊겼을 때 연결 복구가 실�
 // 빠짐, 사라짐으로 버릴 때(세션 삭제)
 const FORCED_OUT = { reason: "봇이 음성에서 강제 퇴장됨", session: "remove", panel: "disconnected", end: "kicked" } as const;
 // 스테이지가 끝나도 쫓겨난 것과 같은 빠짐 알림만 온다. 가르는 것은 음성 서버의 닫힘 코드: 끝나면 모두를 끊어 4022, 한 명만 내보내면 4014.
-// 4014 는 빠짐 알림보다 먼저, 4022 는 0.1 ~ 0.2초 뒤에 온다(실측). 코드가 끝내 오지 않으면 둘 다 말한다
+// 4014는 빠짐 알림보다 먼저, 4022는 0.1 ~ 0.2초 뒤에 온다. 코드가 끝내 오지 않으면 둘 다 말한다
 const STAGE_ENDED = { reason: "스테이지가 끝남", session: "remove", panel: "disconnected", end: "stage-ended" } as const;
 const STAGE_OUT = { reason: "봇이 스테이지에서 나옴(스테이지 종료 또는 강제 퇴장)", session: "remove", panel: "disconnected", end: "stage-disconnect" } as const;
 const CHANNEL_GONE = { reason: "봇의 음성 채널이 사라짐", session: "remove", panel: "disconnected", end: "channel-gone" } as const;
@@ -59,11 +58,11 @@ class VoiceLink {
   /** 기다림, 복구의 세대. 바뀌면(새 기다림, 정리) 늦게 온 결과를 버린다 */
   gen = 0;
   waitTimer: NodeJS.Timeout | null = null;
-  /** 기다림을 건 끊김의 닫힘 코드. 4014 면 쫓겨났거나 옮겨진 것 */
+  /** 기다림을 건 끊김의 닫힘 코드. 4014면 쫓겨났거나 옮겨진 것 */
   waitCloseCode: number | null = null;
   waitAt: number | null = null; // 끊겨 기다리기 시작한 때
-  readyAt: number | null = null; // 연결이 마지막으로 Ready 가 된 때
-  /** 지금 음성 서버 연결이 닫힌 코드(새 연결이면 비운다). 스테이지에서 빠진 까닭을 가른다 */
+  readyAt: number | null = null; // 연결이 마지막으로 Ready가 된 때
+  /** 지금 음성 서버 연결이 닫힌 코드(새 연결이면 비운다). 스테이지에서 빠진 이유를 가른다 */
   lastCloseCode: number | null = null;
   closeWaiters: Array<(code: number | null) => void> = [];
   recoveryAttempts = 0; // 이번 복구의 회차
@@ -76,7 +75,7 @@ class VoiceLink {
   undeafened = false;
   // 기다리는 시간. 테스트가 줄인다
   waitStartMs = 5000; // 끊긴 뒤 라이브러리가 재연결을 시작하기까지(Signalling, Connecting)
-  waitReadyMs = 20_000; // 재연결을 시작한 뒤 Ready 까지
+  waitReadyMs = 20_000; // 재연결을 시작한 뒤 Ready까지
   recoveryRetryDelayMs = 3000; // 복구 시도 사이
   closeWaitMs = 1500; // 스테이지에서 빠진 뒤 닫힘 코드를 기다리는 시간
   attemptSpanMs = RECOVER_READY_MS + 3000; // 복구 시도 하나가 쓰는 시간의 하한(곧바로 실패해도 이만큼 뒤에 다음 시도)
@@ -84,7 +83,7 @@ class VoiceLink {
   lastBounceFix: number | null = null;
   /** 라이브러리가 고치지 않고 내보낸 마지막 참가 요청(어댑터가 알린다). 되돌림을 사람의 이동과 구분한다 */
   lastPlainJoin: { channelId: string; at: number } | null = null;
-  /** 답 없는 참가를 풀려고 스스로 나간 채널. 그 빠짐 알림은 쫓겨난 것이 아니다 */
+  /** 답 없는 참가를 풀려고 직접 나간 채널. 그 빠짐 알림은 쫓겨난 것이 아니다 */
   selfLeave: string | null = null;
   /** 발언자가 되려고 이미 손쓴 스테이지. 들어올 때마다 한 번만(붙은 뒤 맞추기와 들어옴 알림이 겹친다) */
   stageTaken: string | null = null;
@@ -103,7 +102,7 @@ class VoiceLink {
     return this.state === "recovering";
   }
 
-  /** 붙어 있거나 붙는 중이다(기다림, 복구 포함). `/join` 이 "이미 접속"으로 볼지 이것으로 정한다 */
+  /** 붙어 있거나 붙는 중이다(기다림, 복구 포함). `/join`이 "이미 접속"으로 볼지 이것으로 정한다 */
   isAlive() {
     return LIVE.has(this.state);
   }
@@ -114,7 +113,7 @@ class VoiceLink {
 
   // ── 붙기 ──
 
-  /** 음성 채널에 붙는다. 못 붙으면 던진다(부른 쪽이 처리). 종료 중이면 붙지 않고 bot-shutting-down 예외를 던진다 */
+  /** 음성 채널에 붙는다. 못 붙으면 예외를 던진다(부른 쪽이 처리). 종료 중이면 붙지 않고 bot-shutting-down 예외를 던진다 */
   async connect() {
     if (isShuttingDown()) throw codedError("bot-shutting-down", "종료 중이라 음성 채널에 연결하지 않음");
     this.state = "joining";
@@ -133,12 +132,12 @@ class VoiceLink {
   }
 
   // 새 연결을 만들어 상태 변화 이벤트를 걸고 오디오 플레이어를 구독한 뒤, 준비될 때까지 기다린다. 모든 새 음성 연결이 여기를 지난다.
-  // 종료 중에는 부르지 않는다(connect 와 복구 루프가 바로 앞에서 확인한다)
+  // 종료 중에는 부르지 않는다(connect와 복구 루프가 바로 앞에서 확인한다)
   async _join(readyMs: number) {
     const player = this.player;
     const channelId = player.voiceChannel?.id;
     if (!channelId) throw new Error("음성 채널 없음");
-    // debug: 라이브러리의 진행 줄(음성 서버, 네트워킹)을 받는다(_watch). 켜면 라이브러리가 웹소켓 메시지마다 문자열을 만들어 trace 를 남길 때만
+    // debug: 라이브러리의 진행 줄(음성 서버, 네트워킹)을 받는다(_watch). 켜면 라이브러리가 웹소켓 메시지마다 문자열을 만들므로 trace를 남길 때만 켠다
     const connection = this.lib.joinVoiceChannel({ channelId, guildId: player.guild.id, adapterCreator: this._adapterCreator(), debug: log.level === "trace" });
     player.connection = connection;
     this._watch(connection);
@@ -169,8 +168,8 @@ class VoiceLink {
   }
 
   // 참가 요청에 답이 없다. 끊긴 동안 보낸 요청이 사라졌거나, 디스코드가 봇이 이미 그 채널에 있다고 보아(나가기 요청이 닿지 못한 채 남음)
-  // 같은 채널 참가에 답하지 않는 것이다. 디스코드에 물어(캐시는 끊긴 동안 낡는다) 묻지 못하면 기다리고, 처음에는 참가를 다시 보낸다.
-  // 다시 보내도 답이 없고 봇이 그 채널에 있으면 게이트웨이로 나갔다가 다시 참가한다(REST 로 빼기는 멤버 옮기기 권한이 든다)
+  // 같은 채널 참가에 응답하지 않는 것이다. 디스코드에 물어(캐시는 끊긴 동안 낡는다) 묻지 못하면 기다리고, 처음에는 참가를 다시 보낸다.
+  // 다시 보내도 답이 없고 봇이 그 채널에 있으면 게이트웨이로 나갔다가 다시 참가한다(REST로 빼기는 멤버 옮기기 권한이 든다)
   async _unstick(connection: VoiceConnection, channelId: string, tries: number) {
     if (!this._stillSignalling(connection)) return;
     const at = await this._botChannelAtDiscord("unstick", "대기");
@@ -227,7 +226,7 @@ class VoiceLink {
       "error",
       bindToGuild(guildId, (error: Error) => this._onError(error)),
     );
-    // 음성 웹소켓 메시지, 상태 바뀜마다 나오는 양이라 trace. 실린 토큰, 암호 키는 로그 sink 가 가린다
+    // 음성 웹소켓 메시지, 상태 바뀜마다 나오는 양이라 trace. 실린 토큰, 암호 키는 로그 sink가 가린다
     connection.on("debug", (message: string) => log.trace(`${message} | ${this._label()}`));
   }
 
@@ -251,7 +250,7 @@ class VoiceLink {
     if (newState.status === VoiceConnectionStatus.Destroyed) this.recover("연결이 부서짐");
   }
 
-  // 연결이 Ready 가 됐다. 끊긴 뒤 기다리던 중이면 자동 재연결된 것이다
+  // 연결이 Ready가 됐다. 끊긴 뒤 기다리던 중이면 자동 재연결된 것이다
   _onReady(oldState: VoiceConnectionState) {
     this.readyAt = Date.now();
     if (this.state === "waiting") {
@@ -268,7 +267,7 @@ class VoiceLink {
     }
   }
 
-  // 음성 서버 연결의 닫힘 코드. 4014 가 아니면 라이브러리가 끊김 없이 스스로 다시 참가해(Ready → Signalling) 전이에는 까닭이 없다.
+  // 음성 서버 연결의 닫힘 코드. 4014가 아니면 라이브러리가 끊김 없이 자동으로 다시 참가해(Ready → Signalling) 전이에는 이유가 없다.
   // 연결이 다시 참가하기 전에 찍도록 앞에 건다
   _watchNetworking(oldState: VoiceConnectionState, newState: VoiceConnectionState) {
     const networking = "networking" in newState ? newState.networking : null;
@@ -285,7 +284,7 @@ class VoiceLink {
     });
   }
 
-  // 봇이 이미 채널에서 빠졌다(스테이지 종료 등). 라이브러리는 4014 가 아닌 닫힘이면 같은 채널로 다시 참가하므로(잠깐 청중으로 들어갔다 나온다)
+  // 봇이 이미 채널에서 빠졌다(스테이지 종료 등). 라이브러리는 4014가 아닌 닫힘이면 같은 채널로 다시 참가하므로(잠깐 청중으로 들어갔다 나온다)
   // 이 리스너가 먼저 도는 동안 나가기 요청 없이 부순다. 봇은 디스코드가 이미 채널에서 뺐다
   _noRejoin(networking: object, code: number) {
     const connection = this.player.connection;
@@ -294,8 +293,8 @@ class VoiceLink {
     connection.destroy(false);
   }
 
-  // 라이브러리는 4014 가 아닌 닫힘마다 쉬지 않고 같은 채널로 다시 참가한다(다시 붙지 말라는 4021 요청 제한에도). 이 리스너가 라이브러리보다 먼저 돌 때 부순다.
-  // 상태 리스너 안에서 부수면 라이브러리가 바꾼 상태의 어댑터를 읽다 던진다. 부서짐은 _onStateChange 가 복구로 넘기고, 복구 중이면 다음 시도가 새로 참가한다
+  // 라이브러리는 4014가 아닌 닫힘마다 쉬지 않고 같은 채널로 다시 참가한다(다시 붙지 말라는 4021 요청 제한에도). 이 리스너가 라이브러리보다 먼저 돌 때 부순다.
+  // 상태 리스너 안에서 부수면 라이브러리가 바꾼 상태의 어댑터를 읽다 예외를 던진다. 부서짐은 _onStateChange가 복구로 넘기고, 복구 중이면 다음 시도가 새로 참가한다
   _capRejoins(networking: object, code: number) {
     const connection = this.player.connection;
     if (this.state === "closed" || this.state === "idle" || code === DO_NOT_RECONNECT || !connection) return;
@@ -307,7 +306,7 @@ class VoiceLink {
 
   _onError(error: Error) {
     if (this.state === "closed") return;
-    // 네트워크가 끊긴 것은 복구 시작 줄이 까닭과 함께 남긴다
+    // 네트워크가 끊긴 것은 복구 시작 줄이 원인과 함께 남긴다
     if (errorKind(error) === "network-error") {
       this.recover(`네트워크 오류(${messageOf(error)})`);
       return;
@@ -316,7 +315,7 @@ class VoiceLink {
     this.recover("연결 오류");
   }
 
-  // ── 끊김: 라이브러리가 스스로 재연결하기를 기다린다 ──
+  // ── 끊김: 라이브러리가 자동으로 재연결하기를 기다린다 ──
 
   _wait(reason: VoiceConnectionDisconnectReason, closeCode: number | undefined) {
     this.state = "waiting";
@@ -324,14 +323,14 @@ class VoiceLink {
     this.waitAt = Date.now();
     const gen = ++this.gen;
     const line = `연결 끊김: ${this._label()} | 원인=${reason}${closeCode ? `(${closeCode})` : ""} | 자동 재연결 대기`;
-    // 4014 는 내보냄, 옮겨짐, 봇의 게이트웨이 끊김 중 하나다. 어느 쪽인지는 뒤따르는 줄(떠남, 이동, 복구)이 남긴다
+    // 4014는 내보냄, 옮겨짐, 봇의 게이트웨이 끊김 중 하나다. 어느 쪽인지는 뒤따르는 줄(떠남, 이동, 복구)이 남긴다
     if (closeCode === DO_NOT_RECONNECT) log.debug(line);
     else log.warn(line);
     this._clearWait();
     this.waitTimer = setTimeout(() => {
       if (gen !== this.gen || this.state !== "waiting") return;
       const status = this.player.connection?.state.status;
-      // 재연결을 시작했으면 Ready 까지 조금 더 기다린다
+      // 재연결을 시작했으면 Ready까지 조금 더 기다린다
       if (status === VoiceConnectionStatus.Signalling || status === VoiceConnectionStatus.Connecting) {
         this.waitTimer = setTimeout(() => {
           if (gen === this.gen && this.state === "waiting") this._afterWait();
@@ -342,8 +341,8 @@ class VoiceLink {
     }, this.waitStartMs);
   }
 
-  // 붙은 상태에서 라이브러리가 스스로 다시 참가하거나 음성 서버에 다시 붙기 시작했다(Ready → Signalling, Connecting. Disconnected 는 오지 않는다).
-  // 참가 요청에 답이 없으면 그대로 멈춰 버리므로, 시간 안에 Ready 가 안 되면 기다림이 끝났을 때처럼 처리한다. 옮겨질 때도 이 경로를 탄다(곧 Ready 가 된다)
+  // 붙은 상태에서 라이브러리가 자동으로 다시 참가하거나 음성 서버에 다시 붙기 시작했다(Ready → Signalling, Connecting. Disconnected는 오지 않는다).
+  // 참가 요청에 답이 없으면 그대로 멈춰 버리므로, 시간 안에 Ready가 안 되면 기다림이 끝났을 때처럼 처리한다. 옮겨질 때도 이 경로를 탄다(곧 Ready가 된다)
   _limitLibReconnect() {
     if (this.waitTimer) return;
     const gen = ++this.gen;
@@ -375,7 +374,7 @@ class VoiceLink {
 
   /** 연결을 재연결한다. 붙어 있거나 끊겨 기다리는 중일 때만 받는다(이미 복구 중, 끝남, 붙는 중이면 아무것도 안 한다) */
   recover(why: string) {
-    // 붙는 중에 부서지면 connect() 가 실패를 받는다
+    // 붙는 중에 부서지면 connect()가 실패를 받는다
     if (this.state !== "ready" && this.state !== "waiting") return;
     this._clearWait();
     this.state = "recovering";
@@ -435,7 +434,7 @@ class VoiceLink {
   }
 
   // 한 번 재연결해 본다. 됐으면 true. 채널에서는 나가지 않는다.
-  // 디스코드가 봇을 이 채널에 있다고 보는 동안은 같은 채널 참가에 답하지 않으므로, 연결이 받아 둔 음성 서버 정보로 음성 서버에 재연결한다.
+  // 디스코드가 봇을 이 채널에 있다고 보는 동안은 같은 채널 참가에 응답하지 않으므로, 연결이 받아 둔 음성 서버 정보로 음성 서버에 재연결한다.
   // 디스코드가 봇을 채널에서 뺐으면(게이트웨이가 끊겼던 것) 그 정보는 쓸 수 없어 옛 연결을 버리고 새로 참가한다.
   // 디스코드와 통신이 되는데도 재연결이 실패했으면 그 정보가 만료된 것이라 다음부터 새로 참가한다(답이 없으면 _unstick이 푼다).
   // 디스코드에 조회하는 사이 정리됐으면(active가 false) 아무것도 하지 않는다. 그 뒤에 만든 연결은 정리할 곳이 없다
@@ -484,7 +483,7 @@ class VoiceLink {
     return channelId ? this.player.guild.channels.cache.get(channelId) : null;
   }
 
-  // 4014 로 끊겨 봇이 채널에서 빠졌는데 그 앞뒤에 봇의 게이트웨이가 새 세션을 받았다. 내보낸 것이 아니라 디스코드가 음성 상태를 지운 것이라 다시 참가한다.
+  // 4014로 끊겨 봇이 채널에서 빠졌는데 그 앞뒤에 봇의 게이트웨이가 새 세션을 받았다. 내보낸 것이 아니라 디스코드가 음성 상태를 지운 것이라 다시 참가한다.
   // 아래쪽 경계(연결이 마지막으로 Ready 된 때)는 기동, 재연결 직후 사람이 내보낸 것을 복구로 보지 않게
   _renewedSession() {
     if (this.state !== "waiting" || this.waitCloseCode !== DO_NOT_RECONNECT || this.waitAt === null) return false;
@@ -496,7 +495,7 @@ class VoiceLink {
     return true;
   }
 
-  // 재연결하지 못했다. 세션을 저장하고 버린다. /join 이 저장된 세션으로 이어서 튼다
+  // 재연결하지 못했다. 세션을 저장하고 버린다. /join이 저장된 세션으로 이어서 튼다
   _giveUp() {
     log.error(`연결 복구 포기: ${this._label()} | 최대 ${RECOVERY_ATTEMPTS_MAX}회 넘음(세션을 저장하고 정리)${this.lastRecoveryError ? ` | 마지막 오류=${this.lastRecoveryError}` : ""}`);
     this._end({ reason: "음성 연결 복구 포기", session: "save", panel: "disconnected", end: "voice-lost" });
@@ -508,14 +507,14 @@ class VoiceLink {
   onBotState(oldState: Pick<VoiceState, "channelId"> & Partial<Pick<VoiceState, "serverDeaf">>, newState: Pick<VoiceState, "channelId" | "suppress" | "channel"> & Partial<Pick<VoiceState, "serverDeaf">>): BotStateChange {
     if (oldState.channelId && !newState.channelId) {
       this.stageTaken = null; // 다시 들어오면 다시 발언자가 된다
-      // 답 없는 참가를 풀려고 스스로 나갔다. 다시 참가가 뒤따른다
+      // 답 없는 참가를 풀려고 직접 나갔다. 다시 참가가 뒤따른다
       if (this.selfLeave === oldState.channelId) {
         this.selfLeave = null;
         log.debug(`봇이 직접 끊은 연결의 퇴장 이벤트라 재참가 대기: ${this._label()}`);
         return { left: false, moved: false };
       }
       // 재연결하는 중이면 쫓겨난 것이 아니다. 봇의 게이트웨이가 끊기면 디스코드가 음성 상태를 지운다. 복구가 다시 참가한다
-      // 4014("재연결하지 말 것")로 끊겨 기다리는 중이면 쫓겨난 것이다(게이트웨이 새 세션은 _renewedSession 이 가른다). 음성 서버의 닫힘이 게이트웨이의 빠짐 알림보다 먼저 올 때가 있다
+      // 4014("재연결하지 말 것")로 끊겨 기다리는 중이면 쫓겨난 것이다(게이트웨이 새 세션은 _renewedSession이 가른다). 음성 서버의 닫힘이 게이트웨이의 빠짐 알림보다 먼저 올 때가 있다
       if (this.state === "recovering" || (this.state === "waiting" && this.waitCloseCode !== DO_NOT_RECONNECT)) {
         log.info(`디스코드에서 음성 채널 연결이 해제됐으나 재연결 중이라 강제 퇴장으로 처리하지 않음: ${this._label()}`);
         this.recover("음성 상태가 지워짐");
@@ -549,7 +548,7 @@ class VoiceLink {
   }
 
   // 붙었다(참가, 자동 재연결, 복구, 옮겨진 채널). 이미 음소거, 청중인 채로 붙으면 바뀜 알림이 오지 않으므로 지금 상태로 맞추고,
-  // 스테이지 청중이면 발언자가 되려 한다. 게이트웨이를 다시 붙어도 캐시는 새로 차지만 voiceStateUpdate 는 오지 않는다
+  // 스테이지 청중이면 발언자가 되려 한다. 게이트웨이를 다시 붙어도 캐시는 새로 차지만 voiceStateUpdate는 오지 않는다
   _settled() {
     this.player.syncHolds();
     const now = this.player.guild.members.me?.voice;
@@ -587,8 +586,8 @@ class VoiceLink {
   }
 
   /**
-   * 스테이지에서는 발언자여야 들린다. 멤버 음소거 권한이 있으면 스스로 발언자가 되고, 없으면 발언을 요청한다.
-   * 모더레이터가 받아 주면 suppress 가 풀려 이어 튼다(player.syncHolds). 둘 다 안 되면 알린다
+   * 스테이지에서는 발언자여야 들린다. 멤버 음소거 권한이 있으면 직접 발언자가 되고, 없으면 발언을 요청한다.
+   * 모더레이터가 받아 주면 suppress가 풀려 이어 튼다(player.syncHolds). 둘 다 안 되면 알린다
    */
   async _takeStage(channel: VoiceBasedChannel) {
     const me = this.player.guild.members.me;

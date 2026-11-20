@@ -68,7 +68,7 @@ test("청크 검사: 위치가 어긋나면 받은 위치, 선언한 크기를 �
   assert.deepEqual(await codeOf(await json("POST", "/api/admin/uploads", { purpose: "nope", size: 1 })), [400, "bad-request"]);
 });
 
-/** 원시 소켓으로 요청 하나를 본문까지 다 보내고, 같은 연결로 GET 을 하나 더 보낸다. 받은 것과 연결이 끊겼는지 */
+/** 원시 소켓으로 요청 하나를 본문까지 다 보내고, 같은 연결로 GET을 하나 더 보낸다. 받은 것과 연결이 끊겼는지 */
 async function rawTwice(head: string, body: Buffer) {
   const socket = net.connect(port, "127.0.0.1");
   await once(socket, "connect");
@@ -106,7 +106,7 @@ test("운영자가 아닌 사용자의 청크 요청은 읽어 주지 않고 닫
     config.dashboard.rateLimit.apiMax = 2;
     const statuses = [];
     for (let i = 0; i < 3; i++) statuses.push((await chunk(id, 0, Buffer.alloc(1))).status);
-    // 같은 창에서 앞의 요청까지 세므로 몇 번째에 걸리는지는 정하지 않는다. 한도에서 빠졌다면 모두 403 이다
+    // 같은 창에서 앞의 요청까지 세므로 몇 번째에 걸리는지는 정하지 않는다. 한도에서 빠졌다면 모두 403이다
     assert.ok(statuses.every((one) => one === 403 || one === 429) && statuses.at(-1) === 429, String(statuses));
   } finally {
     config.dashboard.rateLimit.apiMax = saved;

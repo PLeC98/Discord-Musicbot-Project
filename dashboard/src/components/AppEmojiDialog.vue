@@ -1,7 +1,7 @@
 <template>
   <!-- 앱 이모지 추가 창(디스코드 서버 설정의 "이모지 추가" 창과 같은 편집): 정사각형 틀, 확대, 90도 회전, 좌우 반전, 이름, 미리보기.
-       원본 파일과 편집 값을 그대로 보내고 봇이 원본에서 만든다(움직이는 GIF, WebP 가 움직임을 잃지 않게) -->
-  <!-- 편집 창이라 여백이 20px 이다. 보는 창 폭을 재기 전의 추산(ImageCropper 의 room)도 이 여백으로 계산한다 -->
+       원본 파일과 편집 값을 그대로 보내고 봇이 원본에서 만든다(움직이는 GIF, WebP가 움직임을 잃지 않게) -->
+  <!-- 편집 창이라 여백이 20px이다. 보는 창 폭을 재기 전의 추산(ImageCropper의 room)도 이 여백으로 계산한다 -->
   <BaseDialog :open="open" width="xl" padding="editor" scroll class="flex flex-col gap-3" :aria-label="T.title" @close="!busy && (open = false)">
     <h3 ref="titleEl" class="text-xl font-round font-semibold">{{ T.title }}</h3>
     <ImageCropper ref="cropper" :file="file" :aspect="1" turn :max-height="viewMax" />
@@ -29,13 +29,13 @@
       <p v-if="issue" class="mt-1 text-xs text-error">{{ issue }}</p>
     </div>
 
-    <!-- 버튼 줄. 봇이 거절한 까닭(이미지, 한도 등)은 알림이 이 창 아래에 깔려 이 줄에 보인다: 넓으면 재설정과 취소 사이, 좁으면 버튼 위 한 줄.
+    <!-- 버튼 줄. 이름 문제가 아닌 추가 실패(이미지, 한도 등)는 알림으로 띄우면 이 창 아래에 가려져서 이 줄에 표시: 넓으면 재설정과 취소 사이, 좁으면 버튼 위 한 줄.
          창이 화면보다 길어지면 판 안에서 스크롤한다 -->
     <div class="@container/foot">
       <div class="flex flex-wrap items-center gap-2">
         <!-- 처음 열렸을 때(회전, 반전 없이, 가장 큰 정사각형, 가운데)로 되돌린다 -->
         <BaseButton variant="ghost" :disabled="!cropper?.ready || busy" @click="cropper?.reset()">{{ text.appearance.crop.reset }}</BaseButton>
-        <p v-if="failure" class="min-w-0 text-xs text-error order-first basis-full @md/foot:order-none @md/foot:basis-0 @md/foot:flex-1" role="alert">
+        <p v-if="failure" class="min-w-0 text-xs text-error order-first basis-full @md/foot:order-0 @md/foot:basis-0 @md/foot:flex-1" role="alert">
           <span class="font-medium">{{ failure.title }}</span> {{ failure.body }}
         </p>
         <BaseButton variant="ghost" class="ml-auto" :disabled="busy" @click="open = false">{{ text.common.cancel }}</BaseButton>
@@ -66,7 +66,7 @@ const open = defineModel<boolean>({ required: true });
 const emit = defineEmits<{ added: [emoji: AppEmojiItem] }>();
 
 /**
- * 미리보기 크기(px). 디스코드는 웹 클라이언트 CSS 의 값: 메시지 글 속 1.375em(16px 글), 이모지만 있는 메시지 3rem, 임베드 본문 18px, 음성 채널 상태 12px 글의 1.375em.
+ * 미리보기 크기(px). 디스코드는 웹 클라이언트 CSS의 값: 메시지 글 속 1.375em(16px 글), 이모지만 있는 메시지 3rem, 임베드 본문 18px, 음성 채널 상태 12px 글의 1.375em.
  * 대시보드는 선택기 칸과 장르 24px, 공지 미리보기 14px 글의 1.375em, 입력란 14px 글
  */
 const PREVIEWS = [
@@ -81,10 +81,10 @@ const PREVIEWS = [
 
 const cropper = ref<InstanceType<typeof ImageCropper> | null>(null);
 const name = ref("");
-/** 봇이 거절한 이름의 까닭. 이름을 고치면 지운다 */
+/** 봇이 거절한 이름의 이유. 이름을 고치면 지움 */
 const refused = ref("");
 const busy = ref(false);
-/** 봇이 거절한 까닭(이름 밖의 것). 다시 추가하거나 다른 파일이면 지운다 */
+/** 이름 문제가 아닌 추가 실패(이미지, 한도 등)의 알림 제목, 본문. 다시 추가하거나 다른 파일을 열면 지움 */
 const failure = ref<{ title: string; body: string } | null>(null);
 
 /** 파일 이름에서 처음 이름을 만든다(영문, 숫자, 밑줄만). 규칙에 맞지 않으면 비운다 */

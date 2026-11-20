@@ -1,5 +1,5 @@
-// /search 결과 화면의 선택 메뉴. custom_id 는 search:pick:검색한 사람. 선택한 곡은 /play 와 같은 길로 넣는다(discord/commands/play 의 playOnReply).
-// 결과 메시지를 "추가하는 중" 으로 고쳐 쓰므로 그 메시지에 예약한 삭제를 먼저 멈춘다(실패 안내가 곧바로 삭제되지 않게)
+// /search 결과 화면의 선택 메뉴. custom_id는 search:pick:검색한 사람. 선택한 곡은 /play와 같은 길로 넣는다(discord/commands/play의 playOnReply).
+// 결과 메시지를 "추가하는 중"으로 고쳐 쓰므로 그 메시지에 예약한 삭제를 먼저 멈춘다(실패 안내가 곧바로 삭제되지 않게)
 
 import { RESTJSONErrorCodes, type ContainerBuilder, type StringSelectMenuInteraction } from "discord.js";
 import * as errors from "../../ui/text/ko/errors.ts";
@@ -34,7 +34,7 @@ async function handleSearchPick(interaction: StringSelectMenuInteraction<"cached
   const pick = readPick(pickOfOption(value));
   if (!pick) return await noticeSelf(interaction, errors.notice("unknown-interaction"));
 
-  // 곡 추가 경로. /play, /search 와 같은 검사
+  // 곡 추가 경로. /play, /search와 같은 검사
   const permErr = checkAdd(interaction.member) || checkSummon(interaction.member);
   if (permErr) return await noticeSelf(interaction, errors.notice(permErr));
 

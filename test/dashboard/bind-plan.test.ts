@@ -36,7 +36,7 @@ test("컨테이너 판별: /.dockerenv, /run/.containerenv, KUBERNETES_SERVICE_H
   );
 });
 
-test("연 주소 한 줄: 실제로 연 주소와 까닭을 표시한다", () => {
+test("연 주소 한 줄: 실제로 연 주소와 이유를 표시한다", () => {
   assert.equal(bindLine(plan({}), ["127.0.0.1", "::1"], 33333, "http"), "🌐 Dashboard: http://127.0.0.1:33333, http://[::1]:33333 (공개 주소가 없거나 이 기기 주소)");
   assert.match(bindLine(plan({ url: "http://bot.example.com" }), ["0.0.0.0"], 33333, "http"), /모든 주소\(0\.0\.0\.0\):33333 \(공개 주소가 http/);
   assert.equal(bindLine(plan({ url: "https://music.example.com" }), ["127.0.0.1", "::1"], 33333, "http"), "🌐 Dashboard: http://127.0.0.1:33333, http://[::1]:33333 (공개 주소가 https라 프록시가 같은 기기에 있다고 판단)");

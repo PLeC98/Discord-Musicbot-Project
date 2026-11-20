@@ -1,5 +1,5 @@
 // src/sources/lookup.ts, direct.ts: 사운드클라우드와 직접 링크를 곡 찾기(바깥 계약)로 본다. 사운드클라우드 출처 자체는 soundcloud.test.ts.
-// yt-dlp 는 실행하는 exec 만(useExec), 직접 링크는 SafeUrl 의 getStream 만 가짜로 둔다.
+// yt-dlp는 실행하는 exec만(useExec), 직접 링크는 SafeUrl의 getStream만 가짜로 둔다.
 
 import { Readable } from "node:stream";
 import * as links from "../../src/rules/links.ts";
@@ -14,13 +14,13 @@ import { addFailureMessage, errorMessage } from "../../src/ui/error-messages.ts"
 import { useExec, type Exec, type YtDlpFlags } from "../../src/sources/ytdlp-spawn.ts";
 import { plainText } from "../helpers/notice.ts";
 
-// yt-dlp 가 줄 것. 실패면 fail 에 stderr
+// yt-dlp가 줄 것. 실패면 fail에 stderr
 type Reply = ({ fail?: string } & Record<string, unknown>) | null;
 
 const calls = { ytdlp: [] as Array<{ url: string; flags: YtDlpFlags }>, info: [] as string[], stream: [] as string[], streamOpts: [] as unknown[] };
 let respond: (url: string, flags: YtDlpFlags) => Reply;
 let headReply: (url: string) => { headers: object };
-// 직접 링크의 네트워크(SafeUrl 의 getStream) 가짜. DirectLink 에 넘긴다. 곡 정보(getInfo)는 응답 헤더를 보고, 재생, 다운로드는 본문 무응답 한도를 넘긴다
+// 직접 링크의 네트워크(SafeUrl의 getStream) 가짜. DirectLink에 넘긴다. 곡 정보(getInfo)는 응답 헤더를 보고, 재생, 다운로드는 본문 무응답 한도를 넘긴다
 const net = {
   getStream: async (url: string, _deps?: undefined, opts?: { bodyIdleMs?: number; accept?: { timeoutMs: number } }) => {
     if (opts?.bodyIdleMs === undefined) {
@@ -35,7 +35,7 @@ const net = {
 const info = { net };
 
 before(() => {
-  // 가짜는 실행 래퍼(ytdlp-exec)가 주는 약속의 stdout, stderr 만 준다
+  // 가짜는 실행 래퍼(ytdlp-exec)가 주는 약속의 stdout, stderr만 준다
   useExec(((url: string, flags: YtDlpFlags = {}) => {
     calls.ytdlp.push({ url, flags });
     const out = respond(url, flags);
@@ -83,7 +83,7 @@ test("곡 찾기: 사운드클라우드 세트 링크는 재생목록으로 들�
   );
 });
 
-test("곡 찾기: 미리듣기만 열린 곡은 틀지 않고 까닭을 알린다", async () => {
+test("곡 찾기: 미리듣기만 열린 곡은 틀지 않고 원인을 알린다", async () => {
   respond = () => scItem("preview", { duration: 30, formats: [{ format_id: "http_mp3_1_0_preview" }] });
   const r = await findTracks("https://soundcloud.com/artist/preview");
   assert.equal(r.success, false);
@@ -91,7 +91,7 @@ test("곡 찾기: 미리듣기만 열린 곡은 틀지 않고 까닭을 알린�
   assert.equal(r.success ? "" : plainText(addFailureMessage({ code: r.code, kind: errorKind(r.error) })), "미리듣기만 가능한 곡이라 틀 수 없어요.\n다른 곡을 재생하거나, 다른 플랫폼으로 시도해 주세요.");
 });
 
-test("곡 찾기: 지역 제한은 그 까닭으로 알린다(결과 없음이 아니다)", async () => {
+test("곡 찾기: 지역 제한은 그 원인을 알린다(결과 없음이 아니다)", async () => {
   respond = () => ({ fail: "ERROR: [soundcloud] 123: This video is not available from your location due to geo restriction" });
   const r = await findTracks("https://soundcloud.com/artist/blocked");
   assert.equal(r.success, false);
@@ -100,7 +100,7 @@ test("곡 찾기: 지역 제한은 그 까닭으로 알린다(결과 없음이 �
 
 // ── 직접 링크 ─────────────────────────────────────────────────────────
 
-test("직접 링크 판정: 알려진 사이트 밖의 http(s) 면 확장자와 상관없이 후보", () => {
+test("직접 링크 판정: 알려진 사이트 밖의 http(s)면 확장자와 상관없이 후보", () => {
   for (const url of ["https://files.test/a.mp3", "http://x.test/b/c.FLAC", "https://cdn.test/v.webm?sig=1", "https://files.test/a.txt", "https://x.test/mp3"]) {
     assert.equal(inputKind(url), "direct", url);
   }
@@ -128,14 +128,14 @@ test("직접 링크 정보: 서버가 알려 준 파일 이름(Content-Dispositi
   assert.equal(u.title, "Artist - Song");
 });
 
-test("직접 링크 정보: 직접 링크가 아니면 빈 배열, 음원이 아니면 unsupported-link, 열지 못하면 사유를 숨긴 일반 문장으로 던진다", async () => {
+test("직접 링크 정보: 직접 링크가 아니면 빈 배열, 음원이 아니면 unsupported-link, 열지 못하면 사유를 숨긴 일반 문장으로 예외를 던진다", async () => {
   assert.deepEqual(await directSource.getInfo("https://open.spotify.com/episode/abc", info), []);
   assert.equal(calls.info.length, 0);
   headReply = () => {
     throw new Error("SSRF 차단: 10.0.0.5");
   };
   const thrown = await directSource.getInfo("https://files.test/a.mp3", info).then(
-    () => assert.fail("던져야 한다"),
+    () => assert.fail("예외를 던져야 한다"),
     (e: unknown) => e,
   );
   assert.equal(codeOf(thrown), "direct-unavailable");
@@ -164,15 +164,15 @@ test("직접 링크 제목: 경로의 파일 이름(확장자를 뗀다), 이름
   for (const url of ["https://files.test/radio/live.php", "https://files.test/stream.mp3", "https://cdn.test/"]) titles.push((await directSource.getInfo(url, info))[0].title);
   assert.deepEqual(titles, ["live", "stream", "cdn.test"]);
 
-  // Node 는 헤더를 latin1 로 읽는다. UTF-8 로 보낸 이름을 되살린다
+  // Node는 헤더를 latin1로 읽는다. UTF-8로 보낸 이름을 되살린다
   const name = Buffer.from("한국 라디오", "utf8").toString("latin1");
   headReply = () => ({ headers: { "content-type": "audio/mpeg", "icy-name": name } });
   assert.equal((await directSource.getInfo("https://radio.test/stream", info))[0].title, "한국 라디오");
   headReply = () => ({ headers: { "content-type": "audio/mpeg", "icy-name": "Caf\u00e9 FM" } });
-  assert.equal((await directSource.getInfo("https://radio.test/stream", info))[0].title, "Caf\u00e9 FM", "UTF-8 이 아니면 그대로");
+  assert.equal((await directSource.getInfo("https://radio.test/stream", info))[0].title, "Caf\u00e9 FM", "UTF-8이 아니면 그대로");
 });
 
-test("직접 링크 열기: SafeUrl 로 열고, 실패 사유는 숨기고 일반 문장으로 던진다", async () => {
+test("직접 링크 열기: SafeUrl로 열고, 실패 사유는 숨기고 일반 문장으로 예외를 던진다", async () => {
   const s = await directSource.open("https://files.test/a.mp3", net, { bodyIdleMs: 6000 });
   assert.ok(s.kind === "file" && s.body instanceof Readable && !s.radio);
   assert.deepEqual(calls.stream, ["https://files.test/a.mp3"]);
@@ -203,8 +203,8 @@ test("파일 이름에서 제목: 인코딩을 풀고, 띄어쓰기 없는 이�
   assert.equal(directSource.extractTitle("___.mp3"), null, "이름이 남지 않으면 표시 문구로 채우지 않고 비워 둔다");
 });
 
-// 주소 앞부분으로 만들면 같은 호스트의 곡이 모두 같은 ID 가 된다
-test("직접 링크 곡 ID 는 주소 전체에서 나온다", () => {
+// 주소 앞부분으로 만들면 같은 호스트의 곡이 모두 같은 ID가 된다
+test("직접 링크 곡 ID는 주소 전체에서 나온다", () => {
   assert.notEqual(directSource.generateId("https://example.com/a.mp3"), directSource.generateId("https://example.com/b.mp3"));
   assert.equal(directSource.generateId("https://example.com/a.mp3"), directSource.generateId("https://example.com/a.mp3"));
   assert.equal(directSource.generateId("https://example.com/a.mp3").length, 16);

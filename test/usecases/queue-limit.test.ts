@@ -70,7 +70,7 @@ test("대기열이 가득 차 한 곡도 못 넣으면 실패로 돌려준다", 
   assert.equal(result.success ? null : result.code, "queue-full");
   assert.match(result.success ? "" : plainText(addFailureMessage(result)), /대기열이 가득 찼어요\.\.\. \(최대 30곡\)/);
   assert.equal(player.queue.length, 30);
-  assert.deepEqual(notices, [], "추가 안내는 보내지 않는다 — 진입점이 실패를 알린다");
+  assert.deepEqual(notices, [], "추가 안내는 보내지 않는다(진입점이 실패를 알린다)");
 });
 
 test("맨 앞에 넣을 때도 새 목록의 앞부분이 들어간다", async () => {

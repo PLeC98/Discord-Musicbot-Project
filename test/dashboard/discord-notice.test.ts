@@ -3,7 +3,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Request } from "express";
-import { announcer, dashboardActor, dashboardResponder } from "../../src/dashboard/discord-notice.ts";
+import { announceEmbed, announcer, dashboardActor, dashboardResponder, restartNotices } from "../../src/dashboard/discord-notice.ts";
+import * as announceText from "../../src/ui/text/ko/announce.ts";
 import { LIFETIME } from "../../src/ui/delivery.ts";
 import { frame } from "../../src/ui/frame.ts";
 import type { Player } from "../../src/player/player.ts";
@@ -68,7 +69,7 @@ test("조작 안내: 플레이어나 패널 채널이 없으면 알리지 않는
   assert.deepEqual([none.sent, none.lookups(), lost.sent], [[], 0, []]);
 });
 
-test("곡 넣기: 담은 안내를 그때의 패널 채널에 잠깐 보인다. 자리표시자는 없다", async (t) => {
+test("곡 넣기: 추가 안내를 그때의 패널 채널에 잠깐 보인다. 자리표시자는 없다", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const w = world();
   const responder = dashboardResponder(w.bot, "g1");
@@ -83,4 +84,33 @@ test("곡 넣기: 담은 안내를 그때의 패널 채널에 잠깐 보인다. 
   const empty = world();
   await dashboardResponder(empty.bot, "없는 서버").notifyQueued(frame({ title: "담았어요" }));
   assert.deepEqual(empty.sent, []);
+});
+
+test("다시 시작 공지: 소리를 내는 서버만 패널 채널에 점검 공지 모양(제목만 다시 시작 안내)으로 보내고 지우지 않는다. 채널이 없거나 보내지 못하면 false(거절하지 않는다)", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  type Embedded = { embeds: Array<{ toJSON(): { title?: string; description?: string; color?: number; footer?: { text: string } } }> };
+  const sent: ReturnType<Embedded["embeds"][number]["toJSON"]>[] = [];
+  const channel = (fails = false) => ({
+    send: async (p: Embedded) => {
+      if (fails) throw new Error("권한 없음");
+      sent.push(p.embeds[0].toJSON());
+      return { id: "m1", delete: async () => assert.fail("다시 시작 공지는 지우지 않는다") };
+    },
+  });
+  const sound = (paused = false) => ({ audioPlayer: { state: { status: "playing" } }, paused });
+  const players = new Map([
+    ["g1", fake<Player>({ guild: { id: "g1", name: "하나" }, ...sound(), textChannel: channel() })],
+    ["g2", fake<Player>({ guild: { id: "g2", name: "둘" }, ...sound(true), textChannel: channel() })],
+    ["g3", fake<Player>({ guild: { id: "g3", name: "셋" }, audioPlayer: { state: { status: "idle" } }, textChannel: channel() })],
+    ["g4", fake<Player>({ guild: { id: "g4", name: "넷" }, ...sound(), textChannel: null })],
+    ["g5", fake<Player>({ guild: { id: "g5", name: "다섯" }, ...sound(), textChannel: channel(true) })],
+  ]);
+  const bot = fakeBot({ players, panels: { panelChannel: async (player: Player) => player.textChannel } });
+  assert.deepEqual(await Promise.all(restartNotices(bot)), [true, false, false], "재생 중인 셋(g1, g4, g5)만. 일시정지, 곡 없음은 보내지 않는다");
+  assert.equal(sent.length, 1);
+  const maintenance = announceEmbed("maintenance", "x").toJSON();
+  assert.match(sent[0].title ?? "", /봇 다시 시작 안내$/);
+  assert.match(sent[0].description ?? "", /^안정적인 서비스를 위해 봇을 다시 시작해요\./);
+  assert.deepEqual([sent[0].color, sent[0].footer?.text, maintenance.title?.endsWith(announceText.titles.maintenance)], [maintenance.color, "봇 운영자", true], "색, 바닥글은 점검 공지와 같다");
+  t.mock.timers.tick(24 * 60 * 60 * 1000);
 });

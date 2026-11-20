@@ -1,31 +1,41 @@
 <!--
-  저장/되돌리기(운영자 패널에 하나). 어느 탭의 편집기든 고친 것이 생기면 나타나고, 탭을 옮겨도 그대로다(composables/save-targets).
+  저장, 취소(운영자 패널에 하나). 어느 탭의 편집기든 변경 사항이 생기면 나타나고, 탭을 옮겨도 유지된다(composables/save-targets).
 
-  태블릿, PC: 위 막대 오른쪽(알림 옆)에 "저장하지 않은 변경 · 되돌리기 · 저장". 위 막대는 틀이라 내용을 가리지 않는다.
+  태블릿, PC: 위 막대 오른쪽(알림 옆)에 "저장하지 않은 변경, 취소, 저장"을 둔다. 위 막대는 틀이라 내용을 가리지 않는다.
+    자리가 모자라면 줄을 바꾸지 않고 상태 문구를 점으로 바꾸고, 취소, 저장 후 다시 시작, 저장 순서로 아이콘만 남긴다.
     저장을 누르면 서버 설정의 자동 저장과 같은 표시(SaveIndicator: 플로피가 돌다 동그라미 체크)로 바뀌었다 사라진다.
-  휴대폰: 위 막대 오른쪽에 공간이 없어 디스코드처럼 아래(미니 재생 바 위)에 막대로 표시하고, 떠 있는 동안 그 높이만큼 페이지 아래를 비운다(끝 내용까지 막대 위로 올려 볼 수 있게).
+  휴대폰: 위 막대 오른쪽에 공간이 없어 디스코드처럼 아래(미니 재생 바 위)에 저장 바를 표시하고, 떠 있는 동안 그 높이만큼 페이지 아래를 비운다(끝 내용까지 저장 바 위로 올려 볼 수 있게).
   blocked(검사에 걸린 값): 저장을 막고 "고칠 것이 남아 있어요"(blockedTip: 어느 탭인지).
-  restart: 다시 시작해야 먹는 값을 고쳤다. 저장 옆에 "저장 후 다시 시작"을 더 둔다(공유기 설정 화면의 저장 및 재시작처럼)
+  restart: 다시 시작해야 적용되는 값을 고쳤다. 저장 옆에 "저장 후 다시 시작"을 더 둔다(공유기 설정 화면의 저장 및 재시작처럼)
 -->
 <template>
-  <!-- 휴대폰: 막대 높이만큼 아래를 비운다 -->
+  <!-- 휴대폰: 저장 바 높이만큼 아래를 비운다 -->
   <div v-if="phone && dirty" class="h-20" aria-hidden="true"></div>
 
   <Teleport to="#topbar-end" :disabled="phone" defer>
     <template v-if="!phone">
       <Transition enter-from-class="opacity-0 translate-x-2" leave-to-class="opacity-0 translate-x-2" enter-active-class="[transition:opacity_250ms_var(--ease-effects),translate_390ms_var(--ease-spring-fast)]" leave-active-class="transition-[opacity,translate] effects-fast">
-        <div v-if="dirty && !saving" class="flex items-center gap-1.5">
-          <span class="hidden lg:flex items-center gap-1.5 pr-1 text-xs font-medium" :class="blocked ? 'text-error' : 'text-tertiary'" v-tooltip="blocked ? blockedTip || null : null"><span class="size-1.5 rounded-full bg-current"></span>{{ blocked ? T.fixFirst : T.unsaved }}</span>
-          <button type="button" :class="[pill, 'text-on-surface']" @click="$emit('revert')"><Icon name="undo" :size="16" />{{ T.revert }}</button>
-          <button type="button" :class="[pill, restart ? 'bg-secondary-container text-on-secondary-container' : 'bg-primary text-on-primary']" :disabled="blocked" v-tooltip="blocked ? blockedTip || T.fixFirst : null" @click="$emit('save')"><Icon name="save" :size="16" />{{ T.save }}</button>
-          <button v-if="restart" type="button" :class="[pill, 'bg-primary text-on-primary']" :disabled="blocked" v-tooltip="blocked ? blockedTip || T.fixFirst : null" @click="$emit('saveRestart')"><Icon name="restart_alt" :size="16" />{{ T.saveRestart }}</button>
+        <!-- 자리가 모자라면 단계(fold)별로 접는다. 접은 문구는 스크린 리더용으로 남기고 툴팁으로 보여 준다 -->
+        <div v-if="dirty && !saving" ref="dockEl" class="flex items-center gap-1.5 whitespace-nowrap">
+          <span class="flex items-center gap-1.5 h-7 text-xs font-medium" :class="[blocked ? 'text-error' : 'text-on-error-container', fold >= 1 ? 'px-1' : 'pr-1']" v-tooltip="stateTip"
+            ><span class="size-1.5 rounded-full bg-current"></span><span :class="fold >= 1 && 'sr-only'">{{ blocked ? T.fixFirst : T.unsaved }}</span></span
+          >
+          <button type="button" :class="[pillOf(fold >= 2), 'text-on-surface']" v-tooltip="fold >= 2 ? T.revert : null" @click="$emit('revert')">
+            <Icon name="undo" :size="16" /><span :class="fold >= 2 && 'sr-only'">{{ T.revert }}</span>
+          </button>
+          <button type="button" :class="[pillOf(fold >= 4), restart ? 'bg-secondary-container text-on-secondary-container' : 'bg-primary text-on-primary']" :disabled="blocked" v-tooltip="blocked ? blockedTip || T.fixFirst : fold >= 4 ? T.save : null" @click="$emit('save')">
+            <Icon name="save" :size="16" /><span :class="fold >= 4 && 'sr-only'">{{ T.save }}</span>
+          </button>
+          <button v-if="restart" type="button" :class="[pillOf(fold >= 3), 'bg-primary text-on-primary']" :disabled="blocked" v-tooltip="blocked ? blockedTip || T.fixFirst : fold >= 3 ? T.saveRestart : null" @click="$emit('saveRestart')">
+            <Icon name="restart_alt" :size="16" /><span :class="fold >= 3 && 'sr-only'">{{ T.saveRestart }}</span>
+          </button>
         </div>
       </Transition>
       <SaveIndicator :state="indicator" />
     </template>
   </Teleport>
 
-  <!-- 휴대폰: 미니 재생 바 위에 뜨는 막대 -->
+  <!-- 휴대폰: 미니 재생 바 위에 뜨는 저장 바 -->
   <Transition enter-from-class="opacity-0 translate-y-4" leave-to-class="opacity-0 translate-y-4" enter-active-class="[transition:opacity_250ms_var(--ease-effects),translate_460ms_var(--ease-spring)]" leave-active-class="transition-[opacity,translate] duration-200 ease-accelerate">
     <div v-if="phone && (dirty || indicator !== 'idle')" class="fixed inset-x-3 z-120 h-14 pl-4 pr-2 rounded-full pane-float flex items-center gap-2" :style="{ bottom: 'calc(var(--player, 0px) + 0.75rem)' }">
       <span class="min-w-0 flex-1 truncate text-sm font-medium" :class="blocked ? 'text-error' : 'text-on-surface'">{{ indicator === "done" ? T.saved : blocked ? blockedTip || T.fixFirst : T.unsavedLong }}</span>
@@ -40,8 +50,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from "vue";
-import { useMediaQuery } from "@vueuse/core";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { useMediaQuery, useResizeObserver } from "@vueuse/core";
 import Icon from "./BaseIcon.vue";
 import SaveIndicator, { type SaveState } from "./SaveIndicator.vue";
 import { PHONE_QUERY } from "../utils/breakpoints.ts";
@@ -54,7 +64,7 @@ const props = withDefaults(
     saving?: boolean;
     /** 저장을 막아야 할 때(검사에 걸린 값이 있음). 버튼은 두되 누르지 못하게 한다 */
     blocked?: boolean;
-    /** 저장을 막은 까닭(고칠 것이 남은 탭) */
+    /** 저장을 막은 이유(고칠 것이 남은 탭) */
     blockedTip?: string;
     /** "저장 후 다시 시작"을 더 둔다(다시 시작해야 적용되는 값을 고쳤다) */
     restart?: boolean;
@@ -64,6 +74,38 @@ const props = withDefaults(
 defineEmits<{ save: []; revert: []; saveRestart: [] }>();
 
 const phone = useMediaQuery(PHONE_QUERY);
+
+// 접는 단계. 0: 모두 표시, 1: 상태 문구를 점으로 축소, 2: 취소 아이콘만 표시, 3: 저장 후 다시 시작 아이콘만 표시, 4: 저장도 아이콘만 표시
+const LAST_FOLD = 4;
+const fold = ref(0);
+const dockEl = ref<HTMLElement | null>(null);
+// 상태 문구의 툴팁. 문구가 보이면 막힌 이유만, 점만 남았으면 상태 문구 전체를 표시한다
+const stateTip = computed(() => (fold.value === 0 ? (props.blocked && props.blockedTip) || null : props.blocked ? props.blockedTip || T.fixFirst : T.unsaved));
+
+// 위 막대 오른쪽 칸(#topbar-end)에 줄바꿈 없이 들어가는 가장 낮은 단계를 고른다. 칸은 위 막대 폭의 일부라 화면 폭이 아니라 칸 안 요소들의 폭으로 잰다.
+// 단계를 바꾸고 다시 재는 동안은 렌더링 전(마이크로태스크)이라 중간 모양이 보이지 않는다. 폭은 등장 애니메이션의 이동과 크기 변화를 빼고 잰다(offsetWidth).
+let fitting = 0;
+function overflows(): boolean {
+  const host = dockEl.value?.parentElement;
+  if (!host) return false;
+  const items = [...host.children] as HTMLElement[];
+  const gap = parseFloat(getComputedStyle(host).columnGap) || 0;
+  const needed = items.reduce((sum, one) => sum + one.offsetWidth, 0) + gap * Math.max(0, items.length - 1);
+  return needed > host.clientWidth + 1;
+}
+async function fit() {
+  const mine = ++fitting;
+  fold.value = 0;
+  await nextTick();
+  while (mine === fitting && fold.value < LAST_FOLD && overflows()) {
+    fold.value += 1;
+    await nextTick();
+  }
+}
+const header = ref<HTMLElement | null>(null);
+onMounted(() => (header.value = document.getElementById("topbar-end")?.closest("header") ?? null));
+useResizeObserver(header, () => void fit());
+watch([() => props.dirty, () => props.saving, () => props.restart, () => props.blocked], () => void fit(), { flush: "post" });
 
 // 저장 표시: 저장 중 → 끝나서 고친 것이 없으면 체크 → 잠시 뒤 사라짐
 const indicator = ref<SaveState>("idle");
@@ -90,6 +132,8 @@ watch(
   },
 );
 
-const pill = "tap state-layer h-7 pl-2 pr-3 shrink-0 rounded-full flex items-center gap-1 text-sm font-semibold cursor-pointer disabled:opacity-38 disabled:cursor-not-allowed";
+const pill = "tap state-layer h-7 shrink-0 rounded-full flex items-center gap-1 text-sm font-semibold cursor-pointer disabled:opacity-38 disabled:cursor-not-allowed";
+/** 텍스트가 있는 버튼, 아이콘만 남은 정사각형 버튼 */
+const pillOf = (iconOnly: boolean) => `${pill} ${iconOnly ? "w-7 justify-center" : "pl-2 pr-3"}`;
 const pillPhone = "tap state-layer h-10 px-4 shrink-0 rounded-full flex items-center text-sm font-semibold cursor-pointer disabled:opacity-38 disabled:cursor-not-allowed";
 </script>

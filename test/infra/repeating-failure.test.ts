@@ -9,7 +9,7 @@ function recorder() {
   return { lines, log: { error: (line: string) => lines.push(["error", line]), info: (line: string) => lines.push(["info", line]) } };
 }
 
-test("같은 까닭의 잇단 실패는 한 번만 남기고, 풀리면 횟수와 함께 한 줄", () => {
+test("같은 원인의 잇단 실패는 한 번만 남기고, 풀리면 횟수와 함께 한 줄", () => {
   const { lines, log } = recorder();
   const save = repeatingFailure(log, "재생 위치 저장");
   save.ok();
@@ -22,7 +22,7 @@ test("같은 까닭의 잇단 실패는 한 번만 남기고, 풀리면 횟수�
   ]);
 });
 
-test("까닭이 바뀌면 새 사건으로 다시 남긴다", () => {
+test("원인이 바뀌면 새 사건으로 다시 남긴다", () => {
   const { lines, log } = recorder();
   const save = repeatingFailure(log, "재생 위치 저장");
   save.fail("database is locked");

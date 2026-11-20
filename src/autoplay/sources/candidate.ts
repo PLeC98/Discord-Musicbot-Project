@@ -1,4 +1,4 @@
-// 자동재생 소스가 내는 곡 한 줄. 어느 필드가 찼는지가 뒤의 처리를 정한다(sources/index 의 설명).
+// 자동재생 소스가 내는 곡 한 줄. 어느 필드가 찼는지가 뒤의 처리를 정한다(sources/index의 설명).
 
 type Candidate = {
   title: string;

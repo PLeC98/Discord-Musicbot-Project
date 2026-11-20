@@ -48,8 +48,8 @@ test("폴더 밖 경로, 깨진 내용, ZIP이 아닌 것은 거절한다", asyn
   assert.ok(rejects(broken));
 });
 
-// 다른 프로그램이 만든 ZIP 의 흔한 형식: 압축 없이 담은 항목, 폴더 항목, 끝 주석
-// Windows PowerShell 5.1 의 Compress-Archive 는 경로를 \ 로 나눈다(사용자가 풀었다 다시 묶은 파일)
+// 다른 프로그램이 만든 ZIP의 흔한 형식: 압축 없이 담은 항목, 폴더 항목, 끝 주석
+// Windows PowerShell 5.1의 Compress-Archive는 경로를 \ 로 나눈다(사용자가 풀었다 다시 묶은 파일)
 test("\\ 로 나눈 경로는 / 로 읽는다", async () => {
   assert.deepEqual(
     unzip(await zipped([{ name: "favicon\\32.png", data: Buffer.from("x") }])).map((one) => one.name),
@@ -127,7 +127,7 @@ test("스트리밍 쓰기: 파일 항목은 그대로 담고 바이트 항목은
   }
 });
 
-test("스트리밍 쓰기: 사라진 optional 파일은 건너뛰고, build 는 앞에서 담은 이름들로 쓸 때 만든다", async () => {
+test("스트리밍 쓰기: 사라진 optional 파일은 건너뛰고, build는 앞에서 담은 이름들로 쓸 때 만든다", async () => {
   const kept = path.join(DIR, "kept.opus");
   fs.writeFileSync(kept, "있음");
   const gone = path.join(DIR, "gone.opus");
@@ -142,14 +142,14 @@ test("스트리밍 쓰기: 사라진 optional 파일은 건너뛰고, build 는 
     ["files/kept.opus", "rows.json"],
   );
   assert.deepEqual(JSON.parse(entries[1].data.toString("utf8")), ["files/kept.opus"]);
-  await assert.rejects(written([{ name: "files/gone.opus", file: gone }]), { code: "ENOENT" }, "optional 이 아니면 그대로 실패");
+  await assert.rejects(written([{ name: "files/gone.opus", file: gone }]), { code: "ENOENT" }, "optional이 아니면 그대로 실패");
 });
 
-test("스트리밍 읽기는 내용이 맞지 않으면 끝에서 BAD_ZIP 으로 끊는다", async () => {
+test("스트리밍 읽기는 내용이 맞지 않으면 끝에서 BAD_ZIP으로 끊는다", async () => {
   const media = path.join(DIR, "body.bin");
   fs.writeFileSync(media, Buffer.alloc(50_000, 7));
   const file = await written([{ name: "body.bin", file: media }]);
-  // 몸통 한가운데를 바꾼다(CRC 가 어긋난다)
+  // 몸통 한가운데를 바꾼다(CRC가 어긋난다)
   const buf = fs.readFileSync(file);
   buf[30 + "body.bin".length + 25_000] ^= 0xff;
   fs.writeFileSync(file, buf);
@@ -192,7 +192,7 @@ test("스트림으로 읽기: 원본을 읽다 실패하면 받는 쪽이 오류
 
 // ── 0바이트 항목, 유닉스 모드, 폴더로 풀기 ──
 
-/** 묶은 ZIP 의 중앙 디렉터리에서 이름마다 만든 OS 를 유닉스로, 외부 속성의 위 16비트를 mode 로 바꾼다(writeZip 은 쓰지 않는 필드다) */
+/** 묶은 ZIP의 중앙 디렉터리에서 이름마다 만든 OS를 유닉스로, 외부 속성의 위 16비트를 mode로 바꾼다(writeZip은 쓰지 않는 필드다) */
 function withUnixModes(buf: Buffer, modes: Record<string, number>): Buffer {
   const out = Buffer.from(buf);
   let end = out.length - 22;
@@ -231,7 +231,7 @@ test("0바이트 항목도 파일에서 스트림으로 읽는다", async () => 
   }
 });
 
-test("유닉스에서 만든 항목만 mode 를 싣는다", async () => {
+test("유닉스에서 만든 항목만 mode를 싣는다", async () => {
   const buf = withUnixModes(
     await zipped([
       { name: "run", data: Buffer.from("x") },
@@ -253,7 +253,7 @@ test("유닉스에서 만든 항목만 mode 를 싣는다", async () => {
   }
 });
 
-test("폴더로 풀기: 상위 폴더를 만들고 내용, 0바이트 파일, 실행 비트를 옮긴다(Windows 처럼 폴더 항목이 없어도)", async () => {
+test("폴더로 풀기: 상위 폴더를 만들고 내용, 0바이트 파일, 실행 비트를 옮긴다(Windows처럼 폴더 항목이 없어도)", async () => {
   const buf = withUnixModes(
     await zipped([
       { name: "yt-dlp_linux", data: Buffer.from("실행 파일") },

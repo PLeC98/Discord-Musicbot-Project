@@ -4,7 +4,7 @@
   무슨 종류가 있고 어떤 필드를 받는지는 서버가 준다(GET /api/admin/source-types → autoplaySources.catalog).
   화면이 목록을 따로 들고 있으면 소스를 추가할 때 한쪽만 고치게 된다.
 
-  .env 에 키가 없는 종류는 **드롭다운에서 숨긴다.** 다만 이미 설정에 적혀 있으면 그대로 보인다. 
+  .env에 키가 없는 종류는 드롭다운에서 숨긴다. 다만 이미 설정에 적혀 있으면 그대로 보인다. 
   안 그러면 저장하는 순간 조용히 삭제된다.
 -->
 <template>
@@ -123,7 +123,7 @@ const props = withDefaults(
     types?: SourceTypeView[];
     /** 종류 목록을 불러오는 중(loading), 불러옴(ready), 못 불러옴(failed). 불러오기 전에는 모르는 종류라고 하지 않는다 */
     typesState?: "loading" | "ready" | "failed";
-    /** 못 받았을 때의 까닭(문제 응답의 글) */
+    /** 못 받았을 때의 원인(문제 응답의 글) */
     typesError?: string;
     /** 자동완성 후보를 요청한다: (출처 종류, 필드, 입력한 말) */
     suggest: (type: string, field: string, term: string) => Promise<Suggestion[]>;
@@ -145,13 +145,13 @@ const widthCls = (field: Field) => (field.width ? WIDTHS[field.width] : "col-spa
 
 // 편집 중 목록이 흔들리지 않게 행마다 값을 붙인다. 종류를 바꿔도 같은 행으로 남아야 한다.
 //
-// computed 로 두면 안 된다. get 이 매번 새 배열을 만드니 거기에 splice 해 봐야 set 이 안 불리고,
-// _key 도 렌더마다 새로 붙어 입력란이 포커스를 잃는다. 그래서 여기 두고 위에서 내려온 것만 맞춘다.
+// computed로 두면 안 된다. get이 매번 새 배열을 만드니 거기에 splice 해 봐야 set이 안 불리고,
+// _key도 렌더마다 새로 붙어 입력란이 포커스를 잃는다. 그래서 여기 두고 위에서 내려온 것만 맞춘다.
 let serial = 0;
 const list = ref<SourceData[]>([]);
 
-// watch 가 immediate 로 바로 돌므로 그 전에 있어야 한다. 아래에 두면 TDZ 에 걸리는데,
-// Vue 가 watcher 콜백의 예외를 잡아 콘솔에만 남기고 넘어가므로 화면은 멀쩡히 그려지고
+// watch가 immediate로 바로 돌므로 그 전에 있어야 한다. 아래에 두면 TDZ에 걸리는데,
+// Vue가 watcher 콜백의 예외를 잡아 콘솔에만 남기고 넘어가므로 화면은 멀쩡히 그려지고
 // 목록만 빈 채로 "출처가 하나는 있어야 합니다"가 뜬다.
 const clean = (one: SourceData): SourceData => Object.fromEntries(Object.entries(one).filter(([k]) => k !== "_key"));
 const push = () => emit("update:modelValue", list.value.map(clean));
@@ -160,7 +160,7 @@ watch(
   () => props.modelValue,
   (next) => {
     const incoming = next || [];
-    // 이 컴포넌트가 방금 올려보낸 것이 그대로 내려온 것이면 건드리지 않는다. 건드리면 _key 가 바뀐다
+    // 이 컴포넌트가 방금 올려보낸 것이 그대로 내려온 것이면 건드리지 않는다. 건드리면 _key가 바뀐다
     if (JSON.stringify(incoming.map(clean)) === JSON.stringify(list.value.map(clean))) return;
     list.value = incoming.map((one) => ({ ...one, _key: ++serial }));
   },
@@ -186,7 +186,7 @@ const valueAt = (source: SourceData, key: string): OptionValue | null => {
   const v = source[key];
   return typeof v === "string" || typeof v === "number" ? v : null;
 };
-/** 새 탭에서 열 주소. http(s) 가 아니면 null */
+/** 새 탭에서 열 주소. http(s)가 아니면 null */
 const linkOf = (source: SourceData, key: string): string | null => {
   const v = String(valueAt(source, key) ?? "").trim();
   return /^https?:\/\/\S+$/i.test(v) ? v : null;
@@ -198,7 +198,7 @@ const rangeAt = (source: SourceData, key: string | undefined): number | null => 
 };
 
 // 쓸 수 있는 것만 선택하게 한다. 다만 이미 쓰고 있는 종류는 목록에 남겨야 한다.
-// 안 그러면 select 가 값을 잃고 저장할 때 조용히 바뀐다.
+// 안 그러면 select가 값을 잃고 저장할 때 조용히 바뀐다.
 const addable = computed(() => props.types.filter((t) => t.usable));
 const choosable = (current: string | undefined) => props.types.filter((t) => t.usable || t.type === current);
 // 키가 없는 소스도 보이되 왜 못 쓰는지를 적어 둔다. 이미 선택한 것이면 남아 있어야 한다
@@ -206,7 +206,7 @@ const typeOptions = (current: string | undefined) => choosable(current).map((t) 
 
 const fieldsOf = (type: string | undefined) => spec(type)?.fields || [];
 const deepCount = (type: string | undefined) => fieldsOf(type).filter((f) => f.deep).length;
-// when 이 있는 필드는 그 필드가 채워졌을 때만 뜬다. 분기는 연도를 자른 뒤에나 뜻이 있다
+// when이 있는 필드는 그 필드가 채워졌을 때만 뜬다. 분기는 연도를 자른 뒤에나 뜻이 있다
 const shown = (source: SourceData, i: number) => fieldsOf(source.type).filter((f) => (!f.deep || isDeepOpen(sourceFoldId(props.genreIndex, i))) && (!f.when || hasRange(source, f.when)));
 // 구간은 두 필드로 적히니 한쪽만 손으로 적어 둔 설정도 있다
 function hasRange(source: SourceData, key: string) {
@@ -214,7 +214,7 @@ function hasRange(source: SourceData, key: string) {
   return source[key] != null || (to !== undefined && source[to] != null);
 }
 
-// 자동완성 후보는 부르는 쪽(ConfigGenres)이 서버에 요청한다. 이 컴포넌트는 그리기만 한다
+// 자동완성 후보는 부모 컴포넌트(ConfigGenres)가 서버에 요청한다. 이 컴포넌트는 그리기만 한다
 function suggestOf(source: SourceData, field: Field) {
   const what = field.suggest;
   return what ? (term: string) => props.suggest(source.type ?? "", what, term) : null;
@@ -229,7 +229,7 @@ const depthOf = (source: SourceData) => {
 function write(i: number, patch: Record<string, unknown>) {
   const row = list.value[i];
   for (const [k, v] of Object.entries(patch)) {
-    // 비운 필드는 아예 삭제한다. YAML 에 `minScore: null` 같은 줄을 남기지 않는다
+    // 비운 필드는 아예 삭제한다. YAML에 `minScore: null` 같은 줄을 남기지 않는다
     if (v == null) delete row[k];
     else row[k] = v;
   }

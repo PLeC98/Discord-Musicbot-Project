@@ -1,5 +1,5 @@
 // 재생, 곡 찾기 실패를 로그 한 줄로. 무엇이 막았는지가 분명한 종류는 그 이름만, 나머지는 오류의 첫 줄.
-// 원문 전체(yt-dlp 의 WARNING 줄 포함)는 부르는 쪽이 debug 로 남긴다.
+// 원문 전체(yt-dlp의 WARNING 줄 포함)는 호출부가 debug로 남긴다.
 
 import { errorKind, messageOf } from "./error-kind.ts";
 import { operatorHint } from "./operator-hints.ts";
@@ -29,7 +29,7 @@ function firstLine(text: string) {
   return lines.find((line) => line.startsWith("ERROR:")) ?? lines[0] ?? text;
 }
 
-// 감싼 오류의 까닭(원인의 첫 줄). 사용자 문장을 일반화하려 감싼 것은 사유가 원인에만 있다(직접 링크).
+// 감싼 오류의 사유(원인의 첫 줄). 사용자 문장을 일반화하려 감싼 것은 사유가 원인에만 있다(직접 링크).
 // 원인의 첫 줄이 오류의 첫 줄과 같으면(원인의 ERROR 줄을 그대로 글로 삼은 것) 붙이지 않는다
 function causeOf(error: unknown, text: string) {
   const cause = error && typeof error === "object" && "cause" in error ? error.cause : undefined;

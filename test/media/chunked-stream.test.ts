@@ -403,7 +403,7 @@ test("실패 상태 코드는 스트림 오류로 올라간다 (기존 캐시 �
 // ── 첫 요청 선행(openChunkedStream) ──────────────────────────
 // 만료된 URL 같은 실패가 호출부의 캐시 폴백을 지나쳐 재생 시작 뒤에야 드러나면 안 된다.
 
-test("openChunkedStream은 첫 요청이 실패하면 그 자리에서 던진다", async () => {
+test("openChunkedStream은 첫 요청이 실패하면 그 자리에서 예외를 던진다", async () => {
   await assert.rejects(
     openChunkedStream({
       url: URL_,
@@ -441,7 +441,7 @@ test("선행 요청 실패는 스트림을 정리한다 (죽은 요청을 남기
 
 // ── 이미 열린 첫 응답(직접 링크) ─────────────────────────────
 
-/** 이미 열린 첫 응답. dieAt 이 있으면 그만큼 보낸 뒤 연결이 끊긴다 */
+/** 이미 열린 첫 응답. dieAt이 있으면 그만큼 보낸 뒤 연결이 끊긴다 */
 function firstBody(body: Buffer, dieAt?: number) {
   let sent = false;
   return new NodeReadable({
@@ -478,7 +478,7 @@ test("첫 응답의 본문이 알린 크기보다 길게 남아 있으면 크기
   assert.equal(first.destroyed, true);
 });
 
-test("첫 응답이 끊기면 받은 자리부터 끝까지 If-Range 를 달아 Range 로 잇는다", async () => {
+test("첫 응답이 끊기면 받은 자리부터 끝까지 If-Range를 달아 Range로 잇는다", async () => {
   const body = makeBody(50_000);
   const asked: Array<Record<string, string>> = [];
   const real = fakeFetch(body);
@@ -566,7 +566,7 @@ test("expectStart: 응답이 확인할 양보다 짧게 끝나도 받은 만큼�
   assert.deepEqual(await collect(s), body.subarray(body.length - 2));
 });
 
-test("expectStart: 첫 바이트가 어긋나면 스트림 오류가 아니라 prime 이 거부된다(색인 탓, 재시도하지 않는다)", async () => {
+test("expectStart: 첫 바이트가 어긋나면 스트림 오류가 아니라 prime이 거부된다(색인 탓, 재시도하지 않는다)", async () => {
   const body = makeBody(40_000);
   let requests = 0;
   const fetchImpl: RangeFetch = (url, opts) => {
@@ -602,7 +602,7 @@ test("열린 뒤 끊기면 그 절대 위치부터 잇는다. 0바이트에서 �
   await assert.rejects(openChunkedStream({ url: URL_, totalBytes: body.length, chunkSize: 8192, fetchImpl: fakeFetch(body, { status: 416 }), ...FAST }), (e: unknown) => !isSeekMismatch(e));
 });
 
-test("startByte 는 파일 안이어야 하고, 이미 열린 첫 응답(first)과 함께 줄 수 없다", () => {
+test("startByte는 파일 안이어야 하고, 이미 열린 첫 응답(first)과 함께 줄 수 없다", () => {
   assert.throws(() => createChunkedStream({ url: URL_, totalBytes: 100, chunkSize: 10, startByte: 100 }), /startByte/);
   assert.throws(() => createChunkedStream({ url: URL_, totalBytes: 100, chunkSize: 10, startByte: 10, first: NodeReadable.from([Buffer.alloc(1)]) }), /함께 줄 수 없음/);
 });

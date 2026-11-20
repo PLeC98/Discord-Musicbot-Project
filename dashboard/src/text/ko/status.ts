@@ -51,10 +51,10 @@ const metrics = {
   /** lines: 좁은 카드에서 두 줄로 */
   pingSub: (minutes: number, average: string, lines = false) => `${minutes}분 평균${lines ? "\n" : " "}${average}`,
   loop: "이벤트 루프 지연",
-  /** 좁은 카드의 제목(툴팁으로 loop 를 보인다) */
+  /** 좁은 카드의 제목(툴팁으로 loop를 보인다) */
   loopShort: "EL lag",
   loopSub: "최대",
-  /** 큰 숫자가 p99 인 카드의 제목 뒤 */
+  /** 큰 숫자가 p99인 카드의 제목 뒤 */
   p99: "p99",
   heap: "heap 메모리",
   cpu: "CPU",
@@ -63,7 +63,7 @@ const metrics = {
   downloadActive: (count: number) => `활성 ${formatNumber(count)}개`,
   downloadToday: "오늘",
   encoding: "인코딩 응답 시간",
-  /** 최근 15분 동안의 합(핑의 "15분 평균" 과 같은 앞말). 수는 아래 줄에 */
+  /** 최근 15분 동안의 합(핑의 "15분 평균"과 같은 앞말). 수는 아래 줄에 */
   encodingLate: "15분 누락 프레임",
   upload: "업로드",
   uploadSystem: "시스템",
@@ -89,7 +89,7 @@ const clients = "클라이언트 (설정 순서)";
 const clientsRate = "성공/시도";
 const clientSkipped = "건너뜀";
 const clientDetail = (order: number, tried: number, ok: number, excluded: boolean) => `${order}번째로 시도\n${tried}번 중 ${ok}번 성공${excluded ? "\n연속 실패로 한동안 건너뛰어요" : ""}`;
-/** 지난 때를 큰 단위 둘까지 "2시간 8분 전" 형식으로(0 인 단위는 뺀다). cut 이면 앞에 "약" */
+/** 지난 때를 큰 단위 둘까지 "2시간 8분 전" 형식으로(0인 단위는 뺀다). cut이면 앞에 "약" */
 const justNow = "방금 전";
 const unitNames = { day: "일", hour: "시간", minute: "분", second: "초" };
 const ago = (span: string) => `${span} 전`;
@@ -114,7 +114,7 @@ const sortBy = (label: string) => `${label}${josa(label, "으로")} 정렬`;
 const strayMore = (count: number) => `외 ${formatNumber(count)}개`;
 const strayTip = "플레이어가 없는 서버의 재생 작업을 하는 프로세스예요.\n종료에 실패한 잔류 프로세스일 수 있어요.";
 /** 작업: 봇 헬퍼는 이름, 서버의 작업은 서버 이름(다음 곡, 자동 검색은 덧붙인다) */
-const jobs = { potServer: "POToken 서버", ytdlpUpdate: "yt-dlp 업데이트", loginBackground: "로그인 배경", netStats: "시스템 업로드 측정", loudness: "볼륨 측정", leftServer: "나간 서버", prefetch: "다음 곡", lookup: "자동 검색", none: "없음" };
+const jobs = { potServer: "POToken 서버", ytdlpUpdate: "yt-dlp 업데이트", ffmpegInstall: "ffmpeg 설치", bgutilInstall: "POToken 서버 설치", dashboardBuild: "대시보드 화면 빌드", loginBackground: "로그인 배경", netStats: "시스템 업로드 측정", loudness: "볼륨 측정", leftServer: "나간 서버", prefetch: "다음 곡", lookup: "자동 검색", none: "없음" };
 const noProcesses = "실행 중인 자식 프로세스가 없어요";
 const processesTotal = (count: number, byLabel: string) => `합계 ${count}개 (${byLabel})`;
 /** yt-dlp 줄: 곡 찾기, 다운로드의 도는 수/크기와 기다리는 수 */
@@ -125,14 +125,14 @@ const extractions = "유튜브 영상 정보 읽기";
 // 인코딩 워커
 const workers = {
   title: (count: number) => `인코딩 워커 (${count})`,
-  /** 이 호스트에서 띄울 수 있는 최대(CPU 코어 − 1, 8 까지) */
+  /** 이 호스트에서 띄울 수 있는 최대(CPU 코어 − 1, 8까지) */
   limit: "워커 상한",
   quota: (cores: number) => `CPU 할당 ${cores}코어`,
   lateTotal: "켜진 뒤 누락 프레임",
   deaths: "켜진 뒤 다시 띄운 워커",
   worker: (n: number) => `워커 ${n}`,
   streams: (count: number) => `재생 ${formatNumber(count)}`,
-  /** 워커 스레드가 지난 1초 동안 쓴 CPU(코어 하나 기준, 100 이 끝) */
+  /** 워커 스레드가 지난 1초 동안 쓴 CPU(코어 하나 기준, 100이 끝) */
   cpu: (pct: number) => `코어 ${pct}%`,
   /** 응답 시간 p99 / 응답 한도(응답이 그 안에 와야 소리가 끊기지 않는 시간, (큐 깊이 − 1) × 20ms) */
   rtt: (rtt: string, limit: string) => `응답 시간 ${rtt} / ${limit}`,
@@ -150,7 +150,7 @@ const driveFree = (total: string, free: string) => `${total} 중 ${free} 사용 
 const cacheCounts = { protected: "재생 중 캐시 보호", neverPlayed: "미재생 캐시 파일", failed: "다운로드 실패한 캐시 파일" };
 const count = (n: number) => `${formatNumber(n)}개`;
 const songCount = (n: number) => `${formatNumber(n)}곡`;
-const driveParts = { other: "기타", free: "여유 공간", reserve: "최소 여유 공간" };
+const driveParts = { other: "기타", vendor: "외부 프로그램", free: "여유 공간", reserve: "최소 여유 공간" };
 const reserveTip = (size: string) => `최소 여유 공간 ${size}`;
 const db = { file: "DB 파일", lookups: "오디오 링크 데이터", pins: "직접 지정한 음원", sponsor: "SponsorBlock 구간", sessions: "백업된 플레이어", lastCleanup: "마지막 캐시 정리" };
 const cleanup = (when: string, files: number, size: string) => `${when} · ${formatNumber(files)}개 · ${size}`;

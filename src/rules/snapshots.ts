@@ -1,4 +1,4 @@
-// 설정 DB 스냅샷의 형식(store/snapshots 가 만들고 대시보드 백업 탭이 보인다). 화면도 부르므로 Node 없는 모듈이다.
+// 설정 DB 스냅샷의 형식(store/snapshots가 만들고 대시보드 백업 탭이 보인다). 화면도 부르므로 Node 없는 모듈이다.
 
 /** daily: 하루 한 번, before-import, before-restore, before-reset: 불러오기, 복원, 초기화로 바꾸기 전 */
 type SnapshotKind = "daily" | "before-import" | "before-restore" | "before-reset";

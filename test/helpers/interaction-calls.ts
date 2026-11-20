@@ -1,11 +1,11 @@
-// 응답 상태와 부른 순서를 흉내 내는 가짜 상호작용. src/ui/delivery 는 replied, deferred 로 분기하므로
-// reply, deferReply, deferUpdate 가 그 값을 바꿔야 응답 분기 테스트가 헛되이 통과하지 않는다.
-// 보낸 것은 flags 로 본인(self), 모두(all)를 구분해 calls 에 적는다
+// 응답 상태와 부른 순서를 흉내 내는 가짜 상호작용. src/ui/delivery는 replied, deferred로 분기하므로
+// reply, deferReply, deferUpdate가 그 값을 바꿔야 응답 분기 테스트가 헛되이 통과하지 않는다.
+// 보낸 것은 flags로 본인(self), 모두(all)를 구분해 calls에 적는다
 
 import { MessageFlags, type RepliableInteraction } from "discord.js";
 import { fake } from "./fake.ts";
 
-// 상호작용마다 다른 id. 첫 응답의 삭제 예약이 이 id 로 걸린다
+// 상호작용마다 다른 id. 첫 응답의 삭제 예약이 이 id로 걸린다
 let seq = 0;
 
 type Over = { replied?: boolean; deferred?: boolean; command?: boolean; component?: boolean; channel?: boolean; denied?: boolean };

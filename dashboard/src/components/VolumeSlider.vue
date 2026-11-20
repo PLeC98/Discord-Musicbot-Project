@@ -23,11 +23,11 @@ import { VOLUME_BASE, VOLUME_MAX } from "../../../src/rules/limits.ts";
 import { text } from "../text/index.ts";
 const T = text.player;
 
-// level 은 보여 줄 볼륨. bubble 이 거짓이면 말풍선을 두지 않는다(숫자를 따로 보여 주는 곳). 굵기는 m3-slider-thin(진행 막대와 같다)
+// level은 보여 줄 볼륨. bubble이 거짓이면 말풍선을 두지 않는다(숫자를 따로 보여 주는 곳). 굵기는 m3-slider-thin(진행 막대와 같다)
 const props = withDefaults(defineProps<{ level: number; disabled?: boolean; bubble?: boolean }>(), { disabled: false, bubble: true });
 const emit = defineEmits<{ input: [value: string]; change: [value: string] }>();
 
-// 드래그하는 동안(누른 손을 뗄 때까지). 터치로 드래그하면 브라우저가 :active 를 풀어 말풍선이 사라져서 직접 기억한다
+// 드래그하는 동안(누른 손을 뗄 때까지). 터치로 드래그하면 브라우저가 :active를 풀어 말풍선이 사라져서 직접 기억한다
 const dragging = ref(false);
 function release() {
   dragging.value = false;

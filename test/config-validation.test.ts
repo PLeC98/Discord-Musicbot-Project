@@ -2,12 +2,14 @@
 //
 // `parseInt`처럼 "120junk"를 120으로 삼키지 않는다. 경고 뒤 기본값으로 돌면 로그를 보지 않는 사이 의도하지 않은 값으로 운영된다.
 //
-// config 는 불러와도 멈추지 않고 문제 목록을 낸다. 멈추는 것은 기동(src/index.ts)이 본체를 불러오기 전이다.
+// config는 불러와도 멈추지 않고 문제 목록을 낸다. 멈추는 것은 기동(src/index.ts)이 본체를 불러오기 전이다.
 // 값 계산은 loadConfig 순수 함수라 바로 부른다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import fs from "fs";
 import path from "path";
+import { parseEnv } from "util";
 import { spawnSync } from "child_process";
 import { loadConfig } from "../src/config/index.ts";
 import { stopOnConfigProblems } from "../src/app/config-check.ts";
@@ -16,12 +18,12 @@ const ROOT = path.join(import.meta.dirname, "..");
 // 형식이 맞는 암호화 키(32바이트)
 const KEY = Buffer.alloc(32, 7).toString("base64");
 
-/** 주어진 환경 변수(env)와 운영 조절값(tunables, settings.db 의 문서)으로 설정을 계산한다 */
-function load(env: Record<string, string>, opts?: { envFileFound?: boolean; tunables?: Record<string, string> }) {
+/** 주어진 환경 변수(env)와 운영 설정값(tunables, settings.db의 문서)으로 설정을 계산한다 */
+function load(env: Record<string, string>, opts?: Parameters<typeof loadConfig>[1]) {
   const { config: c, problems, warnings, tuneProblems } = loadConfig({ DISCORD_TOKEN: "t", CLIENT_ID: "1", CLIENT_SECRET: "s", SECRETS_KEY: KEY, ...env }, opts);
   return { problems, warnings, tuneProblems, cfg: { port: c.dashboard.port, apiMax: c.dashboard.rateLimit.apiMax, website: c.bot.website, queueMax: c.bot.maxQueueSize } };
 }
-/** 운영 조절값만 준다 */
+/** 운영 설정값만 준다 */
 const tune = (tunables: Record<string, string>) => load({}, { tunables });
 
 test("숫자 뒤에 글자가 붙으면 문제다 (parseInt가 삼키던 것)", () => {
@@ -29,19 +31,19 @@ test("숫자 뒤에 글자가 붙으면 문제다 (parseInt가 삼키던 것)", 
   assert.deepEqual(tune({ RATE_LIMIT_API_MAX: "120junk" }).tuneProblems, ["RATE_LIMIT_API_MAX 값이 잘못됨(120junk): 정수만 쓸 수 있음"]);
 });
 
-// 조절값은 대시보드가 저장 전에 같은 검사로 거절한다. 그래도 DB 에 틀린 값이 있으면(바깥에서 고침) 기동을 멈추지 않고 그 필드만 기본값이다
-test("조절값의 문제는 기동을 멈추지 않고(tuneProblems) 그 필드만 기본값이다", () => {
+// 설정값은 대시보드가 저장 전에 같은 검사로 거절한다. 그래도 DB에 틀린 값이 있으면(바깥에서 고침) 기동을 멈추지 않고 그 필드만 기본값이다
+test("설정값의 문제는 기동을 멈추지 않고(tuneProblems) 그 필드만 기본값이다", () => {
   const { problems, tuneProblems, cfg } = tune({ RATE_LIMIT_API_MAX: "0", QUEUE_MAX_TRACKS: "300" });
   assert.deepEqual(problems, []);
   assert.equal(tuneProblems.length, 1);
   assert.deepEqual([cfg.apiMax, cfg.queueMax], [120, 300]);
 });
 
-test(".env 에 남은 조절값 이름은 읽지 않고 경고만 한다", () => {
+test(".env에 남은 설정값 이름은 읽지 않고 경고만 한다", () => {
   const { warnings, cfg } = load({ OWNER_ID: "9", RATE_LIMIT_API_MAX: "300", QUEUE_MAX_TRACKS: "100" });
   assert.equal(cfg.apiMax, 120);
   assert.deepEqual(warnings, [".env의 QUEUE_MAX_TRACKS, RATE_LIMIT_API_MAX는 이제 쓰지 않음. 운영자 패널의 일반 탭에서 입력하고 .env에서 삭제하세요"]);
-  assert.equal(load({ RATE_LIMIT_API_MAX: "300" }, { tunables: { RATE_LIMIT_API_MAX: "200" } }).cfg.apiMax, 200, "조절값 문서가 이긴다");
+  assert.equal(load({ RATE_LIMIT_API_MAX: "300" }, { tunables: { RATE_LIMIT_API_MAX: "200" } }).cfg.apiMax, 200, "설정값 문서가 이긴다");
 });
 
 test("허용 범위를 벗어나면 문제다. 조용히 기본값으로 돌지 않는다", () => {
@@ -64,8 +66,8 @@ test("대시보드 공개 주소는 origin만(경로, 사용자 정보, ?, # 없
   assert.deepEqual(load({ DASHBOARD_ALLOW_PLAINTEXT: "yes" }).problems.length, 1, "true, false만");
 });
 
-// 틀린 색을 그대로 두면 임베드를 보낼 때마다 던진다. 그 필드는 기본 색으로 돈다
-test("임베드 색은 #RRGGBB 만 받는다", () => {
+// 틀린 색을 그대로 두면 임베드를 보낼 때마다 예외를 던진다. 그 필드는 기본 색으로 돈다
+test("임베드 색은 #RRGGBB만 받는다", () => {
   assert.deepEqual(tune({ EMBED_COLOR: "#2743d2" }).tuneProblems, []);
   for (const bad of ["blue", "#12345", "2743D2", "#GGGGGG"]) assert.equal(tune({ EMBED_COLOR: bad }).tuneProblems.length, 1, bad);
   assert.equal(loadConfig({ DISCORD_TOKEN: "t", CLIENT_ID: "1" }).config.bot.embedColor, "#2743D2", "비우면 기본 색");
@@ -91,8 +93,8 @@ test("범위 안의 값은 그대로 쓴다", () => {
   assert.equal(cfg.apiMax, 300);
 });
 
-// 모르는 브라우저 이름을 yt-dlp 에 넘기면 사용법 오류로 끝나 모든 곡 찾기가 실패한다
-test("쿠키 출처는 file 이거나 yt-dlp 가 받는 브라우저 이름이다(프로필 모양은 그대로 둔다)", () => {
+// 모르는 브라우저 이름을 yt-dlp에 넘기면 사용법 오류로 끝나 모든 곡 찾기가 실패한다
+test("쿠키 출처는 file이거나 yt-dlp가 받는 브라우저 이름이다(프로필 모양은 그대로 둔다)", () => {
   assert.match(tune({ COOKIES_SOURCE: "none" }).tuneProblems.join(), /COOKIES_SOURCE 값이 잘못됨\(none\): file 또는 브라우저 이름/);
   for (const ok of ["file", "FILE", "chrome", "Firefox", "chrome:Profile 1", "chromium+gnomekeyring:Work", "whale"]) {
     assert.deepEqual(tune({ COOKIES_SOURCE: ok }).tuneProblems, [], ok);
@@ -116,25 +118,34 @@ test("문제는 첫 하나에서 멈추지 않고 모두 모은다", () => {
 
 test("자격증명: 봇 토큰, 클라이언트 ID, 시크릿이 없으면 문제(빈 것만 가리킨다), 운영자 ID, 기능 한정 키가 없으면 경고", () => {
   const bare = loadConfig({ SECRETS_KEY: KEY });
-  assert.deepEqual(bare.problems, ['비어 있는 필수 값: DISCORD_TOKEN, CLIENT_ID, CLIENT_SECRET. README 의 "설정" 절과 .env.example 의 주석을 참고해 .env 에 채운 뒤 다시 실행하세요.']);
+  assert.deepEqual(bare.problems, ['비어 있는 필수 값: DISCORD_TOKEN, CLIENT_ID, CLIENT_SECRET. README의 "설정" 절과 .env.example의 주석을 참고해 .env에 채운 뒤 다시 실행하세요.']);
   assert.match(loadConfig({ DISCORD_TOKEN: "t", CLIENT_ID: "1", SECRETS_KEY: KEY }).problems[0], /^비어 있는 필수 값: CLIENT_SECRET\./);
   assert.equal(bare.warnings.length, 1);
   assert.match(bare.warnings[0], /OWNER_ID/);
   assert.deepEqual(load({ OWNER_ID: "9" }).warnings, []);
 });
 
-test("대시보드로 옮긴 키가 .env 에 남아 있으면 쓰지 않고 경고만 한다", () => {
-  const { warnings } = load({ OWNER_ID: "9", SPOTIFY_CLIENT_SECRET: "x", LASTFM_API_KEY: "y" });
-  assert.deepEqual(warnings, [".env의 SPOTIFY_CLIENT_SECRET, LASTFM_API_KEY는 이제 쓰지 않음. 운영자 패널의 API 키 탭에서 입력하고 .env에서 삭제하세요"]);
-  const { config: c } = loadConfig({ SPOTIFY_CLIENT_SECRET: "x", LASTFM_API_KEY: "y" });
-  assert.deepEqual([c.spotify.clientSecret, c.sources.lastfmKey], [null, null]);
+test(".env.example의 이름은 모두 봇이 읽는 이름이다(예시를 그대로 쓰면 읽지 않는 이름 경고가 없다)", () => {
+  const names = Object.keys(parseEnv(fs.readFileSync(path.join(ROOT, ".env.example"), "utf8")));
+  assert.ok(names.length > 10, `${names.length}개`);
+  const { warnings } = load({ OWNER_ID: "9" }, { envFileNames: names });
+  assert.deepEqual(warnings, []);
 });
 
-test(".env 가 없으면 그 문제 하나만 알린다", () => {
+test(".env 파일에 봇이 읽지 않는 이름이 있으면(오타, 예전 설정) 경고한다. 쓰는 이름 목록 없이 읽어 본 이름과 견준다", () => {
+  const env = { OWNER_ID: "9", SPOTIFY_CLIENT_SECRET: "x", DASHBORD_PORT: "1" };
+  const { warnings } = load(env, { envFileNames: ["OWNER_ID", "SPOTIFY_CLIENT_SECRET", "DASHBORD_PORT", "LOG_FILE_KEEP"] });
+  assert.deepEqual(warnings, [".env의 SPOTIFY_CLIENT_SECRET, DASHBORD_PORT는 봇이 읽지 않는 이름. 오타이거나 예전 설정이면 .env에서 삭제하세요(쓰는 이름은 .env.example 참고)"]);
+  assert.deepEqual(load(env).warnings, [], "셸이 준 환경 변수(.env 파일에 없는 이름)는 보지 않는다");
+  const { config: c } = loadConfig({ SPOTIFY_CLIENT_SECRET: "x", LASTFM_API_KEY: "y" });
+  assert.deepEqual([c.spotify.clientSecret, c.sources.lastfmKey], [null, null], "예전 이름의 값은 쓰지 않는다");
+});
+
+test(".env가 없으면 그 문제 하나만 알린다", () => {
   assert.deepEqual(loadConfig({}, { envFileFound: false }).problems, [".env 파일이 없음. 봇을 실행하면 .env.example로 만들고 비밀 키를 채움. 그 뒤 파일 안의 주석을 참고해 [필수] 값을 채우세요"]);
 });
 
-test("SECRETS_KEY: 비었거나 32바이트 base64 가 아니면 만드는 명령과 함께 멈춘다", () => {
+test("SECRETS_KEY: 비었거나 32바이트 base64가 아니면 만드는 명령과 함께 멈춘다", () => {
   const empty = load({ SECRETS_KEY: "" }).problems;
   assert.equal(empty.length, 1);
   assert.match(empty[0], /^SECRETS_KEY가 비어 있음\(비밀값 암호화 키\)\. 만들기: node -e .*randomBytes\(32\).* 다시 입력해야 함$/);
@@ -149,7 +160,7 @@ test("불러와도 멈추지 않는다. 문제는 목록으로 따로 내보내�
   const r = spawnSync(process.execPath, ["-e", probe], { cwd: ROOT, encoding: "utf8", env: { ...process.env, DISCORD_TOKEN: "t", CLIENT_ID: "1", DASHBOARD_PORT: "abc" } });
   assert.equal(r.status, 0);
   const out = JSON.parse(/CFG:(\{.*\})/.exec(r.stdout)?.[1] ?? "null");
-  // 자식은 저장소의 .env 를 읽는다. 있고 없고에 따라 다른 문제가 더 붙을 수 있어 넣은 값의 문제만 센다
+  // 자식은 저장소의 .env를 읽는다. 있고 없고에 따라 다른 문제가 더 붙을 수 있어 넣은 값의 문제만 센다
   assert.equal(out.problems.filter((p: string) => /DASHBOARD_PORT/.test(p)).length, 1);
   assert.equal(out.keys, false);
 });

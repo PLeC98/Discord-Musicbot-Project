@@ -11,10 +11,10 @@ type ByKind = {
   modal: ModalSubmitInteraction<"cached">;
 };
 type Kind = keyof ByKind;
-/** enabled: 운영자 설정으로 기능을 껐으면 false. 꺼진 기능의 핸들러는 없는 것과 같다(명령의 enabled 와 같은 뜻) */
+/** enabled: 운영자 설정으로 기능을 껐으면 false. 꺼진 기능의 핸들러는 없는 것과 같다(명령의 enabled와 같은 뜻) */
 type Route = { kind: Kind; prefix: string; enabled?: () => boolean; handle(interaction: ByKind[Kind], bot: BotContext): unknown };
 
-/** 핸들러 하나. prefix 로 시작하는 custom_id 를 받는다 */
+/** 핸들러 하나. prefix로 시작하는 custom_id를 받는다 */
 const route = <K extends Kind>(kind: K, prefix: string, handle: (interaction: ByKind[K], bot: BotContext) => unknown, opts: { enabled?: () => boolean } = {}): Route => ({ kind, prefix, ...opts, handle: handle as Route["handle"] });
 
 /** 서버 안의 버튼, 메뉴, 모달이면 그 종류와 좁힌 상호작용. 아니면 null */

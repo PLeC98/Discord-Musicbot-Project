@@ -1,7 +1,7 @@
-// 로그 파일 읽기(대시보드의 로그 파일 보기). 기록(infra/log/file.ts)이 남긴 NDJSON 을 실시간 로그와 같은 필드로 읽는다.
+// 로그 파일 읽기(대시보드의 로그 파일 보기). 기록(infra/log/file.ts)이 남긴 NDJSON을 실시간 로그와 같은 필드로 읽는다.
 //
 // 페이지는 파일 안의 바이트 위치로 넘긴다: 어느 위치 앞의 줄(before, 없으면 끝에서부터), 어느 줄 뒤의 줄(after), 시각 둘레(at).
-// 줄은 시간 순서라 시각은 위치를 반씩 좁혀 찾는다. 줄은 0x0A 로만 자른다(UTF-8 의 여러 바이트 글자 안에는 0x0A 가 없어 청크 경계에서 안전하다).
+// 줄은 시간 순서라 시각은 위치를 반씩 좁혀 찾는다. 줄은 0x0A로만 자른다(UTF-8의 여러 바이트 글자 안에는 0x0A가 없어 청크 경계에서 안전하다).
 // 쓰는 중이라 덜 된 마지막 줄, 읽을 수 없는 줄은 건너뛴다. 기록기의 상한(LINE_MAX)보다 긴 줄은 깨진 줄이라 모으지 않고 건너뛴다.
 //
 // 지금 쓰는 파일은 꽉 차면 이름이 바뀌어 떼어진다(내용은 그대로). 그래서 파일을 첫 줄의 시각(since)으로 알아보고,
@@ -55,7 +55,7 @@ const EMPTY = Buffer.alloc(0);
 
 /**
  * from(줄의 시작)부터 end까지를 줄 경계로 자른 청크들. 마지막 청크는 줄바꿈 없이 끝날 수 있다.
- * 줄바꿈을 뺀 길이가 LINE_MAX 이상인 줄은 청크에 넣지 않고 건너뛰며, 건너뛰는 동안 조각마다 빈 청크를 낸다(paced 가 그 사이에 양보한다)
+ * 줄바꿈을 뺀 길이가 LINE_MAX 이상인 줄은 청크에 넣지 않고 건너뛰며, 건너뛰는 동안 조각마다 빈 청크를 낸다(paced가 그 사이에 양보한다)
  */
 function* chunksForward(fd: number, from: number, end: number, bytes: number): Generator<Chunk> {
   for (let pos = from; pos < end;) {
@@ -86,7 +86,7 @@ function* chunksForward(fd: number, from: number, end: number, bytes: number): G
   }
 }
 
-/** before(줄의 시작이나 파일 끝) 앞을 뒤에서부터 줄 경계로 자른 청크들(청크 안은 앞에서부터). 긴 줄은 chunksForward 와 같이 건너뛴다 */
+/** before(줄의 시작이나 파일 끝) 앞을 뒤에서부터 줄 경계로 자른 청크들(청크 안은 앞에서부터). 긴 줄은 chunksForward와 같이 건너뛴다 */
 function* chunksBackward(fd: number, before: number, bytes: number): Generator<Chunk> {
   for (let end = before; end > 0;) {
     let start = Math.max(0, end - bytes);
@@ -99,7 +99,7 @@ function* chunksBackward(fd: number, before: number, bytes: number): Generator<C
       end = start + skip;
       continue;
     }
-    // [start, end) 가 한 줄의 뒷부분이다. 그 줄의 길이는 끝의 줄바꿈을 뺀다(파일 끝의 덜 된 줄에는 없다)
+    // [start, end)가 한 줄의 뒷부분이다. 그 줄의 길이는 끝의 줄바꿈을 뺀다(파일 끝의 덜 된 줄에는 없다)
     const tail = last[last.length - 1] === NL ? 1 : 0;
     // 줄의 시작이 나올 때까지 앞으로 더 읽는다(버퍼를 모았다가 한 번에 합친다). 상한에 이르면 모으기를 그만둔다
     const pieces = [last];
@@ -125,13 +125,13 @@ function* chunksBackward(fd: number, before: number, bytes: number): Generator<C
   }
 }
 
-/** from 에서 읽은 조각 안에서 마지막 줄이 시작하는 위치. 조각에 줄바꿈이 없으면 파일 맨 앞일 때만 0, 아니면 -1 */
+/** from에서 읽은 조각 안에서 마지막 줄이 시작하는 위치. 조각에 줄바꿈이 없으면 파일 맨 앞일 때만 0, 아니면 -1 */
 function lineStartIn(piece: Buffer, from: number): number {
   const j = piece.lastIndexOf(NL);
   return j >= 0 ? from + j + 1 : from === 0 ? 0 : -1;
 }
 
-/** at 부터 줄바꿈까지 읽기만 하며 조각마다 빈 청크를 낸다. 줄바꿈 다음 위치(끝까지 없으면 end)를 돌려준다 */
+/** at부터 줄바꿈까지 읽기만 하며 조각마다 빈 청크를 낸다. 줄바꿈 다음 위치(끝까지 없으면 end)를 돌려준다 */
 function* passForward(fd: number, at: number, end: number, bytes: number): Generator<Chunk, number> {
   for (let pos = at; pos < end;) {
     yield { at: pos, buf: EMPTY };
@@ -244,7 +244,7 @@ async function nextLineStart(fd: number, at: number, end: number): Promise<numbe
 
 /** 시각이 at 이상인 첫 줄의 위치(없으면 end). 줄이 시간 순서라 반씩 좁힌다. 읽을 수 없는 줄은 앞의 시각으로 친다 */
 async function lowerBound(fd: number, at: number, end: number): Promise<number> {
-  // lo 앞의 줄은 모두 at 보다 이르고, hi 는 at 이상인 줄의 시작이거나 끝이다
+  // lo 앞의 줄은 모두 at보다 이르고, hi는 at 이상인 줄의 시작이거나 끝이다
   let lo = 0;
   let hi = end;
   while (lo < hi) {
@@ -260,7 +260,7 @@ async function lowerBound(fd: number, at: number, end: number): Promise<number> 
     }
     const first = await forward(fd, start, hi).next();
     if (first.done) {
-      // start 부터 hi 앞까지 건너뛴 긴 줄뿐이다: 답은 lo 부터 start 사이에 있거나 start(그 뒤로 보이는 줄은 hi 부터라 같다)
+      // start부터 hi 앞까지 건너뛴 긴 줄뿐이다: 답은 lo부터 start 사이에 있거나 start(그 뒤로 보이는 줄은 hi 부터라 같다)
       hi = start;
       continue;
     }
@@ -376,7 +376,7 @@ async function listLogFiles(file: string, stop?: () => boolean): Promise<LogFile
 }
 
 /**
- * 읽을 파일. name 은 목록의 이름이어야 한다(경로를 받지 않는다). since 를 주면 그 첫 줄의 파일: 지금 파일이 떼어졌으면 떼어 낸 파일.
+ * 읽을 파일. name은 목록의 이름이어야 한다(경로를 받지 않는다). since를 주면 그 첫 줄의 파일: 지금 파일이 떼어졌으면 떼어 낸 파일.
  * 없으면 null
  */
 async function resolveLogFile(file: string, name: string, since?: number): Promise<{ name: string; path: string } | null> {
@@ -473,7 +473,7 @@ async function readLogPage(target: { name: string; path: string }, query: PageQu
 }
 
 /**
- * 이름과 첫 줄 시각(since)으로 찾은 파일의 한 페이지. 찾은 뒤 읽기 전에 그 파일이 떼어졌으면(읽은 파일의 첫 줄 시각이 since 와 다르다) 다시 찾는다.
+ * 이름과 첫 줄 시각(since)으로 찾은 파일의 한 페이지. 찾은 뒤 읽기 전에 그 파일이 떼어졌으면(읽은 파일의 첫 줄 시각이 since와 다르다) 다시 찾는다.
  * 없으면 null
  */
 async function readNamedLogPage(file: string, name: string, since: number | undefined, query: PageQuery, stop?: () => boolean): Promise<FilePage | null> {
@@ -509,7 +509,7 @@ async function* filteredLines(target: { path: string }, filter: LogFilter): Asyn
   }
 }
 
-/** 다운로드의 한 줄: 화면과 같은 열(시각, 레벨, 카테고리, 태그, 글). 시각은 보는 사람의 시간대로(offsetMin: Date.getTimezoneOffset 의 값) */
+/** 다운로드의 한 줄: 화면과 같은 열(시각, 레벨, 카테고리, 태그, 글). 시각은 보는 사람의 시간대로(offsetMin: Date.getTimezoneOffset의 값) */
 function formatLogLine(line: FileLine, offsetMin: number): string {
   const d = new Date(line.ts - offsetMin * 60_000);
   const two = (n: number) => String(n).padStart(2, "0");

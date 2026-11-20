@@ -2,10 +2,10 @@
 //
 // 지키려는 계약:
 // - 내려간 영상(disabled)은 고르지 않는다. 원곡(Original) 영상을 먼저, 없으면 다른 유튜브 영상
-// - 만든 사람과 부른 쪽만 이름으로 쓴다("제작 feat. 가수"). 애니메이터, 일러스트레이터까지 붙은 artistString 은 마지막 수단
-// - 가사 언어는 언어마다 따로 묻고 합친다. 같은 곡은 한 번. 한 언어가 실패해도 나머지는 살린다. 다 실패하면 던진다
-// - 설정 필드가 저쪽 파라미터로 바뀐다(BPM 은 천 배, 연도는 날짜, 가수를 걸면 하위 보이스뱅크까지)
-// - 이름으로 입력하는 필드(태그, 제외 태그, 가수)는 id 로 풀어 건다. 못 풀면 던진다(없는 태그를 이름으로 걸면 저쪽이 0곡을 조용히 준다)
+// - 만든 사람과 부른 쪽만 이름으로 쓴다("제작 feat. 가수"). 애니메이터, 일러스트레이터까지 붙은 artistString은 마지막 수단
+// - 가사 언어는 언어마다 따로 묻고 합친다. 같은 곡은 한 번. 한 언어가 실패해도 나머지는 살린다. 다 실패하면 예외를 던진다
+// - 설정 필드가 저쪽 파라미터로 바뀐다(BPM은 천 배, 연도는 날짜, 가수를 걸면 하위 보이스뱅크까지)
+// - 이름으로 입력하는 필드(태그, 제외 태그, 가수)는 id로 풀어 건다. 못 풀면 예외를 던진다(없는 태그를 이름으로 걸면 저쪽이 0곡을 조용히 준다)
 
 import { test, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
@@ -96,7 +96,7 @@ test("가사 언어는 언어마다 따로 묻고 합친다. 같은 곡은 한 �
   assert.deepEqual([...langs].sort(), ["en", "ja"], "둘을 한 요청에 걸면 둘 다 있는 곡만 온다");
 });
 
-test("한 언어가 실패해도 나머지는 살린다. 다 실패하면 던진다", async () => {
+test("한 언어가 실패해도 나머지는 살린다. 다 실패하면 예외를 던진다", async () => {
   serve((lang) => (lang === "ja" ? new Error("down") : [song(1, [yt("https://y/1")])]));
   assert.deepEqual(
     (await vocaFamily(source({ languages: ["ja", "en"] }))).map((c) => c.title),
@@ -149,7 +149,7 @@ test("곡 종류를 정하지 않으면 사이트마다의 기본값(VocaDB 원�
   );
 });
 
-test("태그, 제외 태그, 가수는 id 로 풀어 건다. 가수는 필드가 뜻하는 분류에서만 찾는다", async () => {
+test("태그, 제외 태그, 가수는 id로 풀어 건다. 가수는 필드가 뜻하는 분류에서만 찾는다", async () => {
   const urls = serve(() => [], { tags: { rock: 481, ロック: 481, 和風: 90, cover: 12 }, artists: [{ id: 28174, name: "UNI" }] });
   await vocaFamily(source({ tags: ["ロック", "和風"], excludeTags: ["cover"], artists: ["UNI"] }));
   const q = songsAsked(urls)[0].searchParams;
@@ -159,16 +159,16 @@ test("태그, 제외 태그, 가수는 id 로 풀어 건다. 가수는 필드가
 
   const [vocal] = urls.filter((u) => u.pathname === "/api/artists");
   assert.equal(vocal.searchParams.get("query"), "UNI");
-  assert.ok(vocal.searchParams.get("artistTypes")?.split(",").includes("Vocaloid"), "vocadb 의 「특정 보컬만」은 보컬 라이브러리에서 찾는다");
+  assert.ok(vocal.searchParams.get("artistTypes")?.split(",").includes("Vocaloid"), "vocadb의 「특정 보컬만」은 보컬 라이브러리에서 찾는다");
 
   _forgetIds();
   const touhou = serve(() => [], { artists: [{ id: 1, name: "ZUN" }] });
   await vocaFamily(source({ type: "touhoudb", artists: ["ZUN"] }));
-  assert.equal(touhou.find((u) => u.pathname === "/api/artists")?.searchParams.get("artistTypes"), null, "touhoudb 는 서클 · 작곡가라 필터링하지 않는다");
+  assert.equal(touhou.find((u) => u.pathname === "/api/artists")?.searchParams.get("artistTypes"), null, "touhoudb는 서클과 작곡가라 필터링하지 않는다");
 });
 
 test("같은 이름이 여럿 오면 대표 이름, 별칭, 대소문자만 다른 것 순으로 고른다", async () => {
-  // 저쪽은 곡 많은 순으로 준다. Exact 로 물어도 별칭, 대소문자 다른 것이 섞여 온다
+  // 저쪽은 곡 많은 순으로 준다. Exact로 물어도 별칭, 대소문자 다른 것이 섞여 온다
   const found = [
     { id: 136671, name: "ユニちゃん", names: [{ value: "UNI" }] },
     { id: 193691, name: "Urchin", names: [{ value: "Uni" }] },
@@ -185,7 +185,7 @@ test("같은 이름이 여럿 오면 대표 이름, 별칭, 대소문자만 다�
   assert.equal(await picked("uni"), "136671", "대소문자만 다르면 곡 많은 쪽");
 });
 
-test("사이트에 없는 이름이면 곡을 묻지 않고 던진다. 부르는 쪽이 다음 소스로 넘어간다", async () => {
+test("사이트에 없는 이름이면 곡을 묻지 않고 예외를 던진다. 호출부가 다음 소스로 넘어간다", async () => {
   const urls = serve(() => [song(1, [yt("https://y/1")])], { tags: { rock: 481 }, artists: [{ id: 5, name: "初音ミクP" }] });
   await assert.rejects(vocaFamily(source({ tags: ["rock", "없는태그"] })), /vocadb에 없는 태그: 없는태그/);
   await assert.rejects(vocaFamily(source({ excludeTags: ["없는태그"] })), /없는 태그:/);
@@ -193,7 +193,7 @@ test("사이트에 없는 이름이면 곡을 묻지 않고 던진다. 부르는
   assert.deepEqual(songsAsked(urls), []);
 });
 
-test("푼 id 는 기억하고, 못 푼 것은 기억하지 않는다", async () => {
+test("푼 id는 기억하고, 못 푼 것은 기억하지 않는다", async () => {
   const lookup: Lookup = { tags: { rock: 481 } };
   const urls = serve(() => [], lookup);
   const one = source({ tags: ["rock", "jazz"] });
@@ -203,7 +203,7 @@ test("푼 id 는 기억하고, 못 푼 것은 기억하지 않는다", async () 
   await vocaFamily(one);
   await vocaFamily(one);
   const asked = urls.filter((u) => u.pathname.startsWith("/api/tags/")).map((u) => decodeURIComponent(u.pathname.split("/").pop() || ""));
-  assert.deepEqual(asked, ["rock", "jazz", "jazz"], "rock 은 한 번만, jazz 는 없던 때를 기억하지 않아 다시 묻는다");
+  assert.deepEqual(asked, ["rock", "jazz", "jazz"], "rock은 한 번만, jazz는 없던 때를 기억하지 않아 다시 묻는다");
 });
 
 test("정렬 순서의 앞쪽에서만 고른다. 가수, 가수 분류를 걸면 더 앞쪽. 저쪽이 깊은 창을 못 준다", async (t) => {
@@ -231,7 +231,7 @@ test("정렬 순서의 앞쪽에서만 고른다. 가수, 가수 분류를 걸�
   assert.ok((await starts({ artists: ["  "] })) > narrowDepth, "빈 값은 조건이 아니다(화면도 같은 셈)");
 });
 
-test("가수 분류는 advancedFilters 로, 가사 언어 뒤에 번호를 이어 건다", async () => {
+test("가수 분류는 advancedFilters로, 가사 언어 뒤에 번호를 이어 건다", async () => {
   const urls = serve(() => []);
   await vocaFamily(source({ languages: ["ja"], artistTypes: ["Vocaloid", "UTAU"] }));
   const q = songsAsked(urls)[0].searchParams;
@@ -248,7 +248,7 @@ test("가수 분류는 advancedFilters 로, 가사 언어 뒤에 번호를 이�
   await assert.rejects(vocaFamily(source({ type: "touhoudb", artistTypes: ["Vocaloid"] })), /touhoudb에는 가수 분류가 없음/);
 });
 
-test("VocaDB 계열이 아닌 종류로 부르면 던진다", async () => {
+test("VocaDB 계열이 아닌 종류로 부르면 예외를 던진다", async () => {
   await assert.rejects(vocaFamily(source({ type: "lastfm" })), /VocaDB 계열이 아님/);
 });
 
@@ -264,7 +264,7 @@ test("자동완성: 태그는 이름 목록, 가수는 이름 풀기와 같은 �
   );
 
   assert.deepEqual(await suggest("vocadb", "tags", "roc"), [{ value: "rock", hint: "Genres" }, { value: "rock ballad" }]);
-  assert.equal(urls[0].searchParams.get("nameMatchMode"), "StartsWith", "가운데가 맞는 것까지 주면 roc 에 rock 이 안 뜬다");
+  assert.equal(urls[0].searchParams.get("nameMatchMode"), "StartsWith", "가운데가 맞는 것까지 주면 roc에 rock이 안 뜬다");
   assert.equal(urls[0].searchParams.get("sort"), "UsageCount");
 
   assert.deepEqual(await suggest("vocadb", "artists", "初音"), [{ value: "初音ミク", hint: "Vocaloid" }], "이름 없는 항목은 뺀다");
@@ -273,5 +273,5 @@ test("자동완성: 태그는 이름 목록, 가수는 이름 풀기와 같은 �
   assert.ok(artists.get("artistTypes")?.split(",").includes("Vocaloid"), "후보에 뜬 것은 이름 풀기에서도 찾혀야 한다");
 
   await suggest("touhoudb", "artists", "ZU");
-  assert.equal(urls[2].searchParams.get("artistTypes"), null, "touhoudb 는 필터링하지 않는다");
+  assert.equal(urls[2].searchParams.get("artistTypes"), null, "touhoudb는 필터링하지 않는다");
 });

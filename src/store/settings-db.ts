@@ -20,7 +20,7 @@ const settingsDb = new DbFile({
 
 function createTables(db: Db) {
   db.exec(`
-    -- 서버별 설정. 서버마다 문서 하나(store/guild-settings 가 모양을 맞춘다).
+    -- 서버별 설정. 서버마다 문서 하나(store/guild-settings가 모양을 맞춘다).
     -- 저장 번호가 없다: 필드 하나씩 한 트랜잭션으로 고쳐 쓰므로 다른 필드를 덮지 않고, 같은 필드는 나중 저장이 맞다
     CREATE TABLE IF NOT EXISTS guild_settings (
       guild_id    TEXT    PRIMARY KEY,
@@ -34,8 +34,8 @@ function createTables(db: Db) {
       revision    INTEGER NOT NULL
     );
 
-    -- 비밀값. 값마다 SECRETS_KEY 로 암호화한다(store/secrets). 평문은 끝 네 글자(last4)뿐이다.
-    -- key_id: 어느 키로 잠갔나(키의 지문). provider · endpoint: 키를 묶은 곳. 인증 데이터에도 들어가 열만 바꾸면 풀리지 않는다
+    -- 비밀값. 값마다 SECRETS_KEY로 암호화한다(store/secrets). 평문은 끝 네 글자(last4)뿐이다.
+    -- key_id: 어느 키로 잠갔나(키의 지문). provider, endpoint: 키를 묶은 곳. 인증 데이터에도 들어가 열만 바꾸면 풀리지 않는다
     CREATE TABLE IF NOT EXISTS secrets (
       name        TEXT    PRIMARY KEY,
       format      INTEGER NOT NULL,
@@ -50,7 +50,7 @@ function createTables(db: Db) {
     );
 
     -- 대시보드에서 올린 앱 이모지 id(store/app-emoji-records). 앱 이모지는 봇의 디스코드 앱(.env)에 딸려 설정과 함께 백업한다.
-    -- 동기화는 이 id 를 운영자가 올린 것처럼 다룬다(새 아이콘 이름과 겹쳐도 바꾸지 않는다). 봇 설정 초기화(documents)와 따로다
+    -- 동기화는 이 id를 운영자가 올린 것처럼 다룬다(새 아이콘 이름과 겹쳐도 바꾸지 않는다). 봇 설정 초기화(documents)와 따로다
     CREATE TABLE IF NOT EXISTS app_emojis (
       id          TEXT    PRIMARY KEY,
       added_at    INTEGER NOT NULL

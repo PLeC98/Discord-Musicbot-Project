@@ -1,5 +1,5 @@
-// 앨범아트(파일 태그의 이미지)를 봇이 다시 인코딩한 JPEG 으로. 쓰는 쪽(캐시 파일, 디스코드, 대시보드)에는 이것만 간다.
-// 외부 이미지라 읽기 전에 바이트 상한, 디코딩 전에 선언된 픽셀 상한(sharp 의 limitInputPixels)을 건다. 애니메이션은 첫 프레임, 투명한 곳은 검정(sharp 기본)
+// 앨범아트(파일 태그의 이미지)를 봇이 다시 인코딩한 JPEG으로. 쓰는 쪽(캐시 파일, 디스코드, 대시보드)에는 이것만 간다.
+// 외부 이미지라 읽기 전에 바이트 상한, 디코딩 전에 선언된 픽셀 상한(sharp의 limitInputPixels)을 건다. 애니메이션은 첫 프레임, 투명한 곳은 검정(sharp 기본)
 
 import sharp from "sharp";
 import { messageOf } from "../rules/error-kind.ts";
@@ -9,7 +9,7 @@ const log = logger.child({ category: "track" });
 /** 긴 변 상한(px, 작으면 키우지 않는다), JPEG 품질 */
 const SIDE = 1000;
 const QUALITY = 85;
-/** 입력 이미지의 바이트 상한(file-tags 의 태그 읽기 상한과 같은 값) */
+/** 입력 이미지의 바이트 상한(file-tags의 태그 읽기 상한과 같은 값) */
 const MAX_INPUT_BYTES = 16 * 1024 * 1024;
 /** 선언된 픽셀 수 상한(8000×8000) */
 const MAX_PIXELS = 64_000_000;

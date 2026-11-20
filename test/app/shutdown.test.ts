@@ -11,10 +11,11 @@ import { isShuttingDown, _resetShutdown } from "../../src/infra/shutdown-state.t
 
 // attach: 봇을 붙인 뒤(기본)인가, 기동 중 POToken 서버를 기다리는 때인가
 // destroy: 봇 내리기(게이트웨이 닫기)가 끝나는 시점을 정한다. 기본값은 즉시 완료다
-function setup({ saveFails = false, releaseFails = false, status = async () => {}, attach = true, destroy = async () => {} }: { saveFails?: boolean; releaseFails?: boolean; status?: () => Promise<unknown>; attach?: boolean; destroy?: () => Promise<unknown> } = {}) {
+// notices: 다시 시작 공지(서버마다의 끝). 주면 봇에 붙인다
+function setup({ saveFails = false, releaseFails = false, status = async () => {}, attach = true, destroy = async () => {}, notices, job }: { saveFails?: boolean; releaseFails?: boolean; status?: () => Promise<unknown>; attach?: boolean; destroy?: () => Promise<unknown>; notices?: () => Promise<boolean>[]; job?: string } = {}) {
   const steps: string[] = [];
-  // 음성 라이브러리가 들고 있는 연결. 정리하면 빠진다(진짜도 destroy 가 목록에서 뺀다).
-  // destroy(false) 는 나가기 요청을 보내지 않는다(채널에 남는다)
+  // 음성 라이브러리가 들고 있는 연결. 정리하면 빠진다(진짜도 destroy가 목록에서 뺀다).
+  // destroy(false)는 나가기 요청을 보내지 않는다(채널에 남는다)
   const live = new Map();
   const connection = (id: string, fails = false) => ({
     destroy: (adapterAvailable = true) => {
@@ -53,6 +54,7 @@ function setup({ saveFails = false, releaseFails = false, status = async () => {
       ["g1", player("g1")],
       ["g2", null],
     ]),
+    ...(notices && { restartNotices: () => (steps.push("notice"), notices()) }),
   };
   const proc = fakeWith<ShutdownBoundary["proc"]>()(Object.assign(new EventEmitter(), { platform: "linux", stdin: { isTTY: false } }));
   let exits = 0;
@@ -63,6 +65,7 @@ function setup({ saveFails = false, releaseFails = false, status = async () => {
       logFile: { close: () => steps.push("log:close") },
       proc,
       voiceConnections: () => new Map(live),
+      ...(job && { stopJob: async () => (steps.push("job:stop"), job) }),
       killAll: () => (
         steps.push("kill"),
         [
@@ -84,13 +87,21 @@ function setup({ saveFails = false, releaseFails = false, status = async () => {
   return { steps, proc, exited, exits: () => exits, shutdown: handle };
 }
 
-test("신호를 받으면 세션을 저장하고, 음성 채널 상태 문구를 지우고, 나가기 요청 없이 연결, 봇, POToken 서버, 자식 프로세스, 로그 파일을 정리하고 0 으로 나간다", async () => {
+test("신호를 받으면 세션을 저장하고, 음성 채널 상태 문구를 지우고, 나가기 요청 없이 연결, 봇, POToken 서버, 자식 프로세스, 로그 파일을 정리하고 0으로 나간다", async () => {
   _resetShutdown();
   const { steps, proc, exited } = setup();
   proc.emit("SIGTERM");
   assert.equal(isShuttingDown(), true, "새 작업을 시작하지 않게 종료 플래그를 곧바로 켠다");
   assert.equal(await exited, 0);
   assert.deepEqual(steps, ["stay:stop", "save:g1:shutdown", 'status:g1:""', "release:g1:프로세스 종료(SIGTERM)", "voice:g1:stay", "voice:g9:stay", "record:shutdown", "client:destroy", "pot:stop", "kill", "log:close"]);
+});
+
+test("실행 중인 설치 작업은 남은 자식 프로세스를 정리하기 전에 중단한다(POSIX에서 스크립트가 별도 프로세스 그룹으로 띄운 도구까지 정리되게)", async () => {
+  _resetShutdown();
+  const { steps, proc, exited } = setup({ job: "ffmpeg-install" });
+  proc.emit("SIGTERM");
+  assert.equal(await exited, 0);
+  assert.deepEqual(steps.slice(-4), ["pot:stop", "job:stop", "kill", "log:close"]);
 });
 
 test("봇을 붙이기 전(POToken 서버를 기다리는 동안)에 끄면 실행한 것만 내리고 깨끗이 끝났다고 적는다", async () => {
@@ -100,7 +111,7 @@ test("봇을 붙이기 전(POToken 서버를 기다리는 동안)에 끄면 실�
   assert.deepEqual(
     steps.filter((s) => !s.startsWith("voice:")),
     ["record:shutdown", "pot:stop", "kill", "log:close"],
-    "세션 저장 · 봇 내리기는 없다",
+    "세션 저장과 봇 내리기는 없다",
   );
 });
 
@@ -112,7 +123,7 @@ test("레지스트리에 없는 음성 연결도 나가기 요청 없이 정리�
   assert.equal(steps.at(-2), "kill");
 });
 
-test("종료가 중간에 던져도(연결 정리 실패) 나간다", async () => {
+test("종료가 중간에 예외를 던져도(연결 정리 실패) 나간다", async () => {
   const { proc, exited } = setup({ releaseFails: true });
   proc.emit("SIGTERM");
   let late: NodeJS.Timeout | undefined;
@@ -166,7 +177,47 @@ test("다시 시작은 끄기와 같이 정리하고 다시 시작으로 적은 
   assert.deepEqual(steps, ["stay:stop", "save:g1:shutdown", 'status:g1:""', "release:g1:다시 시작(운영자)", "voice:g1:stay", "voice:g9:stay", "record:restart", "client:destroy", "pot:stop", "kill", "log:close"]);
 });
 
-test("신호가 두 번 들어와도(Windows 의 Ctrl+C) 한 번만 정리한다", async () => {
+test("다시 시작에서 공지를 고르면 세션을 저장하기 전에 보내고 보낸 수를 남긴다. 신호, 공지를 고르지 않은 다시 시작은 보내지 않는다", async () => {
+  const from = sink.buffer.length;
+  const announced = setup({ notices: () => [Promise.resolve(true), Promise.resolve(false)] });
+  announced.shutdown.restart("운영자", { announce: true });
+  assert.equal(await announced.exited, EXIT.restart);
+  assert.deepEqual(announced.steps.slice(0, 3), ["stay:stop", "notice", "save:g1:shutdown"]);
+  assert.ok(sink.buffer.slice(from).some((e) => e.text === "다시 시작 공지: 재생 중인 서버 2곳 중 1곳에 보냄"));
+
+  const quiet = setup({ notices: () => [Promise.resolve(true)] });
+  quiet.shutdown.restart("운영자");
+  await quiet.exited;
+  const signal = setup({ notices: () => [Promise.resolve(true)] });
+  signal.proc.emit("SIGTERM");
+  await signal.exited;
+  assert.ok(!quiet.steps.includes("notice") && !signal.steps.includes("notice"));
+});
+
+test("공지가 예외를 던지거나 거절하거나 멈춰도 상한만 기다리고 세션을 저장한 뒤 나간다", async () => {
+  for (const notices of [
+    () => {
+      throw new Error("채널 찾기 실패");
+    },
+    () => [Promise.reject(new Error("보내기 실패"))],
+  ]) {
+    const { steps, shutdown, exited } = setup({ notices });
+    shutdown.restart("운영자", { announce: true });
+    assert.equal(await exited, EXIT.restart);
+    assert.ok(steps.includes("save:g1:shutdown"), steps.join());
+  }
+  const from = sink.buffer.length;
+  const stuck = setup({ notices: () => [Promise.resolve(true), new Promise<boolean>(() => {})] });
+  stuck.shutdown.restart("운영자", { announce: true });
+  let late: NodeJS.Timeout | undefined;
+  const outcome = await Promise.race([stuck.exited, new Promise((done) => (late = setTimeout(done, 5000, "상한 없이 기다림")))]);
+  clearTimeout(late);
+  assert.equal(outcome, EXIT.restart, "상한(3초) 근처에서 끝난다");
+  assert.ok(stuck.steps.includes("save:g1:shutdown"));
+  assert.ok(sink.buffer.slice(from).some((e) => e.text === "다시 시작 공지: 재생 중인 서버 2곳 중 1곳에 보냄(3초 안에 끝나지 않은 1곳은 그대로 진행)"));
+});
+
+test("신호가 두 번 들어와도(Windows의 Ctrl+C) 한 번만 정리한다", async () => {
   const { steps, proc, exited, exits } = setup();
   proc.emit("SIGINT");
   proc.emit("SIGINT");
@@ -219,7 +270,7 @@ test("깨끗한 종료는 단계마다 info 한 줄을 차례로 남기고, 남�
   assert.deepEqual(
     lines.filter((e) => e.level !== "info").map((e) => e.text.split(" Error")[0]),
     ["음성 연결 정리 실패: g8"],
-    "실패만 info 가 아니다(가짜 연결 g8 이 일부러 실패한다)",
+    "실패만 info가 아니다(가짜 연결 g8이 일부러 실패한다)",
   );
   const steps = lines.filter((e) => e.level === "info" && !e.text.startsWith("음성 연결 정리: ")).map((e) => e.text);
   const last = steps.pop();

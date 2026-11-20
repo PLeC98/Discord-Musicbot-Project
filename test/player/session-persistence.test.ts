@@ -184,7 +184,7 @@ test("쓰기가 실패하면 표시해 두고 다음 변경에서 통째로 다�
   assert.deepEqual(stored(p.guild.id).queue, ["A", "B"]);
 });
 
-// 다른 프로세스(DB 편집기)가 실행 상태 DB 의 쓰기 잠금을 쥔다. 잠금을 풀 때까지 쓰기는 실패한다
+// 다른 프로세스(DB 편집기)가 실행 상태 DB의 쓰기 잠금을 쥔다. 잠금을 풀 때까지 쓰기는 실패한다
 function holdWriteLock() {
   const other = new Database(path.join(DB_DIR, "state.db"));
   other.exec("BEGIN IMMEDIATE");
@@ -194,7 +194,7 @@ function holdWriteLock() {
   };
 }
 
-test("다른 프로세스가 쓰기 잠금을 쥔 동안 곡이 바뀌어도 재생이 멎지 않게 기다리지 않고, 잠금이 풀린 뒤 다음 변경 때 DB 를 메모리와 맞춘다", () => {
+test("다른 프로세스가 쓰기 잠금을 쥔 동안 곡이 바뀌어도 재생이 멎지 않게 기다리지 않고, 잠금이 풀린 뒤 다음 변경 때 DB를 메모리와 맞춘다", () => {
   const { p, sp } = makePlayer();
   trackState.setCurrent(p, t("now"));
   trackState.enqueue(p, [t("A"), t("B")]);
@@ -245,7 +245,7 @@ test("세션 행이 바뀌면 주기 저장이 쓴다. 안 바뀌었거나 위�
     SessionPersistence._saveTick();
     assert.equal(writes, 0, "바뀐 필드가 없다");
 
-    p.position = 90_000; // 위치만(가짜의 getCurrentTime 이 읽는 값)
+    p.position = 90_000; // 위치만(가짜의 getCurrentTime이 읽는 값)
     SessionPersistence._saveTick();
     assert.equal(writes, 0, "위치는 행을 다시 쓰지 않는다(위치는 따로 쓴다)");
 
@@ -322,7 +322,7 @@ test("나가며 저장한 뒤에는 메모리를 비워도 저장한 트랙이 �
   assert.deepEqual(titles(s.queue), ["next"]);
 });
 
-test("/join 으로만 이어 듣게 저장하면(/leave, 혼자 남아 나감) 자동 이어 틀기를 끈다. 다른 저장은 켠다. 저장한 트랙은 남는다", async () => {
+test("/join으로만 이어 듣게 저장하면(/leave, 혼자 남아 나감) 자동 이어 틀기를 끈다. 다른 저장은 켠다. 저장한 트랙은 남는다", async () => {
   const { p, sp } = makePlayer();
   trackState.setCurrent(p, t("now"));
   await sp.save("changed");
@@ -335,7 +335,7 @@ test("/join 으로만 이어 듣게 저장하면(/leave, 혼자 남아 나감) �
   assert.equal(s.current?.title, "now", "마지막 저장 뒤 비워도 트랙이 남는다");
 });
 
-test("복원이 음성에 붙으면 /join 으로만 이어 듣던 세션도 자동 이어 틀기를 다시 켠다. 저장 위치는 그대로", async () => {
+test("복원이 음성에 붙으면 /join으로만 이어 듣던 세션도 자동 이어 틀기를 다시 켠다. 저장 위치는 그대로", async () => {
   const { p, sp } = makeRestorePlayer();
   trackState.setCurrent(p, t("now"));
   await sp.save("leave-for-join");
@@ -449,13 +449,13 @@ test("복원: 재생 중이던 세션은 그대로 재생하고 설정을 복원
   assert.deepEqual(p.calls, [["play", 30_000, false]]);
   assert.equal(p.paused, false);
   assert.equal(p.volume, 80);
-  assert.equal(p.loop, false, "DB의 off는 메모리에서 false다 — 대시보드가 참/거짓으로 읽는다");
+  assert.equal(p.loop, false, "DB의 off는 메모리에서 false다(대시보드가 참/거짓으로 읽는다)");
   assert.equal(p.autoplay, "rock");
 });
 
 test("복원: 억제 사유(혼자 남음, 음소거)는 비우지 않고 지금 음성 상태로 다시 맞춘다", async () => {
   const p = await restore(makeRecord(), (q) => q.pause.setHolds(["mute"]));
-  assert.deepEqual([...p.pause.holds], ["mute"], "지금 상태의 계산이라 비울 까닭이 없다");
+  assert.deepEqual([...p.pause.holds], ["mute"], "지금 상태의 계산이라 비울 이유가 없다");
   assert.ok(p.syncs >= 1, "붙은 뒤 맞춘다");
   assert.deepEqual(p.calls, [["play", 30_000, false]]);
 });
@@ -472,7 +472,7 @@ test("복원: 대기열 ID는 저장한 그대로(다시 시작하기 전에 화
   assert.equal(p.currentTrack?.entry, 41);
   assert.equal(p.queue[0].entry, 42);
   assert.ok(Number.isInteger(p.queue[1].entry) && p.queue[1].entry !== 41 && p.queue[1].entry !== 42, "번호가 없던 곡은 새로 받는다");
-  assert.equal(Object.keys(p.queue[0]).includes("entry"), false, "객체 비교 · JSON 에는 나오지 않는다");
+  assert.equal(Object.keys(p.queue[0]).includes("entry"), false, "객체 비교나 JSON에는 나오지 않는다");
 });
 
 test("복원: 요청자는 id만 복원한다", async () => {
@@ -565,7 +565,7 @@ test("복원: 상한을 넘는 대기열은 잘라내고 DB도 같이 줄인다"
   }
 });
 
-// 곡 길이 100초. queue 는 저장된 대기열의 제목
+// 곡 길이 100초. queue는 저장된 대기열의 제목
 function endRecord(positionMs: number, { loopMode = "off", queue = [] as string[], live = false, duration = 100 } = {}) {
   const row = (title: string) => ({ title, url: `https://y/${title}`, duration, requesterId: "u1", isLive: live });
   return fake<RestoredSession>({
@@ -676,7 +676,7 @@ test("복원: 무엇이 됐나를 돌려준다(이어 재생, 재생할 곡을 �
   assert.equal(await makeRestorePlayer().sp.restoreSession(null), "empty");
 });
 
-test("복원: announce 를 끄면 글자 채널에 알리지 않고, 복원하는 동안만 연달아 실패 알림을 끈다(/join 이 응답으로 말한다)", async () => {
+test("복원: announce를 끄면 글자 채널에 알리지 않고, 복원하는 동안만 연달아 실패 알림을 끈다(/join이 응답으로 말한다)", async () => {
   const quiet = fakeChannel();
   const seenQuiet: boolean[] = [];
   const { p, sp } = makeRestorePlayer();
@@ -717,7 +717,7 @@ test("복원 안내는 잠시 뒤 삭제한다", async () => {
 
 // ── 앞 플레이어가 남긴 세션 위의 새 플레이어(/join 없이 새로 틀기) ──────────
 
-// 앞 플레이어가 /leave 등으로 남긴 세션. requester 는 곡마다 요청자 id
+// 앞 플레이어가 /leave 등으로 남긴 세션. requester는 곡마다 요청자 id
 function leftBehind(guildId: string, { current = "OLDcur", queue = ["OLDq1", "OLDq2"], requester = "u1" }: { current?: string; queue?: string[]; requester?: string | ((title: string) => string) } = {}) {
   const who = (title: string) => ({ id: typeof requester === "function" ? requester(title) : requester });
   sessions().saveSession(guildId, { voiceChannelId: "v1", textChannelId: "c1", volume: 100, loopMode: "off", autoplay: null, userPaused: false, positionMs: 61_000 });
@@ -732,7 +732,7 @@ const inDb = (guildId: string) => {
   return s ? { current: s.current?.title ?? null, queue: titles(s.queue) } : null;
 };
 
-test("새 플레이어가 저장된 세션 위에 처음 쓰면 그 세션을 지우고 새로 쓴다. DB 가 메모리와 같다", () => {
+test("새 플레이어가 저장된 세션 위에 처음 쓰면 그 세션을 지우고 새로 쓴다. DB가 메모리와 같다", () => {
   const { p } = makePlayer();
   leftBehind(p.guild.id);
 
@@ -762,7 +762,7 @@ test("넘겨받지 않은 플레이어는 남의 세션을 지우지 않는다(�
   sp.removeSession();
   sp.saveNow("leave");
 
-  assert.deepEqual(inDb(p.guild.id), { current: "OLDcur", queue: ["OLDq1", "OLDq2"] }, "/join 이 복원할 수 있게 남는다");
+  assert.deepEqual(inDb(p.guild.id), { current: "OLDcur", queue: ["OLDq1", "OLDq2"] }, "/join이 복원할 수 있게 남는다");
   sessions().removeSession(p.guild.id);
 });
 
@@ -798,7 +798,7 @@ test("위치만 쓰기는 주기 저장에 든 플레이어만. 복원 중(주�
 test("재생을 시작한 차례(주기 저장에 넣고, 재생 저장으로 세션을 넘겨받음) 그대로면 멈춘 위치를 쓴다", async () => {
   const { p, sp } = makePlayer();
   p.currentTrack = t("지금"); // 미러를 거치지 않는다. 넘겨받기는 재생 저장이 한다
-  sp.startPeriodicSave(); // start-playback 의 차례
+  sp.startPeriodicSave(); // start-playback의 차례
   try {
     await sp.save("play");
     p.position = 44_000;

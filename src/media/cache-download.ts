@@ -55,7 +55,7 @@ type Sources = {
 /** 다운로드하는 쪽 플레이어에서 읽는 필드 */
 type Owner = { guild: { id: string }; currentTrack?: unknown };
 /**
- * 진행 중인 다운로드: 최종 경로 → 끝나면 최종 경로를 주는 promise. 기다리는 쪽은 이 promise 를 그대로 await 한다.
+ * 진행 중인 다운로드: 최종 경로 → 끝나면 최종 경로를 주는 promise. 기다리는 쪽은 이 promise를 그대로 await 한다.
  * 프로세스 전역이다. 재생 경로와 예열뿐 아니라 서버끼리도 같은 맵을 봐야 같은 곡을 두 번 다운로드하지 않는다(캐시 파일 경로는 서버와 무관하다).
  *
  * 다운로드하는 동안에는 자기 임시 파일에만 쓰고 끝난 뒤 최종 경로로 옮긴다. 그래야 같은 곡이 겹쳐도
@@ -66,7 +66,7 @@ const inFlight = new Map<string, Promise<string>>();
 /**
  * 이 곡은 음원을 남에게서 빌려 와야 하는가. 음원 주소가 없는 곡, 곧 영상을 아직 못 찾은 스포티파이 곡뿐이다.
  *
- * 사운드클라우드는 DRM 이 없고 제 음원을 주므로 여기 해당하지 않는다. 묶어 두면 `sc:` 키 안에
+ * 사운드클라우드는 DRM이 없고 제 음원을 주므로 여기 해당하지 않는다. 묶어 두면 `sc:` 키 안에
  * 유튜브 음원이 들어가, 같은 곡이 처음 틀 때와 캐시로 틀 때 서로 다른 녹음이 된다.
  * 조건문 안에 묻어 두면 다시 끼워 넣게 되므로 규칙에 이름을 준다.
  */
@@ -116,9 +116,9 @@ function cleanTemp(tempPath: string, title?: string | null): number {
 // how: 어떻게 다운로드했나(로그 한 줄). 걸린 시간, 포맷, 리먹싱, 인코딩 여부
 type Fetched = { verifiedTitle: string | null; tags?: TagInfo | null; cover?: Cover | null; audioDurationSec: number | null; audioVersion: string | null; how: string };
 
-// 다운로드한 포맷(로그용). info.json 의 필드
+// 다운로드한 포맷(로그용). info.json의 필드
 const formatOf = (info: { format_id?: string | null; protocol?: string | null; acodec?: string | null } | null | undefined) => ({ formatId: info?.format_id ?? null, protocol: info?.protocol ?? null, acodec: info?.acodec ?? null });
-// yt-dlp 가 파일을 다 쓴 뒤 이보다 늦게 끝났으면 적는다(다운로드, 인코딩과 따로 걸린 시간)
+// yt-dlp가 파일을 다 쓴 뒤 이보다 늦게 끝났으면 적는다(다운로드, 인코딩과 따로 걸린 시간)
 const LINGER_LOG_MS = 5_000;
 
 // 유튜브 곡만 영상 자체의 제목으로 교정한다. 스포티파이 곡의 유튜브 동등물 제목은 다른 문자열이고
@@ -131,7 +131,7 @@ function correctTitle(track: DownloadTrack, verifiedTitle: string | null) {
 }
 
 // 다운로드한 것으로 곡 정보를 고친다. 유튜브는 영상 자체의 제목, 직접 링크는 받은 파일의 태그
-// (추가할 때 태그를 읽지 못한 곡(끝 moov 에 이어 받기가 없는 서버, 시간 초과, 통신 오류)도 여기서 고쳐진다)
+// (추가할 때 태그를 읽지 못한 곡(끝 moov에 이어 받기가 없는 서버, 시간 초과, 통신 오류)도 여기서 고쳐진다)
 function correctInfo(track: DownloadTrack, got: Fetched) {
   correctTitle(track, got.verifiedTitle);
   if (got.tags) applyTags(track, got.tags);
@@ -156,7 +156,7 @@ function record(audioKey: string, filepath: string, track: DownloadTrack, { veri
   }
 }
 
-// 다운로드를 기록하고, 직접 링크면 캐시 파일에 넣은 태그, 앨범아트를 sources/embedded-art 가 바로 알게 한다(대시보드, 패널이 기다리지 않게)
+// 다운로드를 기록하고, 직접 링크면 캐시 파일에 넣은 태그, 앨범아트를 sources/embedded-art가 바로 알게 한다(대시보드, 패널이 기다리지 않게)
 function finish(audioKey: string, filepath: string, track: DownloadTrack, got: Fetched) {
   record(audioKey, filepath, track, got);
   if (got.tags !== undefined) embeddedArt.noteFile(audioKey, got.tags, got.cover ?? null);
@@ -188,8 +188,8 @@ const SOURCES: Sources = { youtube: youtubeSource, soundcloud: soundcloudSource,
 // 출처가 유튜브가 아닌 곡을 유튜브에서 받았으면 그 영상(로그 꼬리)
 const youtubeNote = (track: DownloadTrack) => (track.audioUrl && inputKind(track.audioUrl) === "youtube" && track.platform !== "youtube" ? ` (yt: ${track.audioUrl})` : "");
 
-// 세그먼트로 다운로드하는 포맷(유튜브 post_live 의 DASH 세그먼트, 사운드클라우드 HLS)을 몇 개씩 나란히 다운로드하나. 세그먼트가 아닌 포맷에는 걸리지 않는다.
-// 유튜브는 넷 이상이면 도중에 HTTP 401 로 막히고 둘은 막히지 않는다(재생이 같은 곡을 나란히 다운로드해도). 사운드클라우드는 여덟까지 막히지 않는다.
+// 세그먼트로 다운로드하는 포맷(유튜브 post_live의 DASH 세그먼트, 사운드클라우드 HLS)을 몇 개씩 나란히 다운로드하나. 세그먼트가 아닌 포맷에는 걸리지 않는다.
+// 유튜브는 넷 이상이면 도중에 HTTP 401로 막히고 둘은 막히지 않는다(재생이 같은 곡을 나란히 다운로드해도). 사운드클라우드는 여덟까지 막히지 않는다.
 const CONCURRENT_FRAGMENTS = { youtube: 2, soundcloud: 4 } as const;
 // 캐시를 찾을 때마다 불리므로 폴더 권한 같은 장애는 처음과 복구만 warn, 파일별 줄은 debug
 const cacheFileChecks = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "캐시 파일 확인");
@@ -274,7 +274,7 @@ class TrackDownloader {
     return this._performDownload(track, this.trackFilePath(track));
   }
 
-  // 다운로드 실패는 여기서 한 번만 남긴다(까닭까지). 부르는 쪽(백그라운드 다운로드, 사전 캐싱)은 그 결과만 debug 로 남긴다
+  // 다운로드 실패는 여기서 한 번만 남긴다(원인까지). 호출부(백그라운드 다운로드, 사전 캐싱)는 그 결과만 debug로 남긴다
   _failed(track: DownloadTrack, error: unknown) {
     log.error(`캐시 다운로드 실패 ("${logTitle(track.title)}"):`, youtubeSource.briefError(error));
     return error;
@@ -288,12 +288,12 @@ class TrackDownloader {
 
     try {
       if (audioKey) audioCache.recordDownloadStart(audioKey, track);
-      // 빌려 오는 곡은 downloadTrack 이 먼저 채웠다
+      // 빌려 오는 곡은 downloadTrack이 먼저 채웠다
       const downloadUrl = track.audioUrl;
       if (!downloadUrl) throw new Error("음원 주소가 없어 다운로드할 수 없음");
 
       // 음원이 정해진 지점. SponsorBlock 구간을 미리 받아 두면 재생할 때 기다리지 않는다.
-      // 실패해도 다운로드, 재생을 막지 않는다(DB 가 열리지 않은 것만 던진다).
+      // 실패해도 다운로드, 재생을 막지 않는다(DB가 열리지 않은 것만 예외를 던진다).
       await this.deps.sponsor.forTrack(track, player.guild.id).catch((error: unknown) => {
         if (codeOf(error) === "DB_NOT_OPEN") throw error;
         log.warn(`SponsorBlock 구간 미리 불러오기 실패: ${messageOf(error)}`);
@@ -310,7 +310,7 @@ class TrackDownloader {
       const got = inputKind(downloadUrl) !== "direct" ? await this._fetchWithYtDlp(downloadUrl, tempPath) : await this._fetchDirect(downloadUrl, tempPath, track);
 
       await ensureNotEmpty(tempPath);
-      // 음원 길이는 만든 .opus 를 재서 소수까지 적는다. 출처가 준 정수나 원본 헤더의 값보다 이 파일이 정본이다
+      // 음원 길이는 만든 .opus를 재서 소수까지 적는다. 출처가 준 정수나 원본 헤더의 값보다 이 파일이 정본이다
       const measureStarted = Date.now();
       const measured = await this.deps.measure.durationSec(tempPath);
       const measureMs = Date.now() - measureStarted;
@@ -325,7 +325,7 @@ class TrackDownloader {
 
       // 먼저 끝낸 쪽이 그 파일의 기록(버전, 길이)을 이미 남겼다. 버린 쪽의 값으로 덮지 않는다
       if (audioKey && mine) finish(audioKey, filepath, track, measured ? { ...got, audioDurationSec: measured } : got);
-      // 출처가 유튜브가 아닌 곡은 소리를 가져온 영상도 남긴다. 예열이 곡마다 한 줄씩 남기므로 debug 다.
+      // 출처가 유튜브가 아닌 곡은 소리를 가져온 영상도 남긴다. 예열이 곡마다 한 줄씩 남기므로 debug다.
       // 걸린 시간을 단계마다 적는다. 긴 곡의 캐시가 어디서 오래 걸렸는지 구분할 근거다
       log.debug(`캐시 다운로드 완료: "${logTitle(track.title)}"${youtubeNote(track)} | ${got.how} · 길이 측정 ${sec(measureMs)}초`);
       return filepath;
@@ -348,24 +348,24 @@ class TrackDownloader {
     }
   }
 
-  // yt-dlp 로 다운로드한다. 변환은 yt-dlp의 ExtractAudio가 소스 코덱을 보고 한다. 사운드클라우드의 HLS도 스스로
+  // yt-dlp로 다운로드한다. 변환은 yt-dlp의 ExtractAudio가 소스 코덱을 보고 한다. 사운드클라우드의 HLS도 자체적으로
   // 조립하므로 우리가 손댈 것이 없다.
   async _fetchWithYtDlp(downloadUrl: string, tempPath: string): Promise<Fetched> {
     const flags = {
       output: tempPath,
       // 이 다운로드에 곁들여 메타데이터를 파일로 다운로드한다. 왕복이 늘지 않는다.
       // stdout으로 받는 --print는 쓸 수 없다: yt-dlp가 시스템 코드페이지로 써서
-      // 일본어, 한국어 제목이 깨지고(Windows 의 cp949), PYTHONIOENCODING으로도 안 바뀐다.
+      // 일본어, 한국어 제목이 깨지고(Windows의 cp949), PYTHONIOENCODING으로도 안 바뀐다.
       // 파일은 UTF-8로 쓰이므로 어느 환경에서나 안전하다.
       writeInfoJson: true,
       format: youtubeSource.AUDIO_FORMAT,
       preferFreeFormats: true,
-      // 2차 방어선: track.isLive를 못 잡은 경우(링크 데이터 재사용 등)에도 yt-dlp가 스스로 라이브를 건너뛴다.
+      // 2차 방어선: track.isLive를 못 잡은 경우(링크 데이터 재사용 등)에도 yt-dlp가 알아서 라이브를 건너뛴다.
       // 걸리면 다운로드를 시작조차 하지 않으므로 ffmpeg가 아예 실행되지 않는다.
       matchFilter: "!is_live",
-      // 코덱은 yt-dlp 가 소스를 보고 정한다. 이미 Opus 면 리먹싱, 아니면 libopus.
-      // 여기서 코덱을 못 박으면 그 판단을 덮어 251 까지 다시 인코딩된다.
-      // `-b:a` 는 스트림 카피에 무시되므로 두 경우 모두 맞는다.
+      // 코덱은 yt-dlp가 소스를 보고 정한다. 이미 Opus면 리먹싱, 아니면 libopus.
+      // 여기서 코덱을 못 박으면 그 판단을 덮어 251까지 다시 인코딩된다.
+      // `-b:a`는 스트림 카피에 무시되므로 두 경우 모두 맞는다.
       // 목표 비트레이트는 직접 링크 분기와 같은 곳에서 가져온다. 숫자가 어긋나지 않게.
       postprocessorArgs: audioConvert.ytdlpPostprocessorArgs(),
       extractAudio: true,
@@ -374,7 +374,7 @@ class TrackDownloader {
     // 사운드클라우드는 공통 옵션과 재생 포맷만(유튜브 전용 옵션, 클라이언트 바꾸기, 쿠키가 없다)
     const started = Date.now();
     if (inputKind(downloadUrl) === "soundcloud") await this.deps.soundcloud.download(downloadUrl, { ...flags, concurrentFragments: CONCURRENT_FRAGMENTS.soundcloud });
-    // 유튜브: 받아 둔 영상 정보의 재사용과 연령 제한 영상의 쿠키 재시도는 downloadAudio 가 맡는다
+    // 유튜브: 받아 둔 영상 정보의 재사용과 연령 제한 영상의 쿠키 재시도는 downloadAudio가 맡는다
     else await this.deps.youtube.downloadAudio(downloadUrl, (forceCookies) => this.deps.youtube.getYtDlpOptions({ ...flags, concurrentFragments: CONCURRENT_FRAGMENTS.youtube }, { forceCookies }));
 
     // match-filter에 걸리면 yt-dlp는 "skipping" 후 정상 종료(exit 0)하고 파일을 남기지 않는다.
@@ -386,7 +386,7 @@ class TrackDownloader {
     const info = this._takeInfoJson(tempPath);
     // 사운드클라우드가 미리듣기 조각(30초)만 준 곡: 곡처럼 캐시하지 않는다(추가한 뒤 권리자가 미리듣기로 돌린 곡)
     if (/_preview$/.test(info.formatId ?? "")) throw codedError("sc-preview-only", `미리듣기만 열린 곡이라 캐시하지 않음: ${downloadUrl}`);
-    // 다운로드한 포맷과 리먹싱, 인코딩 여부(yt-dlp 의 ExtractAudio 는 Opus 면 리먹싱하고 아니면 인코딩한다)
+    // 다운로드한 포맷과 리먹싱, 인코딩 여부(yt-dlp의 ExtractAudio는 Opus면 리먹싱하고 아니면 인코딩한다)
     const codec = info.acodec?.split(".")[0] ?? "?";
     const format = `포맷 ${info.formatId ?? "?"}(${info.protocol ?? "?"}, ${codec === "opus" ? "옮김" : `${codec} → opus 구움`})`;
     const lingerMs = ended - fsSync.statSync(tempPath).mtimeMs;
@@ -409,7 +409,7 @@ class TrackDownloader {
     const audioVersion = versionOf.fromHeaders(audioStream.headers);
 
     // 일단 다운로드해 둔 다음에 무엇인지 물어본다. 스트림인 채로는 알 수 없고, 안에 든 것을
-    // 모르면 이미 Opus 인 음원까지 다시 인코딩하게 된다.
+    // 모르면 이미 Opus인 음원까지 다시 인코딩하게 된다.
     const rawPath = `${tempPath.replace(/\.opus$/, "")}.raw`;
     audioCache.protectFile(rawPath);
     try {
@@ -500,13 +500,13 @@ class TrackDownloader {
   /**
    * 이 곡의 캐시 파일. 다운로드가 끝난 것만 돌려준다(키 경로에 있고, 비어 있지 않고, 다운로드 중이 아님). 없으면 null.
    * 다운로드는 임시 파일에 쓰고 끝나면 옮기므로 키 경로에 있으면 다운로드가 끝난 것이다. 다운로드 중 확인은 그래도 한 번 더 본다.
-   * 음원 주소가 아직 없으면(스포티파이가 영상을 찾기 전) 키도 없어 null 이다.
+   * 음원 주소가 아직 없으면(스포티파이가 영상을 찾기 전) 키도 없어 null이다.
    */
   static findCacheFile(track: HasAudio): string | null {
     return TrackDownloader.cacheFileOf(audioKeyOf(track?.audioUrl));
   }
 
-  /** 이 음원 키의 캐시 파일. 판정은 findCacheFile 과 같다 */
+  /** 이 음원 키의 캐시 파일. 판정은 findCacheFile과 같다 */
   static cacheFileOf(key: string | null): string | null {
     if (!key) return null;
     const file = audioCache.getFilePath(key);
@@ -529,7 +529,7 @@ class TrackDownloader {
   static _internals = { inFlight, tempPathFor, cleanTemp, publish, needsBorrowedAudio };
 }
 
-/** 캐시하기에 너무 긴 길이(초)인가(CACHE_MAX_TRACK_MINUTES, 0 이면 상한 없음). 길이를 모르면 아니다 */
+/** 캐시하기에 너무 긴 길이(초)인가(CACHE_MAX_TRACK_MINUTES, 0이면 상한 없음). 길이를 모르면 아니다 */
 function tooLongToCache(seconds: number | null | undefined) {
   const max = config.cache.maxTrackSec;
   return max > 0 && (seconds ?? 0) > max;

@@ -1,6 +1,6 @@
 // src/sources/youtube/index.ts getYtDlpOptions: 쿠키 미설정 환경의 옵션 구성 계약.
-// 쿠키가 없다고 player_client 를 강제로 바꾸지 않는다
-// 쿠키 출처는 운영 조절값(settings.db)이라 .env 와 상관없이 기본값(쓰지 않음)으로 시작한다.
+// 쿠키가 없다고 player_client를 강제로 바꾸지 않는다
+// 쿠키 출처는 운영 설정값(settings.db)이라 .env와 상관없이 기본값(쓰지 않음)으로 시작한다.
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -12,7 +12,7 @@ const config = (await import("../../src/config/index.ts")).default;
 
 test("쿠키 미설정이어도 player_client를 강제하지 않음", () => {
   const opts = youtubeSource.getYtDlpOptions();
-  assert.equal(opts.extractorArgs, undefined, "ios 강제 폴백 금지 — 기본 클라이언트 + bgutil POT에 맡김");
+  assert.equal(opts.extractorArgs, undefined, "ios 강제 폴백 금지: 기본 클라이언트 + bgutil POT에 맡김");
   assert.equal(opts.cookiesFromBrowser, undefined);
   assert.equal(opts.cookies, undefined);
 });
@@ -28,7 +28,7 @@ test("기본 옵션 유지 + 추가 옵션 병합", () => {
   assert.equal((opts as Record<string, unknown>).addHeader, undefined);
 });
 
-test("yt-dlp 는 조립이 넘긴 ffmpeg 를 쓴다(재생과 같은 바이너리). 넘기기 전에는 필드가 없다", () => {
+test("yt-dlp는 조립이 넘긴 ffmpeg를 쓴다(재생과 같은 바이너리). 넘기기 전에는 필드가 없다", () => {
   assert.equal(youtubeSource.getYtDlpOptions().ffmpegLocation, undefined);
   ytdlpOptions.useFfmpeg(() => "/opt/ffmpeg/bin/ffmpeg");
   try {
@@ -55,7 +55,7 @@ test("호출자가 extractorArgs를 명시하면 그대로 존중 (병합 계약
 });
 
 // ── bgutil 플러그인 탐지 ─────────────────────────────────────────────────────
-// yt-dlp의 --plugin-dirs는 `<지정 경로>/<아무 이름>/yt_dlp_plugins` 를 찾는다.
+// yt-dlp의 --plugin-dirs는 `<지정 경로>/<아무 이름>/yt_dlp_plugins`를 찾는다.
 // yt_dlp_plugins를 직접 담은 디렉터리를 넘기면 아무것도 못 찾고 조용히 넘어가므로,
 // 규칙 자체를 테스트로 박아 둔다.
 
@@ -92,17 +92,18 @@ test("설치되지 않은 경로는 조용히 null", () => {
 });
 
 test("bgutil 탐지 경로는 yt-dlp가 실제로 읽는 곳을 가리킨다", (t) => {
-  const { BGUTIL_AVAILABLE, BGUTIL_PLUGIN_ROOT } = youtubeSource._internals;
-  if (!BGUTIL_AVAILABLE) return t.skip("bgutil 미설치 (gitignore 대상)");
-  assert.ok(BGUTIL_PLUGIN_ROOT, "설치돼 있으면 경로가 있다");
-  assert.ok(fs.existsSync(BGUTIL_PLUGIN_ROOT), "탐지된 yt_dlp_plugins가 실제로 존재해야 한다");
-  assert.equal(path.basename(BGUTIL_PLUGIN_ROOT), "yt_dlp_plugins");
+  const { bgutilPluginDirs, findPluginRoot } = youtubeSource._internals;
+  if (!bgutilPluginDirs) return t.skip("bgutil 미설치 (gitignore 대상)");
+  const root = findPluginRoot(bgutilPluginDirs);
+  assert.ok(root, "설치돼 있으면 경로가 있다");
+  assert.ok(fs.existsSync(root), "탐지된 yt_dlp_plugins가 실제로 존재해야 한다");
+  assert.equal(path.basename(root), "yt_dlp_plugins");
 });
 
 // 스위치 값을 주변 환경에서 읽어 오면 안 된다. 두 방향을 직접 세워서 본다.
 // 플러그인은 이 봇이 띄운 POToken 서버가 있을 때만 싣는다. 없을 때 실으면 플러그인이 기본 주소(4416)의 남의 서버로 간다
 test("POToken 플러그인은 켜 두고 이 봇이 띄운 서버가 있을 때만 싣고, 그 주소를 넘긴다", async (t) => {
-  const { BGUTIL_AVAILABLE } = youtubeSource._internals;
+  const BGUTIL_AVAILABLE = youtubeSource._internals.bgutilPluginDirs !== null;
   const restore = config.bgutil.enabled;
   t.after(() => {
     config.bgutil.enabled = restore;
@@ -119,7 +120,7 @@ test("POToken 플러그인은 켜 두고 이 봇이 띄운 서버가 있을 때�
   assert.equal(youtubeSource.getYtDlpOptions().pluginDirs, undefined);
 
   // 서버를 띄우면 그 주소를 넘긴다(설치돼 있을 때만)
-  const server = createPotServer({ spawn: () => Object.assign(new EventEmitter(), { stdout: null, stderr: null, kill: () => true }), exists: () => true, freePort: async () => 45999 });
+  const server = createPotServer({ spawn: () => Object.assign(new EventEmitter(), { stdout: null, stderr: null, kill: () => true }), exists: () => true, serverDir: "/fake/bgutil/server", freePort: async () => 45999 });
   await server.start();
   try {
     const opts = youtubeSource.getYtDlpOptions();
@@ -179,14 +180,14 @@ test("statusSnapshot은 쿠키를 어떻게 쓰는지 종류만 알린다", () =
 
 // ── 미디어 주소가 어긋난 실패 ─────────────────────────────────────────────
 
-// 다운로드 중의 `HTTP Error 403: Forbidden` 은 영상 문제가 아니라 서명된 미디어 주소의 문제라 다시 받으면 풀린다.
+// 다운로드 중의 `HTTP Error 403: Forbidden`은 영상 문제가 아니라 서명된 미디어 주소의 문제라 다시 받으면 풀린다.
 // 영상이 없어진 것과 구분해 다시 시도하게 한다.
 test("다운로드하다 막힌 것과 영상이 없어진 것을 구분한다", () => {
   const err = (msg: string) => ({ stderr: msg });
 
   for (const msg of ["ERROR: unable to download video data: HTTP Error 403: Forbidden", "ERROR: unable to download video data: HTTP Error 429: Too Many Requests", "ERROR: fragment 1 not found, unable to continue", "ERROR: unable to download fragment 3"]) {
     assert.equal(youtubeSource.isStaleMediaError(err(msg)), true, msg);
-    assert.equal(youtubeSource.isClientFault(err(msg)), true, `${msg} — 클라이언트 목록이 있으면 다음으로 넘어가야 한다`);
+    assert.equal(youtubeSource.isClientFault(err(msg)), true, `${msg}: 클라이언트 목록이 있으면 다음으로 넘어가야 한다`);
   }
 
   // 영상이 없어진 것은 다시 받아도 소용없다. 다른 길로 가야 한다

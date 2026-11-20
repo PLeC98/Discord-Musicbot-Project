@@ -1,4 +1,4 @@
-// src/infra/gateway-intents.ts: 앱 설정의 flags 로 켜진 특권 인텐트, 이 프로세스가 로그인한 인텐트
+// src/infra/gateway-intents.ts: 앱 설정의 flags로 켜진 특권 인텐트, 이 프로세스가 로그인한 인텐트
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -19,7 +19,7 @@ test("100 서버 이상은 승인(FULL)만 켜짐으로 본다(포털 스위치�
   assert.deepEqual(switchesOf(app), { messageContent: false, guildMembers: true });
 });
 
-test("flags 가 없거나 숫자가 아니면 모른다(null). 꺼짐이 아니다", () => {
+test("flags가 없거나 숫자가 아니면 모른다(null). 꺼짐이 아니다", () => {
   assert.equal(switchesOf(null), null);
   assert.equal(switchesOf({}), null);
   assert.equal(switchesOf({ flags: "262144" }), null);

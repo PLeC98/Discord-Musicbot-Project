@@ -14,7 +14,7 @@ import { sendProblem } from "./problem.ts";
 import { assertSignedIn } from "./session-requests.ts";
 const log = logger.child({ category: "dashboard" });
 
-/** 멤버 조회의 답: 멤버가 아니다 */
+/** 멤버 조회의 응답: 멤버가 아니다 */
 const NOT_MEMBER = new Set<unknown>([RESTJSONErrorCodes.UnknownMember, RESTJSONErrorCodes.UnknownUser]);
 // 서버마다 따로 센다(한 서버만 계속 실패하면 다른 서버의 성공이 복구로 잘못 찍힌다). 해소되면 삭제한다
 const memberFailures = new Map<string, ReturnType<typeof repeatingFailure>>();
@@ -28,7 +28,7 @@ const memberAnswered = (guildId: string) => {
   memberFailures.delete(guildId);
 };
 
-/** members.fetch 의 catch. 멤버가 아니라는 답은 조용히, 다른 실패는 까닭을 남긴다. 어느 쪽이든 null(멤버로 보지 않는다) */
+/** members.fetch의 catch. 멤버가 아니라는 응답은 조용히, 다른 실패는 원인을 남긴다. 어느 쪽이든 null(멤버로 보지 않는다) */
 const notMember = (guildId: string, userId: string) => (error: unknown) => {
   const code = codeOf(error);
   if (NOT_MEMBER.has(code)) {
@@ -40,12 +40,12 @@ const notMember = (guildId: string, userId: string) => (error: unknown) => {
   return null;
 };
 
-/** 멤버 판정에 쓰는 서버의 모양(테스트의 가짜는 available 이 없으면 사용 가능한 것으로 본다) */
+/** 멤버 판정에 쓰는 서버의 모양(테스트의 가짜는 available이 없으면 사용 가능한 것으로 본다) */
 type MemberSource = { id: string; available?: boolean; members: { fetch(options: string | { user: string; force: boolean }): Promise<GuildMember> } };
 
 /**
- * 이 사용자가 지금 이 서버의 멤버인가(보고 조작하는 권한 판정의 진입점 하나). 멤버 캐시 → REST. 답은 따로 캐시하지 않는다(캐시하면 언제 낡을지 모른다).
- * 재연결 직후 그 서버의 GUILD_CREATE 전에는(사용 불가(unavailable) 서버) 옛 멤버가 캐시에 남아 있으므로 캐시를 건너뛰고 REST 로 조회한다
+ * 이 사용자가 지금 이 서버의 멤버인가(보고 조작하는 권한 판정의 진입점 하나). 멤버 캐시 → REST. 결과는 따로 캐시하지 않는다(캐시하면 언제 낡을지 모른다).
+ * 재연결 직후 그 서버의 GUILD_CREATE 전에는(사용 불가(unavailable) 서버) 옛 멤버가 캐시에 남아 있으므로 캐시를 건너뛰고 REST로 조회한다
  */
 function memberOf(guild: MemberSource, userId: string): Promise<GuildMember | null> {
   const asked = guild.available === false ? guild.members.fetch({ user: userId, force: true }) : guild.members.fetch(userId);
@@ -107,7 +107,7 @@ function voiceFlags(guild: Guild | null | undefined, userId: string | null | und
   // 채널이 캐시에 없을 때 "화면은 조작 가능이라는데 서버는 막는" 어긋남이 생기지 않는다.
   //
   // 멤버가 아니라 voiceStates에서 읽는 이유: 멤버 캐시는 비어 있을 수 있지만 음성 상태는
-  // 게이트웨이가 항상 채워둔다(GUILD_CREATE + VOICE_STATE_UPDATE). member.voice도 결국 이걸 본다.
+  // 게이트웨이가 항상 채워둔다(GUILD_CREATE + VOICE_STATE_UPDATE). member.voice도 결국 voiceStates를 본다.
   const botChannelId = guild?.members?.me?.voice?.channel?.id ?? null;
   const userChannelId = (userId && guild?.voiceStates?.cache?.get(userId)?.channel?.id) || null;
   return { botInVoice: !!botChannelId, userInVoice: !!userChannelId, sameVoice: !!botChannelId && botChannelId === userChannelId };

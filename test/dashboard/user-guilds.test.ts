@@ -1,6 +1,6 @@
 // src/dashboard/user-guilds.ts: 사용자가 든 서버(로그인 때 받은 토큰으로 /users/@me/guilds).
 // 지키는 것: 세션마다 30초 캐시하고, 같은 세션이 한꺼번에 요청하면 진행 중인 요청 하나를 공유한다. stale 목록은 바로 주고 뒤에서 새로 받는다.
-// 10분 쓰지 않은 캐시 항목은 지운다. 401 을 받은 세션은 다시 로그인할 때까지 조회하지 않는다(401 은 IP 차단 한도에 든다). 그 밖의 실패는 이번만
+// 10분 쓰지 않은 캐시 항목은 지운다. 401을 받은 세션은 다시 로그인할 때까지 조회하지 않는다(401은 IP 차단 한도에 든다). 그 밖의 실패는 이번만
 
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
@@ -53,7 +53,7 @@ test("10분 쓰지 않은 캐시 항목은 지운다(다시 쓰면 새로 받는
   assert.deepEqual(ids(await userGuilds("s", "tok", { http, now: IDLE_MS, stale: true })), ["c"]);
 });
 
-test("401 을 받은 세션은 다시 로그인할 때까지(캐시 항목을 지울 때까지) 묻지 않고 401 로 던진다. 429 는 이번만", async () => {
+test("401을 받은 세션은 다시 로그인할 때까지(캐시 항목을 지울 때까지) 묻지 않고 401 예외를 던진다. 429는 이번만", async () => {
   answer = fail(401);
   await assert.rejects(userGuilds("s", "tok", { http, now: 0 }), /401/);
   await assert.rejects(userGuilds("s", "tok", { http, now: KEEP_MS * 10 }), /401/);

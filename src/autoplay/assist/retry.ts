@@ -1,12 +1,12 @@
 /**
- * AI 보조가 실패한 요청을 다시 할지, 얼마나 기다릴지 정한다. 요청은 하지 않는다(index.ts 의 askBatch).
+ * AI 보조가 실패한 요청을 다시 할지, 얼마나 기다릴지 정한다. 요청은 하지 않는다(index.ts의 askBatch).
  */
 
 /** 거절 응답에서 읽는 필드. 규격마다 이름이 다르다(Google status, Anthropic type, OpenAI code) */
 type ErrorBody = { error?: { status?: unknown; type?: unknown; code?: unknown; message?: unknown; details?: unknown } };
 type HeaderSource = { get(name: string): string | null } | null | undefined;
 
-// 풀릴 때까지 계속 실패하는 한도. 429 로 오지만 다시 해도 소용없다(Anthropic 지출 상한, OpenAI 크레딧 소진)
+// 풀릴 때까지 계속 실패하는 한도. 429로 오지만 다시 해도 소용없다(Anthropic 지출 상한, OpenAI 크레딧 소진)
 const EXHAUSTED = /enforced_spend_limit_reached|insufficient_quota/;
 
 function readBody(text: string): ErrorBody["error"] {
@@ -14,14 +14,14 @@ function readBody(text: string): ErrorBody["error"] {
     const parsed = JSON.parse(text) as ErrorBody;
     return parsed && typeof parsed === "object" && parsed.error && typeof parsed.error === "object" ? parsed.error : undefined;
   } catch {
-    // JSON 이 아닌 응답은 원문을 그대로 실패 원인으로 쓴다
+    // JSON이 아닌 응답은 원문을 그대로 실패 원인으로 쓴다
     return undefined;
   }
 }
 
 /**
- * 거절 응답의 까닭. key 는 같은 실패끼리 같은 글이 되게 상태 코드와 오류 이름만(문구에는 요청 id, 초가 섞인다),
- * detail 은 저쪽이 적어 보낸 문구
+ * 거절 응답의 원인. key는 같은 실패끼리 같은 글이 되게 상태 코드와 오류 이름만(문구에는 요청 id, 초가 섞인다),
+ * detail은 저쪽이 적어 보낸 문구
  */
 function summaryOf(status: number, text: string) {
   const error = readBody(text);
@@ -41,7 +41,7 @@ function durationMs(text: unknown) {
 
 /**
  * 저쪽이 기다리라고 한 시간(밀리초). 없으면 null.
- * Retry-After(초 또는 날짜), retry-after-ms 헤더, 제미니 API 는 헤더 없이 본문의 RetryInfo.retryDelay 에 적는다. 여럿이면 긴 것
+ * Retry-After(초 또는 날짜), retry-after-ms 헤더, 제미니 API는 헤더 없이 본문의 RetryInfo.retryDelay에 적는다. 여럿이면 긴 것
  */
 function adviceMs(headers: HeaderSource, text: string, now = Date.now()) {
   const details = readBody(text)?.details;

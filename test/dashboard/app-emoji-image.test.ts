@@ -1,5 +1,5 @@
 // src/dashboard/app-emoji-image.ts: 올린 그림으로 앱 이모지 만들기(돌리고, 뒤집고, 정사각형으로 자르고, 128px).
-// 방향은 귀퉁이 색으로 본다: 원본은 왼쪽 위 40×40 만 빨갛고 나머지는 파랗다
+// 방향은 귀퉁이 색으로 본다: 원본은 왼쪽 위 40×40만 빨갛고 나머지는 파랗다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -43,7 +43,7 @@ test("90도 돌리면 빨강이 오른쪽 위로, 돌린 뒤 뒤집으면 다시
   assert.ok(near(await colorAt(flipped.data, 120, 5), BLUE));
 });
 
-test("EXIF 방향이 있는 JPEG 는 세운 이미지 위에서 자른다(브라우저가 보이는 대로)", async () => {
+test("EXIF 방향이 있는 JPEG는 세운 이미지 위에서 자른다(브라우저가 보이는 대로)", async () => {
   // 방향 6: 시계 방향으로 90도 돌려 보인다. 보이는 이미지는 100×200, 빨강은 오른쪽 위
   const jpeg = await sharp(await marked(200, 100))
     .jpeg()
@@ -87,7 +87,7 @@ test("회전, 반전 여덟 가지 모두 돌리고 뒤집은 전체 이미지�
   }
 });
 
-test("원본이 커도 자를 영역만 읽어 만든다(4096×4096 을 넘는 사진)", async () => {
+test("원본이 커도 자를 영역만 읽어 만든다(4096×4096을 넘는 사진)", async () => {
   const big = await sharp({ create: { width: 6000, height: 4000, channels: 3, background: { r: 0, g: 0, b: 255 } } })
     .jpeg()
     .toBuffer();
@@ -96,7 +96,7 @@ test("원본이 커도 자를 영역만 읽어 만든다(4096×4096 을 넘는 �
 });
 
 test("자를 영역이 돌린 이미지 밖이면 거절", async () => {
-  // 90도 돌리면 100×200 이라 왼쪽 150 은 밖이다
+  // 90도 돌리면 100×200이라 왼쪽 150은 밖이다
   await assert.rejects(makeEmojiImage(await marked(200, 100), edit({ rotate: 90, left: 150 })), { code: "EMOJI_EDIT" });
 });
 

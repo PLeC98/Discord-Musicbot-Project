@@ -20,7 +20,7 @@ async function spotify(source: GenreSource): Promise<Candidate[]> {
 
 async function youtube(source: GenreSource): Promise<Candidate[]> {
   if (!source.url) return [];
-  // 목록을 불러오지 못하면 그 까닭(없는, 비공개 목록, 네트워크)을 단 채로 던진다
+  // 목록을 불러오지 못하면 그 원인(없는, 비공개 목록, 네트워크)를 단 채로 예외를 던진다
   const head = await youtubeSource.getPlaylist(source.url, { offset: 0, limit: 1 });
   if (!head) throw new Error("재생목록에 곡이 없음");
   // 믹스(RD…)는 total이 null이다. 끝이 없어 무작위 오프셋을 쓸 수 없다

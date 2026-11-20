@@ -1,5 +1,5 @@
 // src/sources/sponsor-block.ts: 정규화/병합 순수 로직 + forTrack(기억, DB 캐시, 라이브, 뒤에서 다시 받기) + 응답 구분.
-// 네트워크는 가짜 fetch 를 넘기고(useFetch), 캐시는 임시 SQLite로 실제 라운드트립 검증.
+// 네트워크는 가짜 fetch를 넘기고(useFetch), 캐시는 임시 SQLite로 실제 라운드트립 검증.
 
 import os from "node:os";
 import path from "node:path";
@@ -22,10 +22,10 @@ import { _reset as resetLinks, linkStatus } from "../../src/infra/link-status.ts
 const DB_DIR = path.join(os.tmpdir(), `musicbot-sponsorblock-test-${process.pid}`);
 
 // 가짜 fetch를 걸 위치. 테스트마다 net.fetch를 정하고 SponsorBlock에는 이것을 부르는 것을 넘긴다. 정하지 않은 테스트가 부르면 실패한다
-const unset = (_url: string, _init?: RequestInit): Promise<Response> => Promise.reject(new Error("테스트가 답을 정하지 않았다"));
+const unset = (_url: string, _init?: RequestInit): Promise<Response> => Promise.reject(new Error("테스트가 응답을 정하지 않았다"));
 const net = { fetch: unset };
 
-// 실제 서버처럼 JSON으로 답한다(구간이 없는 접두어는 404 + [])
+// 실제 서버처럼 JSON으로 응답한다(구간이 없는 접두어는 404 + [])
 const JSON_TYPE = "application/json; charset=utf-8";
 function reply(body: unknown, status = 200, type = JSON_TYPE) {
   return new Response(typeof body === "string" ? body : JSON.stringify(body), { status, headers: { "content-type": type } });
@@ -67,11 +67,11 @@ function seg(category: string, start: number, end: number, actionType = "skip", 
 
 // 실제 경로(forTrack)로 조회한다. 서버 설정이 없어 기본 카테고리(music_offtopic, intro, outro)
 const ask = (videoId: string) => SponsorBlock.forTrack({ audioUrl: `https://youtu.be/${videoId}` }, "gAsk");
-// 뒤에서 도는 다시 받기가 끝나게 한 바퀴씩 넘긴다
+// 백그라운드에서 도는 다시 받기가 끝나게 한 바퀴씩 넘긴다
 async function settle(rounds = 20) {
   for (let i = 0; i < rounds; i++) await new Promise((done) => setImmediate(done));
 }
-// 답을 세워 둘 수 있는 가짜. release로 답을 보낸다
+// 응답을 세워 둘 수 있는 가짜. release로 응답을 보낸다
 function gated(answer: () => Response) {
   let open = (_: unknown) => {};
   const gate = new Promise((done) => (open = done));
@@ -204,7 +204,7 @@ test("DB의 답은 곧바로 쓰고, 받은 때가 지나면(구간 없음 6시�
   assert.equal((await ask("vidHasSegs"))?.skipSegments[0]?.end, 12);
   await ask("vidNoSegs");
   await settle();
-  assert.equal(urls.length, 2, "새로 받은 답은 다시 조회하지 않는다");
+  assert.equal(urls.length, 2, "새로 받은 응답은 다시 조회하지 않는다");
 });
 
 test("다시 받다 실패하면 가진 답, 받은 때를 지키고 30분 쉰 뒤 다시 조회한다", async (t) => {
@@ -246,7 +246,7 @@ test("같은 영상의 다시 받기는 한 번에 하나: 나가 있는 동안 
   assert.equal(live.asked(), 1);
 });
 
-test("다른 주소에서 받은 답(주소를 바꿨거나 주소를 모르는 답)은 오래된 것으로 보고 뒤에서 지금 주소로 다시 받는다", async () => {
+test("다른 주소에서 받은 응답(주소를 바꿨거나 주소를 모르는 응답)은 오래된 것으로 보고 뒤에서 지금 주소로 다시 받는다", async () => {
   externalCaches.setSponsorSegments("vidOldBase", [], { fetchedAt: Date.now(), apiBase: BASE });
   cacheDb.get().prepare("UPDATE sponsorblock_cache SET api_base = NULL WHERE video_id = ?").run("vidOldBase");
   const urls: string[] = [];
@@ -279,7 +279,7 @@ test("오디오 캐시 초기화(forget) 뒤에 도착한 옛 응답은 기억, 
   assert.equal((await ask("vidLate"))?.skipSegments[0]?.end, 6, "다음 곡부터 다시 조회한다");
 });
 
-// ── 응답 구분: 구간 없음이라는 답, 구간 API가 아닌 응답, 실패 ─────────────────
+// ── 응답 구분: 구간 없음이라는 응답, 구간 API가 아닌 응답, 실패 ─────────────────
 
 const outcomes = () => linkStatus("sponsorblock")?.recent.map((one) => [one.ok, one.error]) ?? [];
 const notices = (from: number) =>
@@ -289,11 +289,11 @@ const notices = (from: number) =>
     .map((e) => [e.level, e.text]);
 const noneStored = (videoId: string) => externalCaches.getSponsorSegments(videoId) === null;
 
-test("404 + JSON 빈 배열, 200 + 이 영상의 빈 구간, 200 + 다른 영상만은 '구간 없음'이라는 답이라 저장하고, 연결은 성공으로 한 번씩 남긴다", async () => {
+test("404 + JSON 빈 배열, 200 + 이 영상의 빈 구간, 200 + 다른 영상만은 '구간 없음'이라는 응답이라 저장하고, 연결은 성공으로 한 번씩 남긴다", async () => {
   resetLinks();
   const answers = [
     reply([], 404), // 그 접두어에 구간이 하나도 없다
-    reply([]), // 미러는 빈 답도 200이다
+    reply([]), // 미러는 빈 응답도 200이다
     reply([{ videoID: "vidNoSegs2", segments: [] }]),
     reply([{ videoID: "someOtherVid", segments: [seg("intro", 0, 8)] }]),
   ];
@@ -309,7 +309,7 @@ test("404 + JSON 빈 배열, 200 + 이 영상의 빈 구간, 200 + 다른 영상
   );
 });
 
-test("구간 API가 아닌 응답은 저장하지 않고 연결 실패로 남기며, 처음 한 번 경고하고 다시 답을 받으면 한 줄", async () => {
+test("구간 API가 아닌 응답은 저장하지 않고 연결 실패로 남기며, 처음 한 번 경고하고 다시 응답을 받으면 한 줄", async () => {
   resetLinks();
   const from = sink.buffer.length;
   const notApi = [
@@ -355,7 +355,7 @@ test("400, 429, 5xx, 연결 오류는 실패: 저장하지 않고 연결 실패�
   assert.deepEqual(notices(from), []);
 });
 
-test("API 요청 실패는 까닭마다 처음 한 번 경고하고, 다시 답을 받으면 한 줄", async () => {
+test("API 요청 실패는 원인마다 처음 한 번 경고하고, 다시 응답을 받으면 한 줄", async () => {
   stubFetch("vidApiUp0", []);
   assert.equal((await ask("vidApiUp0"))?.source, "live");
   const from = sink.buffer.length;
@@ -427,7 +427,7 @@ test("resolveSponsorBlock: 서버가 categories 오버라이드", () => {
 
 // ── forTrack (곡 글루) ─────────────────────────────────────────────────────────
 
-test("forTrack: 서버 설정으로 필터링한 구간을 돌려주고, 영상 id 로 기억해 다시 묻지 않는다", async () => {
+test("forTrack: 서버 설정으로 필터링한 구간을 돌려주고, 영상 id로 기억해 다시 묻지 않는다", async () => {
   SponsorBlock.forget();
   stubFetch("ytVid1", [seg("music_offtopic", 0, 8, "skip")]);
   const track = { platform: "youtube", id: "ytVid1", audioUrl: "https://youtu.be/ytVid1" };
@@ -468,7 +468,7 @@ test("forTrack: 서버가 껐으면 null, 조회 안 함", async () => {
   assert.equal(called, false);
 });
 
-test("forTrack: 영상 id 를 모르면 null. 기억하지 않아 영상을 찾은 뒤 다시 물을 수 있다", async () => {
+test("forTrack: 영상 id를 모르면 null. 기억하지 않아 영상을 찾은 뒤 다시 물을 수 있다", async () => {
   SponsorBlock.forget();
   const r = await SponsorBlock.forTrack({ platform: "spotify", title: "x" }, "gEnsure"); // 영상을 아직 못 찾아 음원 주소가 없다
   assert.equal(r, null);
@@ -492,7 +492,7 @@ test("forTrack: 못 받은 것(none)은 잠시 기억했다가 시간이 지나�
   assert.equal(asked, 2);
 });
 
-test("영상 id 는 음원 주소에서만 읽는다. 곡이 어디서 왔는지는 상관없다", () => {
+test("영상 id는 음원 주소에서만 읽는다. 곡이 어디서 왔는지는 상관없다", () => {
   assert.equal(SponsorBlock._trackVideoId({ platform: "youtube", audioUrl: "https://www.youtube.com/watch?v=aaaaaaaaaaa" }), "aaaaaaaaaaa");
   assert.equal(SponsorBlock._trackVideoId({ platform: "vocadb", pageUrl: "https://vocadb.net/S/1", audioUrl: "https://youtu.be/bbbbbbbbbbb" }), "bbbbbbbbbbb");
   assert.equal(SponsorBlock._trackVideoId({ platform: "spotify" }), null, "영상을 찾기 전");

@@ -2,7 +2,7 @@
 
 import { formatNumber } from "../../utils/locale.ts";
 
-/** label 은 출처 이름(재생목록, 앨범 등) */
+/** label은 출처 이름(재생목록, 앨범 등) */
 const moreLeft = (label: string) => `${label}에 곡이 더 남아 있어요`;
 const progress = (offset: number, total: number) => `${formatNumber(offset)} / ${formatNumber(total)}곡`;
 const adding = "넣는 중";

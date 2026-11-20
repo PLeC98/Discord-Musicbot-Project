@@ -8,7 +8,7 @@
 import { computed } from "vue";
 
 // 공용 버튼(M3 Expressive). 알약 모양이고 누르는 동안 모서리가 줄어든다(모양 바뀜).
-// 모서리는 높이의 절반을 rem 으로 적는다. 그보다 큰 단계는 브라우저가 절반으로 줄여 그려 누르는 순간의 변화가 늦게 보인다.
+// 모서리는 높이의 절반을 rem으로 적는다. 그보다 큰 단계는 브라우저가 절반으로 줄여 그려 누르는 순간의 변화가 늦게 보인다.
 // primary = 채움, secondary = 색조(tonal), warning = 셋째 색(값을 치르는 일), danger = 오류 색, ghost = 테두리, text = 글자 버튼(바탕 없이 강조색 글).
 // href를 주면 <a>, 아니면 <button>으로 렌더된다
 type Variant = "primary" | "secondary" | "warning" | "danger" | "ghost" | "text";

@@ -38,7 +38,7 @@ function isUnavailable(err: unknown) {
 function classify(err: unknown): Code {
   const e = fieldsOf(err);
   const status = e.status ?? e.statusCode;
-  // express.json()이 잘못된 본문에 400을, 한도를 넘은 본문에 413을 붙여 던진다.
+  // express.json()이 잘못된 본문에 400을, 한도를 넘은 본문에 413을 붙여 예외를 던진다.
   if (typeof status === "number" && Number.isInteger(status) && status >= 400 && status < 500) {
     if (status === 413) return "payload-too-large";
     if (status === 429) return "too-many-requests";

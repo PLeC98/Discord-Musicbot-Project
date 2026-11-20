@@ -1,7 +1,7 @@
 // 캐시된 유튜브 영상 정보. 곡 정보, 재생 주소가 추출한 것을 재생 주소, 다운로드가 다시 쓴다(같은 영상을 짧은 사이에 다시 추출하지 않게).
 // 봇 전체에 하나. 줄인 JSON 문자열로 두고 꺼낼 때마다 새로 파싱한 사본을 준다. 곡을 다 다운로드하기 전에 주소가 만료될 것은 꺼내지 않는다(rules/stream-reuse).
-// 그 곡의 다운로드가 끝나면 지운다(youtube/ytdlp-run 의 downloadAudio). 크기 합이 상한을 넘으면 만료된 것 → 가장 오래 남은 것을 밀어낸다.
-// 주소는 추출한 IP 에 묶인다(열리지 않으면 재생 쪽이 새로 추출한다)
+// 그 곡의 다운로드가 끝나면 지운다(youtube/ytdlp-run의 downloadAudio). 크기 합이 상한을 넘으면 만료된 것 → 가장 오래 남은 것을 밀어낸다.
+// 주소는 추출한 IP에 묶인다(열리지 않으면 재생 쪽이 새로 추출한다)
 
 import os from "node:os";
 import { expireOf, reuseState } from "../../rules/stream-reuse.ts";
@@ -17,7 +17,7 @@ const ENTRY_MAX = 256 * 1024;
 /** 맨 위에서 뺄 것(재생 주소, 다운로드가 읽지 않는다). 쿠키는 메모리, 다운로드에 넘기는 파일에 남기지 않는다 */
 const DROP = ["automatic_captions", "subtitles", "thumbnails", "heatmap", "description", "chapters", "tags", "categories", "cookies"];
 
-/** 상한: 메모리 1GB 마다 2MB, 8 ~ 64MB. 프로세스에 걸린 상한(컨테이너)이 있으면 그것으로 */
+/** 상한: 메모리 1GB마다 2MB, 8 ~ 64MB. 프로세스에 걸린 상한(컨테이너)이 있으면 그것으로 */
 function budgetFor(constrained: number, total: number): number {
   const memory = constrained > 0 && constrained < total ? constrained : total;
   return Math.min(64 * MB, Math.max(8 * MB, Math.floor(memory / GB) * 2 * MB));
@@ -27,12 +27,12 @@ function budgetFor(constrained: number, total: number): number {
 const entries = new Map<string, Entry>();
 let bytes = 0;
 let budget: number | null = null;
-// 밀려난 영상 id 와 시각. 그 뒤 1시간 안에 필요해지면 놓친 것으로 센다
+// 밀려난 영상 id와 시각. 그 뒤 1시간 안에 필요해지면 놓친 것으로 센다
 const evicted = new Map<string, number>();
 const reusedAt: number[] = [];
 const missedAt: number[] = [];
 
-/** 테스트: 비우고 상한을 정한다(null 이면 메모리로) */
+/** 테스트: 비우고 상한을 정한다(null이면 메모리로) */
 function useRecentInfo(fixedBudget: number | null = null) {
   entries.clear();
   evicted.clear();
@@ -92,7 +92,7 @@ function makeRoom(now: number) {
   }
 }
 
-/** yt-dlp 가 준 영상 정보를 캐시한다. 캐시할 만한 것이 아니면 그냥 넘어간다. 같은 곡이면 새 것으로 바꾼다 */
+/** yt-dlp가 준 영상 정보를 캐시한다. 캐시할 만한 것이 아니면 그냥 넘어간다. 같은 곡이면 새 것으로 바꾼다 */
 function remember(raw: unknown) {
   if (!isObject(raw) || typeof raw.id !== "string") return;
   const info = trimmed(raw);

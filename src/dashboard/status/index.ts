@@ -1,5 +1,5 @@
 // 봇 상태 탭(/api/admin/status)의 응답. 3초마다 불리므로 비싼 값은 모아 둔 것을 준다.
-// 모으는 것(측정, 최근 15분, 게이트웨이, 프로세스 메모리, 저장공간)은 대시보드가 켜질 때 startStatus 로 시작한다
+// 모으는 것(측정, 최근 15분, 게이트웨이, 프로세스 메모리, 저장공간)은 대시보드가 켜질 때 startStatus로 시작한다
 
 import { intentStatus } from "./intents.ts";
 import os from "node:os";
@@ -41,11 +41,13 @@ function botStatus(client: Client, uptime: number) {
   };
 }
 
+type StatusCore = Pick<AdminStatus, "bot" | "node" | "system" | "cpu" | "loop" | "processes" | "youtube" | "links" | "storage" | "recent" | "encoding" | "history">;
+
 /**
- * query: 목록(플레이어, 자식 프로세스)의 구간, 필터링, 정렬. viewer: 보는 운영자와 그 운영자의 서버 목록(플레이어 행의 멤버 표시, 받지 못했으면 null),
- * stream: 대시보드 연결(연결 수), launcher: 다시 시작할 수 있는가
+ * 봇 상태 탭과 /system이 같이 쓰는 값: 상태 판정(rules/status-levels) 입력값과 /system 이미지에 그릴 값.
+ * query는 자식 프로세스 목록의 구간, 정렬(남은 프로세스, 추출 한도는 구간과 상관없이 집계한다)
  */
-function adminStatus({ client, players, commands }: BotContext, query: StatusQuery, viewer: { id: string; memberIds: ReadonlySet<string> | null }, stream: Pick<PlayerStream, "subs">, launcher = false): AdminStatus {
+function statusCore({ client, players }: Pick<BotContext, "client" | "players">, query: Pick<StatusQuery, "procs" | "sort" | "desc">): StatusCore {
   const uptime = process.uptime();
   const mem = process.memoryUsage();
   const { cpu, loop, heapLimit } = vitals();
@@ -53,14 +55,9 @@ function adminStatus({ client, players, commands }: BotContext, query: StatusQue
   return {
     bot: botStatus(client, uptime),
     node: { version: process.version, platform: process.platform, arch: process.arch, memory: { heapUsed: Math.round(mem.heapUsed / MB), heapTotal: Math.round(mem.heapTotal / MB), heapLimit, rss: Math.round(mem.rss / MB) } },
-    system: { cpus: cpus.length, cpuModel: cpus[0]?.model.trim() ?? "", totalMem: Math.round(os.totalmem() / MB), freeMem: Math.round(availableMemory() / MB), loadAvg: os.loadavg(), uptime: Math.floor(os.uptime()) },
+    system: { cpus: cpus.length, cpuModel: cpus[0]?.model.trim() ?? "", totalMem: Math.round(os.totalmem() / MB), freeMem: Math.round(availableMemory() / MB), uptime: Math.floor(os.uptime()) },
     cpu,
     loop,
-    download: { ...downloadMeter(), active: TrackDownloader.activeCount() },
-    upload: uploadView(),
-    activePlayers: players.size,
-    intents: intentStatus(client),
-    players: playerRows(client, players, query, viewer.id, viewer.memberIds),
     // 자식 프로세스. 오래 살아 있는 항목, 플레이어 없는 서버의 재생 작업이 새는 신호다
     processes: processSummary(client, players, query),
     // 유튜브 접속 경로. 어느 것이 실행 중 제외됐는지는 여기서만 보인다(기동 로그는 설정만 보여준다).
@@ -70,8 +67,24 @@ function adminStatus({ client, players, commands }: BotContext, query: StatusQue
     recent: recentProblems(),
     // 이벤트 루프 지연은 메인 스레드 것이라 인코딩이 밀리는 것은 여기서 본다
     encoding: encodePool.stats(),
-    env: envStatus(commands.size, stream.subs.size, launcher),
     history: statusHistory(),
+  };
+}
+
+/**
+ * query: 목록(플레이어, 자식 프로세스)의 구간, 필터링, 정렬. viewer: 보는 운영자와 그 운영자의 서버 목록(플레이어 행의 멤버 표시, 받지 못했으면 null),
+ * stream: 대시보드 연결(연결 수), launcher: 다시 시작할 수 있는가
+ */
+function adminStatus(bot: BotContext, query: StatusQuery, viewer: { id: string; memberIds: ReadonlySet<string> | null }, stream: Pick<PlayerStream, "subs">, launcher = false): AdminStatus {
+  const { client, players, commands } = bot;
+  return {
+    ...statusCore(bot, query),
+    download: { ...downloadMeter(), active: TrackDownloader.activeCount() },
+    upload: uploadView(),
+    activePlayers: players.size,
+    intents: intentStatus(client),
+    players: playerRows(client, players, query, viewer.id, viewer.memberIds),
+    env: envStatus(commands.size, stream.subs.size, launcher),
     // 로그 뷰어의 레벨 토글 초기 상태를 정하는 값. 서버가 debug를 안 보내고 있으면
     // 그 칩을 꺼진 채로 시작해야 한다(눌러 켜도 이후에 오는 것부터 보인다).
     logLevel: config.logging.level,
@@ -85,4 +98,5 @@ function startStatus(bot: BotContext) {
   watchStorage();
 }
 
-export { adminStatus, startStatus };
+export { adminStatus, statusCore, startStatus };
+export type { StatusCore };

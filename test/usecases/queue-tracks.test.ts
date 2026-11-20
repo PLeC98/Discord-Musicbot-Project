@@ -1,5 +1,5 @@
 // src/usecases/add-tracks.ts: 곡 추가(queueTracks). 첫 곡 재생, 실패, 다음 곡으로 복구, 대기열 상한, 넣을 위치, 안내를 본다.
-// 대기열은 진짜 trackState 로 바뀌고, 플레이어의 연결, 재생과 패널 만들기만 가짜다.
+// 대기열은 진짜 trackState로 바뀌고, 플레이어의 연결, 재생과 패널 만들기만 가짜다.
 
 import { test, mock } from "node:test";
 import assert from "node:assert/strict";
@@ -27,12 +27,12 @@ import { SessionPersistence } from "../../src/player/session-mirror.ts";
 const said = (r: AddResult) => (r.success ? r : { ...r, message: plainText(addFailureMessage(r)) });
 
 const track = (id: string, extra: Partial<QueuedTrack> = {}): QueuedTrack => ({ id, title: `곡 ${id}`, pageUrl: `https://youtu.be/${id}`, requestKey: `https://youtu.be/${id}`, platform: "youtube", duration: 0, ...extra });
-// 결과의 넣은 것(placed)을 첫 곡 id 로 줄여 비교한다
+// 결과의 넣은 것(placed)을 첫 곡 id로 줄여 비교한다
 const withPlaced = (r: AddResult) => (r.success && r.placed ? { ...r, placed: { ...r.placed, first: r.placed.first?.id ?? null } } : r);
 const ONE_STARTED = { count: 1, position: null, collection: null, total: null, skipped: 0, first: "a" };
 const who = { id: "u1", username: "사용자" };
 
-// 패널 만들기, 갱신은 부른 것만 적는다. postFails 면 만들기가 던진다
+// 패널 만들기, 갱신은 부른 것만 적는다. postFails면 만들기가 예외를 던진다
 class RecordingPanels extends NowPlayingPanel {
   calls: unknown[];
   postFails = false;
@@ -86,7 +86,7 @@ function setup({ current = null, queue = [], plays = [{ ok: true }], connected =
       calls.push(["play", ...args]);
       const next = plays.shift() ?? { ok: true };
       if (next instanceof Error) throw next;
-      // 진짜 play() 는 현재 곡이 없으면 대기열에서 꺼낸다
+      // 진짜 play()는 현재 곡이 없으면 대기열에서 꺼낸다
       if (!this.currentTrack && this.queue.length) this.currentTrack = this.queue.shift() ?? null;
       return next;
     },
@@ -120,7 +120,7 @@ test("쉬고 있으면 첫 곡을 현재 곡으로 두고, 붙고, 틀고, 패�
   assert.equal(player.currentTrack?.requestedBy, who);
 });
 
-test("앞 플레이어가 남긴 세션은 음성에 붙은 뒤 첫 곡을 지정하기 전에 넘겨받는다. 붙지 못하면 넘겨받지 않는다(/join 으로 이어 듣게 남긴다)", async () => {
+test("앞 플레이어가 남긴 세션은 음성에 붙은 뒤 첫 곡을 지정하기 전에 넘겨받는다. 붙지 못하면 넘겨받지 않는다(/join으로 이어 듣게 남긴다)", async () => {
   const fresh = setup();
   await fresh.add({ tracks: [track("a")] }, who);
   assert.deepEqual(fresh.takenOver, [true]);
@@ -162,8 +162,8 @@ test("첫 곡이 실패하면(한 곡) 현재 곡을 비우고 실패를 돌려�
   const thrown = setup({ plays: [networkError()] });
   const r = await thrown.add({ tracks: [track("a")] }, who);
   assert.equal(r.success, false);
-  assert.match(r.success ? "" : plainText(addFailureMessage(r)), /연결 오류가 발생했어요/, "던진 것은 그 오류의 문장으로");
-  assert.deepEqual([r.success === false && r.code, r.success === false && r.kind], ["play-threw", "network-error"], "로그에는 까닭과 오류 종류");
+  assert.match(r.success ? "" : plainText(addFailureMessage(r)), /연결 오류가 발생했어요/, "예외를 던진 것은 그 오류의 문장으로");
+  assert.deepEqual([r.success === false && r.code, r.success === false && r.kind], ["play-threw", "network-error"], "로그에는 원인과 오류 종류");
 });
 
 test("쉬던 중 재생목록을 넣으면 곧바로 튼 첫 곡까지 세어 알린다", async () => {
@@ -223,15 +223,15 @@ test("음성 채널에 붙지 못하면 voice-failed. 틀지 않고, 재생목�
   assert.deepEqual(list.calls, ["connect", "dispose"]);
 });
 
-// 담기는 세션 미러의 첫 쓰기라 앞 플레이어가 남긴 세션을 지우고 넘겨받는다. 붙지 못했으면 넘겨받을 까닭이 없다
-test("종료 중이라 음성 채널에 붙지 않았으면 bot-shutting-down 으로 알린다. 재생하지 않고 플레이어를 정리한다(세션은 남긴다)", async () => {
+// 담기는 세션 미러의 첫 쓰기라 앞 플레이어가 남긴 세션을 지우고 넘겨받는다. 붙지 못했으면 넘겨받을 이유가 없다
+test("종료 중이라 음성 채널에 붙지 않았으면 bot-shutting-down으로 알린다. 재생하지 않고 플레이어를 정리한다(세션은 남긴다)", async () => {
   const one = setup({ connects: "bot-shutting-down" });
   assert.deepEqual(said(await one.add({ isPlaylist: true, tracks: [track("a"), track("b")] }, who)), { success: false, code: "bot-shutting-down", message: plainText(errors.notice("bot-shutting-down")) });
   assert.equal(one.player.currentTrack, null);
   assert.deepEqual(one.calls, ["connect", "dispose"]);
 });
 
-test("음성 채널에 붙지 못하면 재생목록의 나머지도 담지 않는다. 앞 플레이어가 남긴 세션이 남는다(/join 으로 이어 듣기)", async () => {
+test("음성 채널에 붙지 못하면 재생목록의 나머지도 담지 않는다. 앞 플레이어가 남긴 세션이 남는다(/join으로 이어 듣기)", async () => {
   const store = openTempStore("queue-tracks-voice-");
   try {
     const list = setup({ connects: false });
@@ -367,10 +367,10 @@ test("출처가 불러올 수 없어 뺀 곡(skipped)이 있으면 그렇다고 
   assert.match(String(notices.at(-1)), /재생할 수 없는 2곡/, "곡 찾기가 넘긴 수가 안내까지 간다");
 });
 
-test("플레이어가 없거나 처리 중 던지면 실패 문장", async () => {
+test("플레이어가 없거나 처리 중 예외를 던지면 실패 문장", async () => {
   assert.deepEqual(said(await queueTracks(fakeBot(), "g1", { tracks: [] }, who)), { success: false, code: "ended-while-adding", message: "그 사이에 재생이 끝나버렸어요!\n플레이어가 만료됐어요. 링크를 다시 넣어서 재생해주세요." });
 
-  // 곡 목록이 없는 요청(처리 중 던진다)
+  // 곡 목록이 없는 요청(처리 중 예외를 던진다)
   const { add: m2 } = setup({ current: track("now") });
   assert.deepEqual(await m2(fake<TrackData>({ tracks: null }), who), { success: false, code: "add-failed", kind: "unknown-error" });
 });

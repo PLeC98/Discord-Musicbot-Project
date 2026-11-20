@@ -9,7 +9,7 @@ import { failureScope } from "../../src/player/failure-scope.ts";
 
 const base = "https://rr.test/videoplayback?live=1";
 
-// 세그먼트 번호를 적는 요청 가짜. answer(번호, 몇 번째 시도) 가 답을 정한다. 기본은 "세그먼트 N"
+// 세그먼트 번호를 적는 요청 가짜. answer(번호, 몇 번째 시도)가 답을 정한다. 기본은 "세그먼트 N"
 function fakeFetch(answer: (index: number, attempt: number) => "ok" | number | "throw" | "hang" = () => "ok") {
   const asked: string[] = [];
   const attempts = new Map<number, number>();
@@ -57,7 +57,7 @@ test("5xx, 네트워크 오류는 그 세그먼트만 다시 받는다", async (
   assert.match(s.describe(), /세그먼트 3\/3\(시작 0\) · 다시 받음 2회/);
 });
 
-test("4xx 는 재시도하지 않고 오류로 끝난다. 재시도해도 안 되면 오류로 끝난다", async () => {
+test("4xx는 재시도하지 않고 오류로 끝난다. 재시도해도 안 되면 오류로 끝난다", async () => {
   const forbidden = fakeFetch((i) => (i === 1 ? 403 : "ok"));
   const a = createFragmentStream({ fragments: { base, count: 3 }, durationMs: 6_000, startMs: 0, fetchImpl: forbidden.impl, retryDelaysMs: [1, 1] });
   await assert.rejects(readAll(a), /HTTP 403/);
@@ -176,7 +176,7 @@ test("스트림 세그먼트: 버퍼와 Readable이 섞여도 순서대로, 빈 
   assert.equal(s.describe(), "내보냄 5");
 });
 
-// 멈췄는지는 pause 를 부른 횟수와 쌓인 양으로 본다. 쓰는 순간의 isPaused() 는 Node 판마다 다시 흘리는 때가 달라(26 은 더 빨리 푼다) 보는 시점에 따라 갈린다
+// 멈췄는지는 pause를 부른 횟수와 쌓인 양으로 본다. 쓰는 순간의 isPaused()는 Node 버전마다 다시 흘리는 때가 달라(26은 더 빨리 푼다) 보는 시점에 따라 갈린다
 test("스트림 세그먼트: 받는 쪽이 느리면 출처를 멈추고 다 내보낸 뒤 다음으로 넘어간다", async () => {
   let produced = 0;
   let pauses = 0;

@@ -1,4 +1,4 @@
-// dashboard/src/icons.ts, assets/material-symbols.woff2: 아이콘 글꼴은 화면이 쓰는 기호만 담는다(scripts/build-icon-font.ts 가 만든다).
+// dashboard/src/icons.ts, assets/material-symbols.woff2: 아이콘 글꼴은 화면이 쓰는 기호만 담는다(scripts/build-icon-font.ts가 만든다).
 // 표를 고치고 글꼴을 다시 만들지 않았거나, 원본 글꼴이 바뀌어 코드포인트가 어긋나면 기호가 빈칸으로 그려진다
 
 import { test } from "node:test";
@@ -22,8 +22,8 @@ test("부분 글꼴은 표의 기호를 빠짐없이, 표에 없는 기호는 �
     inFont,
     Object.values(ICONS).sort((a, b) => a - b),
   );
-  for (const [name, cp] of Object.entries(ICONS)) assert.ok(font.glyphForCodePoint(cp).id > 0, `${name} 의 기호가 비었다`);
-  assert.ok(font.variationAxes.FILL && font.variationAxes.wght, "채움 · 굵기 축은 남긴다(아이콘이 고른다)");
+  for (const [name, cp] of Object.entries(ICONS)) assert.ok(font.glyphForCodePoint(cp).id > 0, `${name}의 기호가 비었다`);
+  assert.ok(font.variationAxes.FILL && font.variationAxes.wght, "채움과 굵기 축은 남긴다(아이콘이 고른다)");
 });
 
 test("표의 코드포인트는 원본 글꼴에서 그 이름이 가리키는 기호다", () => {

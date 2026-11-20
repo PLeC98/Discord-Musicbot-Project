@@ -20,7 +20,7 @@ const { appearanceRouter, publicAppearanceRouter } = await import("../../src/das
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "appearance-"));
 after(() => fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 }));
 
-/** 한 가지 색으로 칠한 이미지(빨강, blue 면 파랑) */
+/** 한 가지 색으로 칠한 이미지(빨강, blue면 파랑) */
 const square = (side: number, format: "png" | "webp" | "jpeg" | "gif" = "png", height = side, blue = false) =>
   sharp({ create: { width: side, height, channels: 4, background: blue ? { r: 40, g: 40, b: 200, alpha: 1 } : { r: 200, g: 40, b: 40, alpha: 1 } } })
     [format]()
@@ -102,12 +102,12 @@ test("올리기: 그 슬롯 크기로 다시 만들고, 빈 슬롯은 배율로 
     [[64, 64, false]],
     "올린 원본의 크기를 적는다",
   );
-  assert.deepEqual(await iconSize(32), ["png", 32, 32], "64 를 32 로 줄여 둔다");
+  assert.deepEqual(await iconSize(32), ["png", 32, 32], "64를 32로 줄여 둔다");
   assert.deepEqual(await iconSize(48), ["png", 48, 48]);
   assert.deepEqual([await iconPixel(16), await iconPixel(180)], ["red", "blue"]);
 });
 
-test("svg 는 그 슬롯 크기로 그려 두고(정사각형이 아니면 투명 여백), 받은 svg 를 그대로 내지 않는다", async () => {
+test("svg는 그 슬롯 크기로 그려 두고(정사각형이 아니면 투명 여백), 받은 svg를 그대로 내지 않는다", async () => {
   assert.equal((await put(180, SVG, "image/svg+xml")).status, 200);
   const wide = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="20" height="10"><rect width="20" height="10" fill="#36c"/></svg>');
   assert.equal((await put(16, wide, "image/svg+xml")).status, 200);
@@ -115,7 +115,7 @@ test("svg 는 그 슬롯 크기로 그려 두고(정사각형이 아니면 투�
   assert.deepEqual(await iconSize(16), ["png", 16, 16]);
   assert.equal(await iconPixel(16), "clear", "위 끝은 투명 여백");
   assert.equal((await slot(180)).history[0].vector, true);
-  assert.equal((await slot(512)).sourceSide, 512, "svg 의 보관본은 512 로 그린다");
+  assert.equal((await slot(512)).sourceSide, 512, "svg의 보관본은 512로 그린다");
 });
 
 test("기록: 새것부터 FAVICON_HISTORY 개까지 남고 넘친 그림의 파일은 삭제한다. 교체, 비우기(기록은 남는다), 기록에서 삭제", async () => {
@@ -175,7 +175,7 @@ test("거절: 쓰지 않는 크기, 그림이 아니거나 형식 밖, 정사각
   assert.ok((await state()).slots.every((one) => one.history.length === 0));
 });
 
-test("링크로 추가: 내부 주소, http(s) 가 아닌 주소는 image-link-failed(까닭은 로그에만), 빈 본문은 bad-request", async () => {
+test("링크로 추가: 내부 주소, http(s)가 아닌 주소는 image-link-failed(이유는 로그에만), 빈 본문은 bad-request", async () => {
   for (const url of [`${base}/avatar.png`, "http://169.254.169.254/x.png", "ftp://example.com/x.png"]) assert.deepEqual(await codeOf(await send("POST", `${A}/fetch`, { url })), [502, "image-link-failed"], url);
   assert.deepEqual(await codeOf(await send("POST", `${A}/fetch`, {})), [400, "bad-request"]);
 });

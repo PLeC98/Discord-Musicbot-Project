@@ -10,7 +10,7 @@ const LOOKS = {
   standard: "text-on-surface-variant disabled:opacity-38",
   /** 글자색은 둘레를 따른다(색을 입힌 면 위) */
   plain: "disabled:opacity-38",
-  /** 쉴 때 outline 색으로 흐리게 두는 것(빼기). 올리면 밝히는 것은 쓰는 곳이 group-hover 로 */
+  /** 쉴 때 outline 색으로 흐리게 두는 것(빼기). 올리면 밝히는 것은 쓰는 곳이 group-hover로 */
   quiet: "text-outline transition-colors disabled:opacity-38",
   filled: "bg-primary text-on-primary transition-[background-color,color] effects-fast disabled:bg-on-surface/12 disabled:text-on-surface/38",
   tonal: "bg-secondary-container text-on-secondary-container transition-[background-color,color] effects-fast disabled:bg-on-surface/12 disabled:text-on-surface/38",

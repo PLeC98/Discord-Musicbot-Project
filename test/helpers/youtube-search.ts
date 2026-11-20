@@ -1,6 +1,6 @@
-// 유튜브 검색 응답의 가짜. youtubei.js 가 읽는 칸만 남겼다(실제 응답은 수백 KB 이고 IP, 방문자 값이 들어 있다)
+// 유튜브 검색 응답의 가짜. youtubei.js가 읽는 칸만 남겼다(실제 응답은 수백 KB이고 IP, 방문자 값이 들어 있다)
 
-// sw.js_data: 세션을 만들 때 받는 기기 정보. youtubei.js 는 [0][2][0][0] 의 칸 번호로 읽는다(0 언어, 1 지역, 13 방문자, 16 클라이언트 버전)
+// sw.js_data: 세션을 만들 때 받는 기기 정보. youtubei.js는 [0][2][0][0]의 칸 번호로 읽는다(0 언어, 1 지역, 13 방문자, 16 클라이언트 버전)
 function sessionData() {
   const device: unknown[] = Array(80).fill(null);
   Object.assign(device, { 0: "en", 1: "KR", 3: "0.0.0.0", 13: "visitor", 16: "2.20251020.00.00", 17: "Windows", 18: "10.0" });

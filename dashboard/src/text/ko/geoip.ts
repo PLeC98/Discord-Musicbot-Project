@@ -8,9 +8,9 @@ const update = (v: string, mb: number | null) => `업데이트 (${v}${mb === nul
 const latest = "이미 최신이에요";
 const notFound = "받을 수 있는 버전을 찾지 못했어요";
 const downloading = (got: number, total: number | null) => `받는 중… ${got}MB${total === null ? "" : ` / ${total}MB`}`;
-const failed = (why: string) => `마지막으로 받지 못한 까닭: ${why}`;
+const failed = (why: string) => `마지막으로 받지 못한 원인: ${why}`;
 const off = "접속 지역 표시를 꺼 두었어요";
-const loadFailed = "접속 지역 데이터 상태를 읽지 못했어요.";
+const loadFailed = "접속 지역 데이터 상태를 불러오지 못했어요.";
 const checkFailed = "업데이트를 확인하지 못했어요.";
 const updateFailed = "업데이트를 시작하지 못했어요.";
 const updated = "접속 지역 데이터를 업데이트했어요";

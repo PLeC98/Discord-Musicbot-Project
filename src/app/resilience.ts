@@ -1,10 +1,10 @@
-// 프로세스 수준에서 새어 나온 오류. 기동이 installErrorHandlers 로 핸들러를 건다.
+// 프로세스 수준에서 새어 나온 오류. 기동이 installErrorHandlers로 핸들러를 건다.
 //
 // 방침: 봇 전체를 내리지 않고 서버 하나로 가둔다.
 // - 아는 오류는 난 위치에서 구분한다(오류 목록). 여기까지 오는 것 가운데 이미 아는 디스코드 코드는 로그만 남긴다.
 // - 서버 문맥(infra/guild-context)이 있으면 그 서버의 오류다. 그 서버만 다시 시작한다(guildFault).
 // - 서버를 모르면 경계가 빠진 위치다. 로그로 남기고 계속 돈다. 서버를 가리지 않고 쏟아질 때만 내린다(전역 폭주).
-// 네트워크 복구는 음성 연결 상태 기계(player/voice-link)와 discord.js 가 맡는다. 여기서 플레이어를 복구하지 않는다.
+// 네트워크 복구는 음성 연결 상태 기계(player/voice-link)와 discord.js가 맡는다. 여기서 플레이어를 복구하지 않는다.
 
 import logger from "../infra/log/logger.ts";
 import { Events } from "discord.js";
@@ -54,7 +54,7 @@ function knownDiscordError(err: unknown) {
 
 // 치명적 오류: 세션을 저장하고 나가기 요청 없이 연결을 정리한 뒤 내린다(다시 시작하면 세션 복원이 이어 튼다).
 // 세션이 원인이라 켤 때마다 다시 죽는 것은 실행 기록이 막는다(짧게 끊긴 실행이 이어지면 복원하지 않는다, app/run-record).
-// exit, record 는 테스트가 넘긴다. 기본은 전역 폭주 코드로 나가기와 봇의 실행 기록
+// exit, record는 테스트가 넘긴다. 기본은 전역 폭주 코드로 나가기와 봇의 실행 기록
 function fatalShutdown(players: Savables | null | undefined, error: unknown, { exit = () => process.exit(EXIT.globalFlood), record = runRecord }: { exit?: () => void; record?: Pick<typeof runRecord, "end"> } = {}) {
   players?.forEach((player, guildId) => {
     if (!player) return;
@@ -97,7 +97,7 @@ function installErrorHandlers(client: WatchedClient, { players, fault, proc = pr
       fault(guildId, error, source).catch((e: unknown) => coreLog.error(`서버 ${guildId} 오류 처리 실패:`, e));
       return;
     }
-    // 서버를 모른다: 경계가 빠진 위치다. 게이트웨이, 네트워크 오류는 discord.js 가 알아서 재연결한다
+    // 서버를 모른다: 경계가 빠진 위치다. 게이트웨이, 네트워크 오류는 discord.js가 알아서 재연결한다
     if (errorKind(error) === "network-error") coreLog.warn(`오류 경계 밖의 네트워크 오류 (${source}): ${messageOf(error)}`);
     else coreLog.error(`오류 경계가 없는 경로에서 발생한 미처리 오류 (${source}):`, error);
     if (flooding()) {
@@ -106,7 +106,7 @@ function installErrorHandlers(client: WatchedClient, { players, fault, proc = pr
     }
   };
 
-  // discord.js 가 알리는 오류. 핸들러의 거부는 경계(app/event-boundary)가 받으므로 여기는 라이브러리 안의 오류다
+  // discord.js가 알리는 오류. 핸들러의 거부는 경계(app/event-boundary)가 받으므로 여기는 라이브러리 안의 오류다
   client.on(Events.Error, (error) => loose(error, "client"));
   proc.on("unhandledRejection", (reason) => loose(reason, "rejection"));
   proc.on("uncaughtException", (error) => loose(error, "exception"));

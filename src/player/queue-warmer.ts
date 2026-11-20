@@ -73,7 +73,7 @@ class QueueWarmer {
     this.ahead = deps.ahead ?? config.preload.ahead;
     this.gapMs = deps.gapMs ?? config.preload.gapMs;
 
-    // 한 곡을 캐시에 올린다. 실패는 던진다.
+    // 한 곡을 캐시에 올린다. 실패하면 예외를 던진다.
     this.warm = deps.warm;
     // 캐시 파일이 이미 있는가 / 지금 다운로드 중인가. 이 둘만이 "다운로드할 필요가 없다"의 근거다.
     this.isCached = deps.isCached;
@@ -161,7 +161,7 @@ class QueueWarmer {
    * 소스 DB(VocaDB, LB Radio 등)는 그 영상이 아직 살아 있다고 믿으므로, 우리가 기억해 두지
    * 않으면 다음 선택에서 같은 것을 또 선택한다.
    *
-   * @returns {boolean} 버렸으면 true. 부르는 쪽은 평소의 실패 처리를 건너뛴다.
+   * @returns {boolean} 버렸으면 true. 호출부는 평소의 실패 처리를 건너뛴다.
    */
   _dropDeadAutoplay(track: QueuedTrack, err: unknown) {
     if (!youtubeSource.isVideoUnavailableError(err)) return false;
@@ -245,7 +245,7 @@ class QueueWarmer {
 
           // 이 서명 동안은 다시 시도하지 않는다. 일시적인 실패는 대기열이 움직이면 다시 시도하고,
           // 곡 자체의 문제면 그 뒤로도 하지 않는다. 어느 쪽이든 재생 시점의 다운로드 경로가 다시 시도한다.
-          // 까닭은 다운로드가 남겼다(캐시 다운로드 실패 줄)
+          // 원인은 다운로드가 남겼다(캐시 다운로드 실패 줄)
           log.debug(`사전 캐싱 실패(재생할 때 다시 다운로드): "${logTitle(track.title)}"`);
           this._failed.add(track);
           if (failureScope(err, { direct: servedDirectly(track) }) === "track") this._gaveUp.add(track);

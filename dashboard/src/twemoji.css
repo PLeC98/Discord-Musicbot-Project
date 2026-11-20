@@ -1,6 +1,6 @@
-/* Musicbot Twemoji: Twemoji 16.0.1 그림(CC BY 4.0, assets/twemoji/NOTICE.txt)을 컬러 글꼴로 바꾼 수정본. style.css 의 --font-sans, --font-discord 맨 앞에 둔다.
-   손으로 고치지 않는다: node scripts/build-twemoji-font.ts 가 만든다. 범위는 글꼴에 든 문자(이모지와 그 순서열 부속 문자)뿐이라 보통 글은 이 글꼴을 기다리지 않는다.
-   iOS, iPadOS(-webkit-touch-callout 은 그 WebKit 에만 있다)에서는 정의하지 않아 기기 이모지로 그리고 글꼴을 다운로드하지 않는다.
+/* Musicbot Twemoji: Twemoji 16.0.1 그림(CC BY 4.0, assets/twemoji/NOTICE.txt)을 컬러 글꼴로 바꾼 수정본. style.css의 --font-sans, --font-discord 맨 앞에 둔다.
+   손으로 고치지 않는다: node scripts/build-twemoji-font.ts가 만든다. 범위는 글꼴에 든 문자(이모지와 그 순서열 부속 문자)뿐이라 보통 글은 이 글꼴을 기다리지 않는다.
+   iOS, iPadOS(-webkit-touch-callout은 그 WebKit에만 있다)에서는 정의하지 않아 기기 이모지로 그리고 글꼴을 다운로드하지 않는다.
    block: 글꼴이 오기 전 이모지 자리만 비워 둔다(OS 이모지가 보였다가 바뀌지 않게) */
 @supports not (-webkit-touch-callout: none) {
   @font-face {

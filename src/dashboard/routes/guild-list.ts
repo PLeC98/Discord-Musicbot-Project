@@ -24,11 +24,11 @@ function listState(botInVoice: boolean, player: Player | undefined): ListState {
 function createGuildListRouter({ http }: { http?: DiscordHttp } = {}) {
   const router = express.Router();
 
-  // 봇이 든 서버 중 지금 멤버인 곳. 사용자의 서버 목록(세션마다 30초 캐시한다)으로 고르고 멤버인지는 memberOf 로 본다. 나간 서버는 바로 빠지고, 막 든 서버는 목록을 다시 받을 때 보인다
+  // 봇이 든 서버 중 지금 멤버인 곳. 사용자의 서버 목록(세션마다 30초 캐시한다)으로 고르고 멤버인지는 memberOf로 본다. 나간 서버는 바로 빠지고, 막 든 서버는 목록을 다시 받을 때 보인다
   router.get("/", requireAuth, async (req, res) => {
     const { client, players } = req.app.locals.bot;
     if (!client.isReady()) return sendProblem(res, "bot-not-ready");
-    // 멤버 캐시가 갱신되지 않아 멤버인지 판정할 수 없다(Server Members Intent 꺼짐, guild-access 의 openGuild)
+    // 멤버 캐시가 갱신되지 않아 멤버인지 판정할 수 없다(Server Members Intent 꺼짐, guild-access의 openGuild)
     if (!tracksMembers()) return sendProblem(res, "members-intent-off");
 
     const user = signedIn(req);

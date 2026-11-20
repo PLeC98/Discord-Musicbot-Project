@@ -112,7 +112,7 @@ test("담기 전에 사라진 캐시 파일은 건너뛰고 행 목록에서도 
   );
 });
 
-test("되돌리기: 비운 캐시에 파일, 재생 기록, 링크 데이터, 직접 지정한 음원, 연령 제한, SponsorBlock 이 돌아온다", async () => {
+test("되돌리기: 비운 캐시에 파일, 재생 기록, 링크 데이터, 직접 지정한 음원, 연령 제한, SponsorBlock이 돌아온다", async () => {
   seedFile("yt:aaaaaaaaaa1", 300, 4, 5000);
   ledger(yt("aaaaaaaaaa1"), yt("aaaaaaaaaa1"), "하나");
   pinnedSources.setPin("https://open.spotify.com/track/p", "https://soundcloud.com/a/b", 77);
@@ -135,7 +135,7 @@ test("되돌리기: 비운 캐시에 파일, 재생 기록, 링크 데이터, �
   assert.equal(trackLookup.getAudioUrl(yt("aaaaaaaaaa1")), yt("aaaaaaaaaa1"));
   assert.deepEqual(pinnedSources.getPin("https://open.spotify.com/track/p"), { requestKey: "https://open.spotify.com/track/p", audioUrl: "https://soundcloud.com/a/b", pinnedAt: 77 });
   assert.equal(externalCaches.isAgeRestricted("aaaaaaaaaa1"), true);
-  assert.deepEqual(externalCaches.getSponsorSegments("aaaaaaaaaa1"), { segments: [{ segment: [0, 5] }], fetchedAt: 5, apiBase: "https://sb.example" }, "받은 때 · 주소도 돌아온다");
+  assert.deepEqual(externalCaches.getSponsorSegments("aaaaaaaaaa1"), { segments: [{ segment: [0, 5] }], fetchedAt: 5, apiBase: "https://sb.example" }, "받은 때와 주소도 돌아온다");
   assert.deepEqual(
     fs.readdirSync(audioCache.cacheDir()).filter((name) => name.includes(".tmp-")),
     [],

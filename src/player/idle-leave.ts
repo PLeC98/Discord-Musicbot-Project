@@ -2,7 +2,7 @@
 //   혼자 남음   듣는 사람이 없으면 정해진 시간 뒤에도 없을 때 정리한다(leaveDelayAloneMs). 멈추는 것은 플레이어의 억제 사유(alone)다
 //   틀 게 없음  대기열이 비면 정해진 시간 뒤 정리한다(leaveDelayQueueEmptyMs)
 // 24/7 자리(store/stay-seats)에 있으면 둘 다 걸지 않는다. 걸 때와 만료될 때 모두 본다(그 사이에 자리가 켜지거나 꺼진다)
-// 누가 혼자 남았는지 알아보는 것(음성 상태 해석)은 플레이어의 syncHolds 가 한다. 여기는 시간만 잰다.
+// 누가 혼자 남았는지 알아보는 것(음성 상태 해석)은 플레이어의 syncHolds가 한다. 여기는 시간만 잰다.
 // 곡이 없을 때 사람이 나가거나 돌아와 나갈 시각이 바뀌면 알린다(끝난 패널의 "쉬러 갈게요").
 
 import logger from "../infra/log/logger.ts";
@@ -114,10 +114,10 @@ class IdleLeave {
     const channelId = player.voiceChannel?.id;
     const channel = channelId ? player.guild.channels.cache.get(channelId) : null;
     const listeners = channel?.isVoiceBased() ? listenersIn(channel.members.values()) : 0;
-    if (listeners > 0) return; // 사유, 패널은 syncHolds 가 풀었다
+    if (listeners > 0) return; // 사유, 패널은 syncHolds가 풀었다
 
-    // 이미 버려진(교체된) 플레이어면 dispose 가 아무것도 하지 않는다. 대기열은 /join 으로 이어 들을 수 있게 남긴다(기동 복원, 24/7 자리 지킴이는 이어 틀지 않는다).
-    // 패널 모양은 dispose 가 곡을 비우기 전에 정한다
+    // 이미 버려진(교체된) 플레이어면 dispose가 아무것도 하지 않는다. 대기열은 /join으로 이어 들을 수 있게 남긴다(기동 복원, 24/7 자리 지킴이는 이어 틀지 않는다).
+    // 패널 모양은 dispose가 곡을 비우기 전에 정한다
     const resumable = Boolean(player.currentTrack) || player.queue.length > 0;
     await player.dispose({ reason: "듣는 사람 없이 기다린 시간이 지남", session: "save-for-join", panel: resumable ? "leave" : "disconnected", end: "alone-timeout" });
   }

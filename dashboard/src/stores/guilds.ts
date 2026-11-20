@@ -8,7 +8,7 @@ import type { GuildEvent, GuildList, GuildRow } from "../../../src/dashboard/con
 
 // 탭 하나에 SSE 연결 하나. 이 연결이 사용자가 볼 수 있는 모든 서버의 "바뀜" 신호를 싣고,
 // 서버 목록, 사이드바, 재생 바, 서버 화면이 같이 쓴다(연결 상한이 사용자당이라 화면마다 열면 넘친다).
-// 받는 쪽은 바뀐 서버 ID 를 받는다. null 이면 어느 서버인지 모른다(끊긴 동안 놓쳤을 수 있다): 전부 다시 읽는다
+// 받는 쪽은 바뀐 서버 ID를 받는다. null이면 어느 서버인지 모른다(끊긴 동안 놓쳤을 수 있다): 전부 다시 읽는다
 type NudgeHandler = (guildId: string | null) => void;
 const nudgeHandlers = new Set<NudgeHandler>();
 
@@ -54,7 +54,7 @@ export const useGuildsStore = defineStore("guilds", {
         this.guilds = res.data.guilds;
         this.relogin = res.data.relogin === true;
       } catch {
-        // 지금 목록을 둔다. 까닭은 띠(연결 안 됨, 세션 끝)가 알리고, 다음 신호, 주기 읽기에서 회복
+        // 지금 목록을 둔다. 원인은 띠(연결 안 됨, 세션 끝)가 알리고, 다음 신호, 주기 읽기에서 회복
       } finally {
         this.loading = false;
       }
@@ -109,7 +109,7 @@ export const useGuildsStore = defineStore("guilds", {
       });
       link = opened;
 
-      // 탭이 숨거나 세션이 끝나면 접는다(끝난 세션으로 401 을 거듭 받지 않게). 다시 보이거나 다시 로그인하면 열고 따라잡는다
+      // 탭이 숨거나 세션이 끝나면 접는다(끝난 세션으로 401을 거듭 받지 않게). 다시 보이거나 다시 로그인하면 열고 따라잡는다
       const onVisibility = () => {
         if (live()) {
           opened.start();

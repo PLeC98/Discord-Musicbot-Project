@@ -1,5 +1,5 @@
 // 봇 전체 초기화(휴대폰의 기기 전체 초기화). DB 연결이 열려 있어 켜진 채 삭제하지 않는다: 대시보드가 마커(database/reset.request)를 걸고 다시 시작하면,
-// 다음 기동이 DB 를 열기 전(main 의 openSettings 첫머리, 스냅샷 복원보다 앞)에 마커를 보고 삭제한다. 사람이 누른 것만이고 구조 버전 멈춤과 무관하다.
+// 다음 기동이 DB를 열기 전(main의 openSettings 첫머리, 스냅샷 복원보다 앞)에 마커를 보고 삭제한다. 사람이 누른 것만이고 구조 버전 멈춤과 무관하다.
 // 남기는 것: .env, vendor/, logs/(DB 폴더 밖), 설정 스냅샷(database/backups), 명령 전체 백업(database/full-backups, 봇이 읽지 않는 사람의 백업),
 // 이번 실행이 이미 쓰는 실행 기록(run-state.json, child-processes/).
 // 그 밖의 DB 폴더 안과 캐시 폴더 안은 모두 삭제한다(새로 생기는 파일도 따로 적지 않아도 삭제된다). 마커는 맨 마지막에 삭제한다(막히면 다음 기동이 이어서 삭제한다).
@@ -16,7 +16,7 @@ const KEEP = new Set(["backups", "full-backups", "run-state.json", "child-proces
 
 type Dirs = { database: string; audioCache: string };
 const REAL: Dirs = { database: PROJECT.database, audioCache: PROJECT.audioCache };
-/** 마커를 두는 DB 폴더(열린 settings.db 가 있는 곳. 테스트의 임시 폴더면 실제 봇 폴더를 건드리지 않는다). 열기 전이면 던진다 */
+/** 마커를 두는 DB 폴더(열린 settings.db가 있는 곳. 테스트의 임시 폴더면 실제 봇 폴더를 건드리지 않는다). 열기 전이면 예외를 던진다 */
 const dbDir = () => path.dirname(settingsDb.get().name);
 
 /** 봇 전체 초기화를 예약한다(다음 기동에 삭제한다) */
@@ -38,14 +38,14 @@ const requested = (database = dbDir()) => fs.existsSync(path.join(database, MARK
 type Remove = (target: string) => void;
 const removeTree: Remove = (target) => fs.rmSync(target, { recursive: true, force: true, maxRetries: 3 });
 
-// 폴더 안의 것을 삭제한다(폴더는 둔다). keep 에 든 이름은 건너뛴다
+// 폴더 안의 것을 삭제한다(폴더는 둔다). keep에 든 이름은 건너뛴다
 function emptyDir(dir: string, remove: Remove, keep: ReadonlySet<string> = new Set()) {
   if (!fs.existsSync(dir)) return;
   for (const name of fs.readdirSync(dir)) if (!keep.has(name)) remove(path.join(dir, name));
 }
 
 /**
- * 기동 시 DB 를 열기 전에. 예약되어 있으면 삭제하고 true. 삭제하다 막히면(Windows 잠금) RESET_FAILED 로 던진다(마커가 남아 다음 기동이 이어서 삭제한다)
+ * 기동 시 DB를 열기 전에. 예약되어 있으면 삭제하고 true. 삭제하다 막히면(Windows 잠금) RESET_FAILED 예외를 던진다(마커가 남아 다음 기동이 이어서 삭제한다)
  * @param remove  하나를 삭제하는 함수(테스트가 막힌 파일을 흉내 낸다)
  */
 function applyRequested(dirs: Dirs = REAL, remove: Remove = removeTree): boolean {

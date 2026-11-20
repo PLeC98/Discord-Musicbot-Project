@@ -6,8 +6,8 @@ const loadFailed = "설정을 불러오지 못했어요.";
 const saveFailed = "설정을 저장하지 못했어요.";
 
 /**
- * 상주 모드(디스코드 /247). enabledIn 은 켜져 있을 때의 스위치 글: 채널 이름이 길면 이름만 줄이게 앞뒤를 나눈다(볼 수 없는 채널이면 enabled).
- * locked: 바꿀 수 없을 때 잠근 스위치의 툴팁(지금 상태). 바꿀 수 없는 까닭은 봇 문장표의 거절 문장
+ * 상주 모드(디스코드 /247). enabledIn은 켜져 있을 때의 스위치 글: 채널 이름이 길면 이름만 줄이게 앞뒤를 나눈다(볼 수 없는 채널이면 enabled).
+ * locked: 바꿀 수 없을 때 잠근 스위치의 툴팁(지금 상태). 바꿀 수 없는 이유는 봇 문장표의 거절 문장
  */
 const stay = {
   title: "상주 모드",
@@ -20,7 +20,7 @@ const stay = {
   failed: "상주 모드를 켜거나 끄지 못했어요.",
 };
 
-/** 볼륨 정규화(디스코드 /normalize). locked, failed 는 상주 모드와 같은 자리 */
+/** 볼륨 정규화(디스코드 /normalize). locked, failed는 상주 모드와 같은 자리 */
 const normalize = {
   title: "볼륨 정규화",
   desc: "곡과 영상마다 제각각인 볼륨을 비슷하게 맞춰요.",
@@ -59,16 +59,16 @@ const playlistAdd = {
   title: "한 번에 넣을 재생목록 곡 수",
   desc: "많은 곡이 포함된 재생목록을 한 번에 다 넣지 않고 설정한 곡만큼만 넣어요. 남은 곡은 이어서 넣을 수 있어요.",
   choose: "곡 수 선택",
-  /** 기본값 버튼: 넓은 카드는 "기본값 · ", 좁으면 "기본 " */
-  defaultLong: "기본값 · ",
-  defaultShort: "기본 ",
+  /** 기본값 버튼의 곡 수 뒤에 붙는 표시. 좁은 카드에서는 빼고 곡 수만 */
+  defaultMark: "(기본값)",
   songs: (count: number) => `${count}곡`,
   custom: "직접 입력",
   unit: "곡",
   invalid: (min: number, max: number) => `${min}~${max}곡 사이의 정수로 입력해 주세요.`,
   /** 지금 값 안내: 앞, 값, 뒤로 나눠 값만 굵게 그린다 */
-  effectiveBefore: "재생목록을 넣으면 한 번에 ",
-  effectiveAfter: (min: number, max: number) => `씩 들어가요 · ${min}~${max}곡 · 디스코드에서는 `,
+  effectiveBefore: "한 번에 ",
+  effectiveAfter: (min: number, max: number) => `씩 들어가요(${min}~${max}곡, 디스코드에서는 `,
+  effectiveEnd: ")",
 };
 
 /** 연령 제한 콘텐츠를 틀 곳(봇 운영자가 연령 제한 콘텐츠를 켰을 때만 보인다) */

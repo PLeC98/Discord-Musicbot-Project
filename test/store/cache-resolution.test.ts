@@ -60,8 +60,8 @@ test("youtubeSource.isVideoUnavailableError: 일시적/연령/봇 오류는 fals
 });
 
 // 쿠키가 죽었을 때 실제로 오는 stderr. 원인(WARNING)과 결과(ERROR)가 나뉘어 적히는데,
-// 원인 쪽 "no longer valid" 가 삭제 판정의 "no longer available" 과 한 단어 차이다.
-// 여기서 true 가 되면 멀쩡히 살아 있는 영상이 내려간 것으로 분류되고, 자동재생은 그 판정으로
+// 원인 쪽 "no longer valid"가 삭제 판정의 "no longer available"과 한 단어 차이다.
+// 여기서 true가 되면 멀쩡히 살아 있는 영상이 내려간 것으로 분류되고, 자동재생은 그 판정으로
 // 곡을 영구히 버린다(markDead). 쿠키를 교체해도 되살아나지 않는다.
 test("youtubeSource.isVideoUnavailableError: 쿠키 무효 + 연령 제한은 삭제가 아니다", () => {
   const stderr = ["WARNING: [youtube] The provided YouTube account cookies are no longer valid. They have likely been rotated in the browser as a security measure.", "ERROR: [youtube] EahYs-8tTjQ: Sign in to confirm your age. Use --cookies-from-browser or --cookies for the authentication."].join("\n");

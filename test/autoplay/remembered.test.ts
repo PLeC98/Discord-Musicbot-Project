@@ -1,5 +1,5 @@
 // src/autoplay/sources/http.ts remembered: 화면을 위해 저쪽에서 받아 기억하는 값.
-// 저쪽이 죽어 있어도(AnimeThemes 522) 요청마다 시간 초과까지 기다리지 않고 기억해 둔 값으로 답한다.
+// 저쪽이 죽어 있어도(AnimeThemes 522) 요청마다 시간 초과까지 기다리지 않고 기억해 둔 값을 반환한다.
 // 기다리면 그동안 자동재생 설정 화면이 모든 소스를 "모르는 종류"로 그린다.
 
 import { test } from "node:test";
@@ -8,7 +8,7 @@ import { remembered } from "../../src/autoplay/sources/http.ts";
 
 const opts = { ttlMs: 60_000, retryMs: 60_000, waitMs: 30 };
 
-test("느리면 waitMs 까지만 기다리고 먼저 답한다. 받은 값은 기억해 다음부터 쓴다", async () => {
+test("느리면 waitMs 까지만 기다리고 먼저 반환한다. 받은 값은 기억해 다음부터 쓴다", async () => {
   let loads = 0;
   let finish = (_value: { min: number; max: number }) => {};
   const slow = remembered<{ min: number; max: number }>(() => {

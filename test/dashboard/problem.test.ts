@@ -11,7 +11,7 @@ import { baseUrl, listenForFetch } from "../helpers/listen.ts";
 import { fake } from "../helpers/fake.ts";
 import { rateLimit, type RateLimitInfo } from "express-rate-limit";
 
-test("본문: type 은 /problems/<코드>, code 는 같은 코드, 상태, 제목은 목록의 것", () => {
+test("본문: type은 /problems/<코드>, code는 같은 코드, 상태, 제목은 목록의 것", () => {
   assert.deepEqual(problemBody("queue-full", { max: 100 }), { type: "/problems/queue-full", code: "queue-full", status: 409, title: "Queue is full", max: 100 });
   for (const code of Object.keys(PROBLEMS) as Array<keyof typeof PROBLEMS>) assert.equal(problemBody(code).type, `/problems/${problemBody(code).code}`, code);
 });
@@ -58,7 +58,7 @@ test("응답: 목록의 상태와 application/problem+json. 거절 결과(코드
   assert.deepEqual(refused.seen.body, { type: "/problems/bad-position", code: "bad-position", status: 400, title: "No track at that position", size: 3 });
 });
 
-test("요청 제한: 다시 보낼 수 있을 때까지의 초를 Retry-After 에", () => {
+test("요청 제한: 다시 보낼 수 있을 때까지의 초를 Retry-After에", () => {
   const { res, seen } = recorder();
   tooManyRequests(fake<express.Request & { rateLimit?: RateLimitInfo }>({ rateLimit: { limit: 1, used: 2, remaining: 0, resetTime: new Date(Date.now() + 30_500) } }), res);
   assert.deepEqual([seen.status, (seen.body as { code: string }).code], [429, "too-many-requests"]);
@@ -88,7 +88,7 @@ test("코드 설명: GET /problems/<코드> 는 사람이 읽는 설명, 없는 
   assert.equal(((await missing.json()) as { code: string }).code, "route-not-found");
 });
 
-test("요청 제한: express-rate-limit 의 핸들러로 걸면 넘친 요청은 문제 응답과 Retry-After", async () => {
+test("요청 제한: express-rate-limit의 핸들러로 걸면 넘친 요청은 문제 응답과 Retry-After", async () => {
   const app = express();
   app.use(rateLimit({ windowMs: 60_000, limit: 1, standardHeaders: "draft-7", legacyHeaders: false, handler: tooManyRequests }));
   app.get("/x", (_req, res) => res.json({ ok: true }));

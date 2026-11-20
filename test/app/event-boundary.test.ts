@@ -1,4 +1,4 @@
-// src/app/event-boundary.ts: 디스코드 이벤트 핸들러를 서버 문맥에서 부르고, 새어 나온 던짐, 거부를 그 서버의 오류로 넘긴다.
+// src/app/event-boundary.ts: 디스코드 이벤트 핸들러를 서버 문맥에서 부르고, 새어 나온 예외, 거부를 그 서버의 오류로 넘긴다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -13,7 +13,7 @@ test("인자에서 서버를 찾는다: guildId(상호작용, 메시지), guild.
   assert.equal(guildOf([{ guildId: null }, "문자열", null]), null);
 });
 
-test("핸들러는 그 서버의 문맥에서 돈다. 던짐, 거부는 서버와 함께 넘긴다", async () => {
+test("핸들러는 그 서버의 문맥에서 돈다. 예외, 거부는 서버와 함께 넘긴다", async () => {
   const faults: string[] = [];
   const onFault = (error: unknown, guildId: string | null, where: string) => faults.push(`${where}:${guildId}:${(error as Error).message}`);
   const seen: Array<string | null> = [];
@@ -22,7 +22,7 @@ test("핸들러는 그 서버의 문맥에서 돈다. 던짐, 거부는 서버�
   guarded(
     "메시지",
     (_m: object) => {
-      throw new Error("던짐");
+      throw new Error("예외");
     },
     onFault,
   )({ guildId: "g2" });
@@ -31,5 +31,5 @@ test("핸들러는 그 서버의 문맥에서 돈다. 던짐, 거부는 서버�
   await settle();
 
   assert.deepEqual(seen, ["g1"]);
-  assert.deepEqual(faults, ["메시지:g2:던짐", "음성 상태:g3:거부", "준비:null:서버 없음"]);
+  assert.deepEqual(faults, ["메시지:g2:예외", "음성 상태:g3:거부", "준비:null:서버 없음"]);
 });

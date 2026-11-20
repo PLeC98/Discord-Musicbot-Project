@@ -8,7 +8,7 @@
       <slot>{{ body }}</slot>
     </p>
     <div v-if="actions" class="flex gap-2 justify-end">
-      <BaseButton variant="ghost" :disabled="busy" @click="open = false">{{ text.common.cancel }}</BaseButton>
+      <BaseButton variant="ghost" :disabled="busy" @click="open = false">{{ cancelLabel ?? text.common.cancel }}</BaseButton>
       <BaseButton :variant="tone" :disabled="busy" @click="emit('confirm')">{{ confirmLabel }}</BaseButton>
     </div>
   </BaseDialog>
@@ -22,8 +22,8 @@ import Icon from "./BaseIcon.vue";
 import type { IconName } from "../icons.ts";
 import { text } from "../text/index.ts";
 
-/** tone: danger(되돌릴 수 없는 일, 오류 색), primary(크게 퍼지는 일). busy: 하는 중이라 버튼을 막는다. actions: false 면 버튼 없이 알리기만(바깥을 눌러도 닫지 않는다) */
-const props = withDefaults(defineProps<{ icon: IconName; title: string; body?: string; confirmLabel: string; tone?: "danger" | "primary"; busy?: boolean; actions?: boolean }>(), { body: "", tone: "danger", busy: false, actions: true });
+/** tone: danger(되돌릴 수 없는 일, 오류 색), primary(크게 퍼지는 일). busy: 하는 중이라 버튼을 막는다. actions: false면 버튼 없이 알리기만(바깥을 눌러도 닫지 않는다). cancelLabel: 없으면 "취소" */
+const props = withDefaults(defineProps<{ icon: IconName; title: string; body?: string; confirmLabel: string; cancelLabel?: string; tone?: "danger" | "primary"; busy?: boolean; actions?: boolean }>(), { body: "", cancelLabel: undefined, tone: "danger", busy: false, actions: true });
 const open = defineModel<boolean>({ required: true });
 const titleId = useId();
 // 바깥 누름, Esc, 기기의 뒤로는 취소와 같다. 버튼이 없거나(기다리는 중) 요청 중이면 닫지 않는다

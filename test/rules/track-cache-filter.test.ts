@@ -1,4 +1,4 @@
-// src/rules/track-cache-filter.ts: 캐시 DB 의 필터 식(DB Browser for SQLite 문법)을 읽고 비교한다
+// src/rules/track-cache-filter.ts: 캐시 DB의 필터 식(DB Browser for SQLite 문법)을 읽고 비교한다
 import test from "node:test";
 import assert from "node:assert";
 import { FILTER_MAX, REGEX_MAX, foldCase, matchFilter, matchWords, parseFilter, parseWords, readValue, type ColumnKind } from "../../src/rules/track-cache-filter.ts";
@@ -15,7 +15,7 @@ test("빈 식은 필터링하지 않는다", () => {
   assert.equal(parseWords(""), null);
 });
 
-test("그냥 쓰면 포함(대소문자 무시), % 는 아무 글자들, 다른 정규식 글자는 글자 그대로", () => {
+test("그냥 쓰면 포함(대소문자 무시), %는 아무 글자들, 다른 정규식 글자는 글자 그대로", () => {
   assert.deepEqual(pick("text", "yoa", ["YOASOBI", "Aimer", null]), ["YOASOBI"]);
   assert.deepEqual(pick("text", "a%r", ["Aimer", "ar", "abc"]), ["Aimer", "ar"]);
   assert.deepEqual(pick("text", "a.b", ["a.b", "axb"]), ["a.b"]);
@@ -25,14 +25,14 @@ test("한국어는 조합 중인 마지막 글자, 초성으로도 찾는다(서
   const titles = ["잔향산가", "밤을 달리다", "Lemon"];
   assert.deepEqual(pick("text", "잔햐", titles), ["잔향산가"], "마지막 글자는 조합 중");
   assert.deepEqual(pick("text", "ㅂㅇㄷ", titles), ["밤을 달리다"], "초성");
-  assert.deepEqual(pick("text", "밤%다", titles), ["밤을 달리다"], "% 는 아무 글자들 그대로");
+  assert.deepEqual(pick("text", "밤%다", titles), ["밤을 달리다"], "%는 아무 글자들 그대로");
   const words = parseWords("ㅈㅎ lem");
   assert.ok(words?.ok);
   assert.equal(matchWords(words.words, ["잔향산가", "Lemon"]), true);
   assert.equal(matchWords(words.words, ["밤을 달리다", "Lemon"]), false);
 });
 
-test("=, <> 는 글자 열에서 그대로 비교하고, ='', <>'' 는 빔, 빔 아님", () => {
+test("=, <> 는 글자 열에서 그대로 비교하고, ='', <>''는 빔, 빔 아님", () => {
   assert.deepEqual(pick("text", "=youtube", ["youtube", "YouTube", "youtube2"]), ["youtube"]);
   assert.deepEqual(pick("text", "<>youtube", ["youtube", "spotify", null]), ["spotify", null]);
   assert.deepEqual(pick("text", "=''", ["", null, "a"]), ["", null]);
@@ -98,7 +98,7 @@ test("모든 열에서: 낱말마다 어느 열에든 들어간 행", () => {
   assert.equal(matchWords(words.words, ["YOASOBI", "夜に駆ける", 12]), false);
 });
 
-// %를 정규식(.*)으로 바꾸면 a%a%a%a%a%a%b가 60자 제목에서 3초 넘게 걸렸다. 조각을 순서대로 찾아 소요 시간이 글자 수에 비례한다
+// %를 정규식(.*)으로 바꾸면 a%a%a%a%a%a%b가 60자 제목에서 3초 넘게 걸린다. 조각을 순서대로 찾아 소요 시간이 글자 수에 비례한다
 test("% 식은 조각을 순서대로 찾는다. 조각이 많고 맞지 않아도 곧바로 끝난다", () => {
   const expr = `${Array(40).fill("a").join("%")}%b`;
   const started = performance.now();

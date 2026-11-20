@@ -1,7 +1,7 @@
 // src/sources/youtube/equivalent.ts, src/autoplay/route.ts: 같은 곡 매칭을 부르는 두 곳의 검색 방식. 유튜브 매칭(스포티파이 곡 → 유튜브)과 자동재생(후보 → 유튜브)이
 // 같은 곡을 찾을 때 어떤 검색어를 몇 개씩 요청하는지 적어 둔다.
 //
-// 둘은 match.searchCandidates 의 이름 붙은 방식(exact, cheap)을 쓴다. 다른 까닭은 그 방식 표에 적었다
+// 둘은 match.searchCandidates의 이름 붙은 방식(exact, cheap)을 쓴다. 다른 이유는 그 방식 표에 적었다
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -21,7 +21,7 @@ const { primary, secondary } = buildSearchQueries(TARGET);
 const HIT = [{ id: "v1", audioUrl: "https://www.youtube.com/watch?v=v1", title: "A - Song (TV Size)", artist: "A", duration: 240 }];
 const LIMITS = filterModule.prepare({ minDurationSec: 60, maxDurationSec: 3600, blockedKeywords: [] });
 
-// 1차 검색어에 답이 있나에 따라 검색 결과를 준다. 요청한 것을 [검색어, 개수] 로 적는다
+// 1차 검색어에 답이 있나에 따라 검색 결과를 준다. 요청한 것을 [검색어, 개수]로 적는다
 function searcher(primaryHits: boolean) {
   const asked: Array<[string, number]> = [];
   const search = async (query: string, limit: number) => {
@@ -116,7 +116,7 @@ function racing(failing: string | null = null) {
   return { asked, search, peak: () => peak };
 }
 
-test("검색: exact 는 1차, 2차 검색어를 한꺼번에 묻고, 합친 차례는 검색어 차례다. 한 검색어가 실패해도 나머지로", async () => {
+test("검색: exact는 1차, 2차 검색어를 한꺼번에 묻고, 합친 차례는 검색어 차례다. 한 검색어가 실패해도 나머지로", async () => {
   const { search, peak } = racing(primary[1]);
   const found = (await searchCandidates(TARGET, search, "exact")).candidates;
   assert.equal(peak(), primary.length + secondary.length + 1, "아티스트 검색도 함께");
@@ -127,7 +127,7 @@ test("검색: exact 는 1차, 2차 검색어를 한꺼번에 묻고, 합친 차�
   );
 });
 
-test('동등물: 검색어가 모두 실패하면(망 끊김) 그 오류를 던진다. "같은 곡 없음"(null)이 되지 않는다. 하나라도 답하면 없음은 없음', async () => {
+test('동등물: 검색어가 모두 실패하면(망 끊김) 그 오류를 던진다. "같은 곡 없음"(null)이 되지 않는다. 하나라도 응답하면 없음은 없음', async () => {
   const down = Object.assign(new Error("connect ECONNRESET"), { code: "ECONNRESET" });
   const failing = async () => {
     throw down;
@@ -136,7 +136,7 @@ test('동등물: 검색어가 모두 실패하면(망 끊김) 그 오류를 던�
   await assert.rejects(equivalent.findYouTubeEquivalent(song("sp:down"), { search: failing }), (error) => error === down);
   assert.equal((await searchCandidates(TARGET, failing, "cheap")).failed, down, "자동재생 쪽은 실어 보내기만 한다");
 
-  // 한 검색어만 답하고(빈 답) 나머지는 실패: 찾아봤는데 없다
+  // 한 검색어만 응답하고(빈 응답) 나머지는 실패: 찾아봤는데 없다
   const partly = async (query: string) => {
     if (query === primary[0]) return [];
     throw down;
@@ -144,7 +144,7 @@ test('동등물: 검색어가 모두 실패하면(망 끊김) 그 오류를 던�
   assert.equal(await equivalent.findYouTubeEquivalent(song("sp:partly"), { search: partly }), null);
 });
 
-test("검색: cheap 는 1차 앞 둘을 한꺼번에 묻고, 2차는 1차가 빈 것을 본 뒤에 묻는다", async () => {
+test("검색: cheap는 1차 앞 둘을 한꺼번에 묻고, 2차는 1차가 빈 것을 본 뒤에 묻는다", async () => {
   const asked: string[] = [];
   const empty = async (query: string) => (asked.push(query), await new Promise((done) => setTimeout(done, 10)), []);
   const pending = searchCandidates(TARGET, empty, "cheap");
@@ -153,7 +153,7 @@ test("검색: cheap 는 1차 앞 둘을 한꺼번에 묻고, 2차는 1차가 빈
   assert.deepEqual(asked, [...primary.slice(0, 2), ...secondary.slice(0, 2)]);
 });
 
-test("검색: exact 는 아티스트 채널을 알아보고 그 채널의 이 곡일 수 있는 영상을 2차 자리에 더한다. cheap 는 아티스트 검색을 하지 않는다", async () => {
+test("검색: exact는 아티스트 채널을 알아보고 그 채널의 이 곡일 수 있는 영상을 2차 자리에 더한다. cheap는 아티스트 검색을 하지 않는다", async () => {
   const asked: Array<[string, number]> = [];
   const own = (id: string, title: string, duration: number) => ({ id, audioUrl: `https://www.youtube.com/watch?v=${id}`, title, artist: "공식", duration });
   const search = async (query: string, limit: number) => {

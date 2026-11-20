@@ -23,7 +23,7 @@ afterEach(() => {
   for (const [guildId] of staySeats.all()) staySeats.clear(guildId);
 });
 
-// 서버 하나. channels.fetch 의 답과 봇의 채널 권한을 준다
+// 서버 하나. channels.fetch의 답과 봇의 채널 권한을 준다
 function guildOf(id: string, { fetched = "voice" as "voice" | "gone" | "denied" | "fails" | "stage", allowed = true } = {}) {
   const channel = { id: "vc1", name: "음성", type: fetched === "stage" ? ChannelType.GuildStageVoice : ChannelType.GuildVoice, isVoiceBased: () => true, isThread: () => false, permissionsFor: () => ({ has: (flag: bigint) => allowed && (flag === PermissionFlagsBits.ViewChannel || flag === PermissionFlagsBits.Connect || flag === PermissionFlagsBits.Speak) }) };
   const fetch = async () => {
@@ -35,7 +35,7 @@ function guildOf(id: string, { fetched = "voice" as "voice" | "gone" | "denied" 
   return fake<Guild>({ id, name: `서버 ${id}`, available: true, channels: { fetch }, members: { me: {} } });
 }
 
-// 지킴이와 그가 부른 것. joined: 붙기의 결과
+// 지킴이와 지킴이가 부른 것. joined: 붙기의 결과
 function world(guilds: Guild[], { joined = "joined" as JoinResult["kind"] | "refused-permission" | "refused-full" | "refused-timed-out" } = {}) {
   const calls: string[] = [];
   const alive = new Set<string>();
@@ -230,12 +230,12 @@ test("붙는 사이 상주 설정이 바뀌거나 상주 모드가 멈추면 연
       else staySeats.clear("g1");
       if (how === "throw") throw new Error("연결 오류");
       if (how === "go") opts?.go?.();
-      continued = true; // go 가 던지지 않으면 진짜 join 은 여기서 플레이어를 만든다
+      continued = true; // go가 예외를 던지지 않으면 진짜 join은 여기서 플레이어를 만든다
       return { kind: "refused", code: "voice-failed" };
     };
     assert.equal(await w.keeper.attempt("g1"), true, how);
     assert.equal(w.keeper.timers.size, 0, how);
-    if (how === "go") assert.equal(continued, false, "go 가 예외를 던져 접속을 멈춘다");
+    if (how === "go") assert.equal(continued, false, "go가 예외를 던져 접속을 멈춘다");
     staySeats.clear("g1");
   }
   assert.deepEqual(warns(), []);

@@ -1,7 +1,7 @@
 // scripts/download.ts: 설치 스크립트의 파일 받기
 //
 // 지키는 것: 응답 헤더나 다음 조각이 정한 시간 동안 오지 않으면 끊는다(설치가 영영 멈추지 않는다).
-// 전체 시간은 묶지 않아 느리지만 꾸준히 오는 큰 파일은 끝까지 받는다. 2xx가 아니면 상태 코드와 주소를 담아 던진다.
+// 전체 시간은 묶지 않아 느리지만 꾸준히 오는 큰 파일은 끝까지 받는다. 2xx가 아니면 상태 코드와 주소를 담아 예외를 던진다.
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -53,6 +53,6 @@ test("조각이 꾸준히 오면 전체가 정한 시간보다 오래 걸려도 
   assert.ok(Date.now() - started > IDLE_MS, "정한 시간보다 오래 걸린 받기");
 });
 
-test("2xx가 아니면 상태 코드와 주소를 담아 던진다", async () => {
+test("2xx가 아니면 상태 코드와 주소를 담아 예외를 던진다", async () => {
   await assert.rejects(download(`${base}/missing`, { idleMs: IDLE_MS }), (error: Error) => error.message.startsWith("404 Not Found.") && error.message.includes("/missing"));
 });

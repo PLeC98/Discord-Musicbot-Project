@@ -61,15 +61,15 @@ type SessionState = {
   autoplay?: string | null;
   userPaused?: boolean;
   positionMs?: number;
-  /** 명령 없이 붙는 길(기동 복원, 24/7 자리 지킴이)도 이어 틀어도 되는가. false 면 /join 으로만 이어 듣는다. 저장할 때 빠지면 true */
+  /** 명령 없이 붙는 길(기동 복원, 24/7 자리 지킴이)도 이어 틀어도 되는가. false면 /join으로만 이어 듣는다. 저장할 때 빠지면 true */
   autoResume?: boolean;
 };
 
-// 되읽은 트랙 행. 모양을 보기 전이라 열은 모른다(슬롯은 표의 CHECK 가 지킨다)
+// 되읽은 트랙 행. 모양을 보기 전이라 열은 모른다(슬롯은 표의 CHECK가 지킨다)
 type RawTrackRow = { guild_id: string; slot: Slot; seq: number; [column: string]: unknown };
 type TrackParams = ReturnType<typeof toRow>;
 
-// 빈 값(undefined, null, "")은 NULL 로
+// 빈 값(undefined, null, "")은 NULL로
 const orNull = <T>(value: T | null | undefined) => value || null;
 
 function toRow(track: TrackIn) {
@@ -81,7 +81,7 @@ function toRow(track: TrackIn) {
     title: orNull(track.title),
     artist: orNull(track.artist),
     album: orNull(track.album),
-    // 곡 모델에서 길이 0 은 모름이다. 0 보다 큰 유한한 수만 적는다
+    // 곡 모델에서 길이 0은 모름이다. 0보다 큰 유한한 수만 적는다
     duration_sec: typeof track.duration === "number" && Number.isFinite(track.duration) && track.duration > 0 ? track.duration : null,
     thumbnail: orNull(track.thumbnail),
     platform: orNull(track.platform),
@@ -232,7 +232,7 @@ class PlayerSessionStore {
     });
   }
 
-  /** /join 으로 이어 틀었으니 명령 없이 붙는 길도 이어 틀 수 있는 세션으로 바꾼다. 행의 다른 열은 그대로 둔다 */
+  /** /join으로 이어 틀었으니 명령 없이 붙는 길도 이어 틀 수 있는 세션으로 바꾼다. 행의 다른 열은 그대로 둔다 */
   markAutoResume(guildId: string) {
     this.q.autoResume.run(guildId);
   }
@@ -276,7 +276,7 @@ class PlayerSessionStore {
     });
   }
 
-  // 대기열 index번째를 현재곡으로. 있던 현재곡 행은 버린다(기록은 retire가 따로 남긴다). 위치는 setCurrent 와 같이 0
+  // 대기열 index번째를 현재곡으로. 있던 현재곡 행은 버린다(기록은 retire가 따로 남긴다). 위치는 setCurrent와 같이 0
   take(guildId: string, index: number): boolean {
     return this._tx(() => {
       const row = this.q.rowidAt.get(guildId, "queue", index);
@@ -338,7 +338,7 @@ class PlayerSessionStore {
   }
 
   // 이전곡. 기록의 마지막 곡을 대기열 맨 앞에, 중단된 현재곡을 그 뒤에. 대기열 반복 사본(copy번째)은 먼저 뺀다.
-  // fromHistory: 기록 끝에서 꺼낸 곡이다(기록 행을 삭제한다). 대기열 반복의 이전 곡은 대기열 끝에서 오므로 기록을 두고 copy 만 옮긴다
+  // fromHistory: 기록 끝에서 꺼낸 곡이다(기록 행을 삭제한다). 대기열 반복의 이전 곡은 대기열 끝에서 오므로 기록을 두고 copy만 옮긴다
   rewind(guildId: string, track: TrackIn, { copy = -1, current = null, fromHistory = true }: { copy?: number; current?: TrackIn | null; fromHistory?: boolean } = {}): boolean {
     return this._tx(() => {
       const last = fromHistory ? this.q.lastRowid.get(guildId, "history") : null;
@@ -411,7 +411,7 @@ class PlayerSessionStore {
 
 type RestoredTrack = ReturnType<typeof fromRow>;
 
-// 모양이 틀린 행은 버리고 DB 에서도 삭제한다. 남겨 두면 메모리의 i번째와 DB 의 i번째 행이 어긋난다
+// 모양이 틀린 행은 버리고 DB에서도 삭제한다. 남겨 두면 메모리의 i번째와 DB의 i번째 행이 어긋난다
 function groupTracks(rows: RawTrackRow[], drop: (row: RawTrackRow) => void) {
   const out: { current: RestoredTrack | null; queue: RestoredTrack[]; history: RestoredTrack[] } = { current: null, queue: [], history: [] };
   for (const raw of rows) {
@@ -427,7 +427,7 @@ function groupTracks(rows: RawTrackRow[], drop: (row: RawTrackRow) => void) {
   return out;
 }
 
-// 열린 실행 상태 DB 에 붙은 저장소 하나. 다시 열면(테스트의 임시 DB 등) 새로 붙는다. 열기 전에 부르면 던진다
+// 열린 실행 상태 DB에 붙은 저장소 하나. 다시 열면(테스트의 임시 DB 등) 새로 붙는다. 열기 전에 부르면 예외를 던진다
 let bound: PlayerSessionStore | null = null;
 function sessions(): PlayerSessionStore {
   const conn = stateDb.get();

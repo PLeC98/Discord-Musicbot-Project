@@ -3,7 +3,7 @@
 // 유튜브 검색 결과로 실제 선택을 검증하는 테스트는 두지 않는다.
 // 외부 서비스의 지금 순위에 기대는 데이터라 CI가 매번 확인할 성질이 아니다.
 //
-// 여기 남은 것은 네트워크도 외부 데이터도 타지 않는, 코드 자체의 계약이다.
+// 네트워크도 외부 데이터도 타지 않는, 코드 자체의 계약만 본다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -92,7 +92,7 @@ test("버전, 재배포가 걸린 후보에는 high를 주지 않는다", () => 
   assert.equal(clean.confidence, "high");
 });
 
-test("아티스트 쪼개기: feat, ft, with 는 단어일 때만 나눈다", () => {
+test("아티스트 쪼개기: feat, ft, with는 단어일 때만 나눈다", () => {
   assert.deepEqual(I.splitArtists("Daft Punk"), ["daft punk"]);
   assert.deepEqual(I.splitArtists("Drift"), ["drift"]);
   assert.deepEqual(I.splitArtists("Within Temptation"), ["within temptation"]);
@@ -102,7 +102,7 @@ test("아티스트 쪼개기: feat, ft, with 는 단어일 때만 나눈다", ()
   assert.deepEqual(I.splitArtists("Madeon & Porter Robinson"), ["madeon", "porter robinson"]);
 });
 
-test("버전 표기: 붙여 쓴 TVサイズ 를 떼고, 닫는 표시 없이 끝나는 - TV Size 도 알아본다", () => {
+test("버전 표기: 붙여 쓴 TVサイズ 를 떼고, 닫는 표시 없이 끝나는 - TV Size도 알아본다", () => {
   assert.equal(I.stripVersionTag("紅蓮華 TVサイズ"), "紅蓮華");
   assert.equal(I.detectVersionKind("Idol - TV Size"), "tv");
   assert.equal(I.stripVersionTag("Idol - TV Size"), "Idol");
@@ -110,7 +110,7 @@ test("버전 표기: 붙여 쓴 TVサイズ 를 떼고, 닫는 표시 없이 끝
   assert.equal(I.detectVersionKind("Video Killed the Radio Star on TV"), null, "끝의 TV 만으로는 버전이 아니다");
 });
 
-// 공백 뒤의 맨 단어를 받으면 "Love on TV - Live" 를 TV 버전으로 본다
+// 공백 뒤의 맨 단어를 받으면 "Love on TV - Live"를 TV 버전으로 본다
 test("버전 표기: 공백 뒤의 단어은 수식어가 붙어야 버전이다. 괄호, 대시로 연 표시는 단어만으로도", () => {
   assert.equal(I.detectVersionKind("Love on TV - Live"), null);
   assert.equal(I.detectVersionKind("Life is Short - Live"), null);
@@ -121,7 +121,7 @@ test("버전 표기: 공백 뒤의 단어은 수식어가 붙어야 버전이다
 });
 
 const pick = (b: { channel: number; junk: number }) => ({ channel: b.channel, junk: b.junk });
-test("이름이 다른 토픽계, VEVO 가 feat. 로 다른 사람을 올리면 공식 가점 없이 정크 하나(길이가 맞아도). 아티스트를 올리면, 일반 채널, 아티스트 채널은 그대로", () => {
+test("이름이 다른 토픽계, VEVO가 feat. 로 다른 사람을 올리면 공식 가점 없이 정크 하나(길이가 맞아도). 아티스트를 올리면, 일반 채널, 아티스트 채널은 그대로", () => {
   const target = { title: "気まぐれメルシィ", artist: "Hachioji P, Hatsune Miku", durationSec: 204 };
   const score = (channel: string, title: string) => scoreCandidate({ id: "x", channel, title, durationSec: 204 }, target).breakdown;
   const others = "気まぐれメルシィ (feat. 花里みのり & 桐谷遥)";
@@ -166,7 +166,7 @@ test("길이 4초 안은 1초마다 덜 준다(같은 채널의 1초 차, 3초 �
 
 test("채널 추정: 아티스트 검색의 앞 6개에서 3개 넘게, 절반 넘게 나온 채널. 이름이 없는 결과는 세지 않는다", () => {
   const ch = (...names: Array<string | null>) => names.map((channel) => ({ channel }));
-  assert.equal(I.dominantChannel(ch("A", "B", "C", "D", "E", "F", "G", "G", "G", "G", "G", "G", "G")), null, "뒤쪽은 세지 않는다(전부 세면 G 가 절반을 넘는다)");
+  assert.equal(I.dominantChannel(ch("A", "B", "C", "D", "E", "F", "G", "G", "G", "G", "G", "G", "G")), null, "뒤쪽은 세지 않는다(전부 세면 G가 절반을 넘는다)");
   assert.equal(I.dominantChannel(ch("A", "A", "A", "A", "B", "C")), "A");
   assert.equal(I.dominantChannel(ch("A", "A", "B")), null, "3개가 안 된다");
   assert.equal(I.dominantChannel(ch(ZWNJ, ZWNJ, ZWNJ, ZWNJ, "B")), ZWNJ);

@@ -1,20 +1,20 @@
 <template>
   <div class="flex flex-col gap-(--gap-in)">
     <NoticeBox v-if="loadError" variant="note" tone="error" icon="cancel" class="mt-0!">{{ loadError }}</NoticeBox>
-    <!-- 저장했지만 다시 시작해야 적용되는 값이 남아 있으면 무엇인지 적고 그 자리에서 다시 시작한다 -->
-    <NoticeBox v-if="pendingHere.length" variant="note" tone="info" icon="restart_alt" class="mt-0!">
-      <span class="flex items-center gap-3 flex-wrap"
+    <!-- 저장했지만 다시 시작해야 적용되는 값이 남아 있으면 무엇인지 적고 그 자리에서 다시 시작한다. 버튼은 오른쪽 끝, 글 전체의 가운데에 맞춘다(버튼 높이 32px를 글 20px에 겹친다) -->
+    <NoticeBox v-if="pendingHere.length" variant="note" tone="notice" icon="restart_alt" class="mt-0!">
+      <span class="flex-1 min-w-0 flex items-center gap-3 flex-wrap"
         ><span class="flex-1 min-w-0">{{ text.restart.pending(namesOf(pendingHere)) }}</span
-        ><BotRestart :available="canRestart"
+        ><BotRestart :available="canRestart" class="-my-1.5"
       /></span>
     </NoticeBox>
 
     <!-- 항목 하나의 칸. 카드 그리드와 박스 안에서 같이 쓴다(VueUse createReusableTemplate). short: 박스 안이라 짧은 이름 -->
     <DefineField v-slot="{ one, short }">
-      <!-- 구간 선택은 체크박스 목록이라 label 로 감싸지 않는다(라벨을 누르면 첫 체크박스가 바뀐다). 서버 설정의 SponsorBlock 카드와 같은 컴포넌트, SponsorBlock 을 끄면 흐리게 -->
+      <!-- 구간 선택은 체크박스 목록이라 label로 감싸지 않는다(라벨을 누르면 첫 체크박스가 바뀐다). 서버 설정의 SponsorBlock 카드와 같은 컴포넌트, SponsorBlock을 끄면 흐리게 -->
       <SponsorCategories v-if="one.kind === 'categories'" class="min-w-0 @md/card:col-span-2" :label="labelOf(one.key)" :selected="categoriesOf(one)" :dimmed="!boolOf(tunable('SPONSORBLOCK_ENABLED'))" @toggle="toggleCategory(one, $event)" />
-      <!-- 쿠키 출처는 두 칸을 쓴다: 기타를 선택하면 입력란이 넓을 때 오른쪽 칸에, 좁으면 아래에 -->
-      <label v-else class="block min-w-0" :class="one.kind === 'cookies' && '@md/card:col-span-2'">
+      <!-- 쿠키 출처는 두 칸을 쓴다: 기타를 선택하면 입력란이 넓을 때 오른쪽 칸에, 좁으면 아래에. data-tunable: 다른 탭에서 이 칸으로 데려올 때 찾는 표식(utils/focus-ring) -->
+      <label v-else class="block min-w-0 rounded-(--r-inner)" :class="one.kind === 'cookies' && '@md/card:col-span-2'" :data-tunable="one.key">
         <span :class="FIELD_LABEL" class="flex items-center gap-1 flex-wrap"
           ><span class="truncate">{{ (short && T.fields[one.key]?.short) || (T.fields[one.key]?.label ?? one.key) }}</span
           ><Icon v-if="T.fields[one.key]?.help" name="info" :size="14" class="shrink-0 cursor-help" v-tooltip="T.fields[one.key]?.help" /><span v-if="pending.includes(one.key)" class="text-tertiary" v-tooltip="T.restartTip">{{ T.pending }}</span
@@ -54,7 +54,7 @@
             </div>
           </div>
         </div>
-        <!-- 그룹 카드 안, 칸들 아래에 부르는 쪽이 끼우는 슬롯(연령 제한 탭 유튜브 그룹의 유튜브 쿠키 입력) -->
+        <!-- 그룹 카드 안, 칸들 아래에 부모 컴포넌트가 끼우는 슬롯(연령 제한 탭 유튜브 그룹의 유튜브 쿠키 입력) -->
         <slot :name="`in-${group}`" />
       </BaseCard>
     </template>
@@ -80,7 +80,7 @@ import { problemText } from "../utils/problem.ts";
 import { trackUnsaved } from "../composables/unsaved.ts";
 import { attach, draft, labelOf, namesOf, pending, saved } from "../composables/tunables.ts";
 import { showAdvanced } from "../composables/advanced-settings.ts";
-import { TUNABLES, tunable, tunableValue, type Tunable, type TunableBox, type TunableGroup } from "../../../src/rules/tunables.ts";
+import { OWN_CARD_GROUPS, TUNABLES, tunable, tunableValue, type Tunable, type TunableBox, type TunableGroup } from "../../../src/rules/tunables.ts";
 import { NO_CATEGORIES, SKIP_CATEGORIES } from "../../../src/rules/sponsor-categories.ts";
 import { COOKIE_BROWSERS, COOKIE_BROWSER_NAMES } from "../../../src/rules/cookie-browsers.ts";
 import type { Option } from "../utils/options.ts";
@@ -88,7 +88,7 @@ import { text } from "../text/index.ts";
 const T = text.tunables;
 
 /**
- * 운영 조절값 카드. 그룹(group)마다 카드 하나. 값은 탭끼리 같이 쓰고 저장, 되돌리기는 운영자 패널의 저장 막대가 한다(composables/tunables).
+ * 운영 설정값 카드. 그룹(group)마다 카드 하나. 값은 탭끼리 같이 쓰고 저장, 되돌리기는 운영자 패널의 저장 바가 한다(composables/tunables).
  * groups: 보일 그룹, tab: 운영자 패널 탭(저장 안 함 표시), canRestart: 실행기로 시작했는가(봇 상태의 env.launcher)
  */
 const props = defineProps<{ groups: readonly TunableGroup[]; tab: string; canRestart: boolean }>();
@@ -97,9 +97,10 @@ const loadError = ref("");
 // 카드 헤더의 설명서 버튼(저장소의 설명서)
 const GROUP_DOCS: Partial<Record<TunableGroup, { file: string; label: string }>> = { youtube: { file: "docs/youtube.md", label: T.youtubeDoc } };
 
-const mine = computed(() => TUNABLES.filter((one) => props.groups.includes(one.group)));
+// 도구 카드가 버튼으로 고치는 값, 자기 카드가 그리는 그룹은 여기서 그리지 않는다
+const mine = computed(() => TUNABLES.filter((one) => !one.card && !OWN_CARD_GROUPS.has(one.group) && props.groups.includes(one.group)));
 const keys = computed(() => mine.value.map((one) => one.key));
-// 고급 항목은 "고급 설정 보기"를 켰을 때만. 꺼 두었어도 수정 중이거나 다시 시작을 기다리는 항목은 보인다(저장 막대, 다시 시작 안내가 가리키는 칸이 숨지 않게)
+// 고급 항목은 "고급 설정 보기"를 켰을 때만. 꺼 두었어도 수정 중이거나 다시 시작을 기다리는 항목은 보인다(저장 바, 다시 시작 안내가 가리키는 칸이 숨지 않게)
 const shown = (one: Tunable) => !one.advanced || showAdvanced.value || changed(one) || pending.value.includes(one.key);
 const byGroup = (group: TunableGroup) => mine.value.filter((one) => one.group === group && shown(one));
 // 박스 밖의 항목, 이 카드에 보이는 박스, 박스 안의 항목
@@ -127,13 +128,13 @@ function cookieChoice(one: Tunable) {
   if (!value) return "";
   return COOKIE_OPTIONS.some((option) => option.value === value.toLowerCase()) ? value.toLowerCase() : COOKIE_OTHER;
 }
-// "기타"로 바꿀 때는 지금 값을 그대로 둔다(chrome 을 chrome:Profile 1 로 고쳐 입력하기 쉽게)
+// "기타"로 바꿀 때는 지금 값을 그대로 둔다(chrome을 chrome:Profile 1로 고쳐 입력하기 쉽게)
 function pickCookie(one: Tunable, value: string) {
   cookieOther.value = value === COOKIE_OTHER;
   if (!cookieOther.value) draft.value[one.key] = value;
 }
 
-// 구간 선택(쉼표로 이은 id). 비면 기본값의 구간, NO_CATEGORIES 면 하나도 없음
+// 구간 선택(쉼표로 이은 id). 비면 기본값의 구간, NO_CATEGORIES면 하나도 없음
 const listOf = (raw: string) => raw.split(",").filter((id) => SKIP_CATEGORIES.includes(id));
 function categoriesOf(one: Tunable) {
   const raw = (draft.value[one.key] ?? "").trim();

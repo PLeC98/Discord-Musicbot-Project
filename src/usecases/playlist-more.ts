@@ -1,4 +1,4 @@
-// 재생목록 "더 넣기". 이어 불러올 위치(상태), 선택지, 메시지 수명. 화면은 ui/playlist-more-menu 가 그린다.
+// 재생목록 "더 넣기". 이어 불러올 위치(상태), 선택지, 메시지 수명. 화면은 ui/playlist-more-menu가 그린다.
 // 상태는 메뉴의 custom_id에만 둔다(메모리 없음). 재시작해도 메뉴가 그대로 동작한다. 만료는 누를 때 메시지 나이로 다시 본다.
 
 import * as links from "../rules/links.ts";
@@ -21,7 +21,7 @@ import type { RepliableInteraction, TextBasedChannel } from "discord.js";
 import type { Player } from "../player/player.ts";
 import type { Code } from "../rules/problems.ts";
 
-// 메뉴가 열려 있는 시간(ui/delivery 의 메뉴 수명). 마지막으로 누른 뒤 이만큼 지나면 닫힌 메뉴로 본다
+// 메뉴가 열려 있는 시간(ui/delivery의 메뉴 수명). 마지막으로 누른 뒤 이만큼 지나면 닫힌 메뉴로 본다
 const LIFETIME_MS = LIFETIME.menu;
 // 이어 불러올 때 앞으로 더 불러와 직전 마지막 곡(앵커)을 찾는 폭. 그 사이 목록이 이만큼 편집돼도 이어진다
 const LOOKBACK = 5;
@@ -31,18 +31,18 @@ const MODAL_PREFIX = "plmm";
 const TRACK_ID = /^[A-Za-z0-9_-]{11,22}$/;
 const NUMERIC_ID = /^\d{1,20}$/;
 
-// 이어 불러올 수 있는 출처(rules/more-choices 의 Kind). 믹스(RD…)는 부를 때마다 결과가 달라 빠진다. 인기곡은 10곡뿐이라 이어 불러올 게 없다.
+// 이어 불러올 수 있는 출처(rules/more-choices의 Kind). 믹스(RD…)는 부를 때마다 결과가 달라 빠진다. 인기곡은 10곡뿐이라 이어 불러올 게 없다.
 // anchor: 곡 id 모양, perClick: 한 번에 넣는 곡 수 상한, lookback: 앵커를 찾으려고 앞에서부터 다시 불러오는 곡 수, reads: 한 번에 부르는 구간 수 상한
 type KindSpec = { id: RegExp; url: (id: string) => string; collection: string; anchor: RegExp; perClick: number; lookback: number; reads: number };
 const KINDS: Record<Kind, KindSpec> = {
   ytp: { id: /^[A-Za-z0-9_-]{10,64}$/, url: (id) => `https://www.youtube.com/playlist?list=${id}`, collection: "playlist", anchor: TRACK_ID, perClick: Infinity, lookback: LOOKBACK, reads: Infinity },
   spp: { id: /^[A-Za-z0-9]{22}$/, url: (id) => `https://open.spotify.com/playlist/${id}`, collection: "playlist", anchor: TRACK_ID, perClick: Infinity, lookback: LOOKBACK, reads: Infinity },
   spa: { id: /^[A-Za-z0-9]{22}$/, url: (id) => `https://open.spotify.com/album/${id}`, collection: "album", anchor: TRACK_ID, perClick: Infinity, lookback: LOOKBACK, reads: Infinity },
-  // 사운드클라우드 세트. 주소 대신 숫자 id 로 부른다. 곡마다 요청이 들어(요청이 몰리면 IP 가 막힌다) 한 번에 한 구간만:
+  // 사운드클라우드 세트. 주소 대신 숫자 id로 부른다. 곡마다 요청이 들어(요청이 몰리면 IP가 막힌다) 한 번에 한 구간만:
   // 앞을 다시 불러오지 않고, 틀 수 있는 곡이 모자라도 더 읽지 않는다(받을 수 없는 곡이 많은 세트에서 요청이 불어나지 않게)
   scs: { id: NUMERIC_ID, url: (id) => `https://api.soundcloud.com/playlists/${id}`, collection: "playlist", anchor: NUMERIC_ID, perClick: SOUNDCLOUD_BATCH, lookback: 0, reads: 1 },
-  // 사운드클라우드가 만든 믹스(discover/sets/trending-by-genre:indie 등). 숫자 id 가 없어 주소의 이름으로 부른다.
-  // 이름의 ":"는 custom_id 의 필드 구분자와 겹쳐 "~"로 싣는다
+  // 사운드클라우드가 만든 믹스(discover/sets/trending-by-genre:indie 등). 숫자 id가 없어 주소의 이름으로 부른다.
+  // 이름의 ":"는 custom_id의 필드 구분자와 겹쳐 "~"로 싣는다
   scd: { id: /^[\w~-]{1,60}$/, url: (id) => `https://soundcloud.com/discover/sets/${id.replaceAll("~", ":")}`, collection: "playlist", anchor: NUMERIC_ID, perClick: SOUNDCLOUD_BATCH, lookback: 0, reads: 1 },
 };
 const isKind = (kind: unknown): kind is Kind => typeof kind === "string" && Object.hasOwn(KINDS, kind);
@@ -123,7 +123,7 @@ function clickError(state: MoreState, { userId, lastTouched, now = Date.now() }:
   return null;
 }
 
-/** 헤더 줄과 곡 수 메뉴. menu 는 메뉴를 달았는지(자리가 없거나 상태가 custom_id 에 안 들어가면 헤더 줄만) */
+/** 헤더 줄과 곡 수 메뉴. menu는 메뉴를 달았는지(자리가 없거나 상태가 custom_id에 안 들어가면 헤더 줄만) */
 function menuView(head: string, state: MoreState, { remaining, room, batch = PLAYLIST_ADD_DEFAULT }: { remaining: number; room: number; batch?: number }) {
   const { perClick } = KINDS[state.kind];
   const { cap, steps } = moreChoices({ remaining, room, batch, perClick });
@@ -154,7 +154,7 @@ function resultView(state: MoreState, result: MoreResult, room: number) {
   return menuView(text, result.next, { remaining: result.remaining, room, batch: result.next.batch });
 }
 
-/** 곡 수를 입력하는 모달. cap 은 남은 자리 */
+/** 곡 수를 입력하는 모달. cap은 남은 자리 */
 function countModal(state: MoreState, cap: number, batch = PLAYLIST_ADD_DEFAULT) {
   const max = Math.min(cap, MAX_COUNT, KINDS[state.kind].perClick);
   return moreCountModal({ customId: encodeState(MODAL_PREFIX, state), max, suggested: Math.min(max, batch) });
@@ -169,7 +169,7 @@ function expireLater(messageId: string, remove: () => unknown, ms: number = LIFE
   expireMessage(messageId, remove, ms);
 }
 
-// 슬래시 명령. 본인에게만 보이는 "검색 중" 자리표시자를 메뉴로 고친다(후속 메시지는 원래 응답이 삭제되면 "메시지를 불러올 수 없어요" 에 매달린다).
+// 슬래시 명령. 본인에게만 보이는 "검색 중" 자리표시자를 메뉴로 고친다(후속 메시지는 원래 응답이 삭제되면 "메시지를 불러올 수 없어요"에 매달린다).
 // 메뉴를 표시했으면 true
 async function offerOnInteraction(interaction: RepliableInteraction, more: More, player: Player) {
   const offer = offerView({ ...more, requesterId: interaction.user.id }, roomFor(player));

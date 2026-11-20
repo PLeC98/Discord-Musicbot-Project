@@ -30,7 +30,7 @@ class FakeSource {
     this.readyState = OPEN;
     this.onopen?.();
   }
-  /** 200 이 아닌 답: 닫히고 재연결하지 않는다 */
+  /** 200이 아닌 응답: 닫히고 재연결하지 않는다 */
   refused() {
     this.readyState = CLOSED;
     this.onerror?.();
@@ -39,7 +39,7 @@ class FakeSource {
   ended() {
     this.listeners.get("session-ended")?.({} as never);
   }
-  /** 연 뒤 끊김: 브라우저가 스스로 재연결하는 중 */
+  /** 연 뒤 끊김: 브라우저가 자동으로 재연결하는 중 */
   dropped() {
     this.readyState = CONNECTING;
     this.onerror?.();
@@ -81,7 +81,7 @@ function harness({ checks = [] as boolean[] } = {}) {
       if (timer) (timer as { cancelled: boolean }).cancelled = true;
     },
   });
-  /** 걸린 작업 하나를 돌리고 check 를 기다린다 */
+  /** 걸린 작업 하나를 돌리고 check를 기다린다 */
   const tick = async () => {
     const one = pending.shift();
     assert.ok(one, "걸린 작업이 없다");
@@ -256,7 +256,7 @@ test("멈추면 닫고, 기다리던 다시 열기도 하지 않는다. 다시 �
   assert.equal(h.sources[1].closed, true);
 });
 
-test("이미 열렸거나 다시 열 때를 기다리면 start 가 겹쳐 열지 않는다", () => {
+test("이미 열렸거나 다시 열 때를 기다리면 start가 겹쳐 열지 않는다", () => {
   const h = harness();
   h.link.start();
   h.link.start();

@@ -1,4 +1,4 @@
-// src/autoplay/sources/index.ts 의 SPEC, dashboard/src/components/SourceEditor.vue: SPEC 이 내는 필드 종류를 편집기가 다 그릴 수 있는가.
+// src/autoplay/sources/index.ts의 SPEC, dashboard/src/components/SourceEditor.vue: SPEC이 내는 필드 종류를 편집기가 다 그릴 수 있는가.
 //
 // 둘이 다른 파일에 있어서 한쪽만 고치면 그 필드가 조용히 일반 텍스트 입력으로 떨어진다.
 // 값이 정해진 필드인데 자유 입력이 되면 오타가 저장되고 그 소스가 곡을 하나도 못 가져온다.
@@ -12,15 +12,15 @@ import { SPEC } from "../../src/autoplay/sources/index.ts";
 
 const EDITOR = path.join(import.meta.dirname, "..", "..", "dashboard", "src", "components", "SourceEditor.vue");
 
-test("편집기가 SPEC 의 필드 종류를 전부 안다", () => {
+test("편집기가 SPEC의 필드 종류를 전부 안다", () => {
   const src = fs.readFileSync(EDITOR, "utf8");
   const drawn = new Set([...src.matchAll(/field\.kind === '([a-zA-Z]+)'/g)].map((m) => m[1]));
-  assert.ok(drawn.size > 3, `편집기에서 kind 를 못 읽었다 (찾은 것 ${drawn.size}개)`);
+  assert.ok(drawn.size > 3, `편집기에서 kind를 못 읽었다 (찾은 것 ${drawn.size}개)`);
 
   const used = new Set<string>();
   for (const spec of Object.values(SPEC)) for (const one of spec.fields || []) used.add(one.kind);
 
-  // text, url 은 마지막 v-else 가 받는다. 그 둘만 예외다.
+  // text, url은 마지막 v-else가 받는다. 그 둘만 예외다.
   const fallback = new Set(["text", "url"]);
   const missing = [...used].filter((kind) => !drawn.has(kind) && !fallback.has(kind));
   assert.deepEqual(missing, [], `편집기가 모르는 필드 종류: ${missing.join(", ")}`);
@@ -31,7 +31,7 @@ test("값이 정해진 필드는 선택지를 들고 있다", () => {
   for (const [type, spec] of Object.entries(SPEC)) {
     for (const one of spec.fields || []) {
       if (!needsOptions.has(one.kind)) continue;
-      assert.ok(Array.isArray(one.options), `${type}.${one.key} 에 options 가 없다`);
+      assert.ok(Array.isArray(one.options), `${type}.${one.key}에 options가 없다`);
     }
   }
 });
@@ -40,10 +40,10 @@ test("구간 필드는 짝이 되는 필드를 가리킨다", () => {
   for (const [type, spec] of Object.entries(SPEC)) {
     for (const one of spec.fields || []) {
       if (one.kind !== "range") continue;
-      assert.ok(one.to, `${type}.${one.key} 에 to 가 없다`);
+      assert.ok(one.to, `${type}.${one.key}에 to가 없다`);
       assert.ok(
         (spec.fields || []).every((other) => other.key !== one.to),
-        `${type}.${one.to} 는 필드로 따로 두면 안 된다 — 슬라이더가 둘을 같이 쓴다`,
+        `${type}.${one.to}: 필드로 따로 두면 안 된다(슬라이더가 둘을 같이 쓴다)`,
       );
     }
   }

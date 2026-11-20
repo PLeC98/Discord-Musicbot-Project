@@ -1,5 +1,5 @@
-// src/dashboard/routes/guild-settings.ts, player.ts, guild-list.ts(guilds.ts 로 묶는다): 서버 설정 GET/PATCH + /player 플래그 + 서버 목록 통합 테스트.
-// 실 라우터 + fake Discord client. 서버 설정은 진짜를 임시 DB 로 쓴다.
+// src/dashboard/routes/guild-settings.ts, player.ts, guild-list.ts(guilds.ts로 묶는다): 서버 설정 GET/PATCH + /player 플래그 + 서버 목록 통합 테스트.
+// 실 라우터 + 가짜 디스코드 클라이언트. 서버 설정은 진짜를 임시 DB로 쓴다.
 
 // 봇 운영자 판정은 세션에 굳은 값이 아니라 요청마다 config.dashboard.ownerId와 대조한다.
 // dotenv는 이미 설정된 process.env를 덮지 않으므로 .env가 있어도 이 값이 이긴다.
@@ -13,7 +13,7 @@ import type { Player } from "../../src/player/player.ts";
 import { fakePlayer, fakeBot } from "../helpers/fake.ts";
 import { signedInAs, requestJson, type ProblemReply } from "../helpers/dashboard.ts";
 
-/** 이 테스트가 읽는 답의 필드(서버 설정, 플레이어, 서버 목록) */
+/** 이 테스트가 읽는 응답의 필드(서버 설정, 플레이어, 서버 목록) */
 type Reply = ProblemReply & {
   guildName?: string;
   cards?: string[];
@@ -37,7 +37,7 @@ type Reply = ProblemReply & {
   guilds?: { id: string; listening: boolean }[];
 };
 
-// ── 서버 설정: 진짜를 임시 DB 로 ──────────────────────────
+// ── 서버 설정: 진짜를 임시 DB로 ──────────────────────────
 const { openTempStore, setGuild, whenSettingsBroken } = await import("../helpers/temp-store.ts");
 const { createGuildsRouter } = await import("../../src/dashboard/routes/guilds.ts");
 const { createPlayerStream } = await import("../../src/dashboard/player-stream.ts");
@@ -48,7 +48,7 @@ const documents = await import("../../src/config/documents.ts");
 const { shownValues } = await import("../../src/dashboard/settings-values.ts");
 const { errorHandler } = await import("../../src/dashboard/middleware/error-handler.ts");
 
-// 재생목록 곡 수의 상한은 대기열 상한에서 온다. 이 파일은 상한 250 으로 본다
+// 재생목록 곡 수의 상한은 대기열 상한에서 온다. 이 파일은 상한 250으로 본다
 const savedBot = { maxQueueSize: config.bot.maxQueueSize };
 config.bot.maxQueueSize = 250;
 after(() => {
@@ -56,7 +56,7 @@ after(() => {
   temp.close();
 });
 
-// 저장된 값을 표에서 바로 읽고 쓴다(Map 과 같은 모양)
+// 저장된 값을 표에서 바로 읽고 쓴다(Map과 같은 모양)
 const orUndefined = <T>(v: T) => (v === null || (Array.isArray(v) && v.length === 0) ? undefined : v);
 const store = {
   djRoles: {
@@ -84,7 +84,7 @@ const settingsRow = () => temp.settings().prepare("SELECT * FROM guild_settings 
 import express from "express";
 import { ChannelType, PermissionFlagsBits, type Guild } from "discord.js";
 
-// ── Fake Discord client ──────────────────────────────────────
+// ── 가짜 디스코드 클라이언트 ─────────────────────────────────
 const GUILD_ID = "100";
 
 function makeRole(id: string, name: string, position: number, color = 0) {
@@ -99,7 +99,7 @@ const roles = new Map<string, ReturnType<typeof makeRole> & { tags?: { botId: st
   // 봇 역할(디스코드가 봇에 붙인 역할). DJ 역할 목록에 없고 저장도 하지 않는다
   ["rbot", { ...makeRole("rbot", "뮤직봇", 9), tags: { botId: "bot" } }],
 ]);
-// 음성 채널 v1 을 보는 사람이 볼 수 있는가(비공개 채널 흉내)
+// 음성 채널 v1을 보는 사람이 볼 수 있는가(비공개 채널 흉내)
 let voiceVisible = true;
 const channels = new Map([
   ["c1", { id: "c1", name: "general", type: ChannelType.GuildText, rawPosition: 0 }],
@@ -142,7 +142,7 @@ function plainMember() {
   return { id: "u1", user: { tag: "tester#0" }, permissions: { has: () => false }, guild, roles: { cache: new Map() }, voice: {} };
 }
 
-// 역할 순서: 봇의 가장 높은 역할이 3. kicker 는 멤버 추방 권한이 있고 가장 높은 역할이 position
+// 역할 순서: 봇의 가장 높은 역할이 3. kicker는 멤버 추방 권한이 있고 가장 높은 역할이 position
 const roleAt = (position: number) => ({ position, comparePositionTo: (other: { position: number }) => position - other.position });
 function kicker(position = 5) {
   return { id: "u1", user: { tag: "tester#0" }, permissions: { has: (p: bigint) => p === PermissionFlagsBits.KickMembers }, isCommunicationDisabled: () => false, guild, roles: { cache: new Map(), highest: roleAt(position) }, voice: {} };
@@ -186,7 +186,7 @@ after(() => server.close());
 
 const req = (method: string, urlPath: string, body?: unknown) => requestJson<Reply>(base, method, urlPath, body);
 
-// 화면처럼 바꿀 필드만, 지금 보여 주는 값(from)과 함께 보낸다. sponsorblock 은 준 하위 키만
+// 화면처럼 바꿀 필드만, 지금 보여 주는 값(from)과 함께 보낸다. sponsorblock은 준 하위 키만
 function bodyOf(changes: Record<string, unknown>) {
   const now = shownValues(guild as unknown as Guild, settings.read(GUILD_ID)) as Record<string, unknown>;
   const out: Record<string, unknown> = {};
@@ -235,7 +235,7 @@ test("GET settings: 일반 사용자는 보이는 카드가 없어 403(가장 �
   );
 });
 
-test("GET settings: DJ 는 상주 모드와 볼륨 정규화 카드만 보고, 서버 관리자 카드의 값(역할, 채널 목록)은 오지 않는다", async () => {
+test("GET settings: DJ는 상주 모드와 볼륨 정규화 카드만 보고, 서버 관리자 카드의 값(역할, 채널 목록)은 오지 않는다", async () => {
   currentMember = plainMember();
   const r = await req("GET", `/api/guilds/${GUILD_ID}/settings`);
   assert.equal(r.status, 200);
@@ -275,14 +275,14 @@ test("GET settings: 구버전 세션의 isAdmin=true로는 운영자 우회가 �
 
 // ── GET /player의 hasSettings (⚙ 버튼 표시 기준) ───────────────
 
-test("GET player: hasSettings 는 보이는 카드가 있는지. 일반 사용자 false / DJ, 서버 관리자 true", async () => {
+test("GET player: hasSettings는 보이는 카드가 있는지. 일반 사용자 false / DJ, 서버 관리자 true", async () => {
   currentMember = plainMember();
   let r = await withDjRole(() => req("GET", `/api/guilds/${GUILD_ID}/player`));
   assert.equal(r.status, 200);
   assert.equal(r.json.hasSettings, false);
 
   r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
-  assert.equal(r.json.hasSettings, true, "DJ 역할이 없는 서버는 모두가 DJ 라 상주 모드 카드가 보인다");
+  assert.equal(r.json.hasSettings, true, "DJ 역할이 없는 서버는 모두가 DJ라 상주 모드 카드가 보인다");
 
   currentMember = modMember();
   r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
@@ -345,7 +345,7 @@ test("PATCH settings: SponsorBlock 저장. 유효 카테고리만 통과", async
   assert.deepEqual(store.sponsorblock.get(GUILD_ID), { enabled: false, categories: ["intro", "outro"] });
 });
 
-// 선택할 수 있는 구간, 이름, 설명은 화면이 rules/sponsor-categories 를 직접 읽는다
+// 선택할 수 있는 구간, 이름, 설명은 화면이 rules/sponsor-categories를 직접 읽는다
 test("GET settings: SponsorBlock 켬 여부, 선택한 구간", async () => {
   currentMember = modMember();
   const r = await req("GET", `/api/guilds/${GUILD_ID}/settings`);
@@ -516,7 +516,7 @@ test("GET player: 음성 밖이면 sameVoice 거짓 / 서버 관리자는 그래
   noVoice();
 });
 
-// ── GET /api/guilds 의 후보 ──
+// ── GET /api/guilds의 후보 ──
 
 test("GET player, settings: 설정 버튼과 카드는 권한 수준 오버라이드로 낮출 수는 있어도 올릴 수는 없다", async () => {
   noVoice();
@@ -549,7 +549,7 @@ test("GET player, settings: 설정 버튼과 카드는 권한 수준 오버라�
 type StayReply = ProblemReply & { on?: boolean; channel?: { id: string; name: string } | null; refusal?: string | null };
 const stayReq = (body: unknown) => requestJson<StayReply>(base, "POST", `/api/guilds/${GUILD_ID}/settings/stay`, body);
 
-test("POST settings/stay: 일반 사용자 403, on 이 참, 거짓이 아니면 400, DJ 가 봇을 부를 수 없으면 디스코드 /247 과 같은 거절", async () => {
+test("POST settings/stay: 일반 사용자 403, on이 참, 거짓이 아니면 400, DJ가 봇을 부를 수 없으면 디스코드 /247과 같은 거절", async () => {
   currentMember = plainMember();
   const user = await withDjRole(() => stayReq({ on: true }));
   assert.deepEqual([user.status, user.json.code], [403, "must-dj"]);
@@ -559,10 +559,10 @@ test("POST settings/stay: 일반 사용자 403, on 이 참, 거짓이 아니면 
 
   currentMember = plainMember();
   const out = await stayReq({ on: true });
-  assert.deepEqual([out.status, out.json.code], [409, "must-be-in-voice"], "봇이 쉬고 DJ 가 음성 채널 밖");
+  assert.deepEqual([out.status, out.json.code], [409, "must-be-in-voice"], "봇이 쉬고 DJ가 음성 채널 밖");
 });
 
-test("POST settings/stay: 봇이 음성에 있으면 그 채널에 켜고, 끄고, 답은 바뀐 뒤의 카드. 설정 읽기도 같은 카드", async () => {
+test("POST settings/stay: 봇이 음성에 있으면 그 채널에 켜고, 끄고, 응답은 바뀐 뒤의 카드. 설정 읽기도 같은 카드", async () => {
   players.set(GUILD_ID, fakePlayer({ voice: { isAlive: () => true }, voiceChannel: channels.get("v1"), idle: { reconsider() {} } }));
   currentMember = modMember();
   try {
@@ -594,7 +594,7 @@ test("POST settings/stay: 봇이 음성에 있으면 그 채널에 켜고, 끄�
 type NormalizeReply = ProblemReply & { on?: boolean; refusal?: string | null };
 const normalizeReq = (body: unknown) => requestJson<NormalizeReply>(base, "POST", `/api/guilds/${GUILD_ID}/settings/normalize`, body);
 
-test("POST settings/normalize: 일반 사용자 403, on 이 boolean 이 아니면 400, 봇이 다른 음성 채널에 있으면 디스코드 /normalize 와 같은 거절", async () => {
+test("POST settings/normalize: 일반 사용자 403, on이 boolean이 아니면 400, 봇이 다른 음성 채널에 있으면 디스코드 /normalize와 같은 거절", async () => {
   currentMember = plainMember();
   const user = await withDjRole(() => normalizeReq({ on: true }));
   assert.deepEqual([user.status, user.json.code], [403, "must-dj"]);
@@ -608,9 +608,9 @@ test("POST settings/normalize: 일반 사용자 403, on 이 boolean 이 아니�
     const elsewhere = await normalizeReq({ on: true });
     assert.deepEqual([elsewhere.status, elsewhere.json.code], [409, "must-be-in-same-voice"]);
     const read = await req("GET", `/api/guilds/${GUILD_ID}/settings`);
-    assert.deepEqual(read.json.normalize, { on: false, refusal: "must-be-in-same-voice" }, "카드에도 같은 까닭");
+    assert.deepEqual(read.json.normalize, { on: false, refusal: "must-be-in-same-voice" }, "카드에도 같은 이유");
     const notDj = await withDjRole(() => normalizeReq({ on: true }));
-    assert.deepEqual([notDj.status, notDj.json.code], [409, "must-be-in-same-voice"], "DJ 가 아니어도 다른 채널이면 명령과 같이 채널부터 본다");
+    assert.deepEqual([notDj.status, notDj.json.code], [409, "must-be-in-same-voice"], "DJ가 아니어도 다른 채널이면 명령과 같이 채널부터 본다");
     assert.equal(settings.resolveNormalize(GUILD_ID), false);
   } finally {
     guild.members.me = null;
@@ -632,7 +632,7 @@ test("POST settings/normalize: 권한 수준 오버라이드를 일반 사용자
   }
 });
 
-test("POST settings/normalize: 봇이 음성 채널 밖이어도 DJ 가 켜고 끈다. 응답은 바뀐 뒤의 카드이고 설정 읽기도 같다", async () => {
+test("POST settings/normalize: 봇이 음성 채널 밖이어도 DJ가 켜고 끈다. 응답은 바뀐 뒤의 카드이고 설정 읽기도 같다", async () => {
   currentMember = plainMember();
   try {
     const on = await normalizeReq({ on: true });
@@ -657,7 +657,7 @@ test("봇 내보내기: 디스코드에서 봇을 추방할 수 있는 사람(�
   try {
     currentMember = kicker();
     const read = await withDjRole(() => req("GET", `/api/guilds/${GUILD_ID}/settings`));
-    assert.deepEqual([read.status, read.json.cards], [200, ["leave"]], "DJ 가 아닌 사람에게는 이 카드 하나");
+    assert.deepEqual([read.status, read.json.cards], [200, ["leave"]], "DJ가 아닌 사람에게는 이 카드 하나");
     assert.equal((await withDjRole(() => req("GET", `/api/guilds/${GUILD_ID}/player`))).json.hasSettings, true);
 
     for (const [member, why] of [
@@ -737,7 +737,7 @@ test("GET guilds: 봇이 있는 서버 중 사용자가 멤버인 곳만 돌려�
   currentMember = plainMember();
 });
 
-// ── GET /api/guilds 의 상태 넷(서버 목록) ──
+// ── GET /api/guilds의 상태 넷(서버 목록) ──
 
 test("GET guilds: 상태는 유휴(봇이 음성 밖), 대기 중(곡 없음, 여는 중), 재생 중, 일시정지", async () => {
   currentMember = plainMember();
@@ -822,7 +822,7 @@ test("GET player: hasPlayer는 botInVoice와 별개로 판정된다", async () =
 
   let r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
   assert.equal(r.json.botInVoice, true, "디스코드는 봇이 음성에 있다고 본다");
-  assert.equal(r.json.hasPlayer, false, "그런데 플레이어는 없다 — 조작은 전부 409");
+  assert.equal(r.json.hasPlayer, false, "그런데 플레이어는 없다. 조작은 전부 409");
   assert.equal(r.json.canAdd, true, "권한은 통과하므로 이것만 보면 폼이 열린다");
 
   players.set(GUILD_ID, fakePlayer({ currentTrack: null, previousTracks: [], queue: [], pause: { userPaused: false, heldBy: null } }));
@@ -835,7 +835,7 @@ test("GET player: hasPlayer는 botInVoice와 별개로 판정된다", async () =
   currentMember = plainMember();
 });
 
-test("PATCH settings: 받은 필드만 바꾸고 보내지 않은 필드는 그대로다(다른 곳에서 바꾼 값을 지킨다). 답은 보낸 키의 저장된 값(거른 역할)", async () => {
+test("PATCH settings: 받은 필드만 바꾸고 보내지 않은 필드는 그대로다(다른 곳에서 바꾼 값을 지킨다). 응답은 보낸 키의 저장된 값(거른 역할)", async () => {
   currentMember = modMember();
   store.botChannel.set(GUILD_ID, "c1");
   const body = bodyOf({ djRoleIds: ["r1", "ghost"] });
@@ -846,7 +846,7 @@ test("PATCH settings: 받은 필드만 바꾸고 보내지 않은 필드는 그�
   assert.equal(store.botChannel.get(GUILD_ID), "c2");
 });
 
-test("PATCH settings: 읽은 값(from)이 지금 값과 다르면 409 와 부딪힌 키, 그 키의 지금 값만 싣고 아무것도 바꾸지 않는다. 이미 바꾸려는 값이면 성공", async () => {
+test("PATCH settings: 읽은 값(from)이 지금 값과 다르면 409와 부딪힌 키, 그 키의 지금 값만 싣고 아무것도 바꾸지 않는다. 이미 바꾸려는 값이면 성공", async () => {
   currentMember = modMember();
   store.djRoles.set(GUILD_ID, ["r1"]);
   store.playlistAdd.delete(GUILD_ID);
@@ -882,7 +882,7 @@ test("PATCH settings: 지워진 역할만 다르면 충돌이 아니다. 운영�
   }
 });
 
-test("PATCH settings: SponsorBlock 은 보낸 하위 키만 바꾼다. 켜기만 바꾸면 구간은 기본을 따르는 그대로(null), 전역 스위치가 꺼져도 답은 저장한 값", async () => {
+test("PATCH settings: SponsorBlock은 보낸 하위 키만 바꾼다. 켜기만 바꾸면 구간은 기본을 따르는 그대로(null), 전역 스위치가 꺼져도 응답은 저장한 값", async () => {
   currentMember = modMember();
   settings.table.setGuildSponsorBlock(GUILD_ID, { enabled: null, categories: null });
   const saved = config.sponsorblock.enabled;
@@ -897,7 +897,7 @@ test("PATCH settings: SponsorBlock 은 보낸 하위 키만 바꾼다. 켜기만
   }
 });
 
-test("PATCH settings: 빈 패치(빈 본문, 하위 키가 없는 sponsorblock)는 nothing-to-save. 저장값이 지금 범위 밖이어도 from 으로 막지 않는다", async () => {
+test("PATCH settings: 빈 패치(빈 본문, 하위 키가 없는 sponsorblock)는 nothing-to-save. 저장값이 지금 범위 밖이어도 from으로 막지 않는다", async () => {
   currentMember = modMember();
   for (const body of [{}, { sponsorblock: {} }]) {
     const r = await req("PATCH", `/api/guilds/${GUILD_ID}/settings`, body);
@@ -909,19 +909,19 @@ test("PATCH settings: 빈 패치(빈 본문, 하위 키가 없는 sponsorblock)�
   assert.equal(store.playlistAdd.get(GUILD_ID), 100);
 });
 
-test("PATCH settings: 권한을 먼저 본다. DJ 는 읽은 값이 틀려도 409 가 아니라 403 이고 서버 관리자 카드의 값을 받지 못한다", async () => {
+test("PATCH settings: 권한을 먼저 본다. DJ는 읽은 값이 틀려도 409가 아니라 403이고 서버 관리자 카드의 값을 받지 못한다", async () => {
   currentMember = plainMember();
   const r = await req("PATCH", `/api/guilds/${GUILD_ID}/settings`, { djRoleIds: { from: ["nope"], to: ["r1"] } });
   assert.deepEqual([r.status, r.json.code, r.json.current], [403, "must-server-manager", undefined]);
 });
 
-test("GET settings: 서버 설정을 읽지 못하면 오류로 답한다(기본값을 보이면 그것을 기준으로 저장하게 된다)", async () => {
+test("GET settings: 서버 설정을 읽지 못하면 오류로 응답한다(기본값을 보이면 그것을 기준으로 저장하게 된다)", async () => {
   currentMember = modMember();
   const r = await whenSettingsBroken(() => req("GET", `/api/guilds/${GUILD_ID}/settings`));
   assert.deepEqual([r.status, r.json.code], [503, "storage-unavailable"]);
 });
 
-test("PATCH settings: 모양이 틀리면 bad-settings 400 에 필드별 문제(JSON Pointer, 코드), 아무것도 반영하지 않는다", async () => {
+test("PATCH settings: 모양이 틀리면 bad-settings 400에 필드별 문제(JSON Pointer, 코드), 아무것도 반영하지 않는다", async () => {
   currentMember = modMember();
   const rowBefore = settingsRow();
   const cases: Array<[unknown, string, string]> = [

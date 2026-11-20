@@ -1,6 +1,6 @@
 // 봇 프로세스와 시스템의 측정값: CPU 사용률, 이벤트 루프 지연, heap 한도.
-// 3초마다 CPU 를 재고(지난 3초), 15초마다 한 구간을 닫는다(그 15초의 CPU 평균, 루프 지연 p99, 최대). 구간을 닫을 때 onWindow 로 알린다.
-// 사용률은 쓴 CPU 시간의 차이로 잰다(운영체제와 상관없다. loadavg 는 Windows 에서 늘 0 이다). 모든 코어를 합쳐 100
+// 3초마다 CPU를 재고(지난 3초), 15초마다 한 구간을 닫는다(그 15초의 CPU 평균, 루프 지연 p99, 최대). 구간을 닫을 때 onWindow로 알린다.
+// 사용률은 쓴 CPU 시간의 차이로 잰다(운영체제와 상관없다. loadavg는 Windows에서 늘 0이다). 모든 코어를 합쳐 100
 
 import os from "node:os";
 import v8 from "node:v8";
@@ -13,7 +13,7 @@ const WINDOW_MS = TICK_MS * WINDOW_TICKS;
 type Cpu = { bot: number; system: number };
 type Window = { cpu: Cpu; loop: { p99: number; max: number } };
 
-/** 지금까지 쓴 CPU 시간(마이크로초): 봇 프로세스, 모든 코어의 사용 시간(idle 을 뺀 시간)과 전체 시간 */
+/** 지금까지 쓴 CPU 시간(마이크로초): 봇 프로세스, 모든 코어의 사용 시간(idle을 뺀 시간)과 전체 시간 */
 function cpuTimes() {
   const usage = process.cpuUsage();
   let busy = 0;
@@ -23,7 +23,7 @@ function cpuTimes() {
     busy += all - times.idle;
     total += all;
   }
-  // os.cpus 는 밀리초
+  // os.cpus는 밀리초
   return { at: performance.now() * 1000, bot: usage.user + usage.system, busy: busy * 1000, total: total * 1000 };
 }
 type Mark = ReturnType<typeof cpuTimes>;
@@ -84,7 +84,7 @@ function onWindow(fn: (window: Window) => void) {
   return () => listeners.delete(fn);
 }
 
-/** 지금 값. cpu 는 지난 3초, loop 는 지난 15초 구간(ms), heapLimit 은 V8 heap 한도(MB) */
+/** 지금 값. cpu는 지난 3초, loop는 지난 15초 구간(ms), heapLimit은 V8 heap 한도(MB) */
 function vitals() {
   return { cpu: live, loop: closed.loop, heapLimit: Math.round(v8.getHeapStatistics().heap_size_limit / 1024 / 1024) };
 }

@@ -17,9 +17,14 @@ const shell = reactive({
   sidebarWidth: Number.isFinite(storedWidth) && storedWidth > 0 ? clampWidth(storedWidth) : SIDEBAR_WIDTH.initial,
   /** 휴대폰 위 막대 제목 뒤에 " - 이것"(화면이 정한다, 없으면 빈 글) */
   subtitle: "",
-  /** 바탕화면 높이(px). App 이 잰다. 화면 아래에 붙는 시트(휴대폰 대기열 바텀 시트)가 높이를 계산한다 */
+  /** 바탕화면 높이(px). App이 잰다. 화면 아래에 붙는 시트(휴대폰 대기열 바텀 시트)가 높이를 계산한다 */
   deskHeight: 0,
-  /** 봇 프로필 그림(App 이 /api/bot 에서 불러온다). 없거나 못 불러오면 null, 모든 서버 아이콘이 기호로 */
+  /**
+   * 화면이 바탕화면 높이에 딱 맞고 스크롤하지 않는다(휴대폰 서버 화면. 화면이 정한다). 그동안 바탕화면은 스크롤바 자리를 비워 두지 않는다:
+   * 비워 두면 화면 폭이 그만큼 좁아져 가운데가 반 칸 왼쪽으로 가고, 오른쪽 끝에 그린 것(옆 곡 앨범아트)이 그 자리에서 잘린다
+   */
+  fitsDesk: false,
+  /** 봇 프로필 그림(App이 /api/bot에서 불러온다). 없거나 못 불러오면 null, 모든 서버 아이콘이 기호로 */
   botAvatar: null as string | null,
 });
 
@@ -28,7 +33,7 @@ function toggleSidebar() {
   writeStored(KEY, shell.sidebarOpen ? "open" : "closed");
 }
 
-/** 펼친 폭을 바꾼다. save 면 기억한다(드래그하는 동안은 기억하지 않고 놓을 때 한 번) */
+/** 펼친 폭을 바꾼다. save면 기억한다(드래그하는 동안은 기억하지 않고 놓을 때 한 번) */
 function setSidebarWidth(px: number, save = false) {
   shell.sidebarWidth = clampWidth(px);
   if (save) writeStored(WIDTH_KEY, String(shell.sidebarWidth));

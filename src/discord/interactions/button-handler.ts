@@ -1,32 +1,33 @@
-import { EmbedBuilder, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, type ButtonBuilder, type ButtonInteraction, type Client } from "discord.js";
+import { ActionRowBuilder, MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle, type ButtonInteraction } from "discord.js";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import config from "../../config/index.ts";
 import * as errors from "../../ui/text/ko/errors.ts";
-import type { Notice } from "../../ui/text/notice.ts";
 import { checkControl, isBotOwner } from "../../usecases/permissions.ts";
 import { nextLoopMode } from "../../rules/loop-cycle.ts";
 import { answerPause, answerSkip, answerPrevious, answerStop, answerShuffle, answerLoop, answerHighlight } from "./control-answers.ts";
 import * as controlText from "../../ui/text/ko/controls.ts";
 
-import { PANEL, SYSTEM, customId, partsOf } from "../../ui/custom-ids.ts";
-import { queueView, queueInfoOf, pageOf, PAGE_PREFIX } from "../../ui/queue-view.ts";
-import { buildSystemEmbed } from "../commands/system.ts";
+import { PANEL, PING, SYSTEM, customId, partsOf } from "../../ui/custom-ids.ts";
+import { openQueue } from "../commands/queue.ts";
+import { systemScreen } from "../commands/system.ts";
+import { pingAgain } from "../commands/ping.ts";
+import { post } from "../../ui/frame.ts";
 import { route, type Route } from "./route.ts";
 import type { BotContext } from "../../app/bot-context.ts";
 import type { Player } from "../../player/player.ts";
-import { LIFETIME, keepSelf, noticeInstead, noticeSelf, selfOnly, toSelf, updateSelf } from "../../ui/delivery.ts";
+import { LIFETIME, keepSelf, noticeSelf } from "../../ui/delivery.ts";
 import { VOLUME_MAX } from "../../rules/limits.ts";
 
 /** 서버 메시지의 버튼 */
 type Press = ButtonInteraction<"cached">;
 
-// 재생 패널의 버튼. custom_id 는 panel:동작:세션
+// 재생 패널의 버튼. custom_id는 panel:동작:세션
 const PANEL_ACTIONS: Record<string, (it: Press, player: Player) => unknown> = {
   pause: (it, player) => answerPause(it, player),
   skip: (it, player) => answerSkip(it, player),
   stop: (it, player) => answerStop(it, player),
-  queue: (it, player) => handleQueue(it, player),
+  queue: (it, player) => openQueue(it, player),
   shuffle: (it, player) => answerShuffle(it, player),
   highlight: (it, player) => answerHighlight(it, player, { onNone: () => it.deferUpdate() }),
   volume: (it, player) => handleVolumeButton(it, player),
@@ -38,7 +39,7 @@ const PANEL_ACTIONS: Record<string, (it: Press, player: Player) => unknown> = {
 const PANEL_ENABLED: Partial<Record<string, () => boolean>> = { highlight: () => config.sponsorblock.enabled };
 
 // 재생 패널의 버튼. 플레이어가 있고 패널의 세션이 지금 세션이어야 한다.
-// 동일 음성 채널, 계층 검사는 핸들러가 부르는 controls 가 한다. 대기열 보기는 검사 없이 연다
+// 동일 음성 채널, 계층 검사는 핸들러가 부르는 controls가 한다. 대기열 보기는 검사 없이 연다
 async function handlePanelButton(interaction: Press, { players }: BotContext) {
   const player = players.get(interaction.guild.id);
   if (!player) return noticeSelf(interaction, errors.notice("no-song"));
@@ -53,26 +54,6 @@ async function handlePanelButton(interaction: Press, { players }: BotContext) {
   await handle(interaction, player);
 }
 
-async function handleQueue(interaction: Press, player: Player) {
-  const queueInfo = queueInfoOf(player);
-
-  if (queueInfo.queue.length === 0) {
-    return await noticeSelf(interaction, errors.notice("queue-empty"));
-  }
-
-  await toSelf(interaction, selfOnly(queueView(queueInfo)), LIFETIME.screen);
-}
-
-// 대기열 넘기기(◀ ▶). 버튼이 달린 대기열 메시지를 그때의 대기열로 다시 그린다. 플레이어나 곡이 없으면 그 메시지를 삭제하고 그렇다고 알린다
-async function handleQueuePage(interaction: Press, { players }: BotContext) {
-  const player = players.get(interaction.guild.id);
-  const info = player ? queueInfoOf(player) : null;
-  if (!info || info.queue.length === 0) {
-    return noticeInstead(interaction, player ? errors.notice("queue-empty") : errors.notice("no-song"));
-  }
-  return updateSelf(interaction, queueView(info, pageOf(interaction.customId) ?? 1), LIFETIME.screen);
-}
-
 async function handleVolumeButton(interaction: Press, player: Player) {
   const permErr = await checkControl(interaction.member);
   if (permErr) {
@@ -82,47 +63,42 @@ async function handleVolumeButton(interaction: Press, player: Player) {
   await interaction.showModal(volumeModal(player.volume));
 }
 
-/** 볼륨을 입력하는 모달. 자리표시는 지금 볼륨. 받는 쪽은 panel-inputs 의 handleVolumeSubmit */
+/** 볼륨을 입력하는 모달. 자리표시는 지금 볼륨. 받는 쪽은 panel-inputs의 handleVolumeSubmit */
 function volumeModal(current: number) {
   const t = controlText.volumeModal(current);
   const volumeInput = new TextInputBuilder().setCustomId("level").setLabel(t.label).setStyle(TextInputStyle.Short).setMinLength(1).setMaxLength(String(VOLUME_MAX).length).setPlaceholder(t.placeholder).setRequired(true);
   return new ModalBuilder().setCustomId(customId(PANEL, "volume")).setTitle(t.title).addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(volumeInput));
 }
 
-/** 새로 그린 화면 */
-type Built = { embed: EmbedBuilder; row: ActionRowBuilder<ButtonBuilder> };
-
-// 새로고침 버튼: 버튼이 달린 메시지를 새 내용으로 고친다
-async function refreshMessage(interaction: Press, build: (client: Client<true>) => Built | Promise<Built>, { failed, notice }: { failed: string; notice: Notice }) {
+// /system의 새로고침: 같은 메시지를 현재 값의 이미지로 고친다(기존 첨부는 attachments: []로 비운다)
+async function handleSystemRefresh(interaction: Press, bot: BotContext) {
+  // /system과 동일하게 봇 운영자 전용
+  if (!isBotOwner(interaction.user.id)) {
+    return await noticeSelf(interaction, errors.notice("must-owner"));
+  }
+  // 업데이트 전에 보낸 임베드 메시지는 Components V2로 고칠 수 없다
+  if (!interaction.message.flags.has(MessageFlags.IsComponentsV2)) return noticeSelf(interaction, errors.notice("unknown-interaction"));
   try {
     await interaction.deferUpdate();
-    const { embed, row } = await build(interaction.client);
-    await interaction.editReply({ embeds: [embed], components: [row] });
+    const { view, files } = await systemScreen(bot);
+    await interaction.editReply({ ...post(view, files), attachments: [] });
     keepSelf(interaction, LIFETIME.screen);
   } catch (error) {
-    log.error(failed, error);
+    log.error("시스템 정보 새로고침 실패:", error);
     try {
-      await noticeSelf(interaction, notice);
+      await noticeSelf(interaction, errors.notice("refresh-failed"));
     } catch (err) {
       log.error("오류 안내 전송 실패:", err);
     }
   }
 }
 
-async function handleSystemRefresh(interaction: Press, { players }: BotContext) {
-  // /system과 동일하게 봇 운영자 전용
-  if (!isBotOwner(interaction.user.id)) {
-    return await noticeSelf(interaction, errors.notice("must-owner"));
-  }
-  return refreshMessage(interaction, (client) => buildSystemEmbed(client, players), { failed: "시스템 정보 새로고침 실패:", notice: errors.notice("refresh-failed") });
-}
-
-// custom_id 접두사로 구분한다. 플레이어 없이도 눌리는 것(새로고침, 대기열 넘기기)과 재생 패널의 버튼.
+// custom_id 접두사로 구분한다. 플레이어 없이도 눌리는 것(새로고침, 다시 재기)과 재생 패널의 버튼. 대기열 화면의 버튼은 interactions/queue-handler
 const routes: Route[] = [
   route("button", customId(SYSTEM, "refresh"), handleSystemRefresh),
-  route("button", PAGE_PREFIX, handleQueuePage),
-  // 재생 패널의 버튼. 자동재생 버튼은 접두사가 더 좁아 interactions/autoplay 가 받는다
+  route("button", customId(PING, "again"), (interaction) => pingAgain(interaction)),
+  // 재생 패널의 버튼. 자동재생 버튼은 접두사가 더 좁아 interactions/autoplay가 받는다
   route("button", customId(PANEL, ""), handlePanelButton),
 ];
 
-export { routes, handlePanelButton, handleQueue, handleQueuePage, handleVolumeButton, volumeModal, refreshMessage, handleSystemRefresh };
+export { routes, handlePanelButton, handleVolumeButton, volumeModal, handleSystemRefresh };

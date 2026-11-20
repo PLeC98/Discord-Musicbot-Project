@@ -106,7 +106,7 @@ const steps = computed(() => {
 const overall = computed(() => (steps.value.length ? steps.value.reduce((sum, one) => sum + one, 0) / steps.value.length : 0));
 /** 인코딩이 끝난 배경(기록에서 교체할 수 있다) */
 const readyOf = (bg: LoginBackgroundItem) => bg.phase === "ready";
-/** 실패한 까닭(봇 문장표의 문제 코드 안내) */
+/** 실패한 원인(봇 문장표의 문제 코드 안내) */
 const problemOf = (bg: LoginBackgroundItem) => (bg.problem ? noticeText(bg.problem).title : "");
 /** 지금 하는 일 한 줄(올리는 중, 그 단계의 "…하는 중" 말) */
 const nowText = computed(() => {

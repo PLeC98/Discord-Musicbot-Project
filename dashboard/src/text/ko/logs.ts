@@ -37,13 +37,13 @@ const files = {
   /** 떼어 낸 파일: 날짜가 아니라 크기로 떼어 내므로 마지막 줄의 시각까지 적는다("언제부터"는 바로 앞 파일이 말해 준다) */
   until: (ms: number) => {
     const d = new Date(ms);
-    return `${d.getFullYear()}/${two(d.getMonth() + 1)}/${two(d.getDate())} ${d.getHours() < 12 ? "AM" : "PM"} ${two(d.getHours() % 12 || 12)}:${two(d.getMinutes())}:${two(d.getSeconds())} 까지`;
+    return `${d.getFullYear()}/${two(d.getMonth() + 1)}/${two(d.getDate())} ${d.getHours() < 12 ? "AM" : "PM"} ${two(d.getHours() % 12 || 12)}:${two(d.getMinutes())}:${two(d.getSeconds())}까지`;
   },
   whenFile: "파일, 날짜, 시간",
   when: "날짜 및 시간",
   loading: "불러오는 중",
   empty: "줄이 없어요",
-  loadFailed: "로그 파일을 읽지 못했어요",
+  loadFailed: "로그 파일을 불러오지 못했어요",
   off: "파일 로그가 꺼져 있어 지난 기록이 없어요",
 };
 

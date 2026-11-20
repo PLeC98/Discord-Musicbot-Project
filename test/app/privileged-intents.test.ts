@@ -30,7 +30,7 @@ test("꺼진 것은 빼고 요청하고, 무엇을 껐고 포털의 어디를 �
   assert.deepEqual(loggedInIntents(), { messageContent: false, guildMembers: true });
   const lines = linesFrom(from);
   assert.equal(lines.length, 1);
-  assert.match(lines[0], /^warn 특권 인텐트 Message Content Intent 꺼짐: 전용 채널에 채팅으로 곡을 넣는 기능을 끄고 기동 \| 개발자 포털 → 앱 → Bot → Privileged Gateway Intents 에서 켜고 다시 시작$/);
+  assert.match(lines[0], /^warn 특권 인텐트 Message Content Intent 꺼짐: 전용 채널에 채팅으로 곡을 넣는 기능을 끄고 기동 \| 개발자 포털 → 앱 → Bot → Privileged Gateway Intents에서 켜고 다시 시작$/);
 });
 
 test("100 서버 이상이면 스위치가 아니라 승인이 필요하다고 알린다", async () => {
@@ -41,7 +41,7 @@ test("100 서버 이상이면 스위치가 아니라 승인이 필요하다고 �
   assert.match(refusedAtLogin(), /승인이 필요함/);
 });
 
-test("앱 설정을 못 읽거나 flags 가 없으면 모르는 것이라 다섯을 다 요청한다", async () => {
+test("앱 설정을 못 읽거나 flags가 없으면 모르는 것이라 다섯을 다 요청한다", async () => {
   for (const read of [async () => Promise.reject(new Error("timeout")), async () => ({ approximate_guild_count: 2 })]) {
     const from = sink.buffer.length;
     const intents = await choosePrivilegedIntents(read);
@@ -52,7 +52,7 @@ test("앱 설정을 못 읽거나 flags 가 없으면 모르는 것이라 다섯
 });
 
 test("로그인이 거절되면(4014) 두 스위치를 다 안내한다(어느 것인지 모른다)", () => {
-  assert.equal(refusedAtLogin(), "로그인 거절: 개발자 포털에서 꺼진 특권 인텐트를 요청함 | Server Members Intent, Message Content Intent: 개발자 포털 → 앱 → Bot → Privileged Gateway Intents 에서 켜고 다시 시작");
+  assert.equal(refusedAtLogin(), "로그인 거절: 개발자 포털에서 꺼진 특권 인텐트를 요청함 | Server Members Intent, Message Content Intent: 개발자 포털 → 앱 → Bot → Privileged Gateway Intents에서 켜고 다시 시작");
 });
 
 test("실행 중 4014: 실행기가 있으면 다시 시작하고, 없으면 무엇을 하라고 알리고 남는다", () => {

@@ -1,10 +1,10 @@
 // src/media/loudness-measure.ts: 캐시 파일의 볼륨 측정과 측정 큐
 //
-// 지키는 것: 진행 줄이 섞여도 ebur128 의 100ms 줄과 요약을 읽고, 피크 상위 1% 는 게이트(-70 LUFS)를 넘은 프레임에서만 구한다.
-// 실패 분류: 진행 멈춤, 0 이 아닌 종료 코드, 줄이나 요약을 못 읽은 것은 환경 탓(기록하지 않는다), 줄 수가 길이와 안 맞거나 너무 조용하거나 게이트를 넘은 프레임이 없는 것은 파일 탓(file-failed).
-// 큐: 캐시 파일이 있고 맞는 값도 file-failed 도 없을 때만 넣고, 같은 키를 두 번 넣지 않는다. 지금 곡은 미리 받는 곡의 측정을 밀어내고(밀린 것은 다시 잰다),
-// 다른 지금 곡은 밀어내지 않는다. 재는 동안 파일 삭제를 막는다. 서버 문맥 밖에서 돈다. 자체 테스트가 실패하면 측정만 끈다. 종료 중에는 ffmpeg 를 실행하지 않는다.
-// 이 PC 의 ffmpeg 로 자체 테스트를 통과하고 실제 측정값이 맞다(ffmpeg 가 없으면 건너뛴다).
+// 지키는 것: 진행 줄이 섞여도 ebur128의 100ms 줄과 요약을 읽고, 피크 상위 1%는 게이트(-70 LUFS)를 넘은 프레임에서만 구한다.
+// 실패 분류: 진행 멈춤, 0이 아닌 종료 코드, 줄이나 요약을 못 읽은 것은 환경 탓(기록하지 않는다), 줄 수가 길이와 안 맞거나 너무 조용하거나 게이트를 넘은 프레임이 없는 것은 파일 탓(file-failed).
+// 큐: 캐시 파일이 있고 맞는 값도 file-failed도 없을 때만 넣고, 같은 키를 두 번 넣지 않는다. 지금 곡은 미리 받는 곡의 측정을 밀어내고(밀린 것은 다시 잰다),
+// 다른 지금 곡은 밀어내지 않는다. 재는 동안 파일 삭제를 막는다. 서버 문맥 밖에서 돈다. 자체 테스트가 실패하면 측정만 끈다. 종료 중에는 ffmpeg를 실행하지 않는다.
+// 이 PC의 ffmpeg로 자체 테스트를 통과하고 실제 측정값이 맞다(ffmpeg가 없으면 건너뛴다).
 
 import fs from "node:fs";
 import path from "node:path";
@@ -23,7 +23,7 @@ const { inGuild, currentGuild } = await import("../../src/infra/guild-context.ts
 const shutdown = await import("../../src/infra/shutdown-state.ts");
 const { ffmpegPath } = await import("../../src/media/ffmpeg/path.ts");
 
-// 이 PC 의 ffmpeg 출력(1kHz 사인파 0.6초)에 진행 줄을 섞은 표본
+// 이 PC의 ffmpeg 출력(1kHz 사인파 0.6초)에 진행 줄을 섞은 표본
 const SAMPLE = [
   "[Parsed_ebur128_2 @ 00000225904c9880] t: 0.0999792  TARGET:-23 LUFS    M:-120.7 S:-120.7     I: -70.0 LUFS       LRA:   0.0 LU  FTPK: -41.1 -41.1 dBFS  TPK: -41.1 -41.1 dBFS",
   "out_time_us=100000",
@@ -50,7 +50,7 @@ const readAll = (lines: string[]) => {
   return reading.result();
 };
 
-test("진행 줄이 섞여도 100ms 줄과 요약을 읽고, 피크 상위 1% 는 게이트를 넘은 프레임에서만 구한다", () => {
+test("진행 줄이 섞여도 100ms 줄과 요약을 읽고, 피크 상위 1%는 게이트를 넘은 프레임에서만 구한다", () => {
   assert.deepEqual(readAll(SAMPLE), { lines: 6, loudFrames: 3, integrated: -41.1, truePeak: -40.5, peakP99: -40.5 });
 });
 
@@ -59,7 +59,7 @@ test("실패 분류: 환경 탓과 파일 탓", () => {
   const done = { code: 0, timedOut: false };
   assert.deepEqual(verdictOf(done, { ...ok, integrated: -9 }, 0.6), { kind: "ok", value: { integrated: -9, truePeak: -40.5, peakP99: -40.5 } });
   assert.equal(verdictOf({ code: null, timedOut: true }, ok, 0.6).kind, "env", "진행 멈춤");
-  assert.equal(verdictOf({ code: 1, timedOut: false }, ok, 0.6).kind, "env", "0 이 아닌 종료 코드");
+  assert.equal(verdictOf({ code: 1, timedOut: false }, ok, 0.6).kind, "env", "0이 아닌 종료 코드");
   assert.equal(verdictOf(done, { ...ok, lines: 0 }, 0.6).kind, "env", "줄 형식이 다른 빌드");
   assert.equal(verdictOf(done, { ...ok, integrated: null }, 0.6).kind, "env", "요약 없음");
   assert.equal(verdictOf(done, { ...ok, integrated: -9 }, 0.7).kind, "ok", "한 줄 차이는 허용한다");
@@ -77,7 +77,7 @@ const RESULT: FfmpegResult = { code: 0, signal: null, stdout: "", output: Buffer
 const GOOD = (integrated = -9.5) => SAMPLE.map((line) => line.replace("I:         -41.1", `I:         ${integrated}`));
 const PROBE = [...Array.from({ length: 20 }, () => SAMPLE[3] as string), "  Integrated loudness:", "    I:         -20.0 LUFS", "  True peak:", "    Peak:      -20.0 dBFS"];
 
-// 가짜 ffmpeg. 자체 테스트(표준 입력이 있는 호출)는 맞는 출력으로 바로 끝낸다. 파일은 테스트가 finish 로 끝낸다
+// 가짜 ffmpeg. 자체 테스트(표준 입력이 있는 호출)는 맞는 출력으로 바로 끝낸다. 파일은 테스트가 finish로 끝낸다
 function fakeRun({ probe = PROBE } = {}) {
   const calls: Call[] = [];
   const run = (args: string[], options: FfmpegJob) =>
@@ -108,7 +108,7 @@ beforeEach(() => {
   shutdown._resetShutdown();
 });
 
-test("캐시 파일이 있고 맞는 값도 file-failed 도 없을 때만 큐에 넣고, 같은 키를 두 번 넣지 않는다", async () => {
+test("캐시 파일이 있고 맞는 값도 file-failed도 없을 때만 큐에 넣고, 같은 키를 두 번 넣지 않는다", async () => {
   const { calls, run } = fakeRun();
   const queue = new MeasureQueue({ run });
   seed("yt:a");
@@ -159,7 +159,7 @@ test("지금 곡은 미리 받는 곡의 측정을 밀어내고, 밀린 것은 �
   );
 });
 
-test("파일 탓이면 file-failed 로 기록해 다시 재지 않고, 환경 탓이면 기록하지 않는다", async () => {
+test("파일 탓이면 file-failed로 기록해 다시 재지 않고, 환경 탓이면 기록하지 않는다", async () => {
   const { calls, run } = fakeRun();
   let now = 1_000_000;
   const queue = new MeasureQueue({ run, now: () => now });
@@ -225,7 +225,7 @@ test("재는 동안 파일 삭제를 막고 서버 문맥 밖에서 돈다. 다 
   assert.equal((await audioCache.removeCached("yt:held", 1)).ok, true);
 });
 
-test("자체 테스트가 실패하면 측정만 끄고, 종료 중에는 ffmpeg 를 실행하지 않는다", async () => {
+test("자체 테스트가 실패하면 측정만 끄고, 종료 중에는 ffmpeg를 실행하지 않는다", async () => {
   const wrong = fakeRun({ probe: SAMPLE });
   const off = new MeasureQueue({ run: wrong.run });
   seed("yt:x");
@@ -242,7 +242,7 @@ test("자체 테스트가 실패하면 측정만 끄고, 종료 중에는 ffmpeg
   assert.equal(calls.length, 0);
 });
 
-// ── 이 PC 의 ffmpeg ──
+// ── 이 PC의 ffmpeg ──
 
 const hasFfmpeg = () => spawnSync(ffmpegPath(), ["-version"]).status === 0;
 
@@ -252,7 +252,7 @@ test("실제 ffmpeg: 자체 테스트를 통과하고, 테스트용 사인파 �
   fs.mkdirSync(audioCache.cacheDir(), { recursive: true });
   const file = audioCache.getFilePath(key);
   const made = spawnSync(ffmpegPath(), ["-hide_banner", "-y", "-f", "lavfi", "-i", "sine=f=1000:d=3:sample_rate=48000,volume=0.8,pan=stereo|c0=c0|c1=c0", "-c:a", "libopus", "-b:a", "128k", "-f", "ogg", file]);
-  if (made.status !== 0) return t.skip("ffmpeg 로 Opus 를 만들 수 없음");
+  if (made.status !== 0) return t.skip("ffmpeg로 Opus를 만들 수 없음");
   store.db().prepare("INSERT INTO audio_cache (audio_key, status, file_path, file_size_bytes, duration_sec, downloaded_at, created_at) VALUES (?, 'cached', ?, ?, 3, 1, 0)").run(key, file, fs.statSync(file).size);
   const queue = new MeasureQueue();
   const done = new Promise<string>((resolve) => queue.onMeasured(resolve));

@@ -1,4 +1,4 @@
-// src/discord/commands/search.ts 의 자동완성: 맨 위 줄과 곡 후보, 스포티파이 섞기, 연령 인증 안내, 마감과 실패, 100자 상한, 고친 선택지 이름, 다음 입력 기다리기
+// src/discord/commands/search.ts의 자동완성: 맨 위 줄과 곡 후보, 스포티파이 섞기, 연령 인증 안내, 마감과 실패, 100자 상한, 고친 선택지 이름, 다음 입력 기다리기
 
 import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
@@ -17,7 +17,7 @@ beforeEach(() => resetTextSearch());
 after(() => resetTextSearch());
 
 /**
- * 자동완성 하나를 부르고 답한 선택지. createdAt: 상호작용이 만들어진 시각(기본은 방금), user: 입력한 사람,
+ * 자동완성 하나를 부르고 응답한 선택지. createdAt: 상호작용이 만들어진 시각(기본은 방금), user: 입력한 사람,
  * wait: 다음 입력을 기다리는 것(기본은 바로 지나간다)
  */
 async function complete(typed: string, search: (query: string) => Promise<TextSearchResult>, { createdAt = Date.now(), user = "u1", wait = async () => {}, spotify = null as ((query: string) => Promise<SpotifyTrack[]>) | null } = {}) {
@@ -30,7 +30,7 @@ async function complete(typed: string, search: (query: string) => Promise<TextSe
   });
   // 스포티파이는 정하지 않으면 준비되지 않은 것(진짜 준비는 네트워크로 상태를 받는다)
   await searchCommand.autocomplete(it, bot, { search, wait, searchSpotify: spotify ?? (() => assert.fail("스포티파이를 찾지 않는다")), spotifyReady: () => spotify !== null });
-  assert.equal(answered.length, 1, "늘 한 번 답한다");
+  assert.equal(answered.length, 1, "늘 한 번 응답한다");
   return answered[0];
 }
 
@@ -87,7 +87,7 @@ test("연령 인증 안내만 왔으면 맨 위 줄 하나, 이름이 그 문장
   assert.deepEqual(await complete("閃光", async () => ({ tracks: [], gated: true })), [{ name: "유튜브가 연령 인증을 요구하는 검색어예요. 링크로 직접 넣어 주세요.", value: "閃光" }]);
 });
 
-test("마감 안에 못 찾거나 검색이 실패하면 맨 위 줄만 답한다(던지지 않는다)", async () => {
+test("마감 안에 못 찾거나 검색이 실패하면 맨 위 줄로만 응답한다(예외를 던지지 않는다)", async () => {
   const late = await complete("노래", never, { createdAt: Date.now() - 10_000 });
   assert.deepEqual(late, [{ name: '🔍 "노래" 검색 결과 보기', value: "노래" }]);
   const failed = await complete("노래", async () => {
@@ -109,7 +109,7 @@ test("선택한 후보의 이름을 고쳐 온 것: 맨 위 줄은 따옴표 안
   assert.deepEqual(await complete("유튜브가 연령 인증을 요구하는 검색어예요. 링크로", () => assert.fail("찾지 않는다")), []);
 });
 
-test("같은 사람의 다음 입력이 기다리는 동안 오면 앞 요청은 찾지 않고 기억으로만 답한다. 다른 사람은 따로 센다", async () => {
+test("같은 사람의 다음 입력이 기다리는 동안 오면 앞 요청은 찾지 않고 기억으로만 응답한다. 다른 사람은 따로 센다", async () => {
   const asked: string[] = [];
   const record = async (q: string) => (asked.push(q), { tracks: [], gated: false });
   let release!: () => void;
@@ -136,12 +136,12 @@ test("이미 찾아 둔 검색어는 기다리지도 다시 찾지도 않는다"
   assert.deepEqual(choices[1], { name: "좋은 날 - 아이유 (3:56)", value: "yt:aaaaaaaaaaa" });
 });
 
-// 스포티파이 곡 id 는 22자. i 는 0 ~ 9
+// 스포티파이 곡 id는 22자. i는 0 ~ 9
 const spotifyTrack = (i: number): SpotifyTrack => ({ title: `스포티파이 ${i}`, artist: "가수", album: null, pageUrl: `https://open.spotify.com/track/${String(i).repeat(22)}`, requestKey: "", duration: 200, thumbnail: null, platform: "spotify", id: String(i).repeat(22) });
 const youtubeList = (n: number) => Array.from({ length: n }, (_, i) => tracks.youtube(`y${String(i).padStart(10, "0")}`, { title: `유튜브 ${i}`, artist: "채널", duration: 60 }));
 const spotifyList = (n: number) => Array.from({ length: n }, (_, i) => spotifyTrack(i));
 
-test("스포티파이가 준비돼 있으면 유튜브 7, 스포티파이 3 을 섞는다. 이름 끝 (Spotify), 값 sp:<곡 id>. 한쪽이 모자라면 다른 쪽으로 채운다", async () => {
+test("스포티파이가 준비돼 있으면 유튜브 7, 스포티파이 3을 섞는다. 이름 끝 (Spotify), 값 sp:<곡 id>. 한쪽이 모자라면 다른 쪽으로 채운다", async () => {
   const both = await complete("노래", found(youtubeList(12)), { spotify: async () => spotifyList(10) });
   assert.equal(both.length, 11);
   assert.deepEqual(

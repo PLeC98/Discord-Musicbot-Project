@@ -1,5 +1,5 @@
 // src/store/guild-settings.ts, src/discord/commands/setplaylistlimit.ts: 재생목록을 한 번에 넣는 곡 수(서버 설정의 범위 계산과 /setplaylistlimit).
-// 진짜 서버 설정을 임시 DB 로 쓴다.
+// 진짜 서버 설정을 임시 DB로 쓴다.
 
 import { test, beforeEach, after } from "node:test";
 import { LIFETIME, lifetimesOf } from "../../src/ui/delivery.ts";

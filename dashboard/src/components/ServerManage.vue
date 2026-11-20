@@ -10,7 +10,7 @@
           <button v-for="(k, i) in KINDS" :key="k.value" type="button" role="radio" :aria-checked="kind === k.value" :class="[segment(kind === k.value, i, KINDS.length), '@max-sm/card:px-2 @max-sm/card:gap-1']" @click="kind = k.value"><Icon :name="kind === k.value ? 'check' : k.icon" :size="18" :class="kind !== k.value && '@max-xs/card:hidden!'" />{{ k.label }}</button>
         </div>
         <!-- 서식 도구줄(디스코드 임베드가 그리는 마크다운). 누르면 선택한 글을 감싸거나 선택한 줄 앞에 기호를 붙인다(이미 있으면 뗀다).
-             누르는 동안 입력란의 선택이 풀리지 않게 mousedown 을 막는다 -->
+             누르는 동안 입력란의 선택이 풀리지 않게 mousedown을 막는다 -->
         <div class="flex flex-wrap items-center gap-1 -ml-1" role="toolbar" :aria-label="T.announce.toolbar">
           <template v-for="(group, gi) in FORMAT_GROUPS" :key="gi">
             <span v-if="gi" class="w-px h-5 mx-1 bg-outline-variant" aria-hidden="true"></span>
@@ -39,7 +39,7 @@
             <span class="w-1 shrink-0" :style="{ backgroundColor: style.color }"></span>
             <div class="min-w-0 flex-1 px-4 py-3">
               <div class="flex items-center gap-2 text-sm font-semibold text-on-surface">
-                <span class="inline-flex size-5 items-center justify-center rounded-[28%]" :style="{ backgroundColor: tile.tile, color: tile.glyph }"><Icon :name="KIND_ICON[kind]" :size="16" fill :weight="700" /></span>{{ style.title }}
+                <span class="inline-flex size-5 items-center justify-center rounded-[28%]" :style="{ backgroundColor: tile.tile, color: tile.glyph }"><Icon :name="KIND_ICON[kind]" :size="16" fill :weight="700" /></span>{{ announceTitle }}
               </div>
               <!-- 본문은 디스코드 마크다운으로 그린다(utils/discord-markdown). 스포일러는 누르면 드러난다 -->
               <!-- eslint-disable-next-line vue/no-v-html -- 글은 이스케이프하고 만든 태그만 넣는다 -->
@@ -50,7 +50,7 @@
           </div>
         </div>
         <div class="flex justify-end">
-          <BaseButton variant="primary" :disabled="sending || !body || tooLong" @click="sendOpen = true"><Icon name="send" :size="20" />{{ sending ? T.announce.sending : T.announce.send(style.title) }}</BaseButton>
+          <BaseButton variant="primary" :disabled="sending || !body || tooLong" @click="sendOpen = true"><Icon name="send" :size="20" />{{ sending ? T.announce.sending : T.announce.send(announceTitle) }}</BaseButton>
         </div>
       </div>
     </BaseCard>
@@ -99,7 +99,7 @@
       </div>
     </BaseCard>
 
-    <ConfirmDialog v-model="sendOpen" tone="primary" :icon="KIND_ICON[kind]" :title="T.announce.confirmTitle(list.total)" :body="T.announce.confirmBody(style.title)" :confirm-label="T.announce.confirm" :busy="sending" @confirm="send" />
+    <ConfirmDialog v-model="sendOpen" tone="primary" :icon="KIND_ICON[kind]" :title="T.announce.confirmTitle(list.total)" :body="T.announce.confirmBody(announceTitle)" :confirm-label="T.announce.confirm" :busy="sending" @confirm="send" />
     <ConfirmDialog :model-value="leaveTarget !== null" icon="logout" :title="T.guilds.leaveTitle(leaveTarget?.name ?? '')" :body="T.guilds.leaveBody(Boolean(leaveTarget?.hasPlayer))" :confirm-label="T.guilds.leave" :busy="leaving" @update:model-value="(v) => !v && (leaveTarget = null)" @confirm="leave" />
   </div>
 </template>
@@ -135,6 +135,7 @@ import { segment } from "../utils/segment.ts";
 import { ANNOUNCE_MAX, ANNOUNCE_STYLE, Q_MAX, announceBody, type AdminGuild, type AdminGuilds, type AnnounceKind, type BroadcastReply, type GuildQuery, type GuildSort, type Span } from "../../../src/dashboard/contract/admin.ts";
 import type { IconName } from "../icons.ts";
 import { ICONS } from "../../../src/ui/icons.ts";
+import * as announceText from "../../../src/ui/text/ko/announce.ts";
 import { iconTones } from "../../../src/rules/icon-tones.ts";
 import { formatNumber, formatTime } from "../utils/locale.ts";
 import { text } from "../text/index.ts";
@@ -151,7 +152,7 @@ const emit = defineEmits<{ changed: [] }>();
 const FIELD = "block w-full bg-surface-container-highest border border-transparent rounded-(--r-inner) text-on-surface text-sm font-[inherit] pl-4 pr-12 py-3 resize-y outline-none transition-[border-color] effects-fast focus:border-primary placeholder:text-on-surface-variant";
 
 // ── 전체 공지 ──
-// 종류는 서버의 것(contract/admin 의 ANNOUNCE_KINDS)
+// 종류는 서버의 것(contract/admin의 ANNOUNCE_KINDS)
 const KIND_LABEL: Record<AnnounceKind, string> = T.announce.kinds;
 // 종류 버튼, 미리보기의 아이콘: 보낼 임베드의 아이콘과 같은 기호(ui/icons)
 const KIND_ICON: Record<AnnounceKind, IconName> = { maintenance: ICONS[ANNOUNCE_STYLE.maintenance.icon].glyph, update: ICONS[ANNOUNCE_STYLE.update.icon].glyph, alert: ICONS[ANNOUNCE_STYLE.alert.icon].glyph, info: ICONS[ANNOUNCE_STYLE.info.icon].glyph };
@@ -169,6 +170,8 @@ const now = useNow({ scheduler: (cb) => useIntervalFn(cb, 10_000) });
 const sentAt = computed(() => T.announce.today(formatTime(now.value, { hour: "numeric", minute: "2-digit" })));
 // 봇이 보낼 임베드의 모양(공유 타입의 ANNOUNCE_STYLE). 아이콘 타일은 디스코드 앱 이모지와 같은 색(rules/icon-tones)
 const style = computed(() => ANNOUNCE_STYLE[kind.value]);
+// 임베드 제목은 봇이 보낼 때와 같은 봇 문구표에서
+const announceTitle = computed(() => announceText.titles[kind.value]);
 const tile = computed(() => iconTones(style.value.color));
 const tooLong = computed(() => length.value > ANNOUNCE_MAX);
 const sendOpen = ref(false);
@@ -223,7 +226,7 @@ function insertEmoji(char: string) {
   });
 }
 
-// 붙여넣은 토큰은 문자로(insertText 라 되돌리기에 남는다), 복사, 잘라내기는 앱 이모지 문자를 토큰으로
+// 붙여넣은 토큰은 문자로(insertText라 되돌리기에 남는다), 복사, 잘라내기는 앱 이모지 문자를 토큰으로
 function onPaste(e: ClipboardEvent) {
   const pasted = e.clipboardData?.getData("text/plain") ?? "";
   const converted = toChars(pasted);
@@ -251,7 +254,7 @@ async function send() {
     if (data.failed) notify({ title: T.announce.partial.title, body: T.announce.partial.body(data.sent, data.failed), severity: "warning" });
     else notifyDone(T.announce.done, T.announce.doneBody(data.sent));
   } catch (e) {
-    // 서버가 알려 준 까닭을 보인다. "보내지 못함"만으로는 무엇을 고쳐야 할지 모른다
+    // 서버가 알려 준 원인을 보인다. "보내지 못함"만으로는 무엇을 고쳐야 할지 모른다
     notifyProblem(e, T.announce.failed);
   } finally {
     sending.value = false;

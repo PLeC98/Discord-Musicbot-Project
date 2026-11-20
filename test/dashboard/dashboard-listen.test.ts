@@ -52,7 +52,7 @@ test("열 주소마다 서버를 열고 실제로 연 주소를 돌려준다", a
 });
 
 test("포트가 쓰이고 있으면 연 것도 닫고 DASHBOARD_PORT를 안내한다", async () => {
-  // 첫 주소는 열리고 둘째(::1)에서 포트가 겹친다(가짜). 첫 주소는 macOS 에도 있는 127.0.0.1(macOS 의 루프백은 127.0.0.1 하나뿐이다)
+  // 첫 주소는 열리고 둘째(::1)에서 포트가 겹친다(가짜). 첫 주소는 macOS에도 있는 127.0.0.1(macOS의 루프백은 127.0.0.1 하나뿐이다)
   const port = await freePort();
   lines.length = 0;
   // 만든 서버를 모두 모아 두고 끝에 닫는다(닫지 않고 남기면 테스트가 끝나지 않는다)
@@ -107,32 +107,32 @@ test("::1을 열지 못하면 그 주소만 빼고 연다. 다른 오류는 아�
   assert.match(lines.find((l) => l.level >= 50)?.msg ?? "", /EACCES/);
 });
 
-// 요청을 읽지 못한 연결이 받는 답. 핸들러를 달아도 Node 의 기본 답과 같아야 한다
+// 요청을 읽지 못한 연결이 받는 응답. 핸들러를 달아도 Node의 기본 응답과 같아야 한다
 function rawReply(port: number, request: string) {
   return new Promise<string>((done) => {
     const socket = net.connect(port, "127.0.0.1");
     let got = "";
     socket.on("data", (chunk) => (got += String(chunk)));
     socket.on("error", () => {
-      // 서버가 답을 쓰고 끊는다(덜 읽은 요청이 남으면 RST)
+      // 서버가 응답을 쓰고 끊는다(덜 읽은 요청이 남으면 RST)
     });
     socket.on("close", () => done(got));
     socket.write(request);
   });
 }
 
-test("읽지 못한 요청에는 Node 의 기본 처리와 같은 답을 준다", async () => {
+test("읽지 못한 요청에는 Node의 기본 처리와 같은 응답을 준다", async () => {
   const { servers } = await listenAll(make, ["127.0.0.1"], 0);
   const [server] = servers;
   const plain = http.createServer();
   await new Promise<void>((done) => plain.listen(0, "127.0.0.1", done));
   const portOf = (one: http.Server) => (one.address() as { port: number }).port;
-  // 헤더 상한(16KB)을 넘기되, 서버가 끊을 때 덜 읽은 요청이 남지 않을 크기(남으면 RST 로 답이 사라진다)
+  // 헤더 상한(16KB)을 넘기되, 서버가 끊을 때 덜 읽은 요청이 남지 않을 크기(남으면 RST로 응답이 사라진다)
   const requests = { 망가진: "이건 요청이 아니다\r\n\r\n", "헤더 큼": `GET / HTTP/1.1\r\nHost: x\r\nX-Big: ${"a".repeat(20 * 1024)}\r\n\r\n` };
   try {
     for (const [what, request] of Object.entries(requests)) {
       const expected = await rawReply(portOf(plain), request);
-      assert.match(expected, /^HTTP\/1\.1 4\d\d /, `${what}: 기본 처리가 답을 준다`);
+      assert.match(expected, /^HTTP\/1\.1 4\d\d /, `${what}: 기본 처리가 응답을 준다`);
       assert.equal(await rawReply(portOf(server), request), expected, what);
     }
   } finally {
@@ -153,7 +153,7 @@ test("연 뒤의 서버 오류는 로그로 남기고 프로세스를 죽이지 
 });
 
 test("서버를 만들다 예외를 던지면 앞에서 연 것도 닫는다(0.0.0.0으로 바꿔 열 때도)", async () => {
-  // [열 주소, 몇 번째로 만들 때 던지나]. 둘째는 ::가 EAFNOSUPPORT로 실패한 뒤 0.0.0.0 서버를 만들 때 던진다
+  // [열 주소, 몇 번째로 만들 때 예외를 던지나]. 둘째는 ::가 EAFNOSUPPORT로 실패한 뒤 0.0.0.0 서버를 만들 때 예외를 던진다
   const cases: Array<[string[], number]> = [
     [["127.0.0.1", "127.0.0.2"], 2],
     [["127.0.0.1", "::"], 3],

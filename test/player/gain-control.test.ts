@@ -1,9 +1,9 @@
 // src/player/gain-control.ts: 볼륨 정규화의 게인 조절기(재생 상태와 파이프라인별 게인 탭)
 //
-// 지키는 것: 고정 게인 규칙(줄이는 쪽은 그대로, 증폭은 상한과 프레임 피크 상위 1% 로 제한하고 0 dB 아래로는 내리지 않음), 지금 캐시 파일과 같은 파일의 측정값만 고정 게인으로 쓴다.
+// 지키는 것: 고정 게인 규칙(줄이는 쪽은 그대로, 증폭은 상한과 프레임 피크 상위 1%로 제한하고 0 dB 아래로는 내리지 않음), 지금 캐시 파일과 같은 파일의 측정값만 고정 게인으로 쓴다.
 // 정규화를 끈 서버는 게인 0, 리미터 끔. 켠 서버는 리미터를 켜고 측정값이 없으면 재생 중 측정으로 따라간다. 새 재생의 첫 프레임은 그 곡의 시작 게인이고, 이어 트는 재생의 새 탭은 확정 전까지 기존 재생 상태의 보낸 게인을 준다.
 // 확정하면 이전 탭은 마지막 게인으로 고정된다. 설정을 바꾸거나 측정값이 생기면 보낸 게인에서 이어서 램프한다(감소 1초, 증가 초당 3 dB, 프레임 수 기준).
-// 끈 뒤에도 게인이 0 으로 다 돌아올 때까지 리미터를 켠다. 측정값이 없는 캐시 파일을 틀거나 재생 중에 정규화를 켜면 측정을 요청한다.
+// 끈 뒤에도 게인이 0으로 다 돌아올 때까지 리미터를 켠다. 측정값이 없는 캐시 파일을 틀거나 재생 중에 정규화를 켜면 측정을 요청한다.
 // 재생 중 측정: 시작값(저장된 지난 값, 측정값이 곧 올 10분 이하 곡은 음악 가정, 그 밖에는 0 dB), 블록이 끝난 위치의 값을 선형 보간해 프레임 위치 + 1초에서 읽기,
 // 이어 트는 재생의 새 탭은 확정 전의 블록을 쌓아 둔다. 저장: 들은 양 30초 초과만, 끝까지 재생하며 측정한 값의 조건, 라이브는 5분마다, 끝까지 재생하며 측정한 값의 고정 게인.
 
@@ -47,13 +47,13 @@ beforeEach(() => {
   store.db().prepare("DELETE FROM audio_cache").run();
 });
 
-test("고정 게인: 줄이는 쪽은 그대로, 증폭은 상한과 프레임 피크 상위 1% 로 제한하고 피크가 이미 높은 조용한 곡은 줄이지 않는다", () => {
+test("고정 게인: 줄이는 쪽은 그대로, 증폭은 상한과 프레임 피크 상위 1%로 제한하고 피크가 이미 높은 조용한 곡은 줄이지 않는다", () => {
   const row = (kind: "file" | "heard-full", integrated: number, peakP99: number) => ({ kind, integrated, truePeak: 0, peakP99, heardSec: null, sizeBytes: null, durationSec: null, audioVersion: null, algo: 1, measuredAt: 0, usedAt: 0 });
   assert.equal(fixedGainOf(row("file", -8, -1)), -6);
-  assert.equal(fixedGainOf(row("file", -30, -40)), 12, "파일은 +12 까지");
-  assert.equal(fixedGainOf(row("heard-full", -30, -40)), 6, "끝까지 재생하며 측정한 값은 +6 까지");
-  assert.equal(fixedGainOf(row("file", -20, -5)), 3.5, "프레임 피크 상위 1% 가 -1.5 에 닿는 데까지");
-  assert.equal(fixedGainOf(row("heard-full", -20, -5)), 3, "재생 중 측정한 값은 피크에 0.5 dB 를 더한다");
+  assert.equal(fixedGainOf(row("file", -30, -40)), 12, "파일은 +12까지");
+  assert.equal(fixedGainOf(row("heard-full", -30, -40)), 6, "끝까지 재생하며 측정한 값은 +6까지");
+  assert.equal(fixedGainOf(row("file", -20, -5)), 3.5, "프레임 피크 상위 1%가 -1.5에 닿는 데까지");
+  assert.equal(fixedGainOf(row("heard-full", -20, -5)), 3, "재생 중 측정한 값은 피크에 0.5 dB를 더한다");
   assert.equal(fixedGainOf(row("file", -20, 0)), 0, "max(0, ...)");
   assert.equal(fixedGainOf(row("file", -55, -60)), null, "-50 LUFS 아래는 쓰지 않는다");
 });
@@ -103,10 +103,10 @@ test("재생 중에 측정값이 생기면 보낸 게인에서 램프한다: 감
   cached("yt:q", -20, -30);
   up.gain.valueArrived("yt:q");
   assert.ok(near(frames(quiet, 50).gain, 3), "1초에 3 dB");
-  assert.ok(near(frames(quiet, 50).gain, 6), "2초에 6 dB 에 닿는다");
+  assert.ok(near(frames(quiet, 50).gain, 6), "2초에 6 dB에 닿는다");
 });
 
-test("정규화 켜고 끄기를 프레임마다 읽고 보낸 게인에서 램프한다. 끈 뒤에도 0 으로 다 돌아올 때까지 리미터를 켠다. 켜면 측정값이 없는 캐시 파일의 측정을 요청한다", () => {
+test("정규화 켜고 끄기를 프레임마다 읽고 보낸 게인에서 램프한다. 끈 뒤에도 0으로 다 돌아올 때까지 리미터를 켠다. 켜면 측정값이 없는 캐시 파일의 측정을 요청한다", () => {
   cached("yt:c", -8);
   const { gain, state, measured } = control(false);
   const tap = gain.openTap(info("yt:c", { continued: false }), FILE);
@@ -119,7 +119,7 @@ test("정규화 켜고 끄기를 프레임마다 읽고 보낸 게인에서 램�
   state.on = false;
   const first = tap.frame(0);
   assert.ok(first.press && near(first.gain, -6 + 3 / 50), JSON.stringify(first));
-  assert.ok(frames(tap, 98).press, "0 으로 다 돌아오는 2초가 되기 전까지는 리미터를 켠다");
+  assert.ok(frames(tap, 98).press, "0으로 다 돌아오는 2초가 되기 전까지는 리미터를 켠다");
   assert.deepEqual(frames(tap, 2), { gain: 0, press: false });
   assert.deepEqual(measured, [], "측정값이 있는 곡은 측정을 요청하지 않는다");
 
@@ -194,7 +194,7 @@ function blocks(tap: { block(endPos: number, m: number, peak: number): void }, n
   return pos;
 }
 
-test("시작값: 측정값이 곧 올 10분 이하의 곡은 음악 가정(-8 LUFS, 게인 -6), 길거나 길이를 모르면 0 dB, 저장된 지난 값이 있으면 그 값에서 시작한다(증폭은 +6 과 지난 값의 증폭 한도까지)", () => {
+test("시작값: 측정값이 곧 올 10분 이하의 곡은 음악 가정(-8 LUFS, 게인 -6), 길거나 길이를 모르면 0 dB, 저장된 지난 값이 있으면 그 값에서 시작한다(증폭은 +6과 지난 값의 증폭 한도까지)", () => {
   const { gain } = control(true);
   assert.equal(gain.openTap(info("yt:soon", { lengthSec: 200, downloadMatches: true }), STREAM).frame(0).gain, -6);
   assert.equal(gain.openTap(info("yt:file", { lengthSec: 200 }), FILE).frame(0).gain, -6, "측정값 없는 캐시 파일도 곧 잰다");
@@ -203,8 +203,8 @@ test("시작값: 측정값이 곧 올 10분 이하의 곡은 음악 가정(-8 LU
   assert.equal(gain.openTap(info("dl:radio"), { ...STREAM, live: true, downloading: false }).frame(0).gain, 0);
 
   loudness.recordHeard("dl:radio", "heard-part", { value: { integrated: -30, truePeak: -12, peakP99: -14 }, identity: { sizeBytes: null, durationSec: null, audioVersion: null }, heardSec: 600 });
-  assert.equal(gain.openTap(info("dl:radio"), { ...STREAM, live: true, downloading: false }).frame(0).gain, 6, "+16 이 아니라 +6");
-  // 캐시 파일이 정리된 곡을 스트림으로 다시 틀 때: 길이가 맞는 file 값이 예전 heard-part 보다 우선한다
+  assert.equal(gain.openTap(info("dl:radio"), { ...STREAM, live: true, downloading: false }).frame(0).gain, 6, "+16이 아니라 +6");
+  // 캐시 파일이 정리된 곡을 스트림으로 다시 틀 때: 길이가 맞는 file 값이 예전 heard-part보다 우선한다
   loudness.recordHeard("yt:evicted", "heard-part", { value: { integrated: -30, truePeak: -12, peakP99: -14 }, identity: { sizeBytes: null, durationSec: null, audioVersion: null }, heardSec: 600 });
   loudness.recordFile("yt:evicted", { integrated: -10, truePeak: -1, peakP99: -2 }, { sizeBytes: 1000, durationSec: 200, audioVersion: null });
   assert.equal(gain.openTap(info("yt:evicted", { lengthSec: 201 }), STREAM).frame(0).gain, -4);
@@ -218,7 +218,7 @@ test("추종: 블록이 끝난 위치의 값을 선형 보간해 프레임의 �
   gain.commit(tap, "dl:loud");
   assert.ok(tap.metering());
   assert.equal(tap.frame(0).gain, 0);
-  // 큰 소리(-4 LUFS) 2초: 추종이 게인을 내린다. 프레임은 1초 앞의 값을 향해 초당 20 dB 까지 따라간다
+  // 큰 소리(-4 LUFS) 2초: 추종이 게인을 내린다. 프레임은 1초 앞의 값을 향해 초당 20 dB까지 따라간다
   blocks(tap, 20, -4, -2);
   const sent = frames(tap, 50).gain;
   assert.ok(sent < -1, `보낸 게인 ${sent}`);
@@ -271,7 +271,7 @@ test("저장: 정상 종료이고 0초부터 끊김 없이 끝까지 측정했�
   assert.ok(loudness.rowsOf("yt:cont")["heard-part"], "이어 튼 재생이 있었다");
 });
 
-test("끝까지 재생하며 측정한 값은 길이와 크기가 맞으면 다음 재생부터 고정 게인(+6 까지)이고, 크기가 다르면 시작값으로만 쓴다", () => {
+test("끝까지 재생하며 측정한 값은 길이와 크기가 맞으면 다음 재생부터 고정 게인(+6까지)이고, 크기가 다르면 시작값으로만 쓴다", () => {
   loudness.recordHeard("yt:heard", "heard-full", { value: { integrated: -30, truePeak: -20, peakP99: -22 }, identity: { sizeBytes: 5000, durationSec: 60, audioVersion: null }, heardSec: 59 });
   const { gain } = control(true);
   const same = gain.openTap(info("yt:heard", { lengthSec: 61 }), { ...STREAM, sizeBytes: 5000 });
@@ -298,7 +298,7 @@ test("라이브는 5분(3000블록)마다 지금까지 측정한 값을 저장�
   assert.ok(loudness.rowsOf("dl:radio2")["heard-part"]);
 });
 
-test("재생 중에 정규화를 켜면 0 dB 에서 추종을 시작하고 끝까지 재생하며 측정한 값이 될 수 없다", () => {
+test("재생 중에 정규화를 켜면 0 dB에서 추종을 시작하고 끝까지 재생하며 측정한 값이 될 수 없다", () => {
   const { gain, state } = control(false);
   const sized: PathFacts = { ...STREAM, sizeBytes: 5000 };
   const tap = gain.openTap(info("yt:mid", { lengthSec: 60, downloadMatches: true }), sized);

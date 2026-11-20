@@ -39,10 +39,10 @@ import { announcer, dashboardActor, dashboardResponder } from "../discord-notice
 import { assertSignedIn, sessionEnded } from "../session-requests.ts";
 
 // ── 재생 조작 ──
-// 전제 조건과 권한은 usecases/controls 가 본다. 경로는 입력 모양만 확정하고 거절을 HTTP 로 옮긴다.
+// 전제 조건과 권한은 usecases/controls가 본다. 경로는 입력 모양만 확정하고 거절을 HTTP로 옮긴다.
 // 받아들인 조작은 디스코드의 패널 채널에도 디스코드 조작과 같은 화면으로 알린다(discordNotice).
 
-// 조작의 거절(ok: false 와 문제)을 문제 응답으로
+// 조작의 거절(ok: false와 문제)을 문제 응답으로
 const refuse = (res: Response, { ok: _ok, ...problem }: controls.Refusal) => refuseWith(res, problem);
 
 // 이어 넣기 상태를 화면에. 선택지 단위(batch)는 코어가 서버 설정으로 채워 둔다
@@ -90,10 +90,10 @@ function readRoutes(router: Router) {
     const userId = signedIn(req).id;
     const voice = voiceFlags(guild, userId);
 
-    // 제어/추가 가능 여부. UI 표시용 (실제 강제는 각 엔드포인트가 담당). member 는 openGuild 가 지금 멤버십으로 가져온다.
+    // 제어/추가 가능 여부. UI 표시용 (실제 강제는 각 엔드포인트가 담당). member는 openGuild가 지금 멤버십으로 가져온다.
     const controllable = !(await checkControl(member));
     const addable = !checkAdd(member);
-    // 서버 설정 버튼: 보이는 카드가 있는가(설정 화면 GET 과 같은 표)
+    // 서버 설정 버튼: 보이는 카드가 있는가(설정 화면 GET과 같은 표)
     const hasSettings = shownCards(await viewerOf(req, member)).length > 0;
 
     // hasPlayer: 봇의 음성 채널 접속(디스코드 상태)과 플레이어 존재(봇 내부 상태)는 어긋날 수 있다.
@@ -114,7 +114,7 @@ function readRoutes(router: Router) {
     res.json({ items: queue.slice(offset, offset + limit).map((t, i) => queueTrack(ctx.guild.id, t, offset + i)), total: queue.length } satisfies QueuePage);
   });
 
-  // 직접 링크 곡의 파일 태그 앨범아트(다시 인코딩한 JPEG). 그 서버의 지금 곡, 대기열에서 찾은 이미지만 답하고, 메모리, 캐시 파일에서만 읽는다(통신하지 않는다).
+  // 직접 링크 곡의 파일 태그 앨범아트(다시 인코딩한 JPEG). 그 서버의 지금 곡, 대기열에서 찾은 이미지로만 응답하고, 메모리, 캐시 파일에서만 읽는다(통신하지 않는다).
   // 주소의 해시가 이미지 내용을 가리켜 브라우저가 다시 요청하지 않는다. 대기열 앨범아트가 한꺼번에 불려 일반 API 한도와 따로, 넉넉히 센다
   const artLimiter = limiter(() => config.dashboard.rateLimit.apiMax * ART_LIMIT_FACTOR);
   router.get("/:guildId/art/:file", requireAuth, artLimiter, async (req: Request<{ guildId: string; file: string }>, res: Response) => {
@@ -130,7 +130,7 @@ function readRoutes(router: Router) {
   });
 }
 
-// 음성 참가. 판정과 처리는 디스코드 /join 과 같다(usecases/join). 붙었거나 복원한 결과는 디스코드의 패널 채널에도 알린다
+// 음성 참가. 판정과 처리는 디스코드 /join과 같다(usecases/join). 붙었거나 복원한 결과는 디스코드의 패널 채널에도 알린다
 function joinRoute(router: Router) {
   router.post("/:guildId/player/join", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
@@ -152,7 +152,7 @@ function joinRoute(router: Router) {
   });
 }
 
-// 조작 뒤의 재생 상태. 모든 조작이 같은 모양으로 답한다. 조작이 플레이어를 버렸을 수 있어(정지) 레지스트리에서 다시 찾는다
+// 조작 뒤의 재생 상태. 모든 조작이 같은 모양으로 응답한다. 조작이 플레이어를 버렸을 수 있어(정지) 레지스트리에서 다시 찾는다
 function stateAfter(req: Request<{ guildId: string }>) {
   return playerState(req.app.locals.bot.players.get(req.params.guildId), queueWindow(req));
 }
@@ -242,7 +242,7 @@ function controlRoutes(router: Router) {
     res.json(stateAfter(req));
   });
 
-  // 하이라이트로. 디스코드 /highlight 와 같은 조작, 같은 안내
+  // 하이라이트로. 디스코드 /highlight와 같은 조작, 같은 안내
   router.post("/:guildId/player/highlight", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
@@ -258,7 +258,7 @@ function controlRoutes(router: Router) {
   router.post("/:guildId/player/loop", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
-    // 모르는 값은 undefined 로 넘겨 bad-loop-mode 로 거절받는다
+    // 모르는 값은 undefined로 넘겨 bad-loop-mode로 거절받는다
     const announce = announcer(ctx.bot, ctx.player);
     const r = await controls.loop(ctx.player, ctx.actor, loopOf(req.body?.mode));
     if (!r.ok) return refuse(res, r);
@@ -278,7 +278,7 @@ function controlRoutes(router: Router) {
   });
 }
 
-// 대기열 빼기, 옮기기. 순번이 아니라 대기열 ID로 가리킨다(화면이 보던 목록이 오래돼도 그 곡). 디스코드 /remove, /move 는 지금 본 번호로 보낸다
+// 대기열 빼기, 옮기기. 순번이 아니라 대기열 ID로 가리킨다(화면이 보던 목록이 오래돼도 그 곡). 디스코드 /remove, /move는 지금 본 번호로 보낸다
 function queueEditRoutes(router: Router) {
   // 대기열 ID로 빼기 { entries }(빼기 버튼은 한 곡, 고른 곡 빼기는 여러 곡). 곡마다 DJ 계층이거나 그 곡의 요청자 본인이고, 하나라도 아니면 모두 거절
   router.post("/:guildId/player/queue/remove", requireAuth, async (req, res) => {
@@ -293,7 +293,7 @@ function queueEditRoutes(router: Router) {
     res.json(stateAfter(req));
   });
 
-  // 대기열 ID로 옮기기 { entry, before }. entry 곡을 before 곡 앞으로, before 가 null 이면 맨 끝
+  // 대기열 ID로 옮기기 { entry, before }. entry 곡을 before 곡 앞으로, before가 null이면 맨 끝
   router.post("/:guildId/player/queue/move-entry", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
@@ -313,9 +313,9 @@ function searchFailed(guildId: string, q: string, error: unknown) {
   log.error({ sub: "search" }, `검색 요청 처리 실패: 서버=${guildId} | 검색어=${q} | ${messageOf(error)}${at ? ` | ${at.trim()}` : ""}`);
 }
 
-// 자동재생. 판정과 처리는 디스코드의 장르 메뉴와 같다(usecases/controls 의 autoplay)
+// 자동재생. 판정과 처리는 디스코드의 장르 메뉴와 같다(usecases/controls의 autoplay)
 // 곡 추가 칸의 실시간 검색 GET /:guildId/player/search?q=. 곡 추가와 같은 문(플레이어, 동일 음성 채널 규칙)을 지난 사람만.
-// 검색은 봇과 같은 IP 로 유튜브에 묻는 일이고, 봇 전체가 함께 쓰는 검색 자리(동시 넷)를 재생할 곡의 매칭, 자동재생, /play 와 나눠 쓴다.
+// 검색은 봇과 같은 IP로 유튜브에 묻는 일이고, 봇 전체가 함께 쓰는 검색 자리(동시 넷)를 재생할 곡의 매칭, 자동재생, /play와 나눠 쓴다.
 // 그래서 사람마다 한 번에 하나만 찾고(그사이 더 새 검색이 오면 앞 것은 찾지 않는다), 일반 API 한도에서 빼 검색만의 한도로 센다(치는 대로 오는 검색이 재생 조작의 몫을 먹지 않게)
 function searchRoute(router: Router) {
   const searchLimiter = limiter(() => config.dashboard.rateLimit.apiMax);
@@ -335,7 +335,7 @@ function searchRoute(router: Router) {
     const query = parse(SearchQuery, req.query);
     if (!query.ok) return sendProblem(res, query.code, { max: SEARCH_MAX_LEN });
     const { q } = query.value;
-    // 두 글자가 안 되면 찾지 않는다(/search 와 같다)
+    // 두 글자가 안 되면 찾지 않는다(/search와 같다)
     if (graphemeLength(q) < SEARCH_MIN_LEN) return res.json(EMPTY);
 
     const requester = requesterOf(req);
@@ -345,7 +345,7 @@ function searchRoute(router: Router) {
     try {
       found = await oneAtATime(requester.id, () => search(q));
     } catch (e) {
-      // 실패는 검색 모듈이 남겼다(되풀이되면 한 번만). 화면은 그 까닭의 코드와 HTTP 상태를 보인다
+      // 실패는 검색 모듈이 남겼다(되풀이되면 한 번만). 화면은 그 원인의 코드와 HTTP 상태를 보인다
       return sendProblem(res, errorKind(e));
     }
     if (!found) return res.json(EMPTY);
@@ -396,7 +396,7 @@ function addRoutes(router: Router) {
   // 곡 추가는 yt-dlp 호출을 유발하므로 별도 엄격 제한 (플레이리스트도 1요청이라 정상 사용엔 여유)
   const queueLimiter = limiter(() => config.dashboard.rateLimit.queueMax);
 
-  // 곡 추가 { query, single?, first? }. 곡 추가는 전 계층 가능, 동일 음성 채널 규칙만 적용. 맨 앞에 넣기(first)는 /playfirst 와 같이 DJ 조작
+  // 곡 추가 { query, single?, first? }. 곡 추가는 전 계층 가능, 동일 음성 채널 규칙만 적용. 맨 앞에 넣기(first)는 /playfirst와 같이 DJ 조작
   router.post("/:guildId/player/queue", requireAuth, queueLimiter, async (req: Request<{ guildId: string }>, res: Response) => {
     const { guildId } = req.params;
     const ctx = await openGuild(req, res, guildId);
@@ -409,7 +409,7 @@ function addRoutes(router: Router) {
     if (!body.ok) return sendProblem(res, body.code, { max: QUERY_MAX_LEN });
     const { query, single, first } = body.value;
 
-    // 맨 앞에 넣기는 DJ 조작(checkControl). 플레이어가 있어 봇을 부를 수 있는지는 보지 않는다(화면의 canControl 과 같은 기준)
+    // 맨 앞에 넣기는 DJ 조작(checkControl). 플레이어가 있어 봇을 부를 수 있는지는 보지 않는다(화면의 canControl과 같은 기준)
     const err = first ? await checkControl(actor.member) : checkAdd(actor.member);
     if (err) return sendProblem(res, err);
 

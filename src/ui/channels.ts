@@ -8,8 +8,8 @@ function canSend<C>(channel: C | null | undefined): channel is Extract<C, { send
 }
 
 /**
- * 봇이 이 채널에 재생 패널(첨부가 붙은 메시지)을 올릴 수 있나. permissionsFor 는 캐시 계산이라 암묵 규칙(보기 권한, 타임아웃)을 빼므로
- * 게터로 본다: 스레드는 sendable, 그 밖은 viewable 에 보내기, 첨부 권한과 타임아웃
+ * 봇이 이 채널에 재생 패널(첨부가 붙은 메시지)을 올릴 수 있나. permissionsFor는 캐시 계산이라 암묵 규칙(보기 권한, 타임아웃)을 빼므로
+ * 게터로 본다: 스레드는 sendable, 그 밖은 viewable에 보내기, 첨부 권한과 타임아웃
  */
 function canPostPanel(channel: GuildTextBasedChannel): boolean {
   if (!canSend(channel)) return false;

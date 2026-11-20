@@ -12,6 +12,6 @@ import { askRestart } from "../composables/bot-restart.ts";
 import { text } from "../text/index.ts";
 const T = text.restart;
 
-/** available: 실행기로 시작했는가(봇 상태의 env.launcher). 아니면 버튼을 막고 까닭을 툴팁으로 */
+/** available: 실행기로 시작했는가(봇 상태의 env.launcher). 아니면 버튼을 막고 이유를 툴팁으로 */
 defineProps<{ available: boolean }>();
 </script>

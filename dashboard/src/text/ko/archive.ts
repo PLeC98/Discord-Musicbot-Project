@@ -13,7 +13,7 @@ const exportDescAfter = " 명령으로만 만들 수 있어요.";
 const exports: Record<ArchiveKind, { title: string; desc: string; button: string }> = {
   settings: {
     title: "봇 설정만",
-    desc: "운영 조절값, 자동재생 장르, 상태 문구, AI 설정, 프롬프트",
+    desc: "운영 설정값, 자동재생 장르, 상태 문구, AI 설정, 프롬프트",
     button: "내보내기",
   },
   favicon: { title: "파비콘", desc: "크기별 파비콘 및 파비콘 기록", button: "내보내기" },
@@ -26,9 +26,9 @@ const withoutFilesTip = "곡은 재생할 때 다시 다운로드해요.";
 /** 제목 옆 툴팁(길어지는 주의) */
 const tips: Record<ArchiveKind | "import", string> = {
   favicon: "",
-  "login-background": "영상이면 수백 MB 가 될 수 있어요.",
+  "login-background": "영상이면 수백 MB가 될 수 있어요.",
   settings: "API 키, 쿠키, 서버별 설정은 빠져요.",
-  "audio-cache": "곡이 많으면 수백 MB ~ 수 GB 가 될 수 있어요.",
+  "audio-cache": "곡이 많으면 수백 MB ~ 수 GB가 될 수 있어요.",
   import: "오디오 캐시는 지금 캐시에 합쳐요.",
 };
 const importTitle = "백업 불러오기";
@@ -49,7 +49,7 @@ const madeAt = (kind: string, when: string, version: string | null) => `${kind} 
 const dialogNote = "지금 값은 설정 스냅샷으로 복원할 수 있어요.";
 const dialogNoteMerge = "지금 캐시에 합쳐요. 직접 지정한 음원은 백업 값으로 바뀌어요.";
 const items: Record<ArchiveItem, string> = {
-  tunables: "운영 조절값",
+  tunables: "운영 설정값",
   genres: "자동재생 장르",
   status: "상태 문구",
   ai: "AI 설정",

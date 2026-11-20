@@ -8,7 +8,7 @@ import { isYouTubeURL, isSpotifyURL, isSoundCloudURL, isKnownSiteHost, isHttpLin
 type InputKind = "youtube" | "spotify" | "soundcloud" | "direct" | "unknown" | "search";
 
 // 순서가 답을 바꾼다. 사이트의 모양을 먼저 보고, 그 사이트의 다른 주소를 제외한 뒤 나머지가 직접 링크다
-// (soundcloud.com/…/x.mp3 는 사운드클라우드다).
+// (soundcloud.com/…/x.mp3는 사운드클라우드다).
 function inputKind(value: unknown): InputKind {
   if (isYouTubeURL(value)) return "youtube";
   if (isSpotifyURL(value)) return "spotify";

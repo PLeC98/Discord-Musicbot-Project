@@ -1,10 +1,10 @@
-// 저장소 안의 경로. 실행 중에 쓰는 경로는 모두 여기서 나온다(파일마다 ".." 를 세지 않아 파일을 옮겨도 깨지지 않는다).
-// 이 파일이 src/infra 에 있다는 것만 기댄다. 저장소 루트를 맞게 가리키는지는 구조 테스트가 본다
+// 저장소 안의 경로. 실행 중에 쓰는 경로는 모두 여기서 나온다(파일마다 ".."를 세지 않아 파일을 옮겨도 깨지지 않는다).
+// 이 파일이 src/infra에 있다는 것만 기댄다. 저장소 루트를 맞게 가리키는지는 구조 테스트가 본다
 
 import path from "path";
 
 const ROOT = path.join(import.meta.dirname, "..", "..");
-/** 설치 스크립트가 다운로드해 두는 외부 도구. git 은 추적하지 않는다 */
+/** 설치 스크립트가 다운로드해 두는 외부 도구. git은 추적하지 않는다 */
 const VENDOR = path.join(ROOT, "vendor");
 
 const PROJECT = {
@@ -23,10 +23,18 @@ const PROJECT = {
   certs: path.join(ROOT, "certs"),
   /** 캐시 파일 */
   audioCache: path.join(ROOT, "audio_cache"),
-  /** 설치 스크립트가 다운로드하는 실행 파일(ffmpeg, yt-dlp) */
-  bin: path.join(VENDOR, "bin"),
+  /** 받아 두는 외부 프로그램 전체(저장공간 막대가 크기를 센다) */
+  vendor: VENDOR,
+  /** yt-dlp 버전 폴더와 기록(sources/ytdlp-binary) */
+  ytdlp: path.join(VENDOR, "yt-dlp"),
+  /** ffmpeg 빌드 폴더와 기록(media/ffmpeg/state) */
+  ffmpeg: path.join(VENDOR, "ffmpeg"),
+  /** 예전 설치 위치(옛 ffmpeg 실행 파일, yt-dlp 폴더). 쓰지 않고, 초기화 카드의 외부 프로그램 이전 버전 삭제가 삭제한다(dashboard/old-tools) */
+  legacyBin: path.join(VENDOR, "bin"),
   /** POToken 공급자 체크아웃 */
-  bgutil: path.join(VENDOR, "bgutil-ytdlp-pot-provider"),
+  bgutil: path.join(VENDOR, "bgutil"),
+  /** 예전 POToken 공급자 체크아웃 자리. 쓰지 않는다(옮기지 않고 vendor/bgutil에 다시 받는다) */
+  legacyBgutil: path.join(VENDOR, "bgutil-ytdlp-pot-provider"),
   /** 대시보드 화면 빌드 결과 */
   dashboardDist: path.join(ROOT, "dashboard", "dist"),
 } as const;

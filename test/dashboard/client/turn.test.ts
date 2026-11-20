@@ -46,6 +46,6 @@ test("네 번 돌리면 처음으로", () => {
 });
 
 test("앱 이모지 봇 쪽과 같은 되돌리기(90도: 돌린 이미지의 왼쪽 위 정사각형은 원본의 왼쪽 아래)", () => {
-  // src/dashboard/app-emoji-image.ts 의 regionOf: 90 → [y, height - x - side]
+  // src/dashboard/app-emoji-image.ts의 regionOf: 90 → [y, height - x - side]
   assert.deepEqual(toSource({ x: 0, y: 0, w: 100, h: 100 }, NATURAL, { rotate: 90, flip: false }), { x: 0, y: 150, w: 100, h: 100 });
 });

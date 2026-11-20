@@ -1,4 +1,4 @@
-// src/rules/vendor-updates.ts: 따로 받는 도구(ffmpeg, bgutil)의 새 버전 판정과 기본값 고치기(scripts/check-vendor-updates.ts 가 쓴다)
+// src/rules/vendor-updates.ts: 외부 도구(ffmpeg, bgutil)의 새 버전 판정과 기본값 고치기(scripts/check-vendor-updates.ts가 쓴다)
 
 import test from "node:test";
 import assert from "node:assert";
@@ -7,7 +7,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { auditCounts, compareVersions, isMonthEndBuild, newerFfmpegRelease, newerRelease, rewriteConstant, trackedIssue } from "../../src/rules/vendor-updates.ts";
 
-test("월말 autobuild 만 고른다: 윤년 2월, 30일 달, 형식 밖은 아니다", () => {
+test("월말 autobuild만 고른다: 윤년 2월, 30일 달, 형식 밖은 아니다", () => {
   assert.equal(isMonthEndBuild("autobuild-2026-09-30-13-08"), true);
   assert.equal(isMonthEndBuild("autobuild-2028-02-29-12-00"), true);
   assert.equal(isMonthEndBuild("autobuild-2026-02-28-12-00"), true);
@@ -37,7 +37,7 @@ test("bgutil: 숫자로 비교한다(2.0.10 > 2.0.9), 같거나 모양이 다르
   assert.equal(newerRelease(null, "2.0.2"), null);
 });
 
-test("상수 한 줄만 고친다. 그 줄이 없으면 던진다", () => {
+test("상수 한 줄만 고친다. 그 줄이 없으면 예외를 던진다", () => {
   const text = 'const FFMPEG_RELEASE = "a";\nconst BGUTIL_VERSION = "2.0.2";\n';
   assert.equal(rewriteConstant(text, "BGUTIL_VERSION", "2.0.3"), 'const FFMPEG_RELEASE = "a";\nconst BGUTIL_VERSION = "2.0.3";\n');
   assert.throws(() => rewriteConstant(text, "OTHER", "x"), /OTHER 줄을 찾지 못함/);
@@ -64,9 +64,9 @@ test("갱신할 이슈: 라벨이 붙은 것을 먼저 선택하고, 없으면 �
   assert.equal(trackedIssue([human, actions], "bgutil-audit", "musicbot-vendor", "bgutil "), 9);
   assert.equal(trackedIssue([human], "bgutil-audit", "musicbot-vendor", "bgutil "), null, "사람이 연 같은 제목 이슈");
   assert.equal(trackedIssue([human, app, labeled], "bgutil-audit", "musicbot-vendor", "bgutil "), 11, "라벨은 triage 이상 권한이 있는 사람만 붙인다");
-  assert.equal(trackedIssue([{ ...app, title: "취약점 bgutil" }], "bgutil-audit", "musicbot-vendor", "bgutil "), null, "제목이 bgutil 로 시작해야 한다");
+  assert.equal(trackedIssue([{ ...app, title: "취약점 bgutil" }], "bgutil-audit", "musicbot-vendor", "bgutil "), null, "제목이 bgutil로 시작해야 한다");
   assert.equal(trackedIssue([{ ...human, author: null }], "bgutil-audit", "", "bgutil "), null, "작성자를 알 수 없는 이슈(삭제된 계정)");
-  assert.equal(trackedIssue([app], "bgutil-audit", "", "bgutil "), null, "App slug 가 없으면 github-actions 만 선택한다");
+  assert.equal(trackedIssue([app], "bgutil-audit", "", "bgutil "), null, "App slug가 없으면 github-actions만 선택한다");
 });
 
 test("갱신할 이슈: 제목 접두사를 넘기지 않으면 라벨로만 찾는다(yt-dlp 키 단계가 bgutil 이슈를 고르지 않는다)", () => {
@@ -77,7 +77,7 @@ test("갱신할 이슈: 제목 접두사를 넘기지 않으면 라벨로만 찾
   assert.equal(trackedIssue([{ ...bgutil, labels: [] }], "ytdlp-signing-key", "musicbot-vendor", ""), null);
 });
 
-test("워크플로가 실행하는 스크립트: gh 의 JSON 을 받아 번호를 출력하고, 없으면 아무것도 출력하지 않는다", () => {
+test("워크플로가 실행하는 스크립트: gh의 JSON을 받아 번호를 출력하고, 없으면 아무것도 출력하지 않는다", () => {
   const run = (issues: unknown) => execFileSync(process.execPath, ["scripts/vendor-issue.ts", "bgutil-audit", "musicbot-vendor", "bgutil "], { input: JSON.stringify(issues), encoding: "utf8" });
   assert.equal(run([{ number: 7, title: "bgutil x", author: { login: "app/musicbot-vendor" }, labels: [] }]).trim(), "7");
   assert.equal(run([{ number: 3, title: "bgutil x", author: { login: "someone" }, labels: [] }]), "");

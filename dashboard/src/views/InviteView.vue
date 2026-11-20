@@ -83,7 +83,7 @@ watch(
   },
 );
 
-// 다시 로그인을 마치면 다시 받는다. 다른 계정이면 resumeSession 이 페이지를 새로 연다
+// 다시 로그인을 마치면 다시 받는다. 다른 계정이면 resumeSession이 페이지를 새로 연다
 const user = useUserStore();
 let stopListening: (() => void) | null = null;
 

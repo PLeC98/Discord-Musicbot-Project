@@ -3,10 +3,10 @@
 //
 //   refresh(player)             보이는 상태가 바뀌었다. 패널을 지금 상태로(같은 동기 흐름에서 여러 번 부르면 한 번)
 //   ended(player, reason, cause) 재생이 끝났다. 패널을 끝난 모양으로(reason: queue-end, failures, stop, leave, disconnected, joined).
-//                               cause 는 버린 까닭(dispose 의 end: kicked, alone-timeout, voice-lost 등). 없으면 패널 모양이 곧 까닭
+//                               cause는 플레이어를 버린 원인(dispose의 end: kicked, alone-timeout, voice-lost 등). 없으면 reason(끝난 패널 모양)이 곧 원인
 //   started(player)             패널 없이 재생이 시작됐다(자동재생 첫 곡, 세션 복원). 새 패널을 올린다
 //   released(player, textChannelId)  플레이어를 버린다. 그 채널에 쥔 패널 도구를 놓는다
-//   disposed(player, reason, end) 플레이어를 버렸다(reason: 로그에 남는 까닭, end: 끝의 종류 PlayerEnd). 레지스트리가 뺀다(그 서버에 이 플레이어가 아직 있을 때만)
+//   disposed(player, reason, end) 플레이어를 버렸다(reason: 로그에 남는 원인, end: 끝의 종류 PlayerEnd). 레지스트리가 뺀다(그 서버에 이 플레이어가 아직 있을 때만)
 //   notice(player, code, detail)     텍스트 채널에 알릴 일. 문장은 화면이 코드로 만든다(ui/player-notices)
 //   touched(guildId)            이 서버의 재생 상태가 바뀌었다. 대시보드가 다시 읽게 한다
 //   leaving(player, leavesAt)   곡이 없을 때 음성에서 나갈 시각이 바뀌었다(혼자 남음, 복귀). 끝난 패널의 문구를 고친다
@@ -61,7 +61,7 @@ async function emit<K extends keyof EventArgs>(name: K, ...args: EventArgs[K]) {
 }
 
 // 갱신은 부를 때마다 패널 메시지를 고친다. 같은 동기 흐름에서 여러 곳이 부르면(멈춤이 바뀜, 옮겨짐, 조작) 한 번으로 묶는다.
-// 같은 흐름에서 부른 쪽은 같은 promise 를 받으므로 기다리는 쪽은 그대로 끝을 기다린다
+// 같은 흐름에서 부른 쪽은 같은 promise를 받으므로 기다리는 쪽은 그대로 끝을 기다린다
 const pendingRefresh = new Map<Player, Promise<void>>();
 function refresh(player: Player): Promise<void> {
   const pending = pendingRefresh.get(player);

@@ -1,5 +1,5 @@
 // 로그인 배경의 크기 계산: 정지 그림 폭, 영상 단계, 짧은 변을 맞춘 크기, 원본을 고르게 만드는 필터. 미리보기, 추산, 인코딩이 같이 쓴다.
-// 영상 단계의 1080p, 4K 는 짧은 변 1080, 2160 이다(세로 영상은 1080 × 1920 등). 원본보다 큰 단계는 만들지 않고, 원본이 1080p 보다 작으면 원본 크기 하나
+// 영상 단계의 1080p, 4K는 짧은 변 1080, 2160이다(세로 영상은 1080 × 1920 등). 원본보다 큰 단계는 만들지 않고, 원본이 1080p보다 작으면 원본 크기 하나
 
 import { LOGIN_BG_WIDTHS, type LoginBackgroundCrop, type LoginBackgroundEdit } from "../contract/login-background.ts";
 import type { Probed } from "./source.ts";
@@ -10,13 +10,13 @@ const UHD = 2160;
 /** 영상의 초당 프레임 수 상한 */
 const FPS_CAP = 30;
 
-/** 투명한 곳을 채우는 검정(투명은 지원하지 않는다). 그림은 sharp 의 flatten, 영상은 sourceFilter 의 color=black */
+/** 투명한 곳을 채우는 검정(투명은 지원하지 않는다). 그림은 sharp의 flatten, 영상은 sourceFilter의 color=black */
 const TRANSPARENT_FILL = { r: 0, g: 0, b: 0 };
 
-/** 짝수로(인코더가 4:2:0 이라 홀수 크기를 받지 않는다) */
+/** 짝수로(인코더가 4:2:0이라 홀수 크기를 받지 않는다) */
 const even = (value: number) => Math.max(2, Math.round(value / 2) * 2);
 
-/** 짧은 변을 short 로 맞춘 크기(원본이 더 작으면 원본 크기) */
+/** 짧은 변을 short로 맞춘 크기(원본이 더 작으면 원본 크기) */
 function fitShort(width: number, height: number, short: number): { width: number; height: number } {
   const scale = Math.min(1, short / Math.min(width, height));
   return { width: even(width * scale), height: even(height * scale) };
@@ -29,7 +29,7 @@ const cropped = (width: number, height: number, crop: LoginBackgroundCrop) => ({
 type Turn = Pick<LoginBackgroundEdit, "rotate" | "flip">;
 /** 돌린 크기(90도, 270도면 가로세로가 바뀐다) */
 const turned = (size: { width: number; height: number }, turn: Turn) => ((turn.rotate ?? 0) % 180 ? { width: size.height, height: size.width } : size);
-/** 자른 뒤 돌리고(시계 방향) 그다음 좌우로 뒤집는 필터. sourceFilter 뒤에 그대로 이어 붙인다(없으면 빈 글). ffmpeg 는 적은 차례대로 적용한다 */
+/** 자른 뒤 돌리고(시계 방향) 그다음 좌우로 뒤집는 필터. sourceFilter 뒤에 그대로 이어 붙인다(없으면 빈 글). ffmpeg는 적은 차례대로 적용한다 */
 function turnFilter(turn: Turn): string {
   const steps: string[] = { 0: [], 90: ["transpose=clock"], 180: ["hflip", "vflip"], 270: ["transpose=cclock"] }[turn.rotate ?? 0];
   if (turn.flip) steps.push("hflip");
@@ -50,34 +50,34 @@ function stillWidths(width: number): number[] {
   return fit.length ? fit : [width];
 }
 
-/** AV1, VP9 단계의 짧은 변: 4K 는 원본의 짧은 변이 2160 이상일 때만, 1080p 는 늘(원본이 작으면 원본 크기) */
+/** AV1, VP9 단계의 짧은 변: 4K는 원본의 짧은 변이 2160 이상일 때만, 1080p는 늘(원본이 작으면 원본 크기) */
 const rungShorts = (width: number, height: number) => (Math.min(width, height) >= UHD ? [FHD, UHD] : [FHD]);
 
-/** 읽을 구간(초). to 가 null 이면 끝까지 */
+/** 읽을 구간(초). to가 null이면 끝까지 */
 type Span = { from: number; to: number | null };
 
 /**
- * 장면을 앞 장면 위에 그리는 움직이는 그림. 입력 앞 -ss 로 찾아가면 장면이 나오지 않거나(WebP) 깨진 장면이 나와(APNG)
- * 처음부터 풀어 필터에서 자른다. GIF 도 같은 방식의 형식이라 같이 둔다
+ * 장면을 앞 장면 위에 그리는 움직이는 그림. 입력 앞 -ss로 찾아가면 장면이 나오지 않거나(WebP) 깨진 장면이 나와(APNG)
+ * 처음부터 풀어 필터에서 자른다. GIF도 같은 방식의 형식이라 같이 둔다
  */
 const STACKED_FORMATS = ["webp_anim", "apng", "gif"];
 const stacked = (probed: Pick<Probed, "format">) => STACKED_FORMATS.includes(probed.format);
 /**
  * 풀어 낸 영상의 초당 프레임 수(인코딩의 키프레임 간격, 목록의 프레임 수도 이것): 영상은 원본(30 이하),
- * 움직이는 그림은 장면 길이가 제각각이라(같은 장면을 2초짜리 하나로 적는 등) 30 으로 고르게 편다
+ * 움직이는 그림은 장면 길이가 제각각이라(같은 장면을 2초짜리 하나로 적는 등) 30으로 고르게 편다
  */
 const frameRate = (probed: Pick<Probed, "format" | "fps">) => (stacked(probed) ? FPS_CAP : Math.min(probed.fps ?? FPS_CAP, FPS_CAP));
 
-/** HDR(PQ, HLG)을 SDR(BT.709)로 톤 매핑하는 필터. zscale(libzimg)이 있어야 한다(encoders 가 봇이 켜질 때 돌려 본다) */
+/** HDR(PQ, HLG)을 SDR(BT.709)로 톤 매핑하는 필터. zscale(libzimg)이 있어야 한다(encoders가 봇이 켜질 때 돌려 본다) */
 const HDR_TO_SDR = "zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv";
 
-/** 구간을 찾아가는 입력 인자(-i 앞): 영상은 -ss, -to, 움직이는 그림은 없다(sourceFilter 가 자른다) */
+/** 구간을 찾아가는 입력 인자(-i 앞): 영상은 -ss, -to, 움직이는 그림은 없다(sourceFilter가 자른다) */
 function seekArgs(probed: Probed, span: Span): string[] {
   if (stacked(probed)) return [];
   return ["-ss", String(span.from), ...(span.to === null ? [] : ["-to", String(span.to)])];
 }
 
-/** 움직이는 그림을 고르게 펴고 구간을 자르는 필터(영상이면 null). 편 뒤에 자른다: trim 은 구간 안에서 시작한 장면만 남겨, 긴 장면이 구간 앞에서 시작하면 빠진다 */
+/** 움직이는 그림을 고르게 펴고 구간을 자르는 필터(영상이면 null). 편 뒤에 자른다: trim은 구간 안에서 시작한 장면만 남겨, 긴 장면이 구간 앞에서 시작하면 빠진다 */
 function evenedSpan(probed: Probed, span?: Span): string | null {
   if (!stacked(probed)) return null;
   const cut = span ? [`trim=start=${span.from}${span.to === null ? "" : `:end=${span.to}`}`, "setpts=PTS-STARTPTS"] : [];
@@ -85,8 +85,8 @@ function evenedSpan(probed: Probed, span?: Span): string | null {
 }
 
 /**
- * 원본을 고르게 만드는 필터(처음 [0:v] 에 이어 붙인다): 움직이는 그림은 장면 간격을 고르게 펴 구간을 자르고(seekArgs), 투명은 검정 위에 얹고(투명은 지원하지 않는다),
- * HDR 은 SDR 로 톤 매핑하고, 초당 프레임 수를 frameRate 로, 크롭이 있으면 자른다. 크기 맞추기, 픽셀 형식은 부르는 쪽이 분기마다 붙인다
+ * 원본을 고르게 만드는 필터(처음 [0:v]에 이어 붙인다): 움직이는 그림은 장면 간격을 고르게 펴 구간을 자르고(seekArgs), 투명은 검정 위에 얹고(투명은 지원하지 않는다),
+ * HDR은 SDR로 톤 매핑하고, 초당 프레임 수를 frameRate로, 크롭이 있으면 자른다. 크기 맞추기, 픽셀 형식은 호출부가 분기마다 붙인다
  */
 function sourceFilter(probed: Probed, crop?: LoginBackgroundCrop | null, span?: Span): string {
   const steps: string[] = [];

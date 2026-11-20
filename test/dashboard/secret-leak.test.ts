@@ -1,4 +1,4 @@
-// src/dashboard 의 운영자 경로, 설정 내보내기, 로그: 비밀값 누출 테스트. 가짜 비밀값을 모든 위치(서비스 키, AI 키, 버텍스 JSON, 쿠키)에 넣고,
+// src/dashboard의 운영자 경로, 설정 내보내기, 로그: 비밀값 누출 테스트. 가짜 비밀값을 모든 위치(서비스 키, AI 키, 버텍스 JSON, 쿠키)에 넣고,
 // 운영자가 부를 수 있는 읽기 경로, 내보내기 파일, 로그 어디에도 그 값이 나오지 않는지 본다. 끝 네 글자는 화면에 보이는 값이라 뺀 나머지로 본다.
 // 읽기 경로는 라우터에서 읽어 모두 부른다(경로가 늘어도 이 테스트에 저절로 들어온다)
 
@@ -63,7 +63,7 @@ const NEEDLES = [...Object.values(SERVICE).flatMap((one) => Object.values(one)),
 NEEDLES.push(PRIVATE_KEY.split("\n")[1]);
 
 function leaksIn(where: string, body: string) {
-  for (const needle of NEEDLES) assert.ok(!body.includes(needle), `${where} 에 비밀값이 나왔다`);
+  for (const needle of NEEDLES) assert.ok(!body.includes(needle), `${where}에 비밀값이 나왔다`);
 }
 
 // 세션 하나를 모든 요청이 나눠 쓴다(CSRF 토큰도 거기 담긴다). 방금 로그인한 운영자
@@ -110,11 +110,11 @@ const MOUNTS: Array<[string, Router]> = [
   ["", publicLoginBackgroundRouter],
   ["/api", identityRouter],
 ];
-// 로그인 배경의 미리보기, 장면 띠, 공개 파일(정지 그림, HLS)은 그 배경의 파일이다(배경이 있어야 답한다)
-// 내보내기 다운로드는 한 번 쓰는 티켓이 있어야 답한다(아래 내보내기 테스트가 따로 본다)
+// 로그인 배경의 미리보기, 장면 띠, 공개 파일(정지 그림, HLS)은 그 배경의 파일이다(배경이 있어야 응답한다)
+// 내보내기 다운로드는 한 번 쓰는 티켓이 있어야 응답한다(아래 내보내기 테스트가 따로 본다)
 const SKIP = new Set(["/api/admin/settings-archive/download/:ticket", "/api/admin/logs/stream", "/api/admin/source-suggest", "/api/admin/appearance/login-background/svg/preview", "/api/admin/appearance/login-background/svg/strip", "/login-background/svg/:file", "/login-background/svg/:codec/index.m3u8", "/login-background/svg/:codec/:short/:file"]);
 const FILL: Record<string, string[]> = { ":name": ["genres", "status", "ai"], ":id": ["svg"], ":size": ["32"] };
-// 쿼리 문자열이 있어야 답하는 경로
+// 쿼리 문자열이 있어야 응답하는 경로
 const QUERY: Record<string, string[]> = { "/api/admin/track-cache": ["?table=requests", "?table=files", "?table=age"] };
 
 function getPaths() {
@@ -139,7 +139,7 @@ test("운영자의 모든 읽기 경로 응답에 비밀값이 없다", async ()
     if (res.status >= 400) failed.push(`${path} ${res.status}`);
     leaksIn(`GET ${path}`, Buffer.from(await res.arrayBuffer()).toString("utf8"));
   }
-  assert.deepEqual(failed, [], "답이 와야 그 답을 본 것이다(거절 · 서버 오류면 내용을 보지 못한다)");
+  assert.deepEqual(failed, [], "응답이 와야 그 응답을 본 것이다(거절이나 서버 오류면 내용을 보지 못한다)");
 });
 
 test("서비스 키, AI 키 상태는 끝 네 글자까지만 보인다", async () => {
@@ -159,7 +159,7 @@ test("AI 미리보기, 모델 묻기, 테스트 응답에 키가 없다", async 
 });
 
 // 암호화된 설정까지 내보내도 값은 암호문으로만 나간다(끝 네 글자도 담지 않는다)
-test("내보내기 파일(모든 종류, ZIP 의 모든 항목)에 비밀값이 없다", async () => {
+test("내보내기 파일(모든 종류, ZIP의 모든 항목)에 비밀값이 없다", async () => {
   for (const kind of ARCHIVE_KINDS) {
     const ticket = (await (await fetch(`${base}/api/admin/settings-archive/export?kind=${kind}`, { method: "POST", headers: { "X-CSRF-Token": csrf } })).json()) as { url: string };
     const res = await fetch(base + ticket.url);
@@ -170,5 +170,5 @@ test("내보내기 파일(모든 종류, ZIP 의 모든 항목)에 비밀값이 
 
 test("지금까지의 로그(실시간 로그, 로그 경로가 읽는 버퍼)에 비밀값이 없다", async () => {
   leaksIn("로그 버퍼", JSON.stringify(sink.buffer));
-  leaksIn("최근 경고 · 오류", JSON.stringify(sink.recentProblems()));
+  leaksIn("최근 경고, 오류", JSON.stringify(sink.recentProblems()));
 });

@@ -6,7 +6,7 @@ import { inputKind } from "../../src/rules/input-kind.ts";
 import { canonicalUrl } from "../../src/rules/canonical-url.ts";
 import { audioKeyOf, md5 } from "../../src/rules/audio-key-of.ts";
 import { parseSoundCloud, withSiteScheme } from "../../src/rules/links.ts";
-test("inputKind: 사이트의 모양을 먼저 보고, 그 사이트의 다른 주소는 unknown, 나머지 http(s) 는 직접 링크", () => {
+test("inputKind: 사이트의 모양을 먼저 보고, 그 사이트의 다른 주소는 unknown, 나머지 http(s)는 직접 링크", () => {
   const cases = [
     ["https://www.youtube.com/watch?v=abcdefghijk", "youtube"],
     ["https://youtu.be/abcdefghijk", "youtube"],
@@ -30,13 +30,13 @@ test("inputKind: 사이트의 모양을 먼저 보고, 그 사이트의 다른 �
     ["https://notyoutube.com/watch?v=abcdefghijk", "direct"],
     ["ftp://x.test/a.mp3", "search"],
     ["그냥 검색어", "search"],
-    ["youtube.com/watch?v=abcdefghijk", "search"], // 주소처럼 생겨도 http(s) 가 없으면 검색어다
+    ["youtube.com/watch?v=abcdefghijk", "search"], // 주소처럼 생겨도 http(s)가 없으면 검색어다
     [undefined, "search"],
   ];
   for (const [input, want] of cases) assert.equal(inputKind(input), want, String(input));
 });
 
-test("inputKind: 공백 없는 spotify: 는 모양이 안 맞아도 스포티파이 URI 라 검색어로 보내지 않는다. 사람이 쓴 spotify: 검색어는 검색", () => {
+test("inputKind: 공백 없는 spotify: 는 모양이 안 맞아도 스포티파이 URI라 검색어로 보내지 않는다. 사람이 쓴 spotify: 검색어는 검색", () => {
   for (const uri of ["spotify:episode:abc", "spotify:track:abc-def", "spotify:user:x:playlist:y"]) assert.equal(inputKind(uri), "unknown", uri);
   assert.equal(inputKind("Spotify:track:abc"), "spotify");
   assert.equal(inputKind("spotify: 아이유 좋은 날"), "search");
@@ -64,7 +64,7 @@ test("canonicalUrl: 사이트마다 같은 곡의 공유 링크를 한 모양으
   const cases = [
     ["https://youtu.be/Lsv4wg9YU8Y?si=AbCdEf", "https://www.youtube.com/watch?v=Lsv4wg9YU8Y"],
     ["https://music.youtube.com/watch?v=Lsv4wg9YU8Y&list=RDx", "https://www.youtube.com/watch?v=Lsv4wg9YU8Y"],
-    ["https://www.youtube.com/playlist?list=PLx", "https://www.youtube.com/playlist?list=PLx"], // 영상 id 가 없으면 그대로
+    ["https://www.youtube.com/playlist?list=PLx", "https://www.youtube.com/playlist?list=PLx"], // 영상 id가 없으면 그대로
     ["https://open.spotify.com/track/2joT0CjcGqc1fr8Fvk7itj?si=0a1b2c", "https://open.spotify.com/track/2joT0CjcGqc1fr8Fvk7itj"],
     ["https://open.spotify.com/intl-ko/album/abc?si=x", "https://open.spotify.com/album/abc"],
     ["spotify:track:2joT0CjcGqc1fr8Fvk7itj", "https://open.spotify.com/track/2joT0CjcGqc1fr8Fvk7itj"],
@@ -89,7 +89,7 @@ test("audioKeyOf: 음원 주소 하나만 보고 사이트마다 키 모양", ()
     ["https://api-v2.soundcloud.com/tracks/368141150", "sc:api-v2.soundcloud.com/tracks/368141150"], // 재생목록을 훑어 읽은 곡
     ["https://cdn.example.com/a.mp3", `dl:${md5("https://cdn.example.com/a.mp3")}`],
     ["https://cdn.example.com/a.mp3?token=1", `dl:${md5("https://cdn.example.com/a.mp3?token=1")}`], // 서명된 주소는 쿼리까지
-    // 자동재생 음원(AnisongDB 는 소리, 영상 파일, AnimeThemes 는 ogg)
+    // 자동재생 음원(AnisongDB는 소리, 영상 파일, AnimeThemes는 ogg)
     ["https://nawdist.animemusicquiz.com/abcdef.mp3", `dl:${md5("https://nawdist.animemusicquiz.com/abcdef.mp3")}`],
     ["https://nawdist.animemusicquiz.com/abcdef.webm", `dl:${md5("https://nawdist.animemusicquiz.com/abcdef.webm")}`],
     ["https://a.animethemes.moe/Title-OP1.ogg", `dl:${md5("https://a.animethemes.moe/Title-OP1.ogg")}`],

@@ -10,11 +10,11 @@ import { pathToFileURL } from "node:url";
 import { BUILD_INPUTS, type BuildInputs } from "../../src/dashboard/client-freshness.ts";
 
 const CLIENT = path.join(import.meta.dirname, "..", "..", "dashboard");
-// vite 는 화면 쪽 의존이다. 화면의 package.json 에서 찾는다
+// vite는 화면 쪽 의존이다. 화면의 package.json에서 찾는다
 const VITE = pathToFileURL(createRequire(path.join(CLIENT, "package.json")).resolve("vite")).href;
 
 type Chunk = { type: "chunk" | "asset"; fileName: string; code?: string; source?: string | Uint8Array; isDynamicEntry?: boolean };
-// vite 가 크기 경고를 내는 한도(build.chunkSizeWarningLimit 기본, kB)
+// vite가 크기 경고를 내는 한도(build.chunkSizeWarningLimit 기본, kB)
 const WARN_KB = 500;
 // 실제 빌드 결과(dist)의 파일과 수정 시각. 파일을 쓰지 않는 빌드가 건드리면 안 된다
 function distState(): string[] {
@@ -25,7 +25,7 @@ function distState(): string[] {
 
 test("화면 빌드: 공유 안내와 영어 끝소리 표가 들어가고, Node 모듈, 발음 사전 전체는 없으며, 크기 경고를 낼 청크가 없다", async () => {
   const { build } = (await import(VITE)) as { build: (config: object) => Promise<{ output: Chunk[] } | Array<{ output: Chunk[] }>> };
-  // 배포 번들을 본다. vite 는 NODE_ENV 가 이미 있으면 따르므로(CI 는 test) 빌드하는 동안만 production 으로 둔다
+  // 배포 번들을 본다. vite는 NODE_ENV가 이미 있으면 따르므로(CI는 test) 빌드하는 동안만 production으로 둔다
   const nodeEnv = process.env.NODE_ENV;
   const before = distState();
   process.env.NODE_ENV = "production";
@@ -55,9 +55,9 @@ test("화면 빌드: 공유 안내와 영어 끝소리 표가 들어가고, Node
   );
   assert.ok(
     chunks.some((one) => (one.code ?? "").includes("must-be-in-voice")),
-    "문제 코드 목록 · 안내가 번들에 있다",
+    "문제 코드 목록과 안내가 번들에 있다",
   );
-  // aamodt 는 표에 있는 단어, zyuganov 는 사전에만 있고 표에는 없는 단어(철자로 추산한 답과 같다)
+  // aamodt는 표에 있는 단어, zyuganov는 사전에만 있고 표에는 없는 단어(철자로 추산한 답과 같다)
   assert.ok(
     chunks.some((one) => (one.code ?? "").includes("aamodt")),
     "영어 끝소리 표가 번들에 있다",

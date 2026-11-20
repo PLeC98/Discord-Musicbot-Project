@@ -1,6 +1,7 @@
 // 운영자 패널: AI 보조 탭(모델, 파라미터, 연결 테스트, 프롬프트, 판정 테스트, 고급 설정)
 
 import { formatNumber } from "../../utils/locale.ts";
+import { josa } from "../../../../src/rules/josa.ts";
 
 // 목록
 const title = "AI 보조";
@@ -8,7 +9,7 @@ const enable = "AI 보조 켜기";
 const desc = "자동재생 후보를 LLM을 사용해 재검증해요.";
 const descTip = "유튜브 검색으로 선택한 후보만 물어요(키워드 검색, 곡 이름으로 찾기).\n유튜브 주소를 직접 주는 출처(유튜브 재생목록, VocaDB 등)는 묻지 않아요.\n모델을 호출하지 못하면 규칙으로 선택하니 재생은 멈추지 않아요.";
 /** 후보 목록 표시(mark)가 어느 섹션에도 없을 때 */
-const listMarkMissing = (mark: string) => `어느 섹션에도 ${mark} 이 없어요`;
+const listMarkMissing = (mark: string) => `어느 섹션에도 ${mark}${josa(mark, "이")} 없어요`;
 
 // 모델 카드
 const model = {
@@ -16,10 +17,10 @@ const model = {
   provider: "프로바이더",
   endpoint: "엔드포인트 주소",
   region: "리전",
-  regionTip: "global 도 돼요. 공개된 값이라 주소에 그대로 보여요",
+  regionTip: "global도 돼요. 공개된 값이라 주소에 그대로 보여요",
   project: "프로젝트 ID",
   projectTip: "위 주소에서는 가려 둬요",
-  projectPlaceholder: "비우면 서비스 계정 JSON 의 project_id",
+  projectPlaceholder: "비우면 서비스 계정 JSON의 project_id",
   serviceAccount: "서비스 계정 JSON",
   apiKey: "API 키",
   savedAccount: "저장된 JSON 있음",
@@ -30,11 +31,11 @@ const model = {
   saving: "저장 중…",
   clearKey: "저장된 키 지우기",
   clearValue: "저장된 값 지우기",
-  accountShape: "client_email 과 private_key 가 있는 JSON 이어야 해요.",
-  accountHint: "발급받은 JSON 을 그대로 붙여넣어요. 프로젝트를 비우면 그 안의 project_id 를 써요.",
+  accountShape: "client_email과 private_key가 있는 JSON이어야 해요.",
+  accountHint: "발급받은 JSON을 그대로 붙여넣어요. 프로젝트를 비우면 그 안의 project_id를 써요.",
   keyMoved: "키를 저장한 뒤 주소가 바뀌어 지금 주소로는 키를 보내지 않아요. 이 주소로 쓰려면 키를 다시 저장해 주세요.",
-  keyMovedRegion: "JSON 을 저장한 뒤 리전이 바뀌어 지금 리전으로는 보내지 않아요. 이 리전으로 쓰려면 다시 저장해 주세요.",
-  keyAgain: "저장된 키를 복호화할 수 없어요(암호화 키 SECRETS_KEY 가 바뀌었거나 값이 손상됐어요). 다시 저장해 주세요.",
+  keyMovedRegion: "JSON을 저장한 뒤 리전이 바뀌어 지금 리전으로는 보내지 않아요. 이 리전으로 쓰려면 다시 저장해 주세요.",
+  keyAgain: "저장된 키를 복호화할 수 없어요(암호화 키 SECRETS_KEY가 바뀌었거나 값이 손상됐어요). 다시 저장해 주세요.",
   insecure: "지금 평문(HTTP)으로 접속 중이에요. 키가 암호화되지 않은 채 네트워크로 전송돼요.",
   staleUrl: "주소를 고쳤지만 아직 저장하지 않았어요. 저장 전에는 키 없이 보내요.",
   model: "모델",
@@ -45,7 +46,7 @@ const model = {
   hide: "목록에서 모델 숨기기",
   /** 숨기기 설명: 앞, 와일드카드 기호, 뒤 */
   hideHelpBefore: "불러온 목록에서 제외해요. ",
-  hideHelpAfter: " 만 와일드카드로 쓰고 대소문자는 구분하지 않아요. 영상, 이미지 모델이나 구형 모델을 빼는 데 써요.",
+  hideHelpAfter: "만 와일드카드로 쓰고 대소문자는 구분하지 않아요. 영상, 이미지 모델이나 구형 모델을 빼는 데 써요.",
   hidePlaceholder: "*sora* 처럼 입력하고 Enter",
 };
 
@@ -58,7 +59,7 @@ const params = {
   default: "기본값",
   defaultWith: (value: unknown) => `기본값 (${String(value)})`,
   listPlaceholder: "입력하고 Enter",
-  badJson: "올바른 JSON 이 아니에요",
+  badJson: "올바른 JSON이 아니에요",
   extra: "추가 파라미터",
   /** 추가 파라미터 설명의 앞(뒤에 줄 형식 예시가 붙는다) */
   extraHelp: "한 줄에 하나씩. ",
@@ -92,12 +93,12 @@ const list = {
   helpTitle: "줄 형식 문법",
   /** 문법 표: 적는 법, 뜻 */
   syntax: [
-    { code: "{{index}}", text: "후보 번호(1부터). 모델이 답할 때 이 번호(n)로 가리켜요" },
+    { code: "{{index}}", text: "후보 번호(1부터). 모델이 응답할 때 이 번호(n)로 가리켜요" },
     { code: "{{genre}}", text: "자동재생 장르의 식별자(예: rock). 프롬프트 섹션에서도 써요" },
     { code: "{{title}}", text: "영상 제목. 필수예요(판정 대상이에요)" },
     { code: "{{duration}}", text: "길이. 형식 없이 쓰면 3:05. 모르면 빈 값이에요" },
     { code: "{{duration::형식}}", text: "길이를 형식대로. 예: {{duration::m분 ss초}} → 3분 05초 (h, m, mm, s, ss)" },
-    { code: "{{#if-exist 값}} … {{:else}} … {{/}}", text: "값이 비어 있지 않으면 앞, 비면 {{:else}} 뒤({{:else}} 가 없으면 아무것도 적지 않아요). 닫기는 {{/if-exist}} 도 돼요. 길이를 모르는 후보를 빼거나 unknown 을 적을 때 써요" },
+    { code: "{{#if-exist 값}} … {{:else}} … {{/}}", text: "값이 비어 있지 않으면 앞, 비면 {{:else}} 뒤({{:else}}가 없으면 아무것도 적지 않아요). 닫기는 {{/if-exist}}도 돼요. 길이를 모르는 후보를 빼거나 unknown을 적을 때 써요" },
   ],
   syntaxExample: "{{index}}. genre={{genre}} {{#if-exist {{duration}}}}length={{duration::m}}min {{:else}}length=unknown {{/}}title={{title}}",
   syntaxExampleLabel: "예",
@@ -117,11 +118,11 @@ const prompt = {
   estimated: "추정치",
   tokensFailed: "토큰 수를 세지 못함",
   addSection: "섹션 추가",
-  /** 설명: 앞, 답 형식 예시, 뒤 */
-  descBefore: "섹션마다 역할을 정해 적은 순서대로 보내요. 답은 반드시 ",
+  /** 설명: 앞, 응답 형식 예시, 뒤 */
+  descBefore: "섹션마다 역할을 정해 적은 순서대로 보내요. 응답은 반드시 ",
   descAfter: " 형식의 JSON 배열이어야 해요.",
   emptyUsesDefault: "비어 있어 기본 프롬프트를 써요.",
-  listMarkMissing: (mark: string) => `어느 섹션에도 ${mark} 이 없어요.`,
+  listMarkMissing: (mark: string) => `어느 섹션에도 ${mark}${josa(mark, "이")} 없어요.`,
   dragToReorder: "드래그해서 순서 바꾸기",
   sectionName: (n: number) => `섹션 ${n}`,
   sectionNameTip: "표시용 이름이라 요청에는 쓰이지 않아요.",
@@ -156,7 +157,7 @@ const judge = {
 };
 
 // 리퀘스트 로그, 사용량 통계가 같이 쓰는 이름
-/** 요청을 보낸 곳(contract/ai-log 의 AI_LOG_SOURCES) */
+/** 요청을 보낸 곳(contract/ai-log의 AI_LOG_SOURCES) */
 const sources = { autoplay: "자동재생 판정", "judge-test": "판정 테스트", ping: "연결 확인", models: "모델 목록" } as const;
 
 // 리퀘스트 로그
@@ -222,7 +223,7 @@ const log = {
 // 사용량 통계
 const usage = {
   title: "사용량 통계",
-  desc: "AI 보조 요청의 토큰과 비용 통계예요. 비용은 models.dev 의 데이터로 추정한 수치예요.",
+  desc: "AI 보조 요청의 토큰과 비용 통계예요. 비용은 models.dev의 데이터로 추정한 수치예요.",
   periods: { 7: "7일", 30: "30일", 90: "90일", 0: "전체" } as Record<number, string>,
   sources,
   refresh: "새로고침",
@@ -288,7 +289,7 @@ const advanced = {
   delayMaxTip: "재요청 대기 시간의 상한\n(서버의 대기 요구에도 적용. Gemini API는 30~60초를 요구하는 경우가 있음)",
   retryTimeouts: "타임아웃 시 재요청",
   retryStatus: "재요청할 응답 코드",
-  retryStatusTip: "연결 실패는 입력하지 않아도 재요청해요.\n400, 401, 403, 404 는 재요청으로 해결할 수 없으니 넣지 마세요.",
+  retryStatusTip: "연결 실패는 입력하지 않아도 재요청해요.\n400, 401, 403, 404는 재요청으로 해결할 수 없으니 넣지 마세요.",
 };
 
 // 유료 확인 대화상자
@@ -322,13 +323,13 @@ const providerOff = "사용하지 않음";
 const endpointProject = "[프로젝트 ID]";
 const endpointModel = "{모델}";
 /** 키 입력란 플레이스홀더 */
-const keyPlaceholder = { accountSaved: "저장돼 있어요. 바꾸려면 새 JSON 을 붙여넣으세요", keySaved: "저장돼 있어요. 새로 저장하면 교체돼요.", empty: "키를 입력하세요" };
+const keyPlaceholder = { accountSaved: "저장돼 있어요. 바꾸려면 새 JSON을 붙여넣으세요", keySaved: "저장돼 있어요. 새로 저장하면 교체돼요.", empty: "키를 입력하세요" };
 const keySaved = "키를 저장했어요";
 const keyCleared = "키를 지웠어요";
 const keySaveFailed = "키를 저장하지 못했어요.";
 const keyClearFailed = "키를 지우지 못했어요.";
 /** 줄 형식 자리표시자 설명(이름은 봇의 rules/line-format) */
-const markHints: Record<string, string> = { index: "1부터", genre: "자동재생 장르의 식별자(예: rock). 라벨이 아니라 식별자가 들어가요", title: "영상 제목 (필수)", duration: "길이. 형식 없이 쓰면 3:05, {{duration::m}} 처럼 형식을 지정할 수 있어요. 모르면 빈 값이에요" };
+const markHints: Record<string, string> = { index: "1부터", genre: "자동재생 장르의 식별자(예: rock). 라벨이 아니라 식별자가 들어가요", title: "영상 제목 (필수)", duration: "길이. 형식 없이 쓰면 3:05, {{duration::m}}처럼 형식을 지정할 수 있어요. 모르면 빈 값이에요" };
 const modelsRefreshed = "모델 정보를 갱신했어요";
 const modelCount = (count: number) => `모델 ${count}개`;
 const modelsRefreshFailed = "모델 정보를 불러오지 못했어요.";

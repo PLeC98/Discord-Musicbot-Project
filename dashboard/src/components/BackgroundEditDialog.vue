@@ -5,7 +5,7 @@
        표시하는 것은 봇이 가져올 때 만든 미리보기(GET …/:id/preview, 영상은 480p), 시간 막대의 장면은 장면 띠(GET …/:id/strip).
        예상 저장 공간: 원본을 가져올 때 센 초당 세트 크기를 선택한 구간만큼 더한다. 크롭을 정하거나 구간을 잰 범위 밖으로 넓히면 그것만 다시 센다.
        최대 용량을 넘을 것 같으면(추산의 1.3배) 삭제될 오래된 기록 수를 알리기만 한다. 실제 크기는 인코딩 뒤 봇이 지킨다 -->
-  <!-- 편집 창이라 여백이 20px 이다. 보는 창 폭을 재기 전의 추산(room)도 이 여백으로 계산한다 -->
+  <!-- 편집 창이라 여백이 20px이다. 보는 창 폭을 재기 전의 추산(room)도 이 여백으로 계산한다 -->
   <BaseDialog ref="dialog" :open="open && bg != null" width="3xl" padding="editor" :outside="false" class="max-h-[95dvh] overflow-y-auto flex flex-col gap-3" :aria-label="T.title" @close="open = false"
     ><template v-if="bg">
       <h3 class="text-xl font-round font-semibold">{{ T.title }}</h3>
@@ -16,7 +16,7 @@
         <div class="flex min-w-full min-h-full w-max h-max" :class="zoom > 1 && 'cursor-grab'" :style="{ padding: `${EDGE}px` }" @pointerdown="panStart">
           <div class="relative m-auto shrink-0 select-none touch-none" :style="{ width: `${view.width * zoom}px`, height: `${view.height * zoom}px` }">
             <div class="absolute inset-0 overflow-hidden rounded-lg bg-black">
-              <!-- 영상(또는 그림)과 정지 화면 캔버스는 원본 크기 그대로 두고 함께 CSS 로 돌린다. 전환 효과의 막은 보이는 상자 위에 -->
+              <!-- 영상(또는 그림)과 정지 화면 캔버스는 원본 크기 그대로 두고 함께 CSS로 돌린다. 전환 효과의 막은 보이는 상자 위에 -->
               <div class="absolute max-w-none" :style="mediaStyle">
                 <video v-if="bg.kind === 'video'" ref="videoEl" :src="src" muted playsinline preload="auto" class="block size-full pointer-events-none" @loadedmetadata="onMeta" @timeupdate="onTime" @ended="onEnded"></video>
                 <img v-else :src="src" alt="" class="block size-full pointer-events-none" draggable="false" @load="onMeta" />
@@ -136,7 +136,7 @@ const dialog = ref<InstanceType<typeof BaseDialog> | null>(null);
 /** 구간 반복 재생(끄면 구간 끝에서 멈춘다) */
 const loop = ref(true);
 const fps = computed(() => props.bg?.fps || 30);
-/** 화면 확대: 0 ~ 100 을 1 배 ~ MAX_ZOOM 배로, 지수로 */
+/** 화면 확대: 0 ~ 100을 1 배 ~ MAX_ZOOM 배로, 지수로 */
 const zoomStep = ref(0);
 const zoom = computed(() => Math.pow(MAX_ZOOM, zoomStep.value / 100));
 const scale = computed(() => (size.value.width ? (view.width * zoom.value) / size.value.width : 1));
@@ -245,7 +245,7 @@ function onMeta(event: Event) {
 
 /**
  * 보는 창의 크기: 영역 폭 안, 남는 높이 안에서 이미지 비율대로. 남는 높이는 화면 높이(편집 창의 상한 95%)에서 편집 창의 나머지를 뺀 것.
- * first 를 주면 그 높이를 상한으로(처음 그릴 때, 나머지를 재기 전)
+ * first를 주면 그 높이를 상한으로(처음 그릴 때, 나머지를 재기 전)
  */
 function fit(first?: number) {
   if (!natural.width) return;
@@ -293,7 +293,7 @@ function seek(t: number) {
   now.value = at;
   if (videoEl.value) videoEl.value.currentTime = at;
 }
-/** 재생 중에는 장면마다 시각을 받는다(timeupdate 는 1초에 몇 번뿐이라 시각, 마커가 튄다). 구간 끝에 닿으면 처음으로 */
+/** 재생 중에는 장면마다 시각을 받는다(timeupdate는 1초에 몇 번뿐이라 시각, 마커가 튄다). 구간 끝에 닿으면 처음으로 */
 function follow() {
   const el = videoEl.value;
   if (!el || el.paused) return;
@@ -333,7 +333,7 @@ async function onEnded() {
   follow();
 }
 function onTime() {
-  // 멈춰 있을 때 찾아간 위치(재생 중은 follow 가 맡는다). 구간 핸들 장면을 보이는 동안은 재생 위치가 아니다
+  // 멈춰 있을 때 찾아간 위치(재생 중은 follow가 맡는다). 구간 핸들 장면을 보이는 동안은 재생 위치가 아니다
   if (videoEl.value?.paused && !peeking) now.value = videoEl.value.currentTime;
 }
 

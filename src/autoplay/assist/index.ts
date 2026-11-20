@@ -31,7 +31,7 @@ import { REDACTED, mask, safeHeaders } from "./mask.ts";
 import { sendLogged, type Call } from "./request-log.ts";
 import { sec } from "../../infra/log/seconds.ts";
 
-// 바깥으로 나가는 요청은 공유 HTTP 클라이언트로(부른 결과가 남는다). 테스트는 useFetch 로 가짜를 넘긴다(null 이면 진짜 fetch)
+// 바깥으로 나가는 요청은 공유 HTTP 클라이언트로(부른 결과가 남는다). 테스트는 useFetch로 가짜를 넘긴다(null이면 진짜 fetch)
 const http = httpFor("ai");
 const send = http.fetch;
 const useFetch = http.useFetch;
@@ -98,7 +98,7 @@ Examples
 Answer only with a JSON array. Do not explain.
 [{"n":1,"song":true,"fits":false}, ...]`;
 
-// 기본 대화 구성. 섹션마다 역할이 따로 있고, {{list}} 위치에 후보가 들어간다: system 에 판정 기준, user 에 후보 목록.
+// 기본 대화 구성. 섹션마다 역할이 따로 있고, {{list}} 위치에 후보가 들어간다: system에 판정 기준, user에 후보 목록.
 const DEFAULT_SECTIONS: PromptSection[] = [
   { role: "system", text: DEFAULT_PROMPT },
   { role: "user", text: "{{list}}" },
@@ -106,7 +106,7 @@ const DEFAULT_SECTIONS: PromptSection[] = [
 
 // 업로더 이름은 일부러 안 넣는다.
 // 유튜브의 그 필드는 토픽 트랙에서만 진짜 아티스트고 나머지는 채널 이름이다(`Vevo`, `Radio Mix`).
-// 길이를 모르면 "길이=" 구간째 뺀다("0분"이라고 적으면 거짓을 알려 주는 것이고, "길이=" 만 남으면 모델이 더 헷갈린다)
+// 길이를 모르면 "길이=" 구간째 뺀다("0분"이라고 적으면 거짓을 알려 주는 것이고, "길이="만 남으면 모델이 더 헷갈린다)
 const DEFAULT_LINE = "{{index}}. genre={{genre}} {{#if-exist {{duration}}}}length={{duration::m}}min {{/}}title={{title}}";
 
 const ROLES = new Set(["system", "user", "assistant"]);
@@ -137,7 +137,7 @@ const DEFAULTS = {
 
 /**
  * 기본값 위에 설정을 순서대로 얹는다. 기본값이 있는 필드를 비워 두면(null, "") 앞의 값을 쓴다.
- * 그대로 얹으면 비운 timeoutMs 가 Number(null) = 0 이 되어 부르자마자 끊긴다
+ * 그대로 얹으면 비운 timeoutMs가 Number(null) = 0이 되어 부르자마자 끊긴다
  */
 function withDefaults(...layers: Array<Partial<AiSettings> | null | undefined>): AiSettings {
   const out: Record<string, unknown> = { ...DEFAULTS };
@@ -155,7 +155,7 @@ function withDefaults(...layers: Array<Partial<AiSettings> | null | undefined>):
 
 const specOf = (provider: string | undefined) => (provider && PROVIDER_SPECS[provider]) || null;
 const live = (one: Partial<AiSettings> | null | undefined) => !!one?.provider && one.provider !== "off" && !!specOf(one.provider);
-/** 화면의 테스트가 요청을 보낼 수 없는 까닭(프로바이더를 고르지 않았거나 모르는 이름). 보낼 수 있으면 null */
+/** 화면의 테스트가 요청을 보낼 수 없는 이유(프로바이더를 고르지 않았거나 모르는 이름). 보낼 수 있으면 null */
 const notLive = (one: Partial<AiSettings>) => (live(one) ? null : !one.provider || one.provider === "off" ? "프로바이더가 설정되지 않았어요" : `모르는 프로바이더예요(${one.provider})`);
 
 // 끝의 슬래시를 뗀다. `/\/+$/`로 하면 끝에 없는 슬래시 더미에 역추적이 붙어 O(n²)가 된다.
@@ -179,7 +179,7 @@ function endpointOf(one: Partial<AiSettings> | null | undefined) {
 // 로컬 모델은 키를 안 받는다. 보내 봐야 쓸데없고, 어디로 새는지도 모른다.
 const wantsKey = (one: Partial<AiSettings> | null | undefined) => !!specOf(one?.provider)?.key;
 
-/** 키를 묶는 주소. 요청이 실제로 가는 곳이다: 버텍스는 리전으로 만든 호스트, 나머지는 프로바이더 주소(custom 은 적은 주소) */
+/** 키를 묶는 주소. 요청이 실제로 가는 곳이다: 버텍스는 리전으로 만든 호스트, 나머지는 프로바이더 주소(custom은 적은 주소) */
 function keyBinding(one: Partial<AiSettings> | null | undefined): string {
   const spec = specOf(one?.provider);
   if (!spec) return "";
@@ -215,11 +215,11 @@ async function authOf(one: Partial<AiSettings>): Promise<Record<string, string>>
 
 /** 지금 쓸 수 있나. 설정을 읽는 유일한 곳이다(설정을 바꾸면 곧바로 반영된다). */
 function settings(): AiSettings | null {
-  // 검사에 걸린 필드가 하나라도 있으면 enabled: false 가 얹혀 온다. 켜지 않는다(까닭은 ai() 가 알린다)
+  // 검사에 걸린 필드가 하나라도 있으면 enabled: false가 얹혀 온다. 켜지 않는다(이유는 ai()가 알린다)
   const saved = aiConfig.ai();
   if (saved.enabled === false) return null;
   const one = withDefaults(saved as Partial<AiSettings>);
-  // 버텍스는 주소를 프로젝트, 리전으로 조립하므로 baseUrl 이 없다
+  // 버텍스는 주소를 프로젝트, 리전으로 조립하므로 baseUrl이 없다
   if (!live(one) || !one.model) return null;
   if (!specOf(one.provider)?.dialect?.startsWith("vertex") && !endpointOf(one)) return null;
   // 프롬프트는 딴 문서다("ai-prompt"). 설정 문서에는 안 섞는다
@@ -240,7 +240,7 @@ function setPath(obj: Body, path: string, value: unknown): Body {
   let at = obj;
   for (let i = 0; i < keys.length - 1; i++) {
     const k = keys[i];
-    // safeKeys 가 이미 필터링했지만 여기서도 본다. 분석기가 알아보는 위치는 대입 바로 옆이다
+    // safeKeys가 이미 필터링했지만 여기서도 본다. 분석기가 알아보는 위치는 대입 바로 옆이다
     if (k === "__proto__" || k === "constructor" || k === "prototype") return obj;
     // 앞 줄이 같은 경로에 값을 넣어 뒀으면 덮어쓴다. 안쪽에 더 넣을 수 없는 모양이다
     if (!at[k] || typeof at[k] !== "object" || Array.isArray(at[k])) at[k] = {};
@@ -269,7 +269,7 @@ function delPath(obj: Body, path: string) {
   delete at[last];
 }
 
-// 파이썬 형식 키워드를 JSON 이 읽을 수 있게 바꾼다. 따옴표 안은 건드리지 않는다.
+// 파이썬 형식 키워드를 JSON이 읽을 수 있게 바꾼다. 따옴표 안은 건드리지 않는다.
 const RELAXED: Array<[string, string]> = [
   ["True", "true"],
   ["False", "false"],
@@ -306,14 +306,14 @@ function readJson(text: string): { ok: true; value: unknown } | { ok: false } {
   try {
     return { ok: true, value: JSON.parse(text) };
   } catch {
-    /* 그대로는 JSON 이 아니다. 흔한 흠을 고쳐 다시 본다 */
+    /* 그대로는 JSON이 아니다. 흔한 흠을 고쳐 다시 본다 */
   }
   const relaxed = relaxJson(text);
   if (relaxed !== text) {
     try {
       return { ok: true, value: JSON.parse(relaxed) };
     } catch {
-      /* 고쳐도 JSON 이 아니다 */
+      /* 고쳐도 JSON이 아니다 */
     }
   }
   return { ok: false };
@@ -324,10 +324,10 @@ function readJson(text: string): { ok: true; value: unknown } | { ok: false } {
  *
  *   key=value            그대로 (true, false, null, 숫자는 알아서 바꾼다)
  *   key="value"          따옴표로 두르면 숫자처럼 보여도 글자다
- *   a.b.c=value          점으로 안쪽 필드에 넣는다 (thinking.budget_tokens 처럼)
- *   key=json::{...}      JSON 으로 읽어 넣는다 (객체, 배열)
+ *   a.b.c=value          점으로 안쪽 필드에 넣는다 (thinking.budget_tokens처럼)
+ *   key=json::{...}      JSON으로 읽어 넣는다 (객체, 배열)
  *   header::Name=value   본문이 아니라 요청 헤더에 넣는다
- *   key={{none}}         그 값을 아예 안 보낸다 (header::Name={{none}} 이면 헤더를 뺀다)
+ *   key={{none}}         그 값을 아예 안 보낸다 (header::Name={{none}}이면 헤더를 뺀다)
  *   # 주석
  *
  * RisuAI와 같은 입력법이다. 못 읽은 줄은 조용히 버리지 않고 problems로 돌려준다.
@@ -341,7 +341,7 @@ function parseExtra(text: unknown): Extra {
   return out;
 }
 
-// 한 줄(이름=값)을 담는다. 못 읽으면 까닭을 problems 에
+// 한 줄(이름=값)을 담는다. 못 읽으면 이유를 problems에
 function readExtraLine(line: string, out: Extra) {
   const at = line.indexOf("=");
   if (at < 1) return out.problems.push(`이름이 없음: ${line}`);
@@ -349,7 +349,7 @@ function readExtraLine(line: string, out: Extra) {
   const value = line.slice(at + 1).trim();
   const header = /^header::/i.test(name) ? name.slice(8).trim() : null;
 
-  // {{none}} 을 header:: 보다 먼저 본다. 안 그러면 헤더에 "{{none}}" 을 넣게 된다
+  // {{none}}을 header:: 보다 먼저 본다. 안 그러면 헤더에 "{{none}}"을 넣게 된다
   if (value === "{{none}}") return header !== null ? out.dropHeaders.push(header) : out.drop.push(name);
   if (header !== null) {
     out.headers[header] = value;
@@ -377,7 +377,7 @@ function scalarOf(value: string): unknown {
 }
 
 /**
- * 후보 한 줄(config/schema 의 검사, 대시보드 미리보기와 같은 해석기 rules/line-format). 길이 필드 이름은 후보(durationSec)와 트랙(duration)이 다르다. 둘 다 받는다.
+ * 후보 한 줄(config/schema의 검사, 대시보드 미리보기와 같은 해석기 rules/line-format). 길이 필드 이름은 후보(durationSec)와 트랙(duration)이 다르다. 둘 다 받는다.
  * 모르는 이름은 적힌 그대로 둔다(오타를 조용히 지우면 왜 사라졌는지 알 길이 없다. 검사가 표시한다)
  */
 function renderLine(list: ListFormat | undefined, cand: Judged, genre: string | undefined, i: number) {
@@ -397,7 +397,7 @@ function buildMessages(one: AiSettings, batch: Judged[], genre: string | undefin
 
   return sections
     .map((section, at) => ({
-      // 모르는 역할은 system 으로 떨어뜨린다. 저쪽이 400을 주느니 낫다
+      // 모르는 역할은 system으로 떨어뜨린다. 저쪽이 400을 주느니 낫다
       role: ROLES.has(section?.role) ? section.role : "system",
       // 장르는 한 요청에 하나다(모든 줄이 같은 값을 쓴다). 그래서 프롬프트에서도 쓸 수 있다
       content: renderNodes(nodesOf(String(section?.text ?? ""), PROMPT_NAMES), { list: () => list, genre: () => genre ?? "" }),
@@ -418,7 +418,7 @@ function geminiBody(_one: AiSettings, messages: Wire[]): Body {
     .filter((m) => m.role === "system")
     .map((m) => m.content)
     .join("\n\n");
-  // systemInstruction 을 앞에 둔다. 저쪽은 이름 있는 필드라 순서를 안 보지만,
+  // systemInstruction을 앞에 둔다. 저쪽은 이름 있는 필드라 순서를 안 보지만,
   // 요청 로그는 사람이 읽는다. 지시가 목록 뒤에 오면 거꾸로 읽힌다.
   return {
     ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
@@ -442,9 +442,9 @@ const geminiAnswer = (json: Reply) => (json?.candidates?.[0]?.content?.parts || 
 type Dialect = {
   chatUrl(one: AiSettings): string;
   modelsUrl(one: AiSettings): string;
-  /** 앞 주소가 404 면 순서대로 물을 주소 */
+  /** 앞 주소가 404면 순서대로 물을 주소 */
   modelsUrlFallbacks?(one: AiSettings): string[];
-  /** live: false 면 밖으로 나가지 않는다(미리보기). 토큰을 받아야 하는 곳은 자리표시자로 채운다 */
+  /** live: false면 밖으로 나가지 않는다(미리보기). 토큰을 받아야 하는 곳은 자리표시자로 채운다 */
   headers(one: AiSettings, opts?: { live?: boolean }): Promise<Record<string, string>>;
   body(one: AiSettings, messages: Wire[]): Body;
   answerOf(json: Reply): string;
@@ -476,7 +476,7 @@ const DIALECTS: Record<string, Dialect> = {
       return { "Content-Type": "application/json", "anthropic-version": ANTHROPIC_VERSION, ...(key ? { "x-api-key": key } : {}) };
     },
     body: (one, messages) => {
-      // system 은 여럿일 수 있다(섹션을 나눠 적었을 수 있다). 붙여서 한 필드에 넣는다
+      // system은 여럿일 수 있다(섹션을 나눠 적었을 수 있다). 붙여서 한 필드에 넣는다
       const system = messages
         .filter((m) => m.role === "system")
         .map((m) => m.content)
@@ -524,7 +524,7 @@ const DIALECTS: Record<string, Dialect> = {
   vertex: {
     chatUrl: (one) => vertexChatUrl(one, vertexProject(one), one.model || ""),
     // 모델 목록은 생성과 주소 체계가 다르다. 프로젝트, 리전이 붙지 않는 쪽이라
-    // 생성 주소를 그대로 쓰면 404 다. API 버전이 나뉘어 있어 순서대로 물어본다.
+    // 생성 주소를 그대로 쓰면 404다. API 버전이 나뉘어 있어 순서대로 물어본다.
     modelsUrl: (one) => `https://${vertexHost(one)}/v1beta1/publishers/google/models`,
     modelsUrlFallbacks: (one) => [`https://${vertexHost(one)}/v1/publishers/google/models`, `${vertexBase(one)}/publishers/google/models`],
     headers: async (one, { live = true } = {}) => {
@@ -592,7 +592,7 @@ const usable = (field: ModelField, value: unknown) => {
 
 /**
  * 이 요청이 몇 토큰짜리인지. 클로드는 공개 토크나이저가 없어 저쪽에 물어본다.
- * 무료이고, tik 로 추산하면 한국어에서 크게 모자란다.
+ * 무료이고, tik로 추산하면 한국어에서 크게 모자란다.
  */
 async function countTokens(one: AiSettings, messages: Wire[]): Promise<TokenCount | null> {
   try {
@@ -626,7 +626,7 @@ function withParams(body: Body, one: AiSettings): Body {
 
   for (const field of fields) {
     // 화면에서 가려진 필드는 보내지 않는다. 켰다 끈 값이 남아 있으면 저쪽이 거절한다.
-    // top_logprobs 는 logprobs 가 꺼져 있으면 400 이다.
+    // top_logprobs는 logprobs가 꺼져 있으면 400이다.
     const cond = field.showIf;
     if (cond) {
       const owner = fields.find((one) => one.key === cond.key);
@@ -656,7 +656,7 @@ async function buildRequest(one: AiSettings, batch: Judged[], genre: string | un
 function deepMerge(base: Body, add: Body): Body {
   const out: Body = { ...base };
   for (const [key, value] of Object.entries(add)) {
-    if (UNSAFE_KEYS.has(key)) continue; // setPath 와 같은 이유
+    if (UNSAFE_KEYS.has(key)) continue; // setPath와 같은 이유
     const mine = out[key];
     const both = (v: unknown): v is Body => !!v && typeof v === "object" && !Array.isArray(v);
     out[key] = both(mine) && both(value) ? deepMerge(mine, value) : value;
@@ -664,7 +664,7 @@ function deepMerge(base: Body, add: Body): Body {
   return out;
 }
 
-/** 헤더를 얹고, header::Name={{none}} 으로 삭제하라고 한 것을 뺀다. 이름의 대소문자는 구분하지 않는다. */
+/** 헤더를 얹고, header::Name={{none}}으로 삭제하라고 한 것을 뺀다. 이름의 대소문자는 구분하지 않는다. */
 function headersWith(base: Record<string, string>, extra: Extra) {
   const out: Record<string, string> = { ...base, ...extra.headers };
   for (const name of extra.dropHeaders || []) {
@@ -675,26 +675,26 @@ function headersWith(base: Record<string, string>, extra: Extra) {
 
 /**
  * 경로는 언제나 본문 맨 위부터다. 다이얼렉트마다 다른 위치로 넣어 주지 않는다.
- * 버텍스처럼 안쪽 필드를 쓰는 곳은 `generationConfig.topP=0.9` 로 적는다.
- * 모델 프로필의 mapsTo.path 도 같은 규칙이라, 두 길이 어긋나지 않는다.
+ * 버텍스처럼 안쪽 필드를 쓰는 곳은 `generationConfig.topP=0.9`로 적는다.
+ * 모델 프로필의 mapsTo.path도 같은 규칙이라, 두 길이 어긋나지 않는다.
  */
 function withExtra(body: Body, extra: Extra) {
   const out = deepMerge(body, extra.body);
-  // {{none}} 은 얹은 뒤에 삭제해야 앤트로픽 max_tokens 처럼 늘 붙는 것도 뺄 수 있다
+  // {{none}}은 얹은 뒤에 삭제해야 앤트로픽 max_tokens처럼 늘 붙는 것도 뺄 수 있다
   for (const path of extra.drop) delPath(out, path);
   return out;
 }
 
 // gemma 계열은 토크나이저의 공백 표시(U+2581 ▁)를 답에 그대로 내보내는 일이 있다.
-// JSON.parse 가 `Unexpected token '▁'` 로 죽으므로 들여쓰기 위치의 그것만 공백으로 되돌린다.
+// JSON.parse가 `Unexpected token '▁'`로 죽으므로 들여쓰기 위치의 그것만 공백으로 되돌린다.
 // 같은 위치에 오는 다른 폭의 공백(U+00A0, U+3000)도 함께 본다.
 const ODD_SPACE = new RegExp("[\u2581\u00a0\u3000]", "g");
 const despace = (text: string) => text.replace(ODD_SPACE, " ");
 
 /**
- * 답에서 곡별 판정을 읽는다. 작은 모델은 ```json 울타리나 앞말 · 뒷말을 곧잘 붙이므로
- * 대괄호로 싼 블록 중 판정 모양(`n` 이 있는 표의 배열)인 마지막 것을 집는다. 설명 속 `[1]` 같은 것은 건너뛴다.
- * 못 읽으면 null. 부르는 쪽이 원문을 그대로 보여 준다.
+ * 답에서 곡별 판정을 읽는다. 작은 모델은 ```json 울타리나 앞말, 뒷말을 곧잘 붙이므로
+ * 대괄호로 싼 블록 중 판정 모양(`n`이 있는 표의 배열)인 마지막 것을 집는다. 설명 속 `[1]` 같은 것은 건너뛴다.
+ * 못 읽으면 null. 호출부가 원문을 그대로 보여 준다.
  */
 function readVerdicts(text: unknown, count: number): Array<Verdict | null> | null {
   const verdicts = arraysIn(despace(String(text || "")))
@@ -710,7 +710,7 @@ function readVerdicts(text: unknown, count: number): Array<Verdict | null> | nul
   return out;
 }
 
-// 참은 true 와 글자 "true" 뿐이다. "false" 를 !! 로 읽으면 참이 된다
+// 참은 true와 글자 "true" 뿐이다. "false"를 !! 로 읽으면 참이 된다
 const yes = (value: unknown) => value === true || value === "true";
 
 function parseArray(text: string): Array<Record<string, unknown>> | null {
@@ -756,7 +756,7 @@ function skipped(error: unknown) {
   log.warn(`AI 보조 실패${calls}: ${messageOf(error)}. 이번 판정은 규칙만으로 선택`);
 }
 
-/** 판정 하나(재시도, 다시 묻기까지 끝낸 것)의 실패. reason 은 까닭, detail 은 저쪽 문구, calls 는 부른 수 */
+/** 판정 하나(재시도, 다시 묻기까지 끝낸 것)의 실패. reason은 원인, detail은 저쪽 문구, calls는 부른 수 */
 class AskFailure extends Error {
   reason: string;
   detail: string;
@@ -772,10 +772,10 @@ class AskFailure extends Error {
 /** 부르기 한 번의 결과. 실패면 다시 해도 되는지와 저쪽이 기다리라고 한 시간 */
 type Attempt = { ok: true; verdicts: Array<Verdict | null> } | { ok: false; reason: string; detail: string; retry: boolean; adviceMs?: number | null; unreadable?: boolean };
 
-// 판정 하나의 상한(totalTimeoutMs)으로 끊었을 때의 까닭. 부르기 한 번의 시간 초과와 구분한다
+// 판정 하나의 상한(totalTimeoutMs)으로 끊었을 때의 원인. 부르기 한 번의 시간 초과와 구분한다
 const OVER_TOTAL = new Error("판정 상한");
 
-/** 리퀘스트 로그에 적을 것: 응답의 토큰, 2xx 인데 판정을 읽지 못한 까닭 */
+/** 리퀘스트 로그에 적을 것: 응답의 토큰, 2xx인데 판정을 읽지 못한 원인 */
 function judgeCall(one: AiSettings, size: number): Pick<Call, "provider" | "model" | "tokensOf" | "explain"> {
   return {
     provider: String(one.provider),
@@ -785,7 +785,7 @@ function judgeCall(one: AiSettings, size: number): Pick<Call, "provider" | "mode
       try {
         return readVerdicts(dialectOf(one).answerOf(JSON.parse(raw) as Reply) || "", size) ? undefined : "판정을 읽지 못함";
       } catch {
-        return "판정을 읽지 못함(JSON 이 아닌 답)";
+        return "판정을 읽지 못함(JSON이 아닌 응답)";
       }
     },
   };
@@ -816,13 +816,13 @@ async function attempt(one: AiSettings, request: Awaited<ReturnType<typeof build
     if (total?.aborted) return { ok: false, reason: "판정 상한 초과", detail: `${Number(one.totalTimeoutMs) / 1000}초`, retry: false };
     if (perCall.aborted) return { ok: false, reason: "시간 초과", detail: `${Number(one.timeoutMs) / 1000}초`, retry: !!one.retryTimeouts };
     if (errorKind(error) === "network-error") return { ok: false, reason: "네트워크 오류", detail: messageOf(error), retry: true };
-    // 200 인데 본문이 JSON 이 아니다(앞에 둔 프록시의 안내 페이지 등). 판정을 못 읽은 답과 같이 한 번 더 묻는다
-    if (error instanceof SyntaxError) return { ok: false, reason: "판정을 읽지 못함", detail: `JSON 이 아닌 답(${messageOf(error)})`, retry: false, unreadable: true };
+    // 200인데 본문이 JSON이 아니다(앞에 둔 프록시의 안내 페이지 등). 판정을 못 읽은 응답과 같이 한 번 더 묻는다
+    if (error instanceof SyntaxError) return { ok: false, reason: "판정을 읽지 못함", detail: `JSON이 아닌 응답(${messageOf(error)})`, retry: false, unreadable: true };
     return { ok: false, reason: messageOf(error), detail: "", retry: false };
   }
 }
 
-/** 다음 재시도 앞의 대기. 다시 하지 않을 것이면 까닭 */
+/** 다음 재시도 전의 대기 시간(ms). 재시도하지 않으면 stop에 이유(재시도 대상이 아니거나 횟수를 다 썼으면 빈 문자열) */
 function waitBefore(one: AiSettings, used: number, failed: Attempt & { ok: false }, endsAt: number | null): { ms: number } | { stop: string } {
   if (!failed.retry) return { stop: "" };
   if (used >= Number(one.retries)) return { stop: "" };
@@ -835,7 +835,7 @@ function waitBefore(one: AiSettings, used: number, failed: Attempt & { ok: false
 
 /**
  * 후보 배치 하나를 판정한다. 실패하면 설정대로 다시 부르고(retries, 대기), 끝내 실패하면 AskFailure.
- * 판정을 읽지 못한 답은 재시도와 따로 한 번만 곧바로 다시 묻는다. retries 를 0 으로 주면 한 번만 부른다
+ * 판정을 읽지 못한 답은 재시도와 따로 한 번만 곧바로 다시 묻는다. retries를 0으로 주면 한 번만 부른다
  */
 async function askBatch(one: AiSettings, cands: Judged[], genre: string | undefined, { retries = Number(one.retries) }: { retries?: number } = {}) {
   const request = { ...(await buildRequest(one, cands, genre)), size: cands.length };
@@ -941,11 +941,11 @@ async function listModels(draft: Draft): Promise<ModelsCheck> {
   const first = dialect.modelsUrl(one);
   if (!first) return { ok: false, reason: "엔드포인트 주소가 비어 있어요(custom이면 직접 적어야 해요)" };
 
-  // 같은 곳인데 API 버전마다 주소 체계가 다른 데가 있다(버텍스). 404 면 다음 것을 물어본다.
-  // 그래야 어느 버전을 쓰는 프로젝트든 목록이 표시된다. 404 가 아니면 그 답이 곧 사실이다.
+  // 같은 곳인데 API 버전마다 주소 체계가 다른 데가 있다(버텍스). 404면 다음 것을 물어본다.
+  // 그래야 어느 버전을 쓰는 프로젝트든 목록이 표시된다. 404가 아니면 그 답이 곧 사실이다.
   const urls = [first, ...(dialect.modelsUrlFallbacks?.(one) || [])];
   const started = Date.now();
-  let url = first; // 실패해도 어디를 불렀는지는 알려 줘야 한다(catch 에서 쓴다)
+  let url = first; // 실패해도 어디를 불렀는지는 알려 줘야 한다(catch에서 쓴다)
 
   try {
     const asked = await askModels(urls, await dialect.headers(one), one, (tried) => (url = tried));
@@ -970,7 +970,7 @@ async function listModels(draft: Draft): Promise<ModelsCheck> {
   }
 }
 
-// 주소를 순서대로 묻는다. 404 면 다음 주소로. at 은 지금 묻는 주소를 알린다(실패해도 어디를 불렀는지 남긴다)
+// 주소를 순서대로 묻는다. 404면 다음 주소로. at은 지금 묻는 주소를 알린다(실패해도 어디를 불렀는지 남긴다)
 async function askModels(urls: string[], headers: Record<string, string>, one: AiSettings, at: (url: string) => void) {
   for (const [i, url] of urls.entries()) {
     at(url);
@@ -992,7 +992,7 @@ function visibleModels(all: string[], one: AiSettings) {
 
 /**
  * 저쪽에 묻지 못했을 때(키가 없다, 거절, 닿지 못함) 다운로드해 둔 모델 프로필(config/ai-models)이 아는 모델로 목록을 채운다.
- * 확인 결과(ok, 까닭)는 그대로 둔다. 연결이 된 것처럼 보이면 안 된다. 프로필이 없는 곳(로컬, custom)은 채울 것이 없다
+ * 확인 결과(ok, 이유)는 그대로 둔다. 연결이 된 것처럼 보이면 안 된다. 프로필이 없는 곳(로컬, custom)은 채울 것이 없다
  */
 function withPreset(one: AiSettings, check: ModelsCheck): ModelsCheck {
   const registry = specOf(one.provider)?.registry;
@@ -1001,7 +1001,7 @@ function withPreset(one: AiSettings, check: ModelsCheck): ModelsCheck {
 }
 
 /**
- * 목록에서 가릴 이름. `*` 만 있는 아주 좁은 글롭이다. 정규식을 설정에 적게 하면
+ * 목록에서 가릴 이름. `*`만 있는 아주 좁은 글롭이다. 정규식을 설정에 적게 하면
  * 오타 하나에 목록이 통째로 비고, 왜 빈지 알 길이 없다.
  */
 function hideRules(patterns: unknown) {
@@ -1014,7 +1014,7 @@ function hideRules(patterns: unknown) {
 const escapeRe = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 // 유료 확인에 쓰는 물음. 짧고, 답이 맞는지 사람이 바로 알아볼 수 있는 것으로.
-const PING_TEXT = "한 문장으로 인사하고 17 + 25 의 값을 알려 주세요.";
+const PING_TEXT = "한 문장으로 인사하고 17 + 25의 값을 알려 주세요.";
 
 /**
  * 유료 확인. 진짜로 한 번 생성시킨다. 판정 프롬프트가 아니라 짧은 물음을 보낸다.
@@ -1085,7 +1085,7 @@ async function candidatesFromUrls(urls: unknown[] | null | undefined, { describe
       const info = await Promise.race([youtubeSource.getInfo(url), new Promise<never>((_, no) => setTimeout(() => no(timedOut), timeoutMs))]);
       out.push({ url, title: info.title, durationSec: info.duration, thumbnail: info.thumbnail, channel: info.artist });
     } catch (error) {
-      // 화면에는 부르는 쪽이 고른 안내(describe), yt-dlp 원문은 운영자 로그로
+      // 화면에는 호출부가 고른 안내(describe), yt-dlp 원문은 운영자 로그로
       log.warn(`AI 판정 테스트 후보 조회 실패: ${url} | ${messageOf(error)}`);
       out.push({ url, error: error === timedOut ? `시간 초과(${timeoutMs / 1000}초)로 곡 정보를 불러오지 못했어요.` : describe(error) });
     }
@@ -1114,7 +1114,7 @@ async function judgeTest(draft: Draft, cands: TestCandidate[] | null | undefined
   try {
     request = await buildRequest(one, usable, genre);
   } catch (error) {
-    // 헤더를 못 만들었다(버텍스 토큰을 못 받는 등). 까닭을 화면에 돌려준다
+    // 헤더 생성 실패 시(버텍스 토큰을 못 받는 등). 원인을 화면으로 반환한다
     return { url: "", headers: {}, body: {}, messages: [], tokens: null, problems: [], status: null, response: mask(messageOf(error)), verdicts: null, tookMs: Date.now() - started } satisfies JudgeResult;
   }
   const out: JudgeResult = { url: request.url, headers: safeHeaders(request.headers), body: request.body, messages: request.messages, tokens: await countTokens(one, request.wire), problems: request.problems, status: null, response: "", verdicts: null };

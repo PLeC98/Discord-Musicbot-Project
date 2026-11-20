@@ -23,7 +23,7 @@ const CACHE_DIR = PROJECT.audioCache;
 const W_RECENCY = 0.4;
 const W_FREQUENCY = 0.4;
 const W_SIZE = 0.2;
-// 크기 점수의 기준. opus 128kbps 는 1분에 약 1MB 라 50MB 는 약 50분이다
+// 크기 점수의 기준. opus 128kbps는 1분에 약 1MB라 50MB는 약 50분이다
 const SIZE_REF_BYTES = 50 * 1024 * 1024;
 
 /** audio_cache 한 행(표는 cache-db.ts) */
@@ -49,13 +49,13 @@ type TrackMeta = { title?: string | null; artist?: string | null; duration?: num
 const protectedKeys = new Map<string, string>();
 const downloadingFiles = new Set<string>(); // 지금 다운로드 중인 파일 경로(임시 파일, 옮긴 뒤 기록 전의 최종 파일). 정리가 건드리면 안 된다
 const queuedKeys = new Map<string, Set<string>>(); // guildId -> Set<audio_key>. 대기열 앞부분
-// 내보내는 중인 파일의 audio_key(내보내기마다 한 벌). ZIP 이 파일마다 두 번 읽으므로(CRC, 담기) 그동안 퇴거, 삭제, 초기화가 삭제하지 않게 한다
+// 내보내는 중인 파일의 audio_key(내보내기마다 한 벌). ZIP이 파일마다 두 번 읽으므로(CRC, 담기) 그동안 퇴거, 삭제, 초기화가 삭제하지 않게 한다
 const exportingKeys = new Set<Set<string>>();
 // 볼륨을 재는 중인 키와 그 키를 막은 횟수(같은 키를 겹쳐 막을 수 있다)
 const measuringKeys = new Map<string, number>();
 let evictInterval: NodeJS.Timeout | null = null;
 let evictEveryMs = 0;
-// 캐시 파일이 놓이는 곳. 테스트가 _setCacheDir 로 교체하면 실제 폴더를 건드리지 않는다.
+// 캐시 파일이 놓이는 곳. 테스트가 _setCacheDir로 교체하면 실제 폴더를 건드리지 않는다.
 // 파일을 만지는 코드는 반드시 이 값을 거쳐야 한다(모듈 상수를 직접 쓰면 격리가 새어나간다).
 let dir = CACHE_DIR;
 // 파일 하나를 삭제할 때 기다리는 상한. 다른 프로그램(탐색기 등)이 파일을 쥐고 있으면 놓을 때까지 삭제가 멈춘다
@@ -77,10 +77,9 @@ let cleanupTail: Promise<unknown> = Promise.resolve();
 /** 봇이 시작된 뒤 마지막으로 실제로 삭제한 정리: 시각, 삭제한 파일 수, 비운 바이트 */
 let lastCleanup: { at: number; files: number; bytes: number } | null = null;
 
-// 열기 전에 부르면 던진다
+// 열기 전에 부르면 예외를 던진다
 const conn = () => cacheDb.get();
 
-/** 캐시 파일이 놓이는 폴더 */
 const cacheDir = () => dir;
 
 // 테스트: 임시 폴더로 바꾼다
@@ -97,7 +96,7 @@ function _setRemoval({ unlink: nextUnlink = fsUnlink, timeoutMs = REMOVE_TIMEOUT
 
 /**
  * 캐시 파일을 삭제한다. 삭제했거나 이미 없으면 true, 못 삭제했으면 false.
- * 상한 시간 안에 끝나지 않으면 기다리지 않고 false 이고, 그 파일은 이번 실행 동안 건너뛴다
+ * 상한 시간 안에 끝나지 않으면 기다리지 않고 false이고, 그 파일은 이번 실행 동안 건너뛴다
  */
 async function removeFile(fp: string): Promise<boolean> {
   const target = path.resolve(fp);
@@ -130,7 +129,7 @@ async function removeFile(fp: string): Promise<boolean> {
   }
 }
 
-// 캐시 폴더를 만들고 정기 퇴거를 건다. DB 는 먼저 열어 둔다(store/stores.open)
+// 캐시 폴더를 만들고 정기 퇴거를 건다. DB는 먼저 열어 둔다(store/stores.open)
 function initialize() {
   cacheDb.get();
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -161,7 +160,7 @@ function unprotect(guildId: string) {
 /** 삭제하는 길을 하나씩 돌린다 */
 function underCleanupLock<T>(run: () => Promise<T>): Promise<T> {
   const turn = cleanupTail.then(() => tallyRemovals(run));
-  // 실패는 turn 을 받은 쪽이 처리한다. 여기서는 다음 순서가 이어지게만 한다
+  // 실패는 turn을 받은 쪽이 처리한다. 여기서는 다음 순서가 이어지게만 한다
   cleanupTail = turn.catch(() => undefined);
   return turn;
 }
@@ -189,7 +188,7 @@ function unprotectFile(filepath: string | null | undefined) {
 }
 
 /**
- * 이 이름이 임시 파일(.opus)이나 그 부스러기인가. yt-dlp 는 다운로드하는 동안 임시 파일 옆에 .part, 조각, info.json 을 둔다.
+ * 이 이름이 임시 파일(.opus)이나 그 부스러기인가. yt-dlp는 다운로드하는 동안 임시 파일 옆에 .part, 조각, info.json을 둔다.
  * 다운로드가 자기 부스러기를 치울 때와 초기화가 다운로드 중인 파일을 건너뛸 때 같은 규칙을 쓴다
  */
 function isTempPiece(name: string, tempName: string) {
@@ -298,7 +297,7 @@ function recordDownloadComplete(audioKey: string, filePath: string, fileSizeByte
     )
     .run(filePath, fileSizeBytes, track?.title || null, track?.artist || null, durationSec || track?.duration || null, audioVersion, audioVersion ? now : null, now, audioKey);
 
-  // 다운로드 뒤 퇴거 검사(기다리지 않는다). 그사이 DB 가 닫혔으면 돌지 않는다(닫힌 DB 를 부르면 던진다)
+  // 다운로드 뒤 퇴거 검사(기다리지 않는다). 그사이 DB가 닫혔으면 돌지 않는다(닫힌 DB를 부르면 예외를 던진다)
   setImmediate(() => {
     if (!cacheDb.isOpen()) return;
     evictIfNeeded().then(
@@ -367,7 +366,7 @@ async function onStartup() {
   bestEffort(log, evictIfNeeded(), "기동 캐시 비우기", "warn");
 }
 
-// 선택한 것의 표를 비운다. survivors: 남긴 파일의 키라 audio_cache 에 남길 행. 다운로드 중인 행도 남긴다(끝나면 그 행을 cached 로 고친다).
+// 선택한 것의 표를 비운다. survivors: 남긴 파일의 키라 audio_cache에 남길 행. 다운로드 중인 행도 남긴다(끝나면 그 행을 cached로 고친다).
 // 선택마다 비운 행 수
 function wipeTables(parts: readonly AudioCachePart[], survivors: string[]): Partial<Record<AudioCachePart, number>> {
   const holes = survivors.map(() => "?").join(",");
@@ -394,7 +393,7 @@ function sizeOf(target: string) {
   }
 }
 
-/** 오디오 캐시 초기화의 결과. removed, kept, freedBytes 는 캐시 파일을 선택했을 때 삭제한 파일 수, 남긴 파일 수, 실제로 삭제한 크기, cleared 는 선택마다 비운 행 수 */
+/** 오디오 캐시 초기화의 결과. removed, kept, freedBytes는 캐시 파일을 선택했을 때 삭제한 파일 수, 남긴 파일 수, 실제로 삭제한 크기, cleared는 선택마다 비운 행 수 */
 type ResetResult = { removed: number; kept: number; freedBytes: number; cleared: Partial<Record<AudioCachePart, number>> };
 
 /**
@@ -428,7 +427,7 @@ async function resetLocked(parts: readonly AudioCachePart[]): Promise<ResetResul
 
 // 캐시 파일을 모두 삭제한다. 남긴 것(재생 중, 대기열 앞, 삭제하지 못한 것)의 키는 행을 남기려고 돌려준다
 async function removeAllFiles() {
-  // 파일을 먼저 삭제하고, 남긴 것의 행은 남긴다. 행만 삭제하고 파일을 남기면 DB 가 모르는 파일이 된다.
+  // 파일을 먼저 삭제하고, 남긴 것의 행은 남긴다. 행만 삭제하고 파일을 남기면 DB가 모르는 파일이 된다.
   const rows = conn().prepare("SELECT audio_key, file_path, status FROM audio_cache").all() as Array<Pick<AudioRow, "audio_key" | "file_path" | "status">>;
   const pathOf = (row: Pick<AudioRow, "audio_key" | "file_path">) => path.resolve(row.file_path || getFilePath(row.audio_key));
   const guarded = guardedKeys();
@@ -447,7 +446,7 @@ async function removeAllFiles() {
 
   for (const row of rows) {
     const target = pathOf(row);
-    // 다운로드 중인 행은 파일과 함께 남긴다(행은 wipeTables 가 남긴다)
+    // 다운로드 중인 행은 파일과 함께 남긴다(행은 wipeTables가 남긴다)
     if (row.status === "downloading" || downloadingFiles.has(target)) {
       keptPaths.add(target);
       continue;
@@ -613,7 +612,7 @@ async function checkAndEvict() {
 }
 
 // 삭제하지 않고 지키는 키: 재생 중인 곡과 서버마다의 대기열 앞부분(메모리, 저장된 세션 양쪽).
-// 저장된 세션을 보는 까닭: 복원된 대기열은 예열이 보호를 걸기까지(수 초 ~ 1분) 메모리의 보호 목록에 없다.
+// 저장된 세션을 보는 이유: 복원된 대기열은 예열이 보호를 걸기까지(수 초 ~ 1분) 메모리의 보호 목록에 없다.
 // 대기열 전부를 지키면 긴 대기열이 저장된 동안 상한이 적용되지 않는다. 앞부분만(미리 다운로드 범위)
 function guardedKeys() {
   return new Set([...liveKeys(), ...sessionKeys(sessions().frontAudioUrls(config.preload.ahead))]);
@@ -645,7 +644,7 @@ function rankForEviction<T extends Pick<AudioRow, "audio_key" | "play_count" | "
       // 빈도: 재생 횟수를 나이에 따라 감쇠(60일). 오래전 재생은 덜 친다
       const freq = Math.min(1, ((r.play_count || 0) * Math.exp(-ageDays / 60)) / 10);
 
-      // 크기: 50MB 를 1 로 본다
+      // 크기: 50MB를 1로 본다
       const sizeFrac = Math.min(1, (r.file_size_bytes || 0) / SIZE_REF_BYTES);
 
       // 한 번도 틀지 않은 파일은 더 먼저 삭제한다
@@ -663,7 +662,7 @@ function rankForEviction<T extends Pick<AudioRow, "audio_key" | "play_count" | "
     .sort((a, b) => b._score - a._score);
 }
 
-// 다운로드 중인가. 행의 상태를 파일보다 먼저 본다(다운로드는 시작하자마자 행을 downloading 으로 고친다)
+// 다운로드 중인가. 행의 상태를 파일보다 먼저 본다(다운로드는 시작하자마자 행을 downloading으로 고친다)
 function downloadingNow(audioKey: string, filePath: string) {
   const status = conn().prepare("SELECT status FROM audio_cache WHERE audio_key = ?").pluck().get(audioKey);
   return status === "downloading" || downloadingFiles.has(path.resolve(filePath));
@@ -674,7 +673,7 @@ function deleteRow(audioKey: string) {
   conn().prepare("DELETE FROM audio_cache WHERE audio_key = ? AND status <> 'downloading'").run(audioKey);
 }
 
-/** 한 곡을 삭제한다. 파일을 못 삭제했으면 행을 남긴다(행만 삭제하면 DB 가 모르는 파일이 된다) */
+/** 한 곡을 삭제한다. 파일을 못 삭제했으면 행을 남긴다(행만 삭제하면 DB가 모르는 파일이 된다) */
 async function evictOne(row: AudioRow): Promise<"gone" | "protected" | "downloading" | "failed" | "closed"> {
   // 삭제하는 사이 재생, 예열이 이 곡을 지키게 됐거나 다시 다운로드하기 시작했을 수 있다
   if (liveKeys().has(row.audio_key)) return "protected";
@@ -688,7 +687,7 @@ async function evictOne(row: AudioRow): Promise<"gone" | "protected" | "download
 
 /**
  * 넘친 만큼 삭제한다. 점수가 높은(삭제할 만한) 것부터 삭제하며, 용량과 파일 수가 목표선(상한의 CACHE_EVICT_TARGET_PERCENT)
- * 아래로 내려오고 디스크 여유가 최소치를 되찾으면 멈춘다. 지금 상태는 부르는 쪽이 넘기고, 생략하면 잰다
+ * 아래로 내려오고 디스크 여유가 최소치를 되찾으면 멈춘다. 지금 상태는 호출부가 넘기고, 생략하면 잰다
  */
 function evict(state: { totalSize?: number; fileCount?: number; diskFree?: number } = {}) {
   return underCleanupLock(() => evictLocked(state));
@@ -729,10 +728,10 @@ async function evictLocked({ totalSize = cacheSize(), fileCount = cacheCount(), 
   reportEviction({ evicted, failed, guarded, files, size, reached: enough() });
 }
 
-/** 쓰는 중이라 삭제하지 않은 까닭: 재생 중, 대기열 앞, 저장된 대기열 앞, 내보내는 중 */
+/** 쓰는 중이라 삭제하지 않은 이유: 재생 중, 대기열 앞, 저장된 대기열 앞, 내보내는 중 */
 type CacheUse = "playing" | "queued" | "saved-session" | "exporting" | "measuring";
 /**
- * 캐시 파일 하나 삭제의 결과. changed: 화면이 본 다운로드 시각과 지금이 다르다(current 는 지금 값), gone: 행이 없다,
+ * 캐시 파일 하나 삭제의 결과. changed: 화면이 본 다운로드 시각과 지금이 다르다(current는 지금 값), gone: 행이 없다,
  * in-use: 쓰는 중, downloading: 다운로드 중, failed: 파일을 삭제하지 못했다(다른 프로그램이 쥐고 있다)
  */
 type RemoveResult = { ok: true; bytes: number } | { ok: false; code: "changed"; current: number | null } | { ok: false; code: "gone" } | { ok: false; code: "in-use"; where: CacheUse } | { ok: false; code: "downloading" } | { ok: false; code: "failed" };
@@ -748,8 +747,8 @@ function useOf(audioKey: string): CacheUse | null {
 }
 
 /**
- * 캐시 파일 하나를 삭제한다(캐시 DB 의 캐시 파일 삭제). 파일 없는 error 행도 행만 삭제한다.
- * @param expect  화면이 본 다운로드 시각(downloaded_at). undefined 면 보지 않는다
+ * 캐시 파일 하나를 삭제한다(캐시 DB의 캐시 파일 삭제). 파일 없는 error 행도 행만 삭제한다.
+ * @param expect  화면이 본 다운로드 시각(downloaded_at). undefined면 보지 않는다
  */
 function removeCached(audioKey: string, expect?: number | null, go?: () => void): Promise<RemoveResult> {
   return underCleanupLock(async (): Promise<RemoveResult> => {
@@ -800,46 +799,6 @@ onTunablesChanged(() => {
 
 // 통계
 
-function getCacheStats() {
-  const cfg = config.cache;
-
-  const totalSize = cacheSize();
-  const fileCount = cacheCount();
-  const diskFree = freeDiskBytes();
-
-  const totalPlays = countOf("SELECT COALESCE(SUM(play_count),0) AS n FROM audio_cache WHERE status='cached'");
-  const totalDuration = countOf("SELECT COALESCE(SUM(duration_sec),0) AS n FROM audio_cache WHERE status='cached'");
-  const downloading = countOf("SELECT COUNT(*) AS n FROM audio_cache WHERE status='downloading'");
-  const lookupCount = countOf("SELECT COUNT(*) AS n FROM track_lookup");
-  const neverPlayed = countOf("SELECT COUNT(*) AS n FROM audio_cache WHERE status='cached' AND (play_count IS NULL OR play_count=0)");
-
-  const ytCount = countOf("SELECT COUNT(*) AS n FROM audio_cache WHERE status='cached' AND audio_key LIKE 'yt:%'");
-  const scCount = countOf("SELECT COUNT(*) AS n FROM audio_cache WHERE status='cached' AND audio_key LIKE 'sc:%'");
-  const dlCount = countOf("SELECT COUNT(*) AS n FROM audio_cache WHERE status='cached' AND audio_key LIKE 'dl:%'");
-
-  const topTracks = conn().prepare("SELECT title, channel, play_count, duration_sec FROM audio_cache WHERE status='cached' AND play_count > 0 ORDER BY play_count DESC LIMIT 5").all() as Array<Pick<AudioRow, "title" | "channel" | "play_count" | "duration_sec">>;
-
-  const recentTracks = conn().prepare("SELECT title, channel, downloaded_at FROM audio_cache WHERE status='cached' AND downloaded_at IS NOT NULL ORDER BY downloaded_at DESC LIMIT 3").all() as Array<Pick<AudioRow, "title" | "channel" | "downloaded_at">>;
-
-  return {
-    fileCount,
-    maxFiles: cfg.maxFiles,
-    totalSize,
-    maxSize: cfg.maxSizeBytes,
-    diskFree,
-    minFreeDisk: cfg.minFreeDiskBytes,
-    totalPlays,
-    totalDuration,
-    downloading,
-    lookupCount,
-    neverPlayed,
-    platforms: { youtube: ytCount, soundcloud: scCount, direct: dlCount },
-    protectedCount: liveKeys().size,
-    topTracks,
-    recentTracks,
-  };
-}
-
 /**
  * 봇 상태 탭의 저장공간. 캐시: 크기, 파일 수와 상한, 삭제하지 않고 지키는 파일, 한 번도 틀지 않은 파일,
  * 다운로드 실패로 남은 행(다운로드 실패, 다운로드 멈춤, 파일이 사라짐, 다시 다운로드하면 풀린다), 마지막 정리. 드라이브: 캐시 폴더가 놓인 곳
@@ -864,7 +823,7 @@ function storageStats() {
   };
 }
 
-// 멈추기. DB 는 store/stores.close 가 닫는다
+// 멈추기. DB는 store/stores.close가 닫는다
 
 function close() {
   if (evictInterval) {
@@ -902,7 +861,6 @@ export {
   isTempPiece,
   evictIfNeeded,
   evict,
-  getCacheStats,
   close,
   cacheDir,
   _setCacheDir,

@@ -1,5 +1,5 @@
 // 경로가 놓인 드라이브의 크기와 쓴 양, 남은 크기. 봇 상태 탭의 저장공간이 캐시 폴더, DB 파일의 드라이브를, 로그인 배경이 저장 위치를 본다.
-// 드라이브 이름은 Windows 면 드라이브 문자("F:"), 그 밖은 마운트 지점(위 폴더로 올라가며 dev 가 바뀌기 직전). 이름이 같으면 같은 드라이브다
+// 드라이브 이름은 Windows면 드라이브 문자("F:"), 그 밖은 마운트 지점(위 폴더로 올라가며 dev가 바뀌기 직전). 이름이 같으면 같은 드라이브다
 
 import fs from "node:fs";
 import path from "node:path";
@@ -20,7 +20,7 @@ function failuresOf(byTarget: Map<string, ReturnType<typeof repeatingFailure>>, 
 const driveFailure = (target: string) => failuresOf(driveFailures, target, `${target} 디스크 용량 statfs 조회`);
 const freeFailure = (target: string) => failuresOf(freeFailures, target, `${target} 디스크 여유 공간 statfs 조회`);
 
-/** 마운트 지점: target 과 dev 가 같은 가장 위 폴더 */
+/** 마운트 지점: target과 dev가 같은 가장 위 폴더 */
 function mountPoint(target: string) {
   let at = path.resolve(target);
   const dev = fs.statSync(at).dev;

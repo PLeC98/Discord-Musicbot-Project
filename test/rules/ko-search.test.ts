@@ -23,13 +23,13 @@ test("자음만이면 초성으로(띄어쓰기는 보지 않는다)", () => {
   assert.equal(koMatch("음악 감상실", "ㄱㅇ"), false);
 });
 
-test("koStarts 는 맨 앞에서만 같은 규칙", () => {
+test("koStarts는 맨 앞에서만 같은 규칙", () => {
   assert.equal(koStarts("음악 감상실", "음ㅇ"), true);
   assert.equal(koStarts("음악 감상실", "ㅇㅇ"), true);
   assert.equal(koStarts("음악 감상실", "감"), false);
 });
 
-test("koRanges 는 맞은 자리들(칠할 곳): 그대로, 조합 중인 글자가 걸친 글자까지, 초성은 띄어쓰기를 건너 원래 자리로", () => {
+test("koRanges는 맞은 자리들(칠할 곳): 그대로, 조합 중인 글자가 걸친 글자까지, 초성은 띄어쓰기를 건너 원래 자리로", () => {
   assert.deepEqual(koRanges("YouTube 와 youtube", "you"), [
     [0, 3],
     [10, 13],
@@ -41,7 +41,7 @@ test("koRanges 는 맞은 자리들(칠할 곳): 그대로, 조합 중인 글자
   assert.deepEqual(koRanges("음악", " "), [], "빈 검색어는 칠하지 않는다");
 });
 
-test("koRanges 는 koMatch 와 같은 규칙이다(맞으면 자리가 있다)", () => {
+test("koRanges는 koMatch와 같은 규칙이다(맞으면 자리가 있다)", () => {
   for (const [text, query] of [
     ["음악 감상실", "음악 가"],
     ["과일", "고"],

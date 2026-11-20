@@ -1,4 +1,4 @@
-// src/usecases/leave-guild.ts: 봇을 서버에서 내보내는 순서(상주 자리 지우기, 플레이어 정리, 나가기). 나가기 직전의 확인(go)이 던지면 나가지 않는다
+// src/usecases/leave-guild.ts: 봇을 서버에서 내보내는 순서(상주 자리 지우기, 플레이어 정리, 나가기). 나가기 직전의 확인(go)이 예외를 던지면 나가지 않는다
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -28,7 +28,7 @@ test("상주 자리를 지우고, 플레이어를 정리하고(세션도 지운�
   assert.equal(staySeats.seatOf("g1"), null);
 });
 
-test("정리하는 사이 확인(go, 로그인 세션)이 던지면 나가지 않는다", async () => {
+test("정리하는 사이 확인(go, 로그인 세션)이 예외를 던지면 나가지 않는다", async () => {
   const { order, guild, players } = setup();
   let calls = 0;
   const ended = new Error("세션 끝남");

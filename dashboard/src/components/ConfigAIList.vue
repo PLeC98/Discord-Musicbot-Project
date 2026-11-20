@@ -1,6 +1,6 @@
 <!--
   AI 보조, 후보 목록: 요청 하나에 맡길 곡 수, 줄 형식(문법 안내, 문제 구간, 미리보기).
-  상태는 composables/ai-editor(ConfigAI 가 내려 준다).
+  상태는 composables/ai-editor(ConfigAI가 내려 준다).
 -->
 <template>
   <BaseCard icon="format_list_numbered" :title="TL.title">
@@ -27,7 +27,7 @@
           </p>
         </div>
         <input :value="listCfg.lineFormat" :placeholder="defaults.line" :class="[FIELD, 'w-full font-mono']" @input="listCfg.lineFormat = valueOf($event)" />
-        <!-- 문제는 입력란 아래에 그 구간을 표시한다(입력란 안은 색을 칠할 수 없다): 앞뒤 몇 글자와 틀린 구간, 몇 번째 글자, 까닭 -->
+        <!-- 문제는 입력란 아래에 그 구간을 표시한다(입력란 안은 색을 칠할 수 없다): 앞뒤 몇 글자와 틀린 구간, 몇 번째 글자, 문제 설명 -->
         <ul v-if="lineProblems.length" class="flex flex-col gap-1">
           <li v-for="(one, i) in lineProblems" :key="i" class="flex flex-wrap items-baseline gap-x-2 text-xs">
             <code class="font-mono text-on-surface-variant"

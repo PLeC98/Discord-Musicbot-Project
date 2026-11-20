@@ -1,4 +1,4 @@
-// 주기마다 도는 작업이 같은 까닭으로 잇달아 실패할 때, 로그가 사건 수와 맞게 남긴다.
+// 주기마다 도는 작업이 같은 이유로 잇달아 실패할 때, 로그가 사건 수와 맞게 남긴다.
 // 처음 한 번은 error, 이어지는 같은 실패는 세기만 하고, 풀리면 몇 번 실패했는지 한 줄.
 
 type FailureLog = { error(line: string): unknown; info(line: string): unknown };
@@ -7,7 +7,7 @@ function repeatingFailure(log: FailureLog, what: string) {
   let failing: string | null = null;
   let count = 0;
   return {
-    /** 실패. 까닭(글)이 바뀌면 새 사건으로 다시 남긴다 */
+    /** 실패. 원인(글)이 바뀌면 새 사건으로 다시 남긴다 */
     fail(reason: string) {
       if (failing === reason) {
         count++;

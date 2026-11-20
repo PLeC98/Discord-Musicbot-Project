@@ -1,5 +1,5 @@
 // yt-dlp JSON 경계. 쓰는 필드만 추출하고 나머지는 버린다.
-// 필드 하나의 모양이 바뀌면(yt-dlp 가 필드를 바꾸면) 그 필드만 버리고 한 번 알린다. 곡 하나를 통째로 버리지 않는다.
+// 필드 하나의 모양이 바뀌면(yt-dlp가 필드를 바꾸면) 그 필드만 버리고 한 번 알린다. 곡 하나를 통째로 버리지 않는다.
 
 import { z } from "zod";
 import logger from "../infra/log/logger.ts";
@@ -21,7 +21,7 @@ const str = z.string();
 const num = z.number();
 
 const SHAPE = {
-  // 무엇인가. _type 은 여러 곡이면 "playlist"(짧은 링크처럼 주소만으로는 모를 때 본다)
+  // 무엇인가. _type은 여러 곡이면 "playlist"(짧은 링크처럼 주소만으로는 모를 때 본다)
   _type: str,
   id: z.union([str, num]),
   ie_key: str,
@@ -48,20 +48,20 @@ const SHAPE = {
   acodec: str,
   http_headers: z.record(str, str),
   available_at: num,
-  // 세그먼트 목록으로만 주는 포맷(유튜브 post_live 의 http_dash_segments). 세그먼트마다 주소
+  // 세그먼트 목록으로만 주는 포맷(유튜브 post_live의 http_dash_segments). 세그먼트마다 주소
   fragments: z.array(z.object({ url: str.optional() }).loose()),
   formats: z.array(z.unknown()),
-  // 여러 곡(항목은 부르는 쪽이 하나씩 다시 읽는다)
+  // 여러 곡(항목은 호출부가 하나씩 다시 읽는다)
   entries: z.array(z.unknown()),
   playlist_count: num,
 };
 
 const Info = z.object(Object.fromEntries(Object.entries(SHAPE).map(([name, schema]) => [name, field(name, schema)])));
 
-/** yt-dlp 가 준 정보에서 쓰는 필드. 모양이 틀린 필드는 없다(null 은 yt-dlp 가 준 그대로) */
+/** yt-dlp가 준 정보에서 쓰는 필드. 모양이 틀린 필드는 없다(null은 yt-dlp가 준 그대로) */
 type YtInfo = { [K in keyof typeof SHAPE]?: z.infer<(typeof SHAPE)[K]> | null };
 
-/** yt-dlp 가 준 객체 → 쓰는 필드만 든 객체. 객체가 아니면 null */
+/** yt-dlp가 준 객체 → 쓰는 필드만 든 객체. 객체가 아니면 null */
 function readInfo(raw: unknown): YtInfo | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   const data = Info.parse(raw);
@@ -69,7 +69,7 @@ function readInfo(raw: unknown): YtInfo | null {
   return Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined)) as YtInfo;
 }
 
-/** readInfo 가 읽지 못한 답이 무엇이었나(오류 문장에 싣는다). JSON 이 아닌 출력은 글자로 오므로 길이도 */
+/** readInfo가 읽지 못한 답이 무엇이었나(오류 문장에 싣는다). JSON이 아닌 출력은 글자로 오므로 길이도 */
 function answerShape(raw: unknown): string {
   if (typeof raw === "string") return `타입=string, 길이=${raw.length}`;
   return `타입=${raw === null ? "null" : Array.isArray(raw) ? "array" : typeof raw}`;

@@ -1,5 +1,5 @@
 // 디스코드 이벤트 핸들러의 경계. 인자에서 서버를 찾아 그 문맥에서 부르고(infra/guild-context),
-// 새어 나온 던짐, 거부를 받는 곳(onFault)에 넘긴다. 핸들러는 모두 여기로 걸린다(app/main).
+// 새어 나온 예외, 거부를 받는 곳(onFault)에 넘긴다. 핸들러는 모두 여기로 걸린다(app/main).
 
 import { inGuild } from "../infra/guild-context.ts";
 
@@ -16,7 +16,7 @@ function guildOf(args: unknown[]): string | null {
   return null;
 }
 
-/** 핸들러를 경계로 감싼다. 돌려주는 함수는 Promise 를 돌려주지 않는다(실패는 onFault 가 받는다) */
+/** 핸들러를 경계로 감싼다. 돌려주는 함수는 Promise를 돌려주지 않는다(실패는 onFault가 받는다) */
 function guarded<A extends unknown[]>(where: string, listener: (...args: A) => unknown, onFault: OnFault) {
   return (...args: A) => {
     const guildId = guildOf(args);

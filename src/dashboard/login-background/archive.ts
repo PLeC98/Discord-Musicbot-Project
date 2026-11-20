@@ -1,6 +1,6 @@
-// 로그인 배경 백업(설정 내보내기의 login-background 종류). ZIP 의 login-background/ 아래에 index.json(다 만든 배경, 지금 배경, 화면 값, 한도)과
-// 배경마다 내는 파일(files.ts 의 형식)을 저장 위치 그대로 담는다. 만드는 중, 실패한 배경은 담지 않는다.
-// 불러오기는 통째로 바꾼다: 파일의 배경을 새 id 로 저장 위치에 먼저 풀고(기록에 없는 폴더라 아직 보이지 않고, 도중에 꺼지면 다음에 켤 때 치운다),
+// 로그인 배경 백업(설정 내보내기의 login-background 종류). ZIP의 login-background/ 아래에 index.json(다 만든 배경, 지금 배경, 화면 값, 한도)과
+// 배경마다 내는 파일(files.ts의 형식)을 저장 위치 그대로 담는다. 만드는 중, 실패한 배경은 담지 않는다.
+// 불러오기는 통째로 바꾼다: 파일의 배경을 새 id로 저장 위치에 먼저 풀고(기록에 없는 폴더라 아직 보이지 않고, 도중에 꺼지면 다음에 켤 때 치운다),
 // 도는 단계를 멈춘 뒤 기록을 바꾸고 옛 배경을 삭제한다. 로그인 화면은 옛 배경의 파일을 못 받으면 배경 정보를 다시 읽는다.
 // 남이 준 파일일 수 있어 형식만 받는다: 기록은 다 만든 배경의 형식, 파일은 기록에 있는 배경의 내는 파일, 목록(.m3u8)은 그 폴더 안의 파일만 가리키고, 정지 그림은 적힌 폭의 WebP
 
@@ -29,7 +29,7 @@ const CODECS = /^[A-Za-z0-9.]+(,[A-Za-z0-9.]+)*$/;
 /** 목록이 가리킬 수 있는 것: 코덱 목록은 단계 목록, 단계 목록은 세그먼트 */
 const RUNG_LINE = /^(\d{2,4})\/index\.m3u8$/;
 const SEGMENT_LINE = /^seg-\d{3,6}\.m4s$/;
-/** 단계 목록이 init 을 가리키는 줄(이 형식만 주소를 받는다) */
+/** 단계 목록이 init을 가리키는 줄(이 형식만 주소를 받는다) */
 const MAP_LINE = '#EXT-X-MAP:URI="init.mp4"';
 
 type Zipped = ReturnType<typeof openZip>;
@@ -49,7 +49,7 @@ function exportedCurrent(current: string | null, ready: store.Stored[]): string 
 
 /**
  * 내보낼 항목: index.json(다 만든 배경만), 그 배경들의 내는 파일(파일째 스트리밍으로 담는다). 만드는 중인 배경은 쓰는 중인 파일이라 담지 않는다.
- * state, folderOf 는 기록과 배경 폴더(전체 백업 명령은 봇 밖에서 readIndex 로 읽은 것), prefix 는 ZIP 안 이름 앞
+ * state, folderOf는 기록과 배경 폴더(전체 백업 명령은 봇 밖에서 readIndex로 읽은 것), prefix는 ZIP 안 이름 앞
  */
 function exportInputs({ state = store.loaded(), folderOf = store.folderOf, prefix = "" }: { state?: store.Index; folderOf?: (id: string) => string; prefix?: string } = {}): ZipInput[] {
   const ready = state.items.filter(store.isReady);
@@ -88,7 +88,7 @@ function rungsFrom(raw: unknown): store.Media["rungs"] | null {
   return rungs;
 }
 
-/** 인코딩한 것의 형식(공개 응답에 그대로 나간다). 그림은 HLS 가 없고, 영상은 코덱 하나 이상 */
+/** 인코딩한 것의 형식(공개 응답에 그대로 나간다). 그림은 HLS가 없고, 영상은 코덱 하나 이상 */
 function mediaFrom(raw: unknown, kind: store.Stored["kind"]): store.Media | null {
   if (!isTable(raw) || !Array.isArray(raw.stills) || !raw.stills.length || !raw.stills.every((width) => Number.isInteger(width) && STILL_FILE.test(`still-${String(width)}.webp`))) return null;
   const scenes = Array.isArray(raw.scenes) ? raw.scenes.map(sceneFrom) : [null];
@@ -143,7 +143,7 @@ function playlistTargets(text: string, line: RegExp, allowMap: boolean): string[
     const one = raw.trim();
     if (!one) continue;
     if (one.startsWith("#")) {
-      // 주소를 적는 형식(URI=)은 init 을 가리키는 줄만
+      // 주소를 적는 형식(URI=)은 init을 가리키는 줄만
       if (one.includes("URI=") && !(allowMap && one === MAP_LINE)) return null;
       continue;
     }
@@ -156,7 +156,7 @@ function playlistTargets(text: string, line: RegExp, allowMap: boolean): string[
 /** 배경 하나의 파일(배경 폴더 안 경로 → 항목)과 읽기 */
 type Files = { has: (rel: string) => boolean; read: (rel: string, max: number) => Buffer };
 
-/** 정지 그림이 다 있고 적힌 폭의 WebP 인지 */
+/** 정지 그림이 다 있고 적힌 폭의 WebP인지 */
 async function stillsProblem(one: store.Stored, files: Files): Promise<string | null> {
   for (const width of one.media.stills) {
     const rel = `still-${width}.webp`;
@@ -195,7 +195,7 @@ async function itemProblem(zipped: Zipped, one: store.Stored, entries: ZipItem[]
   return (await stillsProblem(one, files)) ?? streamsProblem(one, files);
 }
 
-/** 파일의 기록(index.json)을 읽는다. 못 읽으면 까닭 */
+/** 파일의 기록(index.json)을 읽는다. 못 읽으면 원인 */
 function indexFrom(zipped: Zipped, entry: ZipItem): { index: store.Index } | { problem: string } {
   if (entry.size > INDEX_MAX_BYTES) return { problem: "배경 기록(index.json)이 너무 커요" };
   let json: unknown;
@@ -242,7 +242,7 @@ async function planOf(zipped: Zipped): Promise<{ problems: string[]; plan: Plan 
 
 // ── 미리 보기, 불러오기 ──
 
-/** 같은 배경인지 볼 때의 값: 만든 때, 이름과 내는 파일(이름, 크기). 불러오면 id 가 새로 붙으니 id 는 보지 않는다 */
+/** 같은 배경인지 볼 때의 값: 만든 때, 이름과 내는 파일(이름, 크기). 불러오면 id가 새로 붙으니 id는 보지 않는다 */
 const signatureOf = (one: store.Stored, files: Array<[string, number]>) => JSON.stringify([one.at, one.name, [...files].sort(([a], [b]) => a.localeCompare(b))]);
 
 function sameAsNow(plan: Plan): boolean {
@@ -283,7 +283,7 @@ function warningsFor(plan: Plan): string[] {
   return [...(now.length ? [`지금 배경 ${now.length}개를 모두 삭제하고 파일의 배경으로 바꿔요.`] : []), ...(making ? [`만들고 있는 배경 ${making}개도 멈추고 삭제해요.`] : []), ...(plan.index.items.length ? [] : ["파일에 배경이 없어 로그인 화면이 봇 프로필 이미지로 돌아가요."])];
 }
 
-/** 미리 보기 한 줄과 불러올 것(검사에 걸리면 plan 이 null) */
+/** 미리 보기 한 줄과 불러올 것(검사에 걸리면 plan이 null) */
 async function check(file: string): Promise<{ row: ArchiveRow; plan: Plan | null }> {
   const zipped = openZip(file);
   try {
@@ -297,7 +297,7 @@ async function check(file: string): Promise<{ row: ArchiveRow; plan: Plan | null
   }
 }
 
-/** 파일의 배경을 새 id 로 저장 위치에 푼다(아직 기록에 없어 보이지 않는다). commit 은 기록을 바꾸고, abort 는 푼 것을 삭제한다 */
+/** 파일의 배경을 새 id로 저장 위치에 푼다(아직 기록에 없어 보이지 않는다). commit은 기록을 바꾸고, abort는 푼 것을 삭제한다 */
 async function stage(file: string, plan: Plan): Promise<{ commit: () => void; abort: () => void }> {
   // 처음 읽을 때 목록에 없는 폴더를 삭제하므로 먼저 읽어 둔다
   store.loaded();

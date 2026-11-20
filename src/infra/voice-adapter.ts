@@ -1,6 +1,6 @@
 // 음성 라이브러리와 디스코드 게이트웨이 사이에 끼우는 어댑터.
 //
-// @discordjs/voice 는 음성 서버 연결이 닫히면(닫힘 코드 4014 말고) 곧바로 그때의 설정으로 다시 참가한다.
+// @discordjs/voice는 음성 서버 연결이 닫히면(닫힘 코드 4014 말고) 곧바로 그때의 설정으로 다시 참가한다.
 // 봇이 다른 채널로 옮겨질 때 그 닫힘이 새 채널을 알리는 상태 패킷보다 먼저 오면 옛 채널로 참가해,
 // 봇이 원래 채널로 끌려갔다가 돌아온다(사람이 봇을 자기 채널로 불러올 때 잘 난다).
 // 참가 요청(op 4)을 잠깐 붙잡아, 그사이 게이트웨이가 봇이 다른 채널로 옮겨졌다고 알려 오면 그 채널로 고쳐 보낸다.
@@ -62,7 +62,7 @@ function holdingAdapterCreator(creator: DiscordGatewayAdapterCreator, { holdMs =
       pending = null;
       if (isShuttingDown()) return void log.debug(`음성 채널 ${payload.d.channel_id} 참가 요청을 버림(종료 중)`);
       onSend?.(payload.d.channel_id, rewritten);
-      // 붙잡는 동안 라이브러리에는 보냈다고 답했다. 못 보낸 것은 여기서만 안다
+      // 붙잡는 동안 라이브러리에는 보냈다고 반환했다. 못 보낸 것은 여기서만 안다
       if (!adapter.sendPayload(payload)) log.warn(`음성 채널 ${payload.d.channel_id} 참가 요청 전송 실패(샤드 미준비)`);
     };
 

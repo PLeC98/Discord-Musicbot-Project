@@ -1,9 +1,9 @@
 // 구글 서비스 계정 → 액세스 토큰.
 //
-// 버텍스 AI 는 API 키를 안 받는다. 서비스 계정 JSON 으로 JWT 를 만들어 서명하고,
+// 버텍스 AI는 API 키를 안 받는다. 서비스 계정 JSON으로 JWT를 만들어 서명하고,
 // 그것을 구글 토큰 엔드포인트에 내밀어 한 시간짜리 액세스 토큰을 받아 쓴다.
 //
-// 이 파일이 다루는 것은 이 기능에서 가장 값비싼 비밀이다. private_key 는 어떤 경로로도
+// 이 파일이 다루는 것은 이 기능에서 가장 값비싼 비밀이다. private_key는 어떤 경로로도
 // 밖으로 나가면 안 된다. 오류 메시지에도, 로그에도, 화면에도.
 // 그래서 여기서 던지는 오류는 우리가 쓴 문구뿐이고, 저쪽 응답은 본문 앞부분만 싣는다.
 
@@ -15,14 +15,14 @@ const LIFETIME_SEC = 3600;
 // 만료 직전에 쓰면 요청이 가는 사이에 죽는다. 조금 일찍 새로 받는다.
 const EARLY_MS = 60_000;
 
-/** 서비스 계정 JSON 에서 읽는 필드 */
+/** 서비스 계정 JSON에서 읽는 필드 */
 type Account = { client_email: string; private_key: string; token_uri?: string; project_id?: string };
 
 const b64url = (input: string) => Buffer.from(input).toString("base64url");
 
 /**
- * 서비스 계정 JSON 을 읽는다. 내용을 통째로 받는다(비밀 표에 암호화해 둔 것).
- * 파일 경로는 받지 않는다. 경로만 감추면 private_key 가 디스크에 그대로 남는다
+ * 서비스 계정 JSON을 읽는다. 내용을 통째로 받는다(비밀 표에 암호화해 둔 것).
+ * 파일 경로는 받지 않는다. 경로만 감추면 private_key가 디스크에 그대로 남는다
  */
 function readAccount(where: unknown): Account {
   const raw = String(where || "").trim();
@@ -37,7 +37,7 @@ function readAccount(where: unknown): Account {
   }
 
   const { client_email, private_key } = account ?? {};
-  if (!client_email || !private_key) throw new Error("서비스 계정 JSON 에 client_email 또는 private_key 가 없음");
+  if (!client_email || !private_key) throw new Error("서비스 계정 JSON에 client_email 또는 private_key가 없음");
   return { ...account, client_email, private_key };
 }
 
@@ -68,7 +68,7 @@ async function accessToken(where: unknown, { timeoutMs = 15000, fetch: send = fe
     signature = crypto.createSign("RSA-SHA256").update(signing).sign(account.private_key, "base64url");
   } catch {
     // 오류에 키가 섞여 나올 수 있다. 저쪽 문구를 그대로 싣지 않는다
-    throw new Error("서비스 계정 키로 서명 실패. private_key 를 확인하세요");
+    throw new Error("서비스 계정 키로 서명 실패. private_key를 확인하세요");
   }
 
   const res = await send(account.token_uri || TOKEN_URL, {
@@ -87,7 +87,7 @@ async function accessToken(where: unknown, { timeoutMs = 15000, fetch: send = fe
   } catch {
     throw new Error("토큰 응답 읽기 실패");
   }
-  if (!token?.access_token) throw new Error("토큰 응답에 access_token 이 없음");
+  if (!token?.access_token) throw new Error("토큰 응답에 access_token이 없음");
 
   cache.set(account.client_email, {
     token: token.access_token,
@@ -101,7 +101,7 @@ function projectOf(where: unknown): string {
   try {
     return readAccount(where).project_id || "";
   } catch {
-    // 같은 오류를 실제 요청의 accessToken 이 다시 던지고, 그때 warn 으로 남는다
+    // 같은 오류를 실제 요청의 accessToken이 다시 던지고, 그때 warn으로 남는다
     return "";
   }
 }

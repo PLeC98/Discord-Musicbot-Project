@@ -1,5 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "child_process";
 import { ffmpegPath } from "./path.ts";
+import { toolEnv } from "../../config/tool-env.ts";
 import { AUDIO_FORMATS, inputFilter } from "./input-filter.ts";
 import * as procRegistry from "../../infra/process-registry.ts";
 import logger from "../../infra/log/logger.ts";
@@ -24,9 +25,9 @@ const PLAYING = new Set(["stream", "playback", "switch"]);
  */
 function spawnFfmpeg(args: string[], label: string, { killOnStdoutClose = true }: { killOnStdoutClose?: boolean } = {}): ChildProcessWithoutNullStreams {
   const bin = ffmpegPath();
-  const child = spawn(bin, args, { windowsHide: true });
+  const child = spawn(bin, args, { windowsHide: true, env: toolEnv() });
 
-  // 봇이 강제 종료돼도 고아로 남지 않도록 등록(라이브 스트리밍은 스스로 끝나지 않는다).
+  // 봇이 강제 종료돼도 고아로 남지 않도록 등록(라이브 스트리밍은 알아서 끝나지 않는다).
   // 소리를 내는 것은 재생, 검사는 실행한 문맥의 작업(지금 곡, 다음 곡)
   const release = procRegistry.register(child, `ffmpeg:${label}`, { job: PLAYING.has(label) ? "play" : undefined });
 
@@ -45,10 +46,10 @@ function spawnFfmpeg(args: string[], label: string, { killOnStdoutClose = true }
   });
 
   // 소비자(@discordjs/voice)가 stdout을 파괴하면 ffmpeg는 write에서 막힌 채 남으므로 죽인다(prism의 _cleanup()이 하던 일).
-  // stdout 을 소비하지 않는 검사(probe)는 이 정리를 걸지 않는다(조기 종료 방지).
-  // closedByUs: 우리가 손을 떼서 죽인 것인가. 끝까지 읽지 않은 stdout 이 닫혔다면 닫은 쪽은 소비자, 즉 우리다
-  // (스킵, 위치 이동, 갭리스 전환에서 옛 소스를 버릴 때). ffmpeg 가 스스로 끝나도 close 가 exit 보다 먼저 올 수 있어
-  // 프로세스가 살아 있는지만으로는 가를 수 없다. 우리가 닫으면 ffmpeg 는 파이프 쓰기가 실패해 스스로 죽는다(exit.ts)
+  // stdout을 소비하지 않는 검사(probe)는 이 정리를 걸지 않는다(조기 종료 방지).
+  // closedByUs: 우리가 손을 떼서 죽인 것인가. 끝까지 읽지 않은 stdout이 닫혔다면 닫은 쪽은 소비자, 즉 우리다
+  // (스킵, 위치 이동, 갭리스 전환에서 옛 소스를 버릴 때). ffmpeg가 알아서 끝나도 close가 exit보다 먼저 올 수 있어
+  // 프로세스가 살아 있는지만으로는 가를 수 없다. 우리가 닫으면 ffmpeg는 파이프 쓰기가 실패해 알아서 죽는다(exit.ts)
   let closedByUs = false;
   if (killOnStdoutClose) {
     child.stdout.on("close", () => {
@@ -102,7 +103,7 @@ function parseProbeOutput(text: unknown): ProbeInfo {
     if (perStream) out.bitrateKbps = Number(perStream[1]);
   }
   // 컨테이너 값은 영상이 섞여 있으면 오디오 비트레이트가 아니다. 모르는 채로 두는 편이 낫다.
-  // 부르는 쪽이 "상한을 넘음"으로 보고 멀쩡한 opus 를 다시 인코딩하기 때문이다.
+  // 호출부가 "상한을 넘음"으로 보고 멀쩡한 opus를 다시 인코딩하기 때문이다.
   if (out.bitrateKbps === null && !/Stream #\d+:\d+[^\r\n]*:\s*Video:/.test(str)) {
     const container = str.match(/Duration:[^\r\n]*?bitrate:\s*(\d+)\s*kb\/s/);
     if (container) out.bitrateKbps = Number(container[1]);
@@ -130,7 +131,7 @@ function probeAudio(file: string): Promise<ProbeInfo> {
     }
 
     let out = "";
-    // 필요한 것(길이, 스트림 줄)은 모두 앞쪽에 나온다. 앞 64KB 만 둔다
+    // 필요한 것(길이, 스트림 줄)은 모두 앞쪽에 나온다. 앞 64KB만 둔다
     child.stderr.on("data", (chunk) => {
       if (out.length < 65536) out += chunk.toString();
     });
@@ -141,7 +142,7 @@ function probeAudio(file: string): Promise<ProbeInfo> {
 
 /**
  * 로컬 오디오 파일의 실제 길이(초). 알아낼 수 없으면 null.
- * 파일 크기로 추산한 길이는 VBR 에서 양방향으로 크게 어긋나 쓰지 않는다. 길이는 다운로드해 둔 파일을 재서 얻는다.
+ * 파일 크기로 추산한 길이는 VBR에서 양방향으로 크게 어긋나 쓰지 않는다. 길이는 다운로드해 둔 파일을 재서 얻는다.
  */
 async function probeDurationSec(file: string): Promise<number | null> {
   return (await probeAudio(file)).durationSec;

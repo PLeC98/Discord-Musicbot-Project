@@ -1,6 +1,6 @@
 // 캐시 DB 화면의 재생 테스트. 누르면 큐에 넣고 곧바로 돌아오며, 봇이 하나씩 순서대로 확인한다.
 // 캐시 파일이 있는 음원은 원본 다시 확인(media/recheck-queue: 버전을 비교하고 결과대로 한다), 없거나 비교하지 못하면 열어 본다(sources/source-probe).
-// 결과는 음원 키로 source_checks 에 남는다(그 쓰기가 확인 번호를 올린다: cache-db 의 트리거). 큐는 메모리에만 있다(다시 시작하면 사라진다).
+// 결과는 음원 키로 source_checks에 남는다(그 쓰기가 확인 번호를 올린다: cache-db의 트리거). 큐는 메모리에만 있다(다시 시작하면 사라진다).
 
 import { TRACK_CACHE_PAGE_MAX, TRACK_CACHE_PROBE_MAX, type TrackCacheChecks, type TrackCacheProbeQueued, type TrackCacheRevision } from "./contract/track-cache.ts";
 import { checkOf, sourceOf, type Refusal } from "./track-cache.ts";
@@ -46,7 +46,7 @@ function targetOf(url: string): { key: string; url: string } {
 }
 
 /**
- * 재생 테스트 큐에 넣는다. keys 는 주소마다의 음원 키(쓰기 전 주소도 checking, checks 와 맞춰 보게)
+ * 재생 테스트 큐에 넣는다. keys는 주소마다의 음원 키(쓰기 전 주소도 checking, checks와 맞춰 보게)
  * @param by  로그에 남길 실행한 사람
  */
 function enqueue(audioUrls: string[], by: string): { ok: true; queued: TrackCacheProbeQueued } | Refusal {

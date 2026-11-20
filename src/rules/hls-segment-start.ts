@@ -17,8 +17,8 @@ const TOP_BOXES = new Set(["ftyp", "styp", "sidx", "ssix", "prft", "emsg", "moof
 const TS_NEED = (TS_PACKETS_CHECKED - 1) * TS_PACKET + 1;
 
 /**
- * 앞부분 bytes 로 판정한다. 판정에 필요한 만큼 모이지 않았으면 "more".
- * whole: bytes 가 세그먼트 전체인지 여부(짧은 세그먼트). 있는 만큼으로 판정하고 최소 길이에 모자라면 "bad", TS 는 안에 든 모든 패킷 경계를 본다
+ * 앞부분 bytes로 판정한다. 판정에 필요한 만큼 모이지 않았으면 "more".
+ * whole: bytes가 세그먼트 전체인지 여부(짧은 세그먼트). 있는 만큼으로 판정하고 최소 길이에 모자라면 "bad", TS는 안에 든 모든 패킷 경계를 본다
  */
 function segmentStart(bytes: Buffer, whole = false): SegmentStart {
   if (bytes.length === 0) return whole ? "bad" : "more";

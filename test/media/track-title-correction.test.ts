@@ -53,7 +53,7 @@ test("파일이 없으면 둘 다 null (다운로드 자체는 성공한 것이�
   });
 });
 
-test("깨진 JSON이어도 던지지 않고 파일을 치운다", () => {
+test("깨진 JSON이어도 예외를 던지지 않고 파일을 치운다", () => {
   withTemp((filepath) => {
     const info = `${filepath}.info.json`;
     fs.writeFileSync(info, "{ 이건 JSON이 아니다", "utf8");

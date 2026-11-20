@@ -8,7 +8,7 @@ import type { YtDlpFlags } from "../../src/sources/ytdlp-spawn.ts";
 import type { Range } from "../../src/sources/lookup.ts";
 import * as tracks from "../helpers/tracks.ts";
 
-// yt-dlp 실행 함수 가짜. getPlaylist 에 넘긴다
+// yt-dlp 실행 함수 가짜. getPlaylist에 넘긴다
 const ytCalls: Array<{ url: string; options: YtDlpFlags }> = [];
 let ytInfo: unknown = null;
 const exec = async (url: string, options: YtDlpFlags = {}) => {
@@ -18,7 +18,7 @@ const exec = async (url: string, options: YtDlpFlags = {}) => {
 
 const spotifySource = await import("../../src/sources/spotify.ts");
 const youtubeSource = await import("../../src/sources/youtube/index.ts");
-// 링크 데이터는 빈 임시 DB 에서 읽는다(확인된 제목 없음)
+// 링크 데이터는 빈 임시 DB에서 읽는다(확인된 제목 없음)
 const store = (await import("../helpers/temp-store.ts")).openTempStore("playlist-range-");
 after(() => store.close());
 const lookup = await import("../../src/sources/lookup.ts");

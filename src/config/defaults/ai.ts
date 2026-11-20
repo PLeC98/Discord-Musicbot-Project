@@ -1,4 +1,4 @@
-// AI 보조 기본값(꺼짐). settings.db 에 "ai" 문서가 없을 때 이것으로 시작한다(config/documents). 검사는 config/schema/ai
+// AI 보조 기본값(꺼짐). settings.db에 "ai" 문서가 없을 때 이것으로 시작한다(config/documents). 검사는 config/schema/ai
 
 const aiDefault: Record<string, unknown> = {
   enabled: false,

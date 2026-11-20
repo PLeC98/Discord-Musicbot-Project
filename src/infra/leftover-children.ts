@@ -18,7 +18,7 @@ import type { ChildRecord, ProcessIdentity } from "./process-registry.ts";
 const log = logger.child({ category: "proc" });
 
 const IS_WIN = process.platform === "win32";
-// 기록의 시작 시각과 OS 가 아는 시작 시각의 허용 차(등록은 실행 직후라 보통 1초 안이다)
+// 기록의 시작 시각과 OS가 아는 시작 시각의 허용 차(등록은 실행 직후라 보통 1초 안이다)
 const START_SLACK_MS = 10_000;
 // 프로세스 목록을 읽지 못하는 일이 이어져도 이보다 오래된 실행의 기록은 삭제한다(파일이 쌓이지 않게)
 const GIVE_UP_MS = 7 * 24 * 60 * 60_000;
@@ -96,7 +96,7 @@ function same(proc: Proc | undefined, who: ProcessIdentity): proc is Proc {
   return Math.abs(proc.startedAt - who.startedAt) <= START_SLACK_MS;
 }
 
-// 기록 파일의 내용. 모양이 틀리면 그 까닭
+// 기록 파일의 내용. 모양이 틀리면 그 원인
 function parse(text: string): { record: ChildRecord } | { reason: string } {
   let record: ChildRecord | null;
   try {
@@ -127,10 +127,6 @@ function targetsOf(child: ChildRecord["children"][number], procs: Proc[], byPid:
   return procs.filter((proc) => proc.ppid === child.pid && later(proc)).map((proc) => ({ pid: proc.pid, group: false, label: `${child.label}#${child.pid}의 ${proc.image}#${proc.pid}` }));
 }
 
-/**
- * 폴더의 다른 실행이 남긴 기록을 보고 남은 자식을 종료한다. 돌려주는 것은 종료한 것의 라벨.
- * 기록을 남긴 봇이 아직 돌면 그 파일은 건드리지 않는다. 내리지 못한 자식은 파일에 남기고, 다 내렸으면 파일을 삭제한다
- */
 type Found = { file: string; record: ChildRecord };
 
 // 폴더의 기록들. 쓰는 중의 임시 파일(*.tmp)은 읽지 않고, 읽지 못하는 기록은 삭제한다(내릴 대상을 알 수 없다)

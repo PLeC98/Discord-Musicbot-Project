@@ -1,12 +1,12 @@
-// BtbN/FFmpeg-Builds 릴리스에서 이 플랫폼이 받을 자산. 설치(scripts/install-ffmpeg)가 쓴다
+// BtbN/FFmpeg-Builds 릴리스에서 이 플랫폼이 받을 에셋. 설치(scripts/install-ffmpeg)가 쓴다
 
 const VARIANT = "lgpl"; // 오디오만 쓰므로 GPL 전용 코덱(x264/x265)은 불필요
 
 const RELEASES_URL = "https://github.com/BtbN/FFmpeg-Builds/releases/download";
 
-/** BtbN 빌드 하나. 자산 이름 조각, 아카이브 확장자, 실행 파일 이름 */
+/** BtbN 빌드 하나. 에셋 이름 조각, 아카이브 확장자, 실행 파일 이름 */
 type Target = { slug: string; ext: string; bin: string };
-/** 선택한 자산 */
+/** 선택한 에셋 */
 type Asset = { assetName: string; sha256: string; version: string; branch: string };
 
 // BtbN이 제공하는 플랫폼만. 키는 `${process.platform}-${process.arch}`.
@@ -18,13 +18,13 @@ const TARGETS: Record<string, Target | undefined> = {
 };
 
 /**
- * 릴리스의 checksums.sha256에서 이 플랫폼이 쓸 자산을 선택한다.
+ * 릴리스의 checksums.sha256에서 이 플랫폼이 쓸 에셋을 선택한다.
  *
  * 한 릴리스에는 ffmpeg 브랜치가 여럿 들어 있다(예: 8.1, 9.0, N-master). 그중
  * 릴리스 브랜치의 가장 높은 버전을 쓴다. N-master(`ffmpeg-N-126342-…`)는 이름에 브랜치가
  * 없어 제외되고, `-shared-`는 실행에 별도 라이브러리가 필요해 제외한다.
  *
- * 자산 이름을 코드에 박지 않는 이유: 이름에 커밋 해시가 들어가 릴리스마다 달라진다.
+ * 에셋 이름을 코드에 박지 않는 이유: 이름에 커밋 해시가 들어가 릴리스마다 달라진다.
  * 태그 하나만 바꾸면 되도록 이름은 릴리스가 알려주는 것을 쓴다.
  * 이 플랫폼용 빌드가 없으면 null.
  */

@@ -4,6 +4,8 @@ import { useLoggedIn, _resetIntents } from "../../src/infra/gateway-intents.ts";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { NowPlayingPanel } from "../../src/ui/now-playing-panel.ts";
+import { COMPONENTS_BYTES_MAX, componentsBytes } from "../../src/ui/message-size.ts";
+import { displayWidth } from "../../src/rules/clip-text.ts";
 import { Collection, MessageFlags, WebhookClient, type Client, type GuildTextBasedChannel } from "discord.js";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
@@ -13,12 +15,12 @@ import config from "../../src/config/index.ts";
 import { _internals as discordArt } from "../../src/ui/discord-art.ts";
 import { remember } from "../helpers/tagged-audio.ts";
 
-// 큰 썸네일 확인은 네트워크로 나가지 않게: 모든 영상에 큰 썸네일이 있다고 답한다
+// 큰 썸네일 확인은 네트워크로 나가지 않게: 모든 영상에 큰 썸네일이 있다고 응답한다
 discordArt.useHead(async () => ({ ok: true, status: 200 }));
 
 const newPanels = () => new NowPlayingPanel(fake<Client>({}), new Map());
 
-test("점프 메뉴: 값은 대기열 ID(entry:N), 번호는 이름에만. ID 가 없거나 겹치는 곡은 빼고(값이 겹친 메뉴는 디스코드가 메시지째 거절한다), 남는 곡이 없으면 메뉴 없음", async () => {
+test("점프 메뉴: 값은 대기열 ID(entry:N), 번호는 이름에만. ID가 없거나 겹치는 곡은 빼고(값이 겹친 메뉴는 디스코드가 메시지째 거절한다), 남는 곡이 없으면 메뉴 없음", async () => {
   const entered = (title: string, entry?: number) => {
     const track = { title } as QueuedTrack;
     return entry === undefined ? track : Object.defineProperty(track, "entry", { value: entry, enumerable: false });
@@ -36,8 +38,31 @@ test("점프 메뉴: 값은 대기열 ID(entry:N), 번호는 이름에만. ID �
   assert.equal(await newPanels().createJumpToRow({ sessionId: "s1", queue: [entered("ID 없음")] }), null);
 });
 
+// 디스코드는 컴포넌트 전체가 10,240바이트를 넘으면 패널째 거절한다(413). 한글은 3바이트라 긴 한글 곡이 많으면 메뉴만으로도 상한을 넘긴다
+test("점프 메뉴: 앞 20곡. 크기 상한을 넘으면 설명, 그다음 항목 수를 줄이고, 끝까지 줄여도 넘으면 메뉴 없음", async () => {
+  const long = (n: number) => Object.defineProperty({ title: `아주 긴 한글 제목 ${n} `.repeat(10), pageUrl: `https://example.org/${"a".repeat(1900)}`, artist: "아주 긴 한글 아티스트 이름".repeat(6), duration: 236, requestedBy: { id: "u1", username: "아주 긴 한글 서버 닉네임".repeat(3) } } as QueuedTrack, "entry", { value: n, enumerable: false });
+  const player = panelPlayer({ currentTrack: long(0), queue: Array.from({ length: 25 }, (_, i) => long(i + 1)) });
+  const payload = await newPanels()._playingPayload(player, long(0), true, true);
+  assert.ok(componentsBytes(...(payload.components ?? [])) <= COMPONENTS_BYTES_MAX, `${componentsBytes(...(payload.components ?? []))}바이트`);
+  const options = (payload.components?.[1] as { toJSON(): { components: Array<{ options: Array<{ label: string; description?: string }> }> } }).toJSON().components[0].options;
+  assert.equal(options.length, 20, "설명을 줄여 들어가면 항목은 앞 20곡 그대로");
+  assert.ok(
+    options.every((o) => o.label.endsWith("…") && displayWidth(o.label) <= 66),
+    "이름은 화면 폭으로 자른다",
+  );
+  assert.ok(
+    options.every((o) => o.description?.includes(" | 3:56")),
+    "길이는 줄이지 않는다",
+  );
+
+  const fewer = await newPanels().createJumpToRow(player, 2000);
+  const kept = fewer?.toJSON().components[0].options.length ?? 0;
+  assert.ok(kept > 0 && kept < 20 && componentsBytes(fewer!) <= 2000, `${kept}개`);
+  assert.equal(await newPanels().createJumpToRow(player, 100), null, "한 곡도 안 들어가면 메뉴 없이");
+});
+
 // CV2 Section은 액세서리(썸네일/버튼)가 없으면 전송 시 검증에서 거부된다.
-// 직접 링크는 thumbnail이 null 일 수 있다(그대로 보내면 갱신이 매번 CombinedError 로 실패한다).
+// 직접 링크는 thumbnail이 null일 수 있다(그대로 보내면 갱신이 매번 CombinedError로 실패한다).
 test("now-playing 컨테이너: 썸네일 유무와 무관하게 전송 가능한 형태여야 한다", async () => {
   const panels = newPanels();
   const player = fakePlayer({
@@ -52,7 +77,7 @@ test("now-playing 컨테이너: 썸네일 유무와 무관하게 전송 가능�
 
   for (const thumbnail of [null, undefined, "", "https://example.org/t.jpg"]) {
     const container = await panels.createNowPlayingContainer(player, { ...base, thumbnail });
-    // toJSON이 실제 전송 시 도는 검증. 썸네일이 없어도 여기서 던지지 않는다
+    // toJSON이 실제 전송 시 도는 검증. 썸네일이 없어도 여기서 예외를 던지지 않는다
     const json = container.toJSON();
     assert.ok(JSON.stringify(json).includes("Test"), `제목이 담겨야 한다 (thumbnail=${thumbnail})`);
   }
@@ -104,10 +129,25 @@ test("now-playing 컨테이너: 제목 링크는 음원 파일이 아니라 보�
   assert.ok(!json.includes("nawdist"));
 });
 
+test("now-playing 컨테이너: 제목은 화면 폭 136, 아티스트는 78까지. 2,047자를 넘는 주소는 링크를 빼고 제목만", async () => {
+  const panels = newPanels();
+  const player = fakePlayer({ getCurrentTime: () => 0, queue: [], previousTracks: [], loop: false, paused: false, pause: { heldBy: null, userPaused: false } });
+  const track: QueuedTrack = { title: "가".repeat(100), artist: "나".repeat(40), duration: 90, platform: "direct", pageUrl: `https://example.org/${"a".repeat(2027)}`, requestKey: "k" };
+  assert.equal(track.pageUrl.length, 2047);
+
+  const linked = JSON.stringify((await panels.createNowPlayingContainer(player, track)).toJSON());
+  assert.ok(linked.includes(`**[${"가".repeat(67)}…](${track.pageUrl})**`), "제목은 한글 67자와 … 로 잘려 링크가 걸린다");
+  assert.ok(linked.includes(` ${"나".repeat(38)}…`), "아티스트는 한글 38자와 …");
+
+  const bare = JSON.stringify((await panels.createNowPlayingContainer(player, { ...track, title: "짧은 제목", pageUrl: `${track.pageUrl}a` })).toJSON());
+  assert.ok(bare.includes("**짧은 제목**"));
+  assert.ok(!bare.includes("example.org"));
+});
+
 // ── 끝난 패널 ──
 // 부르는 곳이 현재 곡을 먼저 비우므로, 버튼 끄기는 곡 정보 없이도 돌아야 한다.
 
-// 전용 채널은 임시 DB 에 둔다
+// 전용 채널은 임시 DB에 둔다
 const store = tempStore.openTempStore("embed-manager-");
 after(() => store.close());
 
@@ -125,11 +165,11 @@ function panelPlayer(over: object = {}) {
     ...over,
   });
 }
-// 컨테이너 JSON 에서 보는 필드
+// 컨테이너 JSON에서 보는 필드
 type Json = { components: Array<{ type: number; components?: Array<{ disabled?: boolean; custom_id?: string }>; accessory?: { media: { url: string } } }> };
 const shape = (json: Json) => json.components.map((c) => c.type);
 const buttonsOf = (json: Json) => json.components.filter((c) => c.type === 1).flatMap((row) => row.components ?? []);
-// 빌더를 JSON 으로
+// 빌더를 JSON으로
 const jsonOf = (builder: { toJSON(): unknown }) => builder.toJSON() as Json;
 
 // 대시보드 주소를 정해 두고 부른다. 주소에 따라 링크가 달라지는 테스트는 값을 정해 설정 기본값에 기대지 않는다
@@ -167,7 +207,7 @@ test("종료 모양: 재생 화면과 구성이 같고, 자동재생만 눌리�
 });
 
 // 기본값 localhost, 사설 주소는 다른 사람이 열 수 없다
-test("대시보드 링크는 DASHBOARD_URL 이 공개 주소이고 서버 화면을 쓸 수 있을 때만. 없으면 재생 화면은 플랫폼만, 끝난 화면은 아래 줄이 없다", async () => {
+test("대시보드 링크는 DASHBOARD_URL이 공개 주소이고 서버 화면을 쓸 수 있을 때만. 없으면 재생 화면은 플랫폼만, 끝난 화면은 아래 줄이 없다", async () => {
   const panels = newPanels();
   const track: QueuedTrack = { title: "곡", pageUrl: "https://example.org/a", requestKey: "https://example.org/a", duration: 100, platform: "youtube" };
   const draw = (url: string) =>
@@ -254,7 +294,7 @@ test("재생이 끝나면 현재 곡을 이미 비웠어도 패널을 종료 모
   }
 });
 
-test("끝 안내는 다 틀었거나 끊겼을 때만(끊김은 그 까닭으로). 사람이 멈추거나 내보낸 것은 보내지 않는다", async () => {
+test("끝 안내는 다 틀었거나 끊겼을 때만(끊김은 그 이유를 반환). 사람이 멈추거나 내보낸 것은 보내지 않는다", async () => {
   const cases: Array<[reason: string, cause: string | undefined, notice: string | null]> = [
     ["queue-end", undefined, "재생이 끝났어요"],
     ["stop", "stop", null],
@@ -350,7 +390,7 @@ test("/join만 했을 때: 곡을 기다리는 문구와 퇴장 시각", async (
   assert.match(json, /<t:1600:R> 쉬러 갈게요/);
 });
 
-test("진행 막대: 한 번 갱신이 모르는 오류로 던지면 남기고 이 곡의 갱신을 멈춘다", async (t) => {
+test("진행 막대: 한 번 갱신이 모르는 오류를 던지면 남기고 이 곡의 갱신을 멈춘다", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const panels = newPanels();
   const player = fakePlayer({ guild: { id: "g1", name: "서버" }, currentTrack: { title: "곡" }, nowPlayingMessage: { id: "m1" } });
@@ -485,7 +525,14 @@ test("멈춤: 상태 줄은 억제 사유를 먼저, 그 사이 사람이 일시
   assert.equal(heldAndUser.emoji, userOnly.emoji);
 });
 
-// 풀기 전에는 끝나지 않는 promise. 느린 썸네일 확인, REST 를 흉내 낸다
+test("상태 줄 순서: 멈춤, 대기열, 상주 모드, 건너뛸 구간(대기열, 건너뛸 구간에도 아이콘)", async () => {
+  const track = { title: "곡", pageUrl: "https://example.org/a", requestKey: "https://example.org/a", duration: 100, platform: "youtube" };
+  const player = panelPlayer({ paused: true, pause: { heldBy: null, userPaused: true }, queue: [{}, {}], idle: { seated: () => true }, sponsor: { skipSegments: [{}] } });
+  const text = JSON.stringify(jsonOf(await newPanels().createNowPlayingContainer(player, track)));
+  assert.match(text, /일시정지 • 📋 대기열 2곡 • 🏪 상주 모드 • ⏭️ 건너뛸 구간 1개/);
+});
+
+// 풀기 전에는 끝나지 않는 promise. 느린 썸네일 확인, REST를 흉내 낸다
 function held() {
   let release!: () => void;
   const promise = new Promise<void>((resolve) => (release = resolve));
@@ -520,7 +567,7 @@ test("재생 패널 그리기: 서버마다 한 번에 하나. 그리는 중에 
 
   const first = panels.updatePlaying(player);
   await settle();
-  assert.equal(gates.length, 1, "첫 그리기가 REST 에 걸려 있다");
+  assert.equal(gates.length, 1, "첫 그리기가 REST에 걸려 있다");
   state.loop = "queue";
   const more = [panels.updatePlaying(player), panels.updatePlaying(player), panels.updatePlaying(player)];
   await settle();

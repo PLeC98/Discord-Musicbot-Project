@@ -1,11 +1,11 @@
 // 운영자 화면의 긴 목록(상태 탭의 플레이어, 자식 프로세스, 서버 관리 탭의 서버)을 보이는 구간만 준다: 쿼리 읽기와 자르기.
-// Node 를 부르지 않아 더미 대시보드의 가짜 서버도 쓴다.
-// 쿼리는 화면이 보내는 값이라 잘못된 값은 막지 않고 없는 것으로 본다(같은 이름이 여럿이면 Express 가 배열로 준다)
+// Node를 부르지 않아 더미 대시보드의 가짜 서버도 쓴다.
+// 쿼리는 화면이 보내는 값이라 잘못된 값은 막지 않고 없는 것으로 본다(같은 이름이 여럿이면 Express가 배열로 준다)
 
 import { koMatch } from "../rules/ko-search.ts";
 import { GUILD_QUERY, GUILD_SORTS, LIST_WINDOW_MAX, PLAYER_STATES, PROCESS_SORTS, Q_MAX, STATUS_QUERY, type AdminGuild, type AdminGuilds, type GuildQuery, type GuildSort, type Span, type StatusQuery } from "./contract/admin.ts";
 
-/** "시작,개수". 개수는 LIST_WINDOW_MAX 까지 */
+/** "시작,개수". 개수는 LIST_WINDOW_MAX까지 */
 function spanOf(value: unknown, fallback: Span): Span {
   const m = typeof value === "string" ? /^(\d{1,9}),(\d{1,9})$/.exec(value) : null;
   return m ? { from: Number(m[1]), count: Math.min(Number(m[2]), LIST_WINDOW_MAX) } : fallback;
@@ -15,7 +15,7 @@ function oneOf<T extends string>(value: unknown, known: readonly T[], fallback: 
   return known.find((k) => k === value) ?? fallback;
 }
 
-/** 상태 탭 목록의 쿼리. states 가 빈 값이면 아무 상태도 보이지 않는다(없을 때와 다르다) */
+/** 상태 탭 목록의 쿼리. states가 빈 값이면 아무 상태도 보이지 않는다(없을 때와 다르다) */
 function statusQueryOf(query: Record<string, unknown>): StatusQuery {
   const { states, q, desc } = query;
   return {

@@ -1,5 +1,5 @@
 // 서버 설정 화면의 카드마다 누가 보고 고치는가. 화면에 보내는 것(GET), 받는 것(PATCH), 카드의 경로, 서버 화면의 설정 버튼(hasSettings)이 이 표 하나를 본다.
-// 보는 사람(Viewer)은 권한 수준 오버라이드를 반영한 계층(view-as 의 tierOf)과 봇을 추방할 수 있는지(오버라이드 중이면 늘 아니다)
+// 보는 사람(Viewer)은 권한 수준 오버라이드를 반영한 계층(view-as의 tierOf)과 봇을 추방할 수 있는지(오버라이드 중이면 늘 아니다)
 
 import type { Request } from "express";
 import type { GuildMember } from "discord.js";
@@ -23,9 +23,9 @@ type CardTable = Readonly<Record<SettingsCard, CardRule>>;
 type Viewer = { tier: Tier; kicksBot: boolean };
 
 const CARDS: CardTable = {
-  // 상주 모드는 디스코드 /247 과 같은 DJ 조작. 켜고 끄기는 POST .../settings/stay(usecases/stay)
+  // 상주 모드는 디스코드 /247과 같은 DJ 조작. 켜고 끄기는 POST .../settings/stay(usecases/stay)
   stay: { gate: "dj", fields: [] },
-  // 볼륨 정규화는 디스코드 /normalize 와 같은 DJ 조작. 켜고 끄기는 POST .../settings/normalize(usecases/normalize). 저장 본문에 넣으면 gate 가 계층만 봐서 음성 채널 규칙을 건너뛴다
+  // 볼륨 정규화는 디스코드 /normalize와 같은 DJ 조작. 켜고 끄기는 POST .../settings/normalize(usecases/normalize). 저장 본문에 넣으면 gate가 계층만 봐서 음성 채널 규칙을 건너뛴다
   normalize: { gate: "dj", fields: [] },
   channel: { gate: "server-manager", fields: ["botChannelId"] },
   dj: { gate: "server-manager", fields: ["djRoleIds"] },

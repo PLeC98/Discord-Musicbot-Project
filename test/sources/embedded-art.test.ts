@@ -1,5 +1,5 @@
 // src/sources/embedded-art.ts: 직접 링크 곡의 파일 태그, 앨범아트를 찾아 기억한다.
-// 원본을 여는 곳은 가짜(useOpen), 캐시 파일, DB 는 임시 저장소. 픽스처는 ffmpeg 로 만든다(없으면 건너뛴다)
+// 원본을 여는 곳은 가짜(useOpen), 캐시 파일, DB는 임시 저장소. 픽스처는 ffmpeg로 만든다(없으면 건너뛴다)
 
 import path from "node:path";
 import fs from "node:fs";
@@ -42,7 +42,7 @@ before(async () => {
 type Opened = { url: string; from?: number };
 const opened: Opened[] = [];
 const found: Array<{ key: string; title: string | null; art: boolean }> = [];
-/** 원본 가짜: 그 주소의 바이트를 준다. hold 면 첫 바이트를 그만큼 늦춘다. type 은 Content-Type(기본 audio/mpeg) */
+/** 원본 가짜: 그 주소의 바이트를 준다. hold면 첫 바이트를 그만큼 늦춘다. type은 Content-Type(기본 audio/mpeg) */
 let reply: (url: string) => { body: Buffer | null; hold?: number; type?: string } = () => ({ body: mp3 });
 beforeEach(() => {
   embeddedArt.clear();

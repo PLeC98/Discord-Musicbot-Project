@@ -1,5 +1,5 @@
-// src/discord/interactions/control-answers.ts: 볼륨은 명령과 입력 창이 한 절차. 시간이 걸리는 조작(처음부터, 위치 이동)은 받아들이면 "하는 중" 을 Components V2 로 먼저 보내고 결과로 고친다.
-// 거절은 본인에게만 안내. 받아들인 뒤에 던지면 그 메시지를 안내로 바꾼다
+// src/discord/interactions/control-answers.ts: 볼륨은 명령과 입력 창이 한 절차. 시간이 걸리는 조작(처음부터, 위치 이동)은 받아들이면 "하는 중"을 Components V2로 먼저 보내고 결과로 고친다.
+// 거절은 본인에게만 안내. 받아들인 뒤에 예외를 던지면 그 메시지를 안내로 바꾼다
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -117,7 +117,7 @@ test("볼륨: 바꾼 결과를 모두에게. 명령과 패널의 입력 창이 �
   for (const file of ["src/discord/commands/volume.ts", "src/discord/interactions/panel-inputs.ts"]) assert.match(fs.readFileSync(path.join(root, file), "utf8"), /answerVolume\(/, file);
 });
 
-test("받아들인 뒤에 던지면 하는 중 메시지를 안내로 바꾼다", async () => {
+test("받아들인 뒤에 예외를 던지면 하는 중 메시지를 안내로 바꾼다", async () => {
   const { it, log } = asked();
   const { p } = player({
     seek: async () => {
@@ -148,7 +148,7 @@ test("수명: 조작 결과는 결과 수명, 정지, 나가기는 더 오래", 
   assert.ok(LIFETIME.farewell > LIFETIME.result);
 });
 
-test("정지, 나가기: 결과는 정리(끝난 패널 그리기)가 끝나기 전에 답한다", async () => {
+test("정지, 나가기: 결과는 정리(끝난 패널 그리기)가 끝나기 전에 응답한다", async () => {
   for (const name of ["stop", "leave"]) {
     let release!: () => void;
     const gate = new Promise<void>((resolve) => (release = resolve));
@@ -157,21 +157,21 @@ test("정지, 나가기: 결과는 정리(끝난 패널 그리기)가 끝나기 
     const { p } = player({ queue: [], _trackLabel: () => "곡", getCurrentTime: () => 0, dispose: () => gate.then(() => void order.push("disposed")) });
     const answering = name === "stop" ? answerStop(it, p) : run(await command("leave"), Object.assign(it, { guild }), fakeBot({ players: new Map([["g1", p]]) }));
     await new Promise((resolve) => setImmediate(resolve));
-    assert.equal(log.length, 1, `${name}: 정리가 끝나기 전에 답했다`);
+    assert.equal(log.length, 1, `${name}: 정리가 끝나기 전에 응답했다`);
     assert.deepEqual(order, [], name);
     release();
     await answering;
     assert.deepEqual(order, ["disposed"], name);
-    assert.equal(log.length, 1, `${name}: 정리 뒤에 다시 답하지 않는다`);
+    assert.equal(log.length, 1, `${name}: 정리 뒤에 다시 응답하지 않는다`);
   }
 });
 
-test('▶(실패로 일시정지해 둔 곡): 곡을 다시 열기 전에 본인에게 "다시 트는 중"을 답하고, 결과는 자리표시자를 지우고 모두에게 알린다. 답한 사이 곡이 바뀌면 자리표시자를 안내로 바꾼다', async () => {
+test('▶(실패로 일시정지해 둔 곡): 곡을 다시 열기 전에 본인에게 "다시 트는 중"으로 응답하고, 결과는 자리표시자를 지우고 모두에게 알린다. 응답한 사이 곡이 바뀌면 자리표시자를 안내로 바꾼다', async () => {
   const order: string[] = [];
   const { it, log } = asked();
   const { p } = player({ parked: true, retryParked: async () => void order.push(`retry(답 ${log.length}개 뒤)`), pause: { userPaused: false, heldBy: null } });
   await answerPause(it, p);
-  assert.deepEqual(order, ["retry(답 1개 뒤)"], "다시 열기 전에 답했다");
+  assert.deepEqual(order, ["retry(답 1개 뒤)"], "다시 열기 전에 응답했다");
   assert.deepEqual(log[0][0], "reply");
   assert.deepEqual(log[0][2], [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral], "자리표시자는 본인에게 보낸다");
   assert.match(log[0][1].join(), /다시 트는 중/);
@@ -207,7 +207,7 @@ test('/leave(플레이어 없이 음성에만 남음): 나가기 전에 본인�
   for (const fails of [false, true]) {
     const { it, log } = asked();
     const at: number[] = [];
-    // 샤드가 끊겨 있어 REST 로 바로 나간다(게이트웨이 경로는 player/voice-leave 테스트)
+    // 샤드가 끊겨 있어 REST로 바로 나간다(게이트웨이 경로는 player/voice-leave 테스트)
     const lingering = fake<Guild>({
       id: "g1",
       name: "서버",
@@ -227,7 +227,7 @@ test('/leave(플레이어 없이 음성에만 남음): 나가기 전에 본인�
       },
     });
     await run(await command("leave"), Object.assign(it, { guild: lingering }), fakeBot({ players: new Map() }));
-    assert.deepEqual(at, [1], "나가기 전에 답한다");
+    assert.deepEqual(at, [1], "나가기 전에 응답한다");
     assert.equal(log[0][0], "reply");
     assert.deepEqual(log[0][2], [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral], "하는 중은 본인에게");
     assert.match(log[0][1].join(), /나가는 중/);

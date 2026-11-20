@@ -23,7 +23,7 @@ function guildWith(id: string, { botIn = "vc1" as string | null, humans = 1 } = 
   for (let i = 0; i < humans; i++) members.set(`u${i}`, { user: { bot: false } });
   const channel = { id: botIn, name: `채널-${id}`, isVoiceBased: () => true, members: Object.assign(members, { filter: (fn: (m: { user: { bot: boolean } }) => boolean) => ({ size: [...members.values()].filter(fn).length }) }) };
   const voiceStates = new Map(botIn ? [[BOT, { channel }]] : []);
-  // 나가기(voice-leave): 샤드가 끊겨 있어 REST 로 뺀다. 뺀 횟수를 left 에
+  // 나가기(voice-leave): 샤드가 끊겨 있어 REST로 뺀다. 뺀 횟수를 left에
   const left: string[] = [];
   return {
     id,

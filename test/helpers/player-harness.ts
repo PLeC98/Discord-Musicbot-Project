@@ -1,16 +1,16 @@
-// 진짜 Player 를 세워 play() 를 끝까지 돌리는 하네스.
+// 진짜 Player를 세워 play()를 끝까지 돌리는 하네스.
 //
 // 다른 테스트는 가짜 객체에 메서드를 빌려 붙여 일부만 테스트하므로, 생성자와 협력자가 다 얽힌
-// play() 는 돌지 않는다. 여기서는 플레이어를 진짜로 만들고, 바깥과 닿는 곳만 교체한다.
+// play()는 돌지 않는다. 여기서는 플레이어를 진짜로 만들고, 바깥과 닿는 곳만 교체한다.
 //
 //   음성 라이브러리, ffmpeg, 청크 스트림, HTTP, 직접 링크, 스트림 주소
 //                                          플레이어의 바깥 경계로 넘긴다(Player.useBoundary). 명령, 곡 추가가
 //                                          만드는 플레이어도 같은 가짜를 쓴다
-//   캐시 DB                                진짜 audioCache 를 임시 DB 로. "캐시 DB 에 무엇을 적었나"를 그대로 본다
-//   다운로드, SponsorBlock, 유튜브 매칭   테스트마다 behavior 에 적은 것으로 답한다(바깥 경계로 넘긴다)
+//   캐시 DB                                진짜 audioCache를 임시 DB로. "캐시 DB에 무엇을 적었나"를 그대로 본다
+//   다운로드, SponsorBlock, 유튜브 매칭   테스트마다 behavior에 적은 것을 반환한다(바깥 경계로 넘긴다)
 //   음성 연결, 세션 저장, 예열            연결은 붙은 것으로, 저장은 부른 것만 기록한다
 //
-// node --test 는 테스트 파일마다 프로세스를 따로 실행하므로 여기서 바꾼 것이 다른 테스트 파일로 새지 않는다.
+// node --test는 테스트 파일마다 프로세스를 따로 실행하므로 여기서 바꾼 것이 다른 테스트 파일로 새지 않는다.
 
 import { after } from "node:test";
 import fs from "fs";
@@ -37,7 +37,7 @@ import type { LookupRow } from "../../src/store/rows.ts";
 
 // 가짜 ffmpeg 프로세스와 오디오 리소스. 테스트가 읽는 필드
 type FakeChild = EventEmitter & { args: string[]; label: string; stdout: PassThrough; stderr: PassThrough; stdin: Writable; written: Buffer[]; exitCode: number | null; signalCode: string | null; killed: boolean; kill(): boolean };
-// input 은 출력 스트림(media/opus-output)이다. 그 PCM 소스는 input.source
+// input은 출력 스트림(media/opus-output)이다. 그 PCM 소스는 input.source
 type FakeResource = {
   input: OpusOutput;
   options: { inputType?: StreamType; inlineVolume?: boolean; metadata?: unknown };
@@ -47,10 +47,10 @@ type FakeResource = {
   playStream: { destroy(): void };
 };
 
-// 재생 입력이 fetch 에 넘기는 필드
+// 재생 입력이 fetch에 넘기는 필드
 type FetchInit = { headers: Record<string, string>; signal?: AbortSignal };
 
-// 판정 테스트에서 무엇이 불렸는지 모은다. 테스트마다 reset() 으로 비운다
+// 판정 테스트에서 무엇이 불렸는지 모은다. 테스트마다 reset()으로 비운다
 const calls = {
   spawns: [] as FakeChild[],
   resources: [] as FakeResource[],
@@ -86,7 +86,7 @@ class FakeAudioPlayer extends EventEmitter {
     this.played = [];
     this.stops = 0;
   }
-  // voice 처럼 넘겨받은 리소스에 표시하고, 교체하거나 멈추면 옛 리소스를 destroy 한다
+  // voice처럼 넘겨받은 리소스에 표시하고, 교체하거나 멈추면 옛 리소스를 destroy 한다
   play(resource: unknown) {
     if (this.state.resource && this.state.resource !== resource) destroyResource(this.state.resource);
     (resource as FakeResource).audioPlayer = this;
@@ -113,8 +113,8 @@ class FakeAudioPlayer extends EventEmitter {
 
 const destroyResource = (resource: unknown) => (resource as Partial<FakeResource>).playStream?.destroy?.();
 
-// 인코딩 워커 대신. 플레이어 테스트는 소리를 읽지 않는다. 빈 패킷이면 missedFrames 가 쌓이므로 크기를 맞춘다.
-// 보낸 프레임의 패킷은 read() 의 drain 이 주고, 읽지 않으면 다음 마이크로태스크에 준다(실제의 이벤트 길). send 안에서 바로 주면 실제에 없는 재진입이 생긴다
+// 인코딩 워커 대신. 플레이어 테스트는 소리를 읽지 않는다. 빈 패킷이면 missedFrames가 쌓이므로 크기를 맞춘다.
+// 보낸 프레임의 패킷은 read()의 drain이 주고, 읽지 않으면 다음 마이크로태스크에 준다(실제의 이벤트 길). send 안에서 바로 주면 실제에 없는 재진입이 생긴다
 function fakeEncoder(hooks: SessionHooks): EncodeSession {
   let queued = 0;
   let scheduled = false;
@@ -147,7 +147,7 @@ function createAudioResource(input: OpusOutput, options: FakeResource["options"]
     options,
     metadata: options.metadata,
     playbackDuration: 0,
-    // StreamType.Opus 면 voice 의 playStream 은 넘긴 출력 그 자체다
+    // StreamType.Opus면 voice의 playStream은 넘긴 출력 그 자체다
     playStream: { destroy: () => input.destroy() },
   };
   calls.resources.push(resource);
@@ -212,13 +212,13 @@ function openFragmentStream(opts: FragmentOptions) {
   return Object.assign(new PassThrough(), { startedAtMs: atMs, describe: () => "세그먼트 가짜" });
 }
 
-// ── 4. 캐시 DB: 진짜를 임시 DB 로 ──────────────────────────────────────
+// ── 4. 캐시 DB: 진짜를 임시 DB로 ──────────────────────────────────────
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "player-harness-"));
 const audioCache = await import("../../src/store/audio-cache.ts");
 audioCache._setCacheDir(path.join(TMP, "audio_cache"));
 stores.open(TMP);
 audioCache.initialize();
-// 파일이 끝나면 지운다. DB 를 먼저 닫아야 Windows 에서 지워진다
+// 파일이 끝나면 지운다. DB를 먼저 닫아야 Windows에서 지워진다
 after(() => {
   audioCache.close();
   stores.close();
@@ -229,7 +229,7 @@ after(() => {
 const config = (await import("../../src/config/index.ts")).default;
 const DEFAULT_MAX_TRACK_SEC = 60 * 60;
 
-// ── 5. Player 와 협력자를 불러 바깥 경계에 가짜를 넘긴다 ────────────────
+// ── 5. Player와 협력자를 불러 바깥 경계에 가짜를 넘긴다 ────────────────
 const Player = (await import("../../src/player/player.ts")).Player;
 type Player = InstanceType<typeof Player>;
 const { TrackDownloader } = await import("../../src/media/cache-download.ts");
@@ -247,8 +247,8 @@ const playerEvents = await import("../../src/player/events.ts");
 playerEvents.on("disposed", (player) => registryOf(player)?.forget(player));
 
 // 협력 모듈 가짜. 플레이어의 바깥 경계(createVoice, createPersistence, createWarmer)로 넘긴다
-// 붙은 것으로 둔 연결. 테스트는 emit 으로 상태를 흉내 낸다
-// 부순 방식(leave: 나가기 요청, stay: 채널에 남음)을 destroyed 에 적는다
+// 붙은 것으로 둔 연결. 테스트는 emit으로 상태를 흉내 낸다
+// 부순 방식(leave: 나가기 요청, stay: 채널에 남음)을 destroyed에 적는다
 const fakeConnection = () =>
   Object.assign(new EventEmitter(), {
     state: { status: "ready" },
@@ -349,18 +349,18 @@ type Behavior = {
   encoder: (() => boolean) | null;
 };
 const behavior: Behavior = {
-  stream: null, // (track, options) → streamInfo. 던지면 스트림 실패. options.fresh: 다시 쓴 주소가 열리지 않아 새로 조회한다
+  stream: null, // (track, options) → streamInfo. 예외를 던지면 스트림 실패. options.fresh: 다시 쓴 주소가 열리지 않아 새로 조회한다
   equivalent: null, // (track) → youtubeUrl. 스포티파이의 유튜브 매칭
-  sponsor: null, // (track) → SponsorBlock.forTrack 의 답
+  sponsor: null, // (track) → SponsorBlock.forTrack의 답
   download: null, // (track) → Promise<file>. 기본은 끝나지 않는 약속
   fetch: null, // (url, init) → Response 비슷한 것
-  chunked: null, // (opts) → 던지면 청크 스트림의 첫 요청 실패
+  chunked: null, // (opts) → 예외를 던지면 청크 스트림의 첫 요청 실패
   seekStart: null, // (request) → 인덱스의 답. 기본은 없음(처음부터 받는다)
   directStream: null, // (url) → Readable
-  restore: null, // function (record), this 는 플레이어. 세션 복원(명령, 곡 추가의 분기)
+  restore: null, // function (record), this는 플레이어. 세션 복원(명령, 곡 추가의 분기)
   autoplay: null, // () → 자동재생이 선택할 곡. 기본은 못 찾음
-  connect: null, // () → 던지면 음성 채널에 붙지 못함
-  encoder: null, // () → false 면 인코딩 워커를 쓸 수 없음. 기본은 쓸 수 있음
+  connect: null, // () → 예외를 던지면 음성 채널에 붙지 못함
+  encoder: null, // () → false면 인코딩 워커를 쓸 수 없음. 기본은 쓸 수 있음
 };
 
 // 유튜브 매칭 가짜. 찾으면 진짜처럼 트랙에 음원 주소를 적는다
@@ -372,7 +372,7 @@ const findEquivalent = async (track: QueuedTrack) => {
   }
   return url;
 };
-// 진짜처럼 영상 id 를 알 때만 답한다(스포티파이는 유튜브 매칭 뒤)
+// 진짜처럼 영상 id를 알 때만 결과를 반환한다(스포티파이는 유튜브 매칭 뒤)
 const sponsorFor = async (track: QueuedTrack) => {
   calls.steps.push("sponsor");
   if (!SponsorBlock._trackVideoId(track)) return null;
@@ -459,8 +459,8 @@ function fakeGuild(id = "g1"): Guild {
 type PlayerClass<P extends Player> = new (...args: ConstructorParameters<typeof Player>) => P;
 
 /**
- * 플레이어 하나. 연결은 이미 붙은 것으로 둔다(play() 의 "연결" 단계는 따로 테스트한다).
- * as 로 하위 클래스를 주면 그것으로 세운다(테스트가 일부 메서드를 정할 때).
+ * 플레이어 하나. 연결은 이미 붙은 것으로 둔다(play()의 "연결" 단계는 따로 테스트한다).
+ * as로 하위 클래스를 주면 그것으로 세운다(테스트가 일부 메서드를 정할 때).
  */
 function makePlayer<P extends Player = Player>({ connected = true, guildId = "g1", as }: { connected?: boolean; guildId?: string; as?: PlayerClass<P> } = {}): P {
   const guild = fakeGuild(guildId);
@@ -497,7 +497,7 @@ function seedCache(key: string, track: QueuedTrack, { durationSec = 200 } = {}) 
 }
 
 function reset() {
-  // 지난 테스트가 틀다 둔 출력. 운영에서는 voice 가 교체, Idle 때, 정리가 버릴 때 destroy 한다
+  // 지난 테스트가 틀다 둔 출력. 운영에서는 voice가 교체, Idle 때, 정리가 버릴 때 destroy 한다
   for (const resource of calls.resources) resource.input.destroy();
   for (const list of Object.values(calls)) if (Array.isArray(list)) list.length = 0;
   calls.settings = 0;

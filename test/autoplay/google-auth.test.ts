@@ -1,6 +1,6 @@
 // src/autoplay/assist/google-auth.ts: 서비스 계정 JSON → 액세스 토큰.
 //
-// 이 파일이 다루는 private_key 는 이 기능에서 가장 값비싼 비밀이다.
+// 이 파일이 다루는 private_key는 이 기능에서 가장 값비싼 비밀이다.
 // 어떤 경로로도 밖으로 나가지 않는 것이 여기서 지킬 계약이다.
 
 import os from "node:os";
@@ -26,7 +26,7 @@ const SA_JSON = JSON.stringify(ACCOUNT);
 const calls: Array<{ url: string; init?: RequestInit; body: string }> = [];
 // 가짜 응답은 여기서 읽는 필드(ok, status, text)만 준다
 type FakeReply = { ok: boolean; status: number; text: () => Promise<string> };
-// 토큰 요청을 받는 가짜. answers 로 답을 정하고 accessToken 에 넘긴다
+// 토큰 요청을 받는 가짜. answers로 답을 정하고 accessToken에 넘긴다
 let net: typeof fetch = () => Promise.reject(new Error("테스트가 답을 정하지 않았다"));
 function answers(reply: object | (() => FakeReply)) {
   net = fake<typeof fetch>(async (url: string, init?: RequestInit) => {
@@ -35,7 +35,7 @@ function answers(reply: object | (() => FakeReply)) {
   });
 }
 
-test("JWT 로 토큰을 받아 온다", async () => {
+test("JWT로 토큰을 받아 온다", async () => {
   auth._reset();
   calls.length = 0;
   answers({ access_token: "ya29.토큰", expires_in: 3600 });
@@ -44,7 +44,7 @@ test("JWT 로 토큰을 받아 온다", async () => {
   assert.equal(calls.length, 1);
   assert.equal(calls[0].url, "https://oauth2.googleapis.com/token");
 
-  // 보낸 것은 서명한 JWT 다. private_key 자체는 절대 안 나간다.
+  // 보낸 것은 서명한 JWT다. private_key 자체는 절대 안 나간다.
   const sent = new URLSearchParams(calls[0].body);
   assert.equal(sent.get("grant_type"), "urn:ietf:params:oauth:grant-type:jwt-bearer");
   assert.ok(!calls[0].body.includes("PRIVATE KEY"), "키가 그대로 실리면 안 된다");
@@ -79,18 +79,18 @@ test("곧 만료될 토큰은 새로 받는다", async () => {
   assert.equal(calls.length, 2, "만료 직전이면 다시 받는다");
 });
 
-test("JSON 을 통째로 입력해도 받는다", async () => {
+test("JSON을 통째로 입력해도 받는다", async () => {
   auth._reset();
   answers({ access_token: "ya29.인라인", expires_in: 3600 });
   assert.equal(await auth.accessToken(JSON.stringify(ACCOUNT), { fetch: net }), "ya29.인라인");
 });
 
-test("프로젝트는 JSON 에서 끌어온다", () => {
+test("프로젝트는 JSON에서 끌어온다", () => {
   assert.equal(auth.projectOf(SA_JSON), "내-프로젝트");
-  assert.equal(auth.projectOf(path.join(DIR, "vertex-sa.json")), "", "JSON 이 아니면 빈 값 — 던지지 않는다");
+  assert.equal(auth.projectOf(path.join(DIR, "vertex-sa.json")), "", "JSON이 아니면 빈 값(예외를 던지지 않는다)");
 });
 
-// 경로만 감추면 private_key 가 디스크에 그대로 남는다. 경로는 아예 받지 않는다
+// 경로만 감추면 private_key가 디스크에 그대로 남는다. 경로는 아예 받지 않는다
 test("파일 경로는 받지 않는다(읽으러 가지 않는다)", async () => {
   const file = path.join(DIR, "vertex-sa.json");
   fs.writeFileSync(file, SA_JSON);
@@ -102,7 +102,7 @@ test("파일 경로는 받지 않는다(읽으러 가지 않는다)", async () =
 
 // ── 오류에 비밀이 섞이지 않는가 ───────────────────────────────────────────
 
-test("어떤 오류에도 private_key 가 나오지 않는다", async () => {
+test("어떤 오류에도 private_key가 나오지 않는다", async () => {
   auth._reset();
 
   const broken = JSON.stringify({ ...ACCOUNT, private_key: "-----BEGIN PRIVATE KEY-----\n망가진키\n-----END PRIVATE KEY-----\n" });
@@ -119,7 +119,7 @@ test("어떤 오류에도 private_key 가 나오지 않는다", async () => {
     );
   }
 
-  // 저쪽이 401 로 거절한 경우의 오류까지
+  // 저쪽이 401로 거절한 경우의 오류까지
   answers(() => ({ ok: false, status: 401, text: async () => "invalid_grant" }));
   await assert.rejects(
     () => auth.accessToken(SA_JSON, { fetch: net }),

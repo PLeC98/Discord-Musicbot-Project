@@ -1,5 +1,5 @@
 // 스크롤 영역이 넘치는가(세로 스크롤바가 생기는가). 영역이 생길 때, 크기가 바뀔 때, 안의 항목이 바뀔 때 다시 잰다.
-// 넘치면 오른쪽 안쪽 여백을 왼쪽보다 3px 줄여, 스크롤바 영역 안의 투명 테두리 3px 과 합쳐 내용과 막대 사이가 왼쪽 여백과 같아지게 쓴다
+// 넘치면 오른쪽 안쪽 여백을 왼쪽보다 3px 줄여, 스크롤바 영역 안의 투명 테두리 3px과 합쳐 내용과 막대 사이가 왼쪽 여백과 같아지게 쓴다
 
 import { onBeforeUnmount, ref, watch, type Ref } from "vue";
 
@@ -18,7 +18,7 @@ export function useOverflowing(el: Ref<HTMLElement | null>, again?: () => unknow
     mutate?.disconnect();
   };
 
-  // v-if 로 열고 닫는 영역도 있어 영역이 바뀔 때마다 다시 붙인다
+  // v-if로 열고 닫는 영역도 있어 영역이 바뀔 때마다 다시 붙인다
   watch(
     el,
     (box) => {

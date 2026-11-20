@@ -1,5 +1,5 @@
 <template>
-  <!-- 일반 탭: 연령 제한 콘텐츠(운영자 단위). 켤 때는 무엇이 열리는지 알리고 확인을 받는다. 끄기는 바로. 저장 막대와 상관없이 곧바로 서버에 쓴다 -->
+  <!-- 일반 탭: 연령 제한 콘텐츠(운영자 단위). 켤 때는 무엇이 열리는지 알리고 확인을 받는다. 끄기는 바로. 저장 바와 상관없이 곧바로 서버에 쓴다 -->
   <BaseCard icon="no_adult_content" :title="T.title">
     <label class="flex items-start gap-3 cursor-pointer">
       <span class="min-w-0 flex-1">

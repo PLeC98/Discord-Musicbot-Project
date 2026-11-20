@@ -5,10 +5,10 @@
 //   yt.error(err, "다운로드 실패");
 //
 // 지켜야 할 표면:
-//   - 레벨: trace/debug/info/warn/error/fatal (10~60). logger.level 을 바꿀 수 있고 그보다 낮은 레벨은 찍지 않는다
+//   - 레벨: trace/debug/info/warn/error/fatal (10~60). logger.level을 바꿀 수 있고 그보다 낮은 레벨은 찍지 않는다
 //   - 호출: fn(mergingObj?, msg?, ...interp) | fn(err) | fn(msg, ...interp)
 //   - child(bindings): bindings 병합된 자식 (카테고리도 그냥 바인딩이다)
-//   - pino에 없는 logger.log()는 노출하지 않는다 (서드파티의 console.* 는 sink 의 console 브리지가 받는다)
+//   - pino에 없는 logger.log()는 노출하지 않는다 (서드파티의 console.* 는 sink의 console 브리지가 받는다)
 
 import util from "util";
 import sink from "./sink.ts";
@@ -44,7 +44,7 @@ function buildRecord(levelNum: number, bindings: Record<string, unknown>, args: 
 
   const rec: LogRecord = { level: levelNum, time: Date.now(), ...bindings, ...(merge || {}) };
 
-  // err 는 rec.err 에 stack 글로 남기고, 터미널, SSE 에도 보이도록 msg 뒤에 붙인다
+  // err는 rec.err에 stack 글로 남기고, 터미널, SSE에도 보이도록 msg 뒤에 붙인다
   const err = rec.err || rec.error;
   if (err instanceof Error) {
     const stack = err.stack || err.message;

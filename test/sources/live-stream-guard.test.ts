@@ -1,5 +1,5 @@
-// src/sources/youtube: 라이브 스트림 차단. 라이브는 duration 이 0 이라 길이 신호가 죽어 유튜브 매칭으로 선택될 수 있고(제목이 기호뿐인 곡 등),
-// 캐시 다운로드가 시작되면 yt-dlp 가 외부 다운로더로 띄운 ffmpeg 가 끝나지 않는 방송을 받아 파일이 끝없이 커진다.
+// src/sources/youtube: 라이브 스트림 차단. 라이브는 duration이 0이라 길이 신호가 죽어 유튜브 매칭으로 선택될 수 있고(제목이 기호뿐인 곡 등),
+// 캐시 다운로드가 시작되면 yt-dlp가 외부 다운로더로 띄운 ffmpeg가 끝나지 않는 방송을 받아 파일이 끝없이 커진다.
 //
 // 방어선 3중: (1) 매칭 후보에서 라이브 제외 (2) track.isLive면 다운로드 미시작 (3) yt-dlp --match-filter "!is_live"
 
@@ -47,7 +47,7 @@ test("findYouTubeEquivalent: 라이브 후보는 제외된다 (라이브만 있�
 
   const track = { title: "''''''", artist: "x0o0x_", duration: 200, platform: "spotify", url: "https://open.spotify.com/track/abc" };
   const result = await equivalent.findYouTubeEquivalent(track, { search });
-  assert.equal(result, null, "라이브만 남으면 매칭 실패로 끝나야 한다 — 라이브를 골라선 안 된다");
+  assert.equal(result, null, "라이브만 남으면 매칭 실패로 끝나야 한다. 라이브를 골라선 안 된다");
   assert.equal(Reflect.get(track, "youtubeUrl"), undefined);
 });
 
@@ -62,7 +62,7 @@ test("findYouTubeEquivalent: 라이브가 섞여 있으면 비라이브 후보�
   assert.equal(result, "https://www.youtube.com/watch?v=VVVVVVVVVVV");
 });
 
-test("다운로드 옵션에 --match-filter !is_live 가 실린다 (yt-dlp 자체 2차 방어선)", () => {
+test("다운로드 옵션에 --match-filter !is_live가 실린다 (yt-dlp 자체 2차 방어선)", () => {
   const args = argsOf(youtubeSource.getYtDlpOptions({ matchFilter: "!is_live" }));
   const i = args.indexOf("--match-filter");
   assert.ok(i >= 0, "--match-filter 플래그가 생성되어야 함");

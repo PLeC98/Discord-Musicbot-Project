@@ -1,5 +1,6 @@
 import type { CorsOptions } from "cors";
 import logger from "../infra/log/logger.ts";
+import { BOOT_HEADER } from "./contract/boot.ts";
 const log = logger.child({ category: "dashboard" });
 
 const DEV_ORIGIN = "http://localhost:5173";
@@ -8,10 +9,10 @@ let warnedDevOrigin = false;
 function normalizeDashboardOrigin(value: string) {
   const parsed = new URL(value);
   if (!["http:", "https:"].includes(parsed.protocol)) {
-    throw new Error("DASHBOARD_URL 은 http 나 https 주소여야 함");
+    throw new Error("DASHBOARD_URL은 http나 https 주소여야 함");
   }
   if (parsed.username || parsed.password || parsed.search || parsed.hash) {
-    throw new Error("DASHBOARD_URL 은 계정, 쿼리, 프래그먼트가 없는 주소(출처)여야 함");
+    throw new Error("DASHBOARD_URL은 계정, 쿼리, 프래그먼트가 없는 주소(출처)여야 함");
   }
   return parsed.origin;
 }
@@ -27,13 +28,15 @@ function createCorsOptions(dashboardUrl: string, { allowDevOrigin = false }: { a
 
   return {
     credentials: true,
+    // 개발 서버(다른 출처)의 화면도 기동 표시를 읽게
+    exposedHeaders: [BOOT_HEADER],
     origin(origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
       if (!origin) return callback(null, true);
       let normalized;
       try {
         normalized = new URL(origin).origin;
       } catch {
-        // Origin 이 주소가 아니면 허용된 출처가 아니다. 차단은 브라우저가 한다
+        // Origin이 주소가 아니면 허용된 출처가 아니다. 차단은 브라우저가 한다
         return callback(null, false);
       }
 

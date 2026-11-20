@@ -1,4 +1,4 @@
-// src/sources/ytdlp-spawn.ts: yt-dlp 의 줄(곡 찾기, 다운로드, 미리 받기), 영상 정보 추출 세기, 멎은 다운로드 내리기.
+// src/sources/ytdlp-spawn.ts: yt-dlp의 줄(곡 찾기, 다운로드, 미리 받기), 영상 정보 추출 세기, 멎은 다운로드 내리기.
 // 가짜 실행기(pid 없음)로 줄을 보고, 내리는 길은 말이 없는 진짜 자식 프로세스로 본다
 
 import fs from "node:fs";
@@ -15,7 +15,7 @@ const tick = () => new Promise((done) => setTimeout(done, 20));
 // 가짜가 끝나지 않으면 기다리는 약속이 풀리지 않는다. 걸리면 멈추지 않고 실패하게
 const HELD = { timeout: 5_000 };
 
-// 부른 순서와, 하나씩 끝낼 수 있는 가짜 실행. finish(url) 로 끝낸다(fail 이면 실패)
+// 부른 순서와, 하나씩 끝낼 수 있는 가짜 실행. finish(url)로 끝낸다(fail이면 실패)
 function heldExec() {
   const started: string[] = [];
   const pending = new Map<string, { ok: () => void; fail: () => void }>();
@@ -55,7 +55,7 @@ afterEach(() => {
   useStallWatch(null);
 });
 
-test("줄 크기는 메모리로: 곡 찾기는 2GB 마다 하나(2 ~ 8), 다운로드는 4GB 마다 하나(2 ~ 4). 프로세스에 걸린 상한이 있으면 그것으로", () => {
+test("줄 크기는 메모리로: 곡 찾기는 2GB마다 하나(2 ~ 8), 다운로드는 4GB마다 하나(2 ~ 4). 프로세스에 걸린 상한이 있으면 그것으로", () => {
   const sizes = (constrained: number, total: number) => Object.values(autoSlots(constrained, total));
   assert.deepEqual(sizes(0, 16 * GB), [8, 4]);
   assert.deepEqual(sizes(0, 64 * GB), [8, 4]);
@@ -120,7 +120,7 @@ test("뒤 줄에서는 지금 곡의 다운로드가 미리 받기보다 먼저,
   await Promise.all([first, ...waiting]);
 });
 
-// 한도는 setTimeout 이라 가짜 시계로 옮긴다. 가짜 실행은 pid 가 없어 내려지지 않으므로, 한도를 넘겼는지는 실패를 알릴 때의 문장으로 본다
+// 한도는 setTimeout이라 가짜 시계로 옮긴다. 가짜 실행은 pid가 없어 내려지지 않으므로, 한도를 넘겼는지는 실패를 알릴 때의 문장으로 본다
 test("줄에서 기다린 시간은 정보 호출의 한도에 들지 않는다", HELD, async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const { exec, finish } = heldExec();
@@ -144,7 +144,7 @@ test("줄에서 기다린 시간은 정보 호출의 한도에 들지 않는다"
   await settle();
   t.mock.timers.tick(500); // 둘째는 줄에 선 때부터 1000ms, 띄운 때부터 500ms
   finish("https://youtu.be/b", true);
-  assert.deepEqual([await a, await b], ["ok", "실패"], "기다린 500ms 를 세면 둘째가 한도로 끝난다");
+  assert.deepEqual([await a, await b], ["ok", "실패"], "기다린 500ms를 세면 둘째가 한도로 끝난다");
 
   const c = outcome("https://youtu.be/c");
   await settle();
@@ -189,7 +189,7 @@ test("다운로드 파일 묶음: 출력 이름으로 시작하는 것, 템플�
   assert.equal(template.has("downloads.webm"), false);
 });
 
-// 시간은 재지 않는다. 제한은 멈춤을 막는 것뿐이다(전체 테스트의 부하에서는 taskkill 만 몇 초 걸린다)
+// 시간은 재지 않는다. 제한은 멈춤을 막는 것뿐이다(전체 테스트의 부하에서는 taskkill만 몇 초 걸린다)
 test("다운로드는 파일 묶음이 한도 동안 그대로면 내리고 연결 오류로 실패한다", { timeout: 60_000 }, async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lanes-stall-"));
   try {
@@ -200,8 +200,8 @@ test("다운로드는 파일 묶음이 한도 동안 그대로면 내리고 연�
       () => null,
       (e: YtDlpError) => e,
     );
-    // 가짜 자식은 스스로 끝나지 않으므로 이 오류가 온 것이 감시가 내렸다는 뜻이다.
-    // 한도 뒤 곧 알리는지는 아래 감시 테스트가 본다(여기서 시간을 재면 taskkill 이 섞인다. 부하가 걸리면 그것만 몇 초)
+    // 가짜 자식은 알아서 끝나지 않으므로 이 오류가 온 것이 감시가 내렸다는 뜻이다.
+    // 한도 뒤 곧 알리는지는 아래 감시 테스트가 본다(여기서 시간을 재면 taskkill이 섞인다. 부하가 걸리면 그것만 몇 초)
     assert.equal(error?.code, "network-error");
     assert.match(String(error?.message), /진행되지 않아/);
   } finally {
@@ -214,7 +214,7 @@ test("다운로드 감시: 처음 본 뒤 파일 묶음이 한도 동안 그대�
   try {
     useStallWatch({ everyMs: 50, limitMs: 300 });
     let firedAt: number | null = null;
-    // 파일 대신 늘 같은 묶음을 읽는다. 진짜 파일을 읽으면 부하에 따라 확인이 건너뛰어진다
+    // 파일 대신 늘 같은 값을 읽는다. 진짜 파일을 읽으면 부하에 따라 확인이 건너뛰어진다
     const stop = watchDownload(
       "x.opus",
       () => (firedAt = Date.now()),
@@ -229,7 +229,7 @@ test("다운로드 감시: 처음 본 뒤 파일 묶음이 한도 동안 그대�
     const firstSeen = Date.now();
     while (Date.now() - firstSeen < 300) {
       await check();
-      if (Date.now() - firstSeen < 300) assert.equal(firedAt, null, `${Date.now() - firstSeen}ms 에 알렸다`);
+      if (Date.now() - firstSeen < 300) assert.equal(firedAt, null, `${Date.now() - firstSeen}ms에 알렸다`);
     }
     assert.equal(firedAt, firstSeen + 300, "한도에 닿은 확인에서 알린다");
     stop();

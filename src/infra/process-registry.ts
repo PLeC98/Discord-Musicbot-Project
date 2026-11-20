@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import logger from "./log/logger.ts";
@@ -8,10 +7,9 @@ import { currentGuild, currentJob } from "./guild-context.ts";
 import { startKeyOf } from "./process-snapshot.ts";
 import { settleChild } from "./process-priority.ts";
 import { repeatingFailure } from "./repeating-failure.ts";
+import { killTrees as killTreesOf } from "./kill-tree.ts";
 import type { Job } from "./process-job.ts";
 const log = logger.child({ category: "proc" });
-
-const IS_WIN = process.platform === "win32";
 
 /**
  * 자식 프로세스(yt-dlp, ffmpeg 등) 레지스트리. 봇이 내려갈 때 자손까지 함께 죽인다.
@@ -21,7 +19,7 @@ const IS_WIN = process.platform === "win32";
  * 프로세스 그룹(-pid)에 시그널을 보내 정리한다. exit 훅에서도 돌아야 해서 전부 동기로 구현한다.
  *
  * 시그널 전에 두 가지를 확인한다. 빠뜨리면 무관한 프로세스를 죽인다.
- *  1. pid > 1 인 정수. pid 0이면 `-0`이 되어 우리 자신의 프로세스 그룹이 죽는다.
+ *  1. pid > 1인 정수. pid 0이면 `-0`이 되어 우리 자신의 프로세스 그룹이 죽는다.
  *  2. 이미 종료한 자식은 건너뛴다. OS가 PID를 재사용한다.
  *
  * 기동이 persistTo로 기록을 켜면 등록, 해제마다 지금 목록을 이 실행의 파일(<폴더>/<pid>-<시작 시각>.json)에 적는다.
@@ -29,7 +27,7 @@ const IS_WIN = process.platform === "win32";
  * 다음 기동이 그 파일로 남은 자식을 찾아 종료한다(infra/leftover-children). 내리지 못한 자식은 기록에 남긴다.
  */
 
-// spawn 된 프로세스(ChildProcess)나 pid 를 가진 래퍼. 살아 있는지 보는 필드와 실행한 실행 파일
+// spawn 된 프로세스(ChildProcess)나 pid를 가진 래퍼. 살아 있는지 보는 필드와 실행한 실행 파일
 type Tracked = { pid?: number; exitCode?: number | null; signalCode?: string | null; spawnfile?: string };
 /** guildId, job: 실행한 문맥의 서버와 작업(infra/guild-context). 봇 상태 탭이 "어느 서버의 무슨 작업"으로 보인다 */
 type Entry = { pid: number; label: string; group: boolean; child: Tracked; startedAt: number; startKey: string | null; guildId: string | null; job: Job | null };
@@ -45,7 +43,7 @@ let hooksInstalled = false;
 let recordFile: string | null = null;
 const saveFailures = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "자식 프로세스 레지스트리 기록 파일 쓰기");
 
-/** 실행 파일 이름(경로, .exe 를 뗀 소문자) */
+/** 실행 파일 이름(경로, .exe를 뗀 소문자) */
 const imageOf = (file: string | undefined) =>
   file
     ? path
@@ -94,7 +92,7 @@ function persistTo(dir: string): string {
 
 /**
  * exit 훅 설치. 첫 register 때 한 번만.
- * SIGINT/SIGTERM/SIGHUP은 app/shutdown 의 종료 처리가 killAll을 직접 부르고, 여기는 그 밖의 길로 나갈 때의 안전망이다.
+ * SIGINT/SIGTERM/SIGHUP은 app/shutdown의 종료 처리가 killAll을 직접 부르고, 여기는 그 밖의 길로 나갈 때의 안전망이다.
  */
 function install() {
   if (hooksInstalled) return;
@@ -112,7 +110,7 @@ function settlePriority(pid: number, label: string, low: boolean) {
   try {
     settleChild(pid, low);
   } catch (error) {
-    if (codeOf((error as { info?: unknown }).info) === "ESRCH") return; // 자식이 이미 끝났다(Node 는 시스템 오류의 코드를 info 에 싣는다)
+    if (codeOf((error as { info?: unknown }).info) === "ESRCH") return; // 자식이 이미 끝났다(Node는 시스템 오류의 코드를 info에 싣는다)
     const line = `자식 프로세스 우선순위 설정 실패(${label}, 재생 중 소리가 잠깐 밀릴 수 있음): ${messageOf(error)}`;
     if (priorityWarned) return void log.debug(line);
     priorityWarned = true;
@@ -122,10 +120,10 @@ function settlePriority(pid: number, label: string, low: boolean) {
 
 /**
  * 자식 프로세스를 등록하고 등록 해제 함수를 돌려준다.
- * label 은 로그용 이름, group=true 면 detached 로 실행해 자체 프로세스 그룹을 가진 경우.
- * 서버, 작업은 지금 문맥에서 읽는다. job 을 주면 문맥보다 앞선다.
- * 띄운 바로 뒤에 부른다: 자식의 우선순위를 여기서 맞춘다(infra/process-priority). lowPriority 는 봇에게 양보해야 하는 자식.
- * 돌려주는 것은 등록 해제 함수다. 프로세스가 정상 종료하면 반드시 호출할 것
+ * label은 로그용 이름, group=true면 detached로 실행해 자체 프로세스 그룹을 가진 경우.
+ * 서버, 작업은 지금 문맥에서 읽는다. job을 주면 문맥보다 앞선다.
+ * 띄운 바로 뒤에 부른다: 자식의 우선순위를 여기서 맞춘다(infra/process-priority). lowPriority는 봇에게 양보해야 하는 자식.
+ * 프로세스가 정상 종료하면 등록 해제 함수를 반드시 불러야 한다
  */
 function register(child: Tracked | null | undefined, label = "child", { group = false, job, lowPriority = false }: { group?: boolean; job?: Job; lowPriority?: boolean } = {}): () => void {
   const pid = child?.pid;
@@ -149,56 +147,26 @@ function _isAlive(child: Tracked | null | undefined): boolean {
   return child.exitCode === null && child.signalCode === null;
 }
 
-// taskkill 한 번에 넘기는 PID 수(명령줄 길이 한도 안). 하나씩 부르면 재생이 많을 때 종료가 수십 초 걸린다
-const TASKKILL_BATCH = 100;
-
 /**
  * 프로세스들과 그 자손을 강제 종료. 이미 종료된 프로세스는 건드리지 않는다.
- * killed: 내렸거나 그 사이 끝난 것, failed: 내리지 못한 것(권한 등. 기록에 남긴다)
+ * yt-dlp가 실행한 ffmpeg(손자 프로세스)는 트리 전체를 종료하는 이 경로에서만 정리된다.
+ * killed: 종료했거나 그사이 끝난 것, failed: 종료하지 못한 것(권한 등. 기록에 남겨 다음 기동이 이름, 시작 시각을 대조해 다시 종료한다)
  */
 function killTrees(entries: Entry[]): { killed: Entry[]; failed: Entry[] } {
-  // pid 0 은 -0 이 되어 자기 그룹을 죽인다. 끝난 것은 PID 가 재사용된 남의 프로세스일 수 있다
-  const live = entries.filter(({ pid, child }) => Number.isInteger(pid) && pid > 1 && _isAlive(child));
-  const failed: Entry[] = [];
-  if (!IS_WIN) {
-    for (const entry of live) if (!killPosix(entry)) failed.push(entry);
-    return { killed: live.filter((entry) => !failed.includes(entry)), failed };
-  }
-  for (let i = 0; i < live.length; i += TASKKILL_BATCH) {
-    const batch = live.slice(i, i + TASKKILL_BATCH);
-    // /T = 자손 포함, /F = 강제. yt-dlp가 실행한 ffmpeg는 이 경로에서만 잡힌다. 128: 그 사이에 끝난 것이 있다(나머지는 내린다)
-    const { error, status, stderr } = spawnSync("taskkill", [...batch.flatMap(({ pid }) => ["/PID", String(pid)]), "/T", "/F"], { windowsHide: true, stdio: ["ignore", "ignore", "pipe"] });
-    if (error || (status !== 0 && status !== 128)) {
-      // 배치의 어느 것이 실패했는지 알 수 없어 배치 전체를 기록에 남긴다(다음 기동이 이름, 시작 시각을 맞춰 보고 다시 내린다)
-      failed.push(...batch);
-      log.warn(`${batch.map(({ label, pid }) => `${label}#${pid}`).join(", ")} 종료 실패: ${error ? error.message : `taskkill 종료 코드 ${String(status)} · ${consoleText(stderr).trim()}`}`);
-    }
-  }
-  return { killed: live.filter((entry) => !failed.includes(entry)), failed };
+  // 이미 끝난 자식의 PID는 다른 프로세스가 다시 쓰고 있을 수 있다
+  const live = entries.filter(({ child }) => _isAlive(child));
+  const byPid = new Map(live.map((entry) => [entry.pid, entry]));
+  const names = (pids: number[]) => pids.map((pid) => `${byPid.get(pid)?.label ?? "?"}#${pid}`).join(", ");
+  const failedPids = killTreesOf(live, ({ pids, error, status, stderr }) => {
+    const why = error ? messageOf(error) : `taskkill 종료 코드 ${String(status)} · ${consoleText(stderr ?? Buffer.alloc(0)).trim()}`;
+    log.warn(`${names(pids)} 종료 실패: ${why}`);
+  });
+  const failed = live.filter((entry) => failedPids.has(entry.pid));
+  return { killed: live.filter((entry) => !failedPids.has(entry.pid)), failed };
 }
 
 function killTree(entry: Entry): boolean {
   return killTrees([entry]).killed.length > 0;
-}
-
-/** 내렸거나 이미 없으면 true */
-function killPosix(entry: Entry): boolean {
-  const { pid, group } = entry;
-  try {
-    // detached로 실행했으면 그룹 전체(-pid). 손자 ffmpeg까지 같이 죽는다.
-    process.kill(group ? -pid : pid, "SIGKILL");
-    return true;
-  } catch {
-    // ESRCH(이미 종료) 또는 그룹이 없는 경우. 직접 pid로 한 번 더.
-    try {
-      process.kill(pid, "SIGKILL");
-      return true;
-    } catch (error) {
-      if (codeOf(error) === "ESRCH") return true;
-      log.warn(`${entry.label}#${pid} 종료 실패: ${messageOf(error)}`);
-      return false;
-    }
-  }
 }
 
 /** 등록한 자식 하나를 트리째 종료한다(시간 한도를 넘긴 것 등). 등록돼 있지 않거나 이미 끝났으면 false */
@@ -216,7 +184,7 @@ function kill(child: Tracked): boolean {
 
 /**
  * 등록된 모든 프로세스를 트리째 종료한다. 두 번 불러도 안전하다.
- * 돌려주는 것은 실제로 종료를 시도한 프로세스. 줄은 부르는 쪽이 남긴다(종료 처리는 info, 그 밖의 길로 나가면 warn)
+ * 돌려주는 것은 실제로 종료를 시도한 프로세스. 줄은 호출부가 남긴다(종료 처리는 info, 그 밖의 길로 나가면 warn)
  */
 function killAll(): Array<{ label: string; pid: number }> {
   if (active.size === 0) return [];

@@ -1,9 +1,9 @@
 // src/media/encode-pool.ts: 출력 스트림마다 세션을 열어 프레임을 워커에서 인코딩하고, 워커가 죽거나 멈추면 다른 워커로 옮겨 붙이는 풀
 //
-// 지키는 것: 기동하면 첫 워커가 libopus 를 불러 둔다. 세션의 패킷은 보낸 순서대로 하나씩 오고, drain() 은 이벤트 루프 없이 받는다.
-// 해제한 세션에는 늦은 답이 오지 않는다. 워커가 죽거나 멈추면 그 세션들이 다른 워커에서 이어지고, 고장 난 워커에 보낸 프레임은 무음으로 채워 빠짐, 겹침이 없다.
-// 워커를 늘려 옮길 때는 옛 워커의 답을 다 받은 뒤 옮겨 무음이 없다.
-// 한 세션이 워커를 잇달아 죽이면 그 세션만 실패하고, 잇달아 죽으면 새 워커를 늦추며 그동안 새 세션은 encoder-unavailable 로 실패한다.
+// 지키는 것: 기동하면 첫 워커가 libopus를 불러 둔다. 세션의 패킷은 보낸 순서대로 하나씩 오고, drain()은 이벤트 루프 없이 받는다.
+// 해제한 세션에는 늦은 응답이 오지 않는다. 워커가 죽거나 멈추면 그 세션들이 다른 워커에서 이어지고, 고장 난 워커에 보낸 프레임은 무음으로 채워 빠짐, 겹침이 없다.
+// 워커를 늘려 옮길 때는 옛 워커의 응답을 다 받은 뒤 옮겨 무음이 없다.
+// 한 세션이 워커를 잇달아 죽이면 그 세션만 실패하고, 잇달아 죽으면 새 워커를 늦추며 그동안 새 세션은 encoder-unavailable로 실패한다.
 // 큐 깊이, 워커 늘리기 판단(decideDepth)과 워커 수 상한, 늦은 초의 상세에 싣는 PC CPU(cpuBetween). 늘려도 옮길 스트림이 없으면(늦는 스트림이 하나뿐) 늘리지 않고 큐 깊이를 올린다.
 
 import { test } from "node:test";
@@ -51,7 +51,7 @@ function broadcast(what: "exit" | "hang") {
   channel.close();
 }
 
-test("기동하면 첫 워커가 libopus 를 불러 두고, 세션의 패킷이 보낸 만큼 온다", async () => {
+test("기동하면 첫 워커가 libopus를 불러 두고, 세션의 패킷이 보낸 만큼 온다", async () => {
   const pool = new EncodePool({ calibrateFrames: 10 });
   try {
     const started = await pool.start();
@@ -69,7 +69,7 @@ test("기동하면 첫 워커가 libopus 를 불러 두고, 세션의 패킷이 
   }
 });
 
-test("drain() 은 이벤트 루프를 거치지 않고 답을 받는다", async () => {
+test("drain()은 이벤트 루프를 거치지 않고 응답을 받는다", async () => {
   const pool = new EncodePool({ calibrateFrames: 0 });
   try {
     await pool.start();
@@ -87,7 +87,7 @@ test("drain() 은 이벤트 루프를 거치지 않고 답을 받는다", async 
   }
 });
 
-test("해제한 세션에는 늦은 답이 오지 않고, 생성 중 해제해도 다음 세션이 된다", async () => {
+test("해제한 세션에는 늦은 응답이 오지 않고, 생성 중 해제해도 다음 세션이 된다", async () => {
   const pool = new EncodePool({ calibrateFrames: 0 });
   try {
     await pool.start();
@@ -130,7 +130,7 @@ test("워커가 죽으면 세션이 새 워커로 옮겨 붙어 빠짐, 겹침 �
   }
 });
 
-test("답이 없는 워커는 멈춘 것으로 보고 내린 뒤 세션을 옮긴다", async () => {
+test("응답이 없는 워커는 멈춘 것으로 보고 내린 뒤 세션을 옮긴다", async () => {
   const pool = new EncodePool({ workerUrl: FAULTY, maxWorkers: 2, stallMs: 300, calibrateFrames: 0 });
   try {
     await pool.start();
@@ -194,7 +194,7 @@ test("WASM 오류는 그 프레임의 세션만 실패시키고 다른 세션은
       await until(() => pool.stats().workers.length > 0, "새 워커");
       const broken = opened(pool);
       broken.session.send(frame(), -2);
-      // read() 안의 drain 에서 워커가 내려지는 길
+      // read() 안의 drain에서 워커가 내려지는 길
       const deadline = Date.now() + 2000;
       while (!broken.errors.length && Date.now() < deadline) broken.session.drain();
       assert.match(broken.errors[0]?.message ?? "", /WASM/);
@@ -215,7 +215,7 @@ test("워커가 늦고 늘릴 수 없으면 큐 깊이를 필요한 만큼만 �
   try {
     await pool.start();
     const { session, packets, errors } = opened(pool);
-    // voice 처럼 20ms 마다 하나를 꺼내고, 꺼내지 않은 것 + 보낸 것이 큐 깊이가 되게 채운다. 워커는 프레임마다 18ms 걸린다(큐 깊이 2 의 임계값 16ms 를 넘는다)
+    // voice처럼 20ms마다 하나를 꺼내고, 꺼내지 않은 것 + 보낸 것이 큐 깊이가 되게 채운다. 워커는 프레임마다 18ms 걸린다(큐 깊이 2의 임계값 16ms를 넘는다)
     let sent = 0;
     let used = 0;
     const timer = setInterval(() => {
@@ -320,7 +320,7 @@ test("워커가 늦어 하나를 늘리면 새 워커로 활성 세션을 리밸
   try {
     await pool.start();
     const streams = Array.from({ length: 4 }, () => ({ ...opened(pool), sent: 0, used: 0 }));
-    // 세션마다 프레임에 18ms 라 워커 하나로는 따라가지 못한다
+    // 세션마다 프레임에 18ms라 워커 하나로는 따라가지 못한다
     const timer = setInterval(() => {
       for (const s of streams) {
         s.session.drain();
@@ -332,7 +332,7 @@ test("워커가 늦어 하나를 늘리면 새 워커로 활성 세션을 리밸
       }
     }, 20);
     await until(() => pool.stats().workers.length === 2, "워커 늘리기", 5000);
-    // 답을 기다리던 세션은 그 답을 다 받은 뒤 옮긴다
+    // 응답을 기다리던 세션은 그 응답을 다 받은 뒤 옮긴다
     await until(
       () =>
         pool
@@ -417,7 +417,7 @@ test("응답 시간이 큐 깊이의 임계값에 가까우면 워커를 늘리�
   assert.equal(decideDepth({ ...base, rttP99: 2 }), null);
   assert.equal(decideDepth({ ...base, rttP99: 17 }), "grow");
   assert.equal(decideDepth({ ...base, rttP99: 17, canGrow: false }), "deepen");
-  // CPU 를 뺏기는 중에는 늘려도 경쟁만 커진다
+  // CPU를 뺏기는 중에는 늘려도 경쟁만 커진다
   assert.equal(decideDepth({ ...base, rttP99: 17, contended: true }), "deepen");
   assert.equal(decideDepth({ ...base, rttP99: 200, depth: MAX_DEPTH, canGrow: false }), "slow");
   // 여유가 오래 이어져야 내린다

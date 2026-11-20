@@ -1,4 +1,4 @@
-// 로그인 배경 테스트가 쓰는 ffmpeg의 기능과 건너뛸 까닭을 판정한다. 봇이 기동 시 보는 검사(media/ffmpeg/trial)를 그대로 쓴다.
+// 로그인 배경 테스트가 쓰는 ffmpeg의 기능과 건너뛸 이유를 판정한다. 봇이 기동 시 보는 검사(media/ffmpeg/trial)를 그대로 쓴다.
 // node:test의 skip은 테스트를 등록할 때 정해지므로 테스트 파일 맨 위에서 await한다.
 // CI는 고정한 ffmpeg 빌드(config/vendor-versions)를 다운로드한다. 그 빌드에는 다 있으므로 CI에서는 건너뛰지 않고 실패로 드러낸다(ffmpeg를 올리다 기능이 빠진 경우)
 
@@ -18,16 +18,16 @@ const ffmpegBin = (() => {
 })();
 const NO_FFMPEG = "ffmpeg 바이너리 없음";
 const IN_CI = Boolean(process.env.CI);
-// CI 가 쓰는 빌드에 원래 없는 기능(코덱, 인코더 이름. "OS-CPU" 나 "OS" 마다). 이것만 빠졌으면 CI 에서도 실패가 아니라 건너뛴다.
-// BtbN 은 winarm64 빌드에서 libvpx(VP9)를 빼고 만든다(scripts.d/50-libvpx.sh). macOS 는 CI 가 brew 의 ffmpeg 를 깔고, 그 빌드에는 libwebp_anim(움직이는 WebP 읽기는 된다), zscale(HDR 톤 매핑, 봇은 HDR 원본을 거절한다)이 없다
+// CI가 쓰는 빌드에 원래 없는 기능(코덱, 인코더 이름. "OS-CPU"나 "OS"마다). 이것만 빠졌으면 CI에서도 실패가 아니라 건너뛴다.
+// BtbN은 winarm64 빌드에서 libvpx(VP9)를 빼고 만든다(scripts.d/50-libvpx.sh). macOS는 CI가 brew의 ffmpeg를 깔고, 그 빌드에는 libwebp_anim(움직이는 WebP 읽기는 된다), zscale(HDR 톤 매핑, 봇은 HDR 원본을 거절한다)이 없다
 const BUILD_GAPS: Partial<Record<string, readonly string[]>> = { "win32-arm64": ["vp9"], darwin: ["libwebp_anim", "zscale"] };
-/** 이 플랫폼에서 CI 가 쓰는 빌드에 원래 없는 기능인가 */
+/** 이 플랫폼에서 CI가 쓰는 빌드에 원래 없는 기능인가 */
 const knownGap = (feature: string) => [BUILD_GAPS[`${process.platform}-${process.arch}`], BUILD_GAPS[process.platform]].some((gaps) => gaps?.includes(feature));
-/** 원래 없는 기능이면 CI 에서도 건너뛰기만, 아니면 skipFor */
+/** 원래 없는 기능이면 CI에서도 건너뛰기만, 아니면 skipFor */
 const skipUnless = (gap: boolean, reason: string) => (gap ? { skip: `${reason}(이 플랫폼의 CI 빌드에 원래 없다)` } : skipFor(reason));
 
 const failed = new Set<string>();
-/** 건너뛸 까닭을 담은 옵션을 돌려준다. CI면 그 까닭으로 실패하는 테스트를 하나 남긴다(까닭마다 한 번) */
+/** 건너뛸 이유를 담은 옵션을 돌려준다. CI면 그 이유로 실패하는 테스트를 하나 남긴다(이유마다 한 번) */
 function skipFor(reason: string): { skip: string } {
   if (IN_CI && !failed.has(reason)) {
     failed.add(reason);

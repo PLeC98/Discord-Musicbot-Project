@@ -17,7 +17,7 @@ afterEach(() => staySeats.clear("g1"));
 const guild = fake<Guild>({ id: "g1", name: "서버" });
 const member = (mod = true) => fake<GuildMember>({ id: "u1", user: { tag: "사람" }, guild, permissions: { has: () => mod }, voice: { channel: null } });
 
-// 음성에 붙어 있는 플레이어. reconsider 를 부른 횟수를 센다
+// 음성에 붙어 있는 플레이어. reconsider를 부른 횟수를 센다
 function seated(channel: { id: string; name: string; type?: ChannelType }) {
   const seen = { reconsider: 0 };
   const player = { voice: { isAlive: () => true }, voiceChannel: channel, idle: { reconsider: () => void seen.reconsider++ } };
@@ -72,7 +72,7 @@ test("끄기: 상주 설정을 삭제하고 퇴장 여부를 다시 판단한다
   assert.deepEqual(await stay.turnOff(bot, { guild, member: member() }), { ok: true, kind: "off", already: true });
 });
 
-test("켜기: 저장 직전에 확인(go, 대시보드의 로그인 세션)을 다시 부르고, 던지면 자리를 적지 않는다", async () => {
+test("켜기: 저장 직전에 확인(go, 대시보드의 로그인 세션)을 다시 부르고, 예외를 던지면 자리를 적지 않는다", async () => {
   const { bot } = seated({ id: "vc1", name: "음성", type: ChannelType.GuildVoice });
   const ended = new Error("세션 끝남");
   await assert.rejects(

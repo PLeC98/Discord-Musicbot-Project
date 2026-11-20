@@ -1,7 +1,7 @@
 // 대시보드 이모지 선택 목록을 만든다. 손으로 실행한다. postinstall이나 빌드에 걸려 있지 않다.
 //   node scripts/build-emoji-list.ts
 //
-// 목록의 원본은 scripts/data/discord-emoji-picker.md 다. 분류와 순서를 디스코드 선택기에서
+// 목록의 원본은 scripts/data/discord-emoji-picker.md다. 분류와 순서를 디스코드 선택기에서
 // 그대로 옮겨 적은 파일이라, 선택하는 사람이 디스코드에서 보던 위치에서 찾을 수 있다.
 // 여기서는 거기에 두 가지를 붙인다.
 // - 단축명(:shushing_face:) → 이모지. 디스코드에서 복사하면 이 형식으로 붙는다.
@@ -39,7 +39,7 @@ const base = <T extends z.ZodType>(file: string, schema: T) => json(`https://cdn
 
 // Twemoji 파일 이름 규칙. ZWJ가 없는 이모지에서만 VS16(FE0F)을 뗀다.
 // 예외로 👁️‍🗨️처럼 ZWJ가 있는데도 전부 뗀 이름인 것이 있어 두 후보를 다 본다.
-// 대시보드는 이 SVG 로 만든 글꼴(scripts/build-twemoji-font.ts)로 그리므로, 파일이 있으면 글꼴에도 있다.
+// 대시보드는 이 SVG로 만든 글꼴(scripts/build-twemoji-font.ts)로 그리므로, 파일이 있으면 글꼴에도 있다.
 const toId = (s: string) => [...s].map((c) => (c.codePointAt(0) ?? 0).toString(16)).join("-");
 const iconIds = (char: string) => {
   const strict = toId(char.includes("‍") ? char : char.replace(/️/g, ""));
@@ -84,7 +84,7 @@ function readAssets() {
 
 type Compacted = z.output<typeof Compact>[number];
 
-// 단축명 → 이모지. emojibase 를 먼저, 지스트는 emojibase 에 없는 디스코드 고유 이름만 메운다
+// 단축명 → 이모지. emojibase를 먼저, 지스트는 emojibase에 없는 디스코드 고유 이름만 메운다
 function shortcodes(ko: Compacted[], sets: z.output<typeof Shortcodes>[], gist: z.output<typeof Gist>) {
   const charOfHex = new Map(ko.map((e) => [e.hexcode, e.unicode]));
   const charOfCode = new Map<string, string>();
@@ -102,7 +102,7 @@ function shortcodes(ko: Compacted[], sets: z.output<typeof Shortcodes>[], gist: 
   return charOfCode;
 }
 
-// 목록의 한 줄. 못 담으면 dropped, 이미지 파일이 없으면 noAsset 에 까닭을 적는다
+// 목록의 한 줄. 못 담으면 dropped, 이미지 파일이 없으면 noAsset에 이유를 적는다
 function rowOf(group: string, code: string, charOfCode: Map<string, string>, korean: Map<string, Compacted>, assets: Set<string>): { line?: string; dropped?: string; noAsset?: string } {
   const found = charOfCode.get(code);
   if (!found) return { dropped: `${group}:${code} (대응 없음)` };
@@ -127,8 +127,7 @@ async function main() {
   const picker = readPicker();
 
   // emojibase를 먼저 믿는다. 지스트는 이름이 바뀌기 전에 뜬 것이라 :beetle:을 🐞로,
-  // :man_in_tuxedo:를 🤵로 준다(지금은 각각 🪲, 🤵‍♂️다). 지스트는 emojibase에 없는
-  // 디스코드 고유 이름을 메우는 데만 쓴다.
+  // :man_in_tuxedo:를 🤵로 준다(지금은 각각 🪲, 🤵‍♂️다).
   const [assets, gist, ko, sets] = await Promise.all([readAssets(), json(GIST, Gist), base("ko/compact.json", Compact), Promise.all(["en/shortcodes/joypixels.json", "en/shortcodes/github.json", "en/shortcodes/emojibase.json", "en/shortcodes/emojibase-legacy.json", "en/shortcodes/cldr.json"].map((file) => base(file, Shortcodes)))]);
 
   const charOfCode = shortcodes(ko, sets, gist);
@@ -162,7 +161,7 @@ async function main() {
     "// 줄은 줄바꿈으로, 필드는 |로 나뉜다: 이모지|이름|검색어",
     `export const TWEMOJI_VERSION = ${JSON.stringify(TWEMOJI)};`,
     "",
-    "/** 선택 목록의 이모지 하나. search 는 이름과 검색어를 소문자로 이은 것 */",
+    "/** 선택 목록의 이모지 하나. search는 이름과 검색어를 소문자로 이은 것 */",
     "type Emoji = { char: string; label: string; search: string };",
     "type EmojiGroup = { name: string; emoji: Emoji[] };",
     "",

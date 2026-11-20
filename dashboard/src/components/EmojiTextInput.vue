@@ -1,7 +1,7 @@
 <!--
   글 입력란. 오른쪽 안에 이모지 버튼(디스코드 입력창처럼)이 있고, 선택한 이모지는 커서 위치에 끼워 넣는다.
   상태 문구와 음성 상태 문구가 함께 쓴다.
-  device-emoji: 디스코드가 그 글의 이모지를 Twemoji 로 바꾸지 않고 기기 글꼴로 그리는 칸(봇 상태 문구). 입력란도 같게 기기 글꼴로 보인다.
+  device-emoji: 디스코드가 그 글의 이모지를 Twemoji로 바꾸지 않고 기기 글꼴로 그리는 칸(봇 상태 문구). 입력란도 같게 기기 글꼴로 보인다.
   app-emoji: 봇의 앱 이모지도 넣는 칸(음성 상태 문구). 저장 값은 토큰(<:이름:id>), 입력란에는 이모지마다 정해진 문자로 보여 진짜 글자처럼
   선택, 지우기, 한글 입력이 된다(composables/app-emojis). 붙여넣은 토큰은 문자로, 복사하거나 잘라낸 문자는 토큰으로 바꾼다.
 -->
@@ -28,7 +28,7 @@ import { insertAt, caretOf, type Caret } from "../utils/caret.ts";
 import { fromChars, hasAppEmojiChar, hasMissing, loadAppEmojis, toChars } from "../composables/app-emojis.ts";
 import { text } from "../text/index.ts";
 
-/** maxlength: 글자 수 상한(넘기게 되는 이모지는 넣지 않는다), label: 감싼 label 이 없을 때의 이름, deviceEmoji, appEmoji: 머리 주석 */
+/** maxlength: 글자 수 상한(넘기게 되는 이모지는 넣지 않는다), label: 감싼 label이 없을 때의 이름, deviceEmoji, appEmoji: 파일 첫머리 주석 */
 const props = withDefaults(defineProps<{ placeholder?: string; maxlength?: number; spellcheck?: boolean; label?: string; deviceEmoji?: boolean; appEmoji?: boolean }>(), { spellcheck: true });
 const model = defineModel<string>({ default: "" });
 
@@ -61,7 +61,7 @@ function insert(picked: string) {
   });
 }
 
-// 붙여넣은 글의 토큰을 문자로. insertText 로 넣어 되돌리기에 남는다
+// 붙여넣은 글의 토큰을 문자로. insertText로 넣어 되돌리기에 남는다
 function onPaste(e: ClipboardEvent) {
   if (!props.appEmoji) return;
   const pasted = e.clipboardData?.getData("text/plain") ?? "";

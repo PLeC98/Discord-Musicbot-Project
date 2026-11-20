@@ -11,7 +11,7 @@ const tiers = {
 const back = "뒤로";
 const tabsLabel = "운영자 패널 탭";
 const unsavedTab = "저장하지 않은 변경이 있어요";
-const dbNotYet = "캐시 DB 는 아직 준비되지 않았어요";
+const dbNotYet = "캐시 DB는 아직 준비되지 않았어요";
 const leaveConfirm = { title: "저장하지 않고 나갈까요?", body: "변경한 설정이 저장되지 않았어요. 나가면 변경 내용이 사라져요.", confirm: "나가기" };
 /** 탭 이름 */
 const tabs = {
@@ -21,6 +21,7 @@ const tabs = {
   logs: "실시간 로그",
   settings: "일반",
   youtube: "유튜브",
+  update: "업데이트",
   age: "연령 제한",
   keys: "API 키",
   presence: "상태 문구",
@@ -32,6 +33,6 @@ const tabs = {
   info: "봇 정보",
   dev: "개발자 옵션",
 };
-const failed = { status: "봇 상태를 읽지 못했어요.", guilds: "서버 목록을 읽지 못했어요." };
+const failed = { status: "봇 상태를 불러오지 못했어요.", guilds: "서버 목록을 불러오지 못했어요." };
 
 export { tiers, back, tabsLabel, unsavedTab, dbNotYet, leaveConfirm, tabs, failed };

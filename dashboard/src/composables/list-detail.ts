@@ -17,7 +17,7 @@ export const LIST_ROW = "state-layer flex items-center gap-3 h-12 pl-1 pr-3 roun
 
 /** 편집기마다(주소 표식 이름 → 지금 1열로 상세를 여는지). 운영자 패널이 위 막대 ← 를 보일지 정한다(태블릿에서도 1열이면 ← 로 목록에) */
 export const singlePane = reactive<Record<string, boolean>>({});
-/** 주소 표식 param 의 편집기가 1열이면 알린다. 떠날 때 지우지 않는다: 새로 그리는 순서(개발 서버의 HMR 등)에 따라 새 편집기가 쓴 값을
+/** 주소 표식 param의 편집기가 1열이면 알린다. 떠날 때 지우지 않는다: 새로 그리는 순서(개발 서버의 HMR 등)에 따라 새 편집기가 쓴 값을
  *  옛 편집기가 지울 수 있고, 남은 값은 그 탭이 보일 때 다시 쓰이므로 해가 없다. 운영자 패널은 ← 를 표시할지에만 쓰고, 누른 뒤 할 일은 주소로 정한다 */
 export function reportSinglePane(param: string, single: () => boolean) {
   watch(single, (v) => (singlePane[param] = v), { immediate: true });
@@ -25,7 +25,7 @@ export function reportSinglePane(param: string, single: () => boolean) {
 
 type Row = { key: number; name: string };
 
-/** 2열 판단, 목록 카드 높이, 열 나누기만(선택은 부르는 쪽이 정할 때) */
+/** 2열 판단, 목록 카드 높이, 열 나누기만(선택은 호출부가 정할 때) */
 export function useListDetailLayout(paneEl: Ref<HTMLElement | null>) {
   const { width: paneWidth } = useElementSize(paneEl);
   // 목록 20rem + 편집이 입력란을 두 줄로 놓을 만큼
@@ -80,9 +80,9 @@ export function useListDetail<R extends Row>({ param, rows, paneEl }: { param: s
     }
     return rows.value.findIndex((r) => r.name.trim() === q);
   }
-  // 선택한 항목은 화면 안에서 key 로 붙잡는다. 주소는 여기서 따라 쓴다(이름을 고치는 동안 옛 이름으로 다시 찾으면 다른 항목으로 튄다).
-  // 주소가 바뀌면(뒤로가기, 새로고침) 주소에서 다시 찾는다. 행을 새로 받았을 때(저장, 되돌리기)는 그 key 가 남아 있으면 그대로 둔다
-  // (행이 key 를 물려받는다, utils/row-keys. 이름을 고쳤다 되돌리면 주소의 이름으로는 찾지 못한다. 주소는 아래 이름 따라 고치기가 맞춘다)
+  // 선택한 항목은 화면 안에서 key로 붙잡는다. 주소는 여기서 따라 쓴다(이름을 고치는 동안 옛 이름으로 다시 찾으면 다른 항목으로 튄다).
+  // 주소가 바뀌면(뒤로가기, 새로고침) 주소에서 다시 찾는다. 행을 새로 받았을 때(저장, 되돌리기)는 그 key가 남아 있으면 그대로 둔다
+  // (행이 key를 물려받는다, utils/row-keys. 이름을 고쳤다 되돌리면 주소의 이름으로는 찾지 못한다. 주소는 아래 이름 따라 고치기가 맞춘다)
   const selectedKey = ref<number | null>(null);
   const findFromQuery = () => {
     const i = indexOfQuery();
@@ -128,7 +128,7 @@ export function useListDetail<R extends Row>({ param, rows, paneEl }: { param: s
   watch(
     () => (keyIndex.value >= 0 ? tokenOf(keyIndex.value) : null),
     (token) => {
-      // 주소에 표식이 이미 있을 때만(선택하는 순간에는 select 가 쌓는 기록을 덮어쓰지 않게)
+      // 주소에 표식이 이미 있을 때만(선택하는 순간에는 select가 쌓는 기록을 덮어쓰지 않게)
       const now = route.query[param];
       if (token && now && now !== GLOBAL_TOKEN && now !== token) void replaceKeepingUp(router, { query: { ...route.query, [param]: token } });
     },

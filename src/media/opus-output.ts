@@ -1,9 +1,9 @@
 // 출력 스트림. PCM(f32le 48kHz 스테레오)을 20ms 프레임으로 모아 인코딩 세션(media/encode-pool)에 보내고, 돌아온 Opus 패킷을 내준다.
-// @discordjs/voice 에는 StreamType.Opus 로 넘긴다. inlineVolume 을 같이 넘기면 voice 가 prism 의 디코더, 볼륨, 인코더를 다시 끼운다.
+// @discordjs/voice에는 StreamType.Opus로 넘긴다. inlineVolume을 같이 넘기면 voice가 prism의 디코더, 볼륨, 인코더를 다시 끼운다.
 //
 // 미리 만드는 패킷은 세션의 큐 깊이(depth)까지다: 보낸 것 + 받아 둔 것 + 읽는 쪽 버퍼. 볼륨 게인은 프레임을 보낼 때 실으므로 바꾼 뒤 큐에 쌓인 만큼 늦게 들린다.
-// 받은 PCM 청크는 프레임으로 다 잘라 보낼 때까지 쓰기 callback 을 미뤄 위쪽(스플라이서, ffmpeg 파이프)에 쌓아 둔다.
-// 패킷은 voice 가 read() 할 때 그 자리에서 받는다(drain). 기다리는 동안 이벤트로 온 패킷은 바로 push 한다(처음, 일시정지).
+// 받은 PCM 청크는 프레임으로 다 잘라 보낼 때까지 쓰기 callback을 미뤄 위쪽(스플라이서, ffmpeg 파이프)에 쌓아 둔다.
+// 패킷은 voice가 read() 할 때 그 자리에서 받는다(drain). 기다리는 동안 이벤트로 온 패킷은 바로 push 한다(처음, 일시정지).
 
 import { Duplex, pipeline, type Readable } from "stream";
 import logger from "../infra/log/logger.ts";
@@ -31,15 +31,15 @@ class OpusOutput extends Duplex {
   #frames: Buffer[] = [];
   #inflight = 0;
   #ready: Buffer[] = [];
-  // _read 가 빈손으로 끝났다. Node 는 push 가 올 때까지 _read 를 다시 부르지 않으므로 다음 패킷은 바로 push 한다
+  // _read가 빈손으로 끝났다. Node는 push가 올 때까지 _read를 다시 부르지 않으므로 다음 패킷은 바로 push 한다
   #waiting = false;
   #started = false;
   #pending: Pending | null = null;
   #finish: ((err?: Error | null) => void) | null = null;
   #pumping = false;
-  // destroy 될 때의 상태. voice 가 패킷 공급이 끊겨 멈추면 출력 스트림을 destroy 한 뒤에 로그를 남긴다
+  // destroy 될 때의 상태. voice가 패킷 공급이 끊겨 멈추면 출력 스트림을 destroy 한 뒤에 로그를 남긴다
   #last: OutputState | null = null;
-  /** 받는 PCM 소스(attachOpusOutput 이 정한다). 어느 분기로 열었는지 볼 때 */
+  /** 받는 PCM 소스(attachOpusOutput이 정한다). 어느 분기로 열었는지 볼 때 */
   source: Readable | null = null;
 
   /**
@@ -48,13 +48,13 @@ class OpusOutput extends Duplex {
    * @param o.tap  볼륨 정규화의 게인 탭(media/gain-tap). 없으면 정규화 게인 0 dB, 리미터 끔
    */
   constructor({ gain, openEncoder, tap = null }: { gain: number; openEncoder: OpenEncoder; tap?: GainTap | null }) {
-    // 쓰는 쪽 버퍼는 바이트 단위다(f32le 로 약 85ms). Node 기본값은 플랫폼, 버전마다 달라 숫자로 둔다
+    // 쓰는 쪽 버퍼는 바이트 단위다(f32le로 약 85ms). Node 기본값은 플랫폼, 버전마다 달라 숫자로 둔다
     super({ readableObjectMode: true, readableHighWaterMark: 1, writableHighWaterMark: 32 * 1024 });
     this.#gain = clampGain(gain);
     this.#tap = tap;
     // 패킷, 오류는 이 출력 스트림의 read() 밖(다른 출력 스트림의 read(), 이벤트, 풀의 타이머)에서도 온다
     this.#session = openEncoder({ onPacket: (packet) => this.#onPacket(packet), onError: (err) => this.destroy(err) });
-    // play() 전에 난 오류는 voice 의 리스너가 아직 없다. 그 경우는 play() 가 "already ended" 로 던져 재생 실패로 간다
+    // play() 전에 난 오류는 voice의 리스너가 아직 없다. 그 경우는 play()가 "already ended" 예외를 던져 재생 실패로 간다
     this.on("error", (err) => log.debug(`출력 스트림 오류: ${messageOf(err)}`));
   }
 
@@ -72,18 +72,18 @@ class OpusOutput extends Duplex {
     return this.#last ?? { inflight: this.#inflight, ready: this.#ready.length + this.readableLength, frames: this.#frames.length, depth: this.#session.depth, ...this.#session.describe() };
   }
 
-  // 와 있는 패킷을 먼저 받고 읽는다. _read 가 한 번 빈손으로 끝나면 Node 가 _read 를 다시 부르지 않아 여기서 받아야 한다.
+  // 와 있는 패킷을 먼저 받고 읽는다. _read가 한 번 빈손으로 끝나면 Node가 _read를 다시 부르지 않아 여기서 받아야 한다.
   // 읽은 뒤에 보낸다(읽는 쪽 버퍼가 줄어든 뒤라야 큐 깊이를 바로 센다)
   override read(size?: number) {
     // 처음에는 큐 깊이만큼 모일 때까지 기다리므로 받아 둔 것이 있어도 받는다
     if (!this.destroyed && (!this.#ready.length || !this.#started) && this.#inflight) this.#session.drain();
-    // drain 이 이 출력 스트림에 오류를 주면 그 자리에서 destroy 된다
+    // drain이 이 출력 스트림에 오류를 주면 그 자리에서 destroy 된다
     if (this.destroyed) return null;
     const packet = super.read(size);
-    // voice 가 읽어 간 패킷은 곧 보내는 패킷이다(봇 상태 탭의 업로드)
+    // voice가 읽어 간 패킷은 곧 보내는 패킷이다(봇 상태 탭의 업로드)
     if (packet) addVoicePacket(packet.length);
     this.#pump();
-    // 빈손이면 voice 가 그 20ms 를 무음으로 채운다. 원인을 가른다: 보낸 것이 있으면 워커가 늦었고, 보낸 것도 없으면 입력 PCM 이 끊겼다(끝내는 중은 빼고)
+    // 빈손이면 voice가 그 20ms를 무음으로 채운다. 원인을 가른다: 보낸 것이 있으면 워커가 늦었고, 보낸 것도 없으면 입력 PCM이 끊겼다(끝내는 중은 빼고)
     if (packet === null && size !== 0 && this.#started && !this.readableEnded) {
       if (this.#inflight) this.#session.late();
       else if (!this.writableEnded) this.#session.underrun();
@@ -96,7 +96,7 @@ class OpusOutput extends Duplex {
     this.#pump();
   }
 
-  // 남은 프레임, 보낸 것, 받아 둔 것을 다 내준 뒤 end 를 낸다
+  // 남은 프레임, 보낸 것, 받아 둔 것을 다 내준 뒤 end를 낸다
   override _final(done: (err?: Error | null) => void) {
     this.#finish = done;
     this.#pump();
@@ -135,7 +135,7 @@ class OpusOutput extends Duplex {
     this.push(this.#ready.shift());
   }
 
-  // 큐 깊이가 허락하는 만큼 프레임을 잘라 보낸다. 청크를 다 자르면 그 callback 을 부른다(다음 청크가 바로 들어올 수 있다).
+  // 큐 깊이가 허락하는 만큼 프레임을 잘라 보낸다. 청크를 다 자르면 그 callback을 부른다(다음 청크가 바로 들어올 수 있다).
   // callback, 세션이 다시 이 함수에 들어오는 것을 막는다(바깥 루프가 이어 처리한다)
   #pump() {
     if (this.#pumping || this.destroyed) return;
@@ -148,7 +148,7 @@ class OpusOutput extends Duplex {
       }
       this.#end();
     } catch (error) {
-      // voice 의 read() 안에서 던지면 Node 가 error 로 바꿔 주지 않는다
+      // voice의 read() 안에서 예외를 던지면 Node가 error로 바꿔 주지 않는다
       this.destroy(error instanceof Error ? error : new Error(String(error)));
     } finally {
       this.#pumping = false;
@@ -183,7 +183,7 @@ class OpusOutput extends Duplex {
     }
   }
 
-  // 끝에 남은 20ms 미만은 버린다. 뒤에 voice 의 무음 프레임 5개가 이어진다
+  // 끝에 남은 20ms 미만은 버린다. 뒤에 voice의 무음 프레임 5개가 이어진다
   #end() {
     if (!this.#finish || this.#pending || this.#frames.length || this.#inflight || this.#ready.length) return;
     const done = this.#finish;
@@ -198,14 +198,14 @@ const MAX_GAIN = 16;
 const NO_TAP: TapFrame = { gain: 0, press: false };
 const clampGain = (gain: number) => (Number.isFinite(gain) ? Math.max(0, Math.min(MAX_GAIN, gain)) : 1);
 
-/** PCM 소스 뒤에 출력 스트림을 붙인다. pipeline 이라 voice 가 출력 스트림을 destroy 하면 소스(ffmpeg stdout)까지 destroy 되고, 소스 오류도 출력 스트림의 error 가 된다 */
+/** PCM 소스 뒤에 출력 스트림을 붙인다. pipeline이라 voice가 출력 스트림을 destroy 하면 소스(ffmpeg stdout)까지 destroy 되고, 소스 오류도 출력 스트림의 error가 된다 */
 function attachOpusOutput(pcm: Readable, o: { gain: number; openEncoder: OpenEncoder; tap?: GainTap | null }): OpusOutput {
   const output = new OpusOutput(o);
   output.source = pcm;
   const done = () => {
-    /* 오류는 출력 스트림의 error 로도 나오고 voice, 우리 리스너가 받는다 */
+    /* 오류는 출력 스트림의 error로도 나오고 voice, 우리 리스너가 받는다 */
   };
-  // 볼륨 정규화의 측정 단계는 같은 pipeline 에 넣는다. 따로 pipe 로 이으면 출력 스트림을 destroy 할 때 ffmpeg 까지 닿지 않아 넘길 때마다 ffmpeg 가 남는다
+  // 볼륨 정규화의 측정 단계는 같은 pipeline에 넣는다. 따로 pipe로 이으면 출력 스트림을 destroy 할 때 ffmpeg까지 닿지 않아 넘길 때마다 ffmpeg가 남는다
   if (o.tap) pipeline(pcm, new LoudnessMeter(o.tap), output, done);
   else pipeline(pcm, output, done);
   return output;

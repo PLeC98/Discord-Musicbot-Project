@@ -185,7 +185,7 @@ test("복원: 채널이 멀쩡하면 플레이어를 만들어 등록하고 저�
   sessions().removeSession("r1");
 });
 
-test("기동 복원은 /join 으로만 이어 듣게 남긴 세션(/leave, 혼자 남아 나감)에 붙지 않고 세션을 남긴다. 서버 하나 다시 시작은 복원한다", async () => {
+test("기동 복원은 /join으로만 이어 듣게 남긴 세션(/leave, 혼자 남아 나감)에 붙지 않고 세션을 남긴다. 서버 하나 다시 시작은 복원한다", async () => {
   saved("j1", { autoResume: false });
   saved("j2");
   const { client, players } = clientWith([guildWith("j1"), guildWith("j2")]);
@@ -198,8 +198,8 @@ test("기동 복원은 /join 으로만 이어 듣게 남긴 세션(/leave, 혼�
     made.map((p) => p.guild.id),
     ["j2"],
   );
-  assert.deepEqual(touched, ["j2"], '손대지 않은 서버는 이어받기가 "세션은 남기고 나가기" 로 받는다');
-  assert.ok(remaining().includes("j1"), "세션은 남는다(/join 이 이어 튼다)");
+  assert.deepEqual(touched, ["j2"], '손대지 않은 서버는 이어받기가 "세션은 남기고 나가기"로 받는다');
+  assert.ok(remaining().includes("j1"), "세션은 남는다(/join이 이어 튼다)");
   assert.ok(sink.buffer.slice(from).some((e) => e.text.includes("/join으로만 이어 듣는 세션 1개")));
 
   await restoreGuild(client, players, FakePlayer, "j1");
@@ -223,7 +223,7 @@ test("복원하지 않기(짧게 끊긴 실행이 이어짐): 플레이어를 �
   sessions().removeSession("r9");
 });
 
-test("복원: 저장 상태를 복원하지 못하면(음성 연결 실패 등) 플레이어는 버리되 세션은 남긴다. 다음 기동, /join 이 다시 해 본다", async () => {
+test("복원: 저장 상태를 복원하지 못하면(음성 연결 실패 등) 플레이어는 버리되 세션은 남긴다. 다음 기동, /join이 다시 해 본다", async () => {
   saved("r2");
   const { client, players } = clientWith([guildWith("r2")]);
   const { FakePlayer, made } = fakePlayerClass({ restoreFails: true });
@@ -327,8 +327,8 @@ test("기동 복원을 기다리는 서버에 곡 추가 등이 오면 그 서�
   const { FakePlayer, made } = fakePlayerClass({ gate: async (id) => (id === "w3" ? undefined : held) });
 
   const boot = restoreSessions(client, players, FakePlayer);
-  await waitForRestore("w3"); // w1, w2 의 복원이 붙잡혀 있는 동안 w3 에 곡을 넣었다
-  assert.ok(players.has("w3"), "waitForRestore 가 끝나면 w3 가 복원돼 있다(곡을 넣을 플레이어가 있다)");
+  await waitForRestore("w3"); // w1, w2의 복원이 붙잡혀 있는 동안 w3에 곡을 넣었다
+  assert.ok(players.has("w3"), "waitForRestore가 끝나면 w3가 복원돼 있다(곡을 넣을 플레이어가 있다)");
   release();
   await boot;
 
@@ -347,7 +347,7 @@ test("기동 복원은 서버마다 복원 직전에 세션을 다시 읽는다.
   const { FakePlayer, made } = fakePlayerClass();
 
   const boot = restoreSessions(client, players, FakePlayer);
-  sessions().removeSession("x3"); // x1, x2 를 복원하는 동안 x3 의 세션이 지워졌다(새로 틀기 등)
+  sessions().removeSession("x3"); // x1, x2를 복원하는 동안 x3의 세션이 지워졌다(새로 틀기 등)
   await boot;
 
   assert.deepEqual(

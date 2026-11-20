@@ -1,5 +1,5 @@
 <template>
-  <!-- 봇 정보 탭의 로고(fastfetch 의 로고 자리). 봇 프로필 그림을 옥탄트 블록 그림처럼 그린다: 칸(1ch × 한 줄)을 2 × 4 조각으로 보고 칸마다 두 색만 쓴다.
+  <!-- 봇 정보 탭의 로고(fastfetch의 로고 자리). 봇 프로필 그림을 옥탄트 블록 그림처럼 그린다: 칸(1ch × 한 줄)을 2 × 4 조각으로 보고 칸마다 두 색만 쓴다.
        움직이는 그림은 프레임마다 그린다. 프로필이 없거나 그림을 읽지 못하면 음표 -->
   <div ref="rootEl">
     <canvas v-if="pictures.length" ref="canvasEl" :width="W" :height="H" class="block [image-rendering:pixelated]" :style="{ width: `${COLS}ch`, height: `calc(var(--term-line) * ${ROWS})` }"></canvas>
@@ -17,7 +17,7 @@ import { useDocumentVisibility, useElementVisibility, useMediaQuery } from "@vue
 
 const props = defineProps<{ src: string | null }>();
 
-// 크기: 20줄 높이에 가로는 정사각형에 가장 가까운 칸 수(한 줄 17px, 한 칸 7px 이라 48칸). 그림은 칸마다 2 × 4 조각
+// 크기: 20줄 높이에 가로는 정사각형에 가장 가까운 칸 수(한 줄 17px, 한 칸 7px이라 48칸). 그림은 칸마다 2 × 4 조각
 const ROWS = 20;
 const COLS = 48;
 const W = COLS * 2;
@@ -68,7 +68,7 @@ function twoTone(d: Uint8ClampedArray): ImageData {
   return out;
 }
 
-/** 한 장면을 W × H 로 줄여 두 색 그림으로 */
+/** 한 장면을 W × H로 줄여 두 색 그림으로 */
 function pictureOf(source: CanvasImageSource) {
   const ctx = new OffscreenCanvas(W, H).getContext("2d", { willReadFrequently: true })!;
   ctx.imageSmoothingQuality = "high";
@@ -76,10 +76,10 @@ function pictureOf(source: CanvasImageSource) {
   return twoTone(ctx.getImageData(0, 0, W, H).data);
 }
 
-// 브라우저처럼 GIF 지연 10ms 이하는 100ms 로 보인다(옛 GIF 호환 규칙)
+// 브라우저처럼 GIF 지연 10ms 이하는 100ms로 보인다(옛 GIF 호환 규칙)
 const frameMs = (us: number | null) => (us === null || us <= 10_000 ? 100 : us / 1000);
 
-/** 프레임마다 두 색 그림. ImageDecoder 가 없거나 이 형식을 못 풀면 첫 장면 하나 */
+/** 프레임마다 두 색 그림. ImageDecoder가 없거나 이 형식을 못 풀면 첫 장면 하나 */
 async function picturesOf(src: string): Promise<Picture[]> {
   const blob = await (await fetch(src)).blob();
   if (!("ImageDecoder" in window) || !(await ImageDecoder.isTypeSupported(blob.type))) {

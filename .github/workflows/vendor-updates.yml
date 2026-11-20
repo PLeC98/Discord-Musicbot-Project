@@ -96,7 +96,7 @@ jobs:
               echo "bgutil lockfile의 알려진 취약점(npm audit, PR을 만든 시점 기준): 현재 버전 $(jq -r 'if .bgutil.audit.current.total == null then "확인 실패" else "\(.bgutil.audit.current.total)건" end' result.json) → $bgutil $(jq -r 'if .bgutil.audit.newer.total == null then "확인 실패" else "\(.bgutil.audit.newer.total)건" end' result.json)"
             fi
             echo
-            echo "이미 설치된 환경에서는 봇을 끈 뒤 업데이트하세요(bgutil은 \`pnpm run update:bgutil\`, ffmpeg는 \`pnpm run install:ffmpeg\`, Cloudflare 대역은 봇을 다시 시작하면 적용)."
+            echo "이 PR을 반영해 봇을 업데이트하면 ffmpeg는 다음에 봇을 켤 때 새 버전으로 바뀝니다. POToken 서버를 사용 중이라면 대시보드 운영자 패널의 업데이트 탭에 있는 bgutil 카드나 \`pnpm run install:bgutil\`로 설치한 뒤 봇을 다시 시작하세요. 버전을 고정해 둔 도구는 고정한 버전을 그대로 씁니다. Cloudflare IP 대역은 봇을 다시 시작하면 적용됩니다."
           } > body.md
           gh pr create --base "${{ github.event.repository.default_branch }}" --head "$branch" --title "$title" --body-file body.md
 
@@ -180,7 +180,7 @@ jobs:
               echo "bgutil 태그(\`$current\`)가 가리키는 커밋을 찾지 못했습니다($(date -u +%F) 갱신): $(jq -r '.bgutil.tag.reason' result.json)"
             fi
             echo
-            echo "그동안 \`pnpm run install:bgutil\`은 이 태그를 받지 않습니다(이미 설치된 것은 그대로 작동합니다). 태그가 왜 바뀌었는지 원본 저장소(Brainicism/bgutil-ytdlp-pot-provider)의 릴리스와 커밋을 확인하고, 믿을 수 있으면 \`src/config/vendor-versions.ts\`의 \`BGUTIL_COMMIT\`을 고치세요."
+            echo "문제가 해결될 때까지 이 태그는 기본 버전으로 설치되지 않습니다(이미 설치된 버전은 그대로 작동합니다). 태그가 왜 바뀌었는지 원본 저장소(Brainicism/bgutil-ytdlp-pot-provider)의 릴리스와 커밋을 확인하고, 믿을 수 있으면 \`src/config/vendor-versions.ts\`의 \`BGUTIL_COMMIT\`을 고치세요."
             echo
             echo "이 워크플로가 매주 이 본문을 갱신합니다."
           } > issue.md
@@ -213,12 +213,12 @@ jobs:
 
           title="yt-dlp 릴리스 서명 키가 data/ 의 키와 다름"
           {
-            echo "yt-dlp 릴리스의 서명이 저장소에 둔 키(\`data/yt-dlp-signing-key.asc\`)로 맞지 않습니다($(date -u +%F) 갱신). 그동안 봇은 새 yt-dlp 를 설치하지 않고 지금 버전으로 돕니다."
+            echo "yt-dlp 릴리스의 서명이 저장소에 둔 키(\`data/yt-dlp-signing-key.asc\`)와 맞지 않습니다($(date -u +%F) 갱신). 그동안 봇은 새 yt-dlp 를 설치하지 않고 설치된 버전으로 동작합니다."
             echo
             jq -r '.ytdlpKey.problem // empty' result.json
             jq -r '.ytdlpKey.releases[] | "- \(.repo) \(.tag): \(if .ok then "서명 맞음" else .reason end)"' result.json
             echo
-            echo "yt-dlp 의 공지(README 의 서명 절, 릴리스 노트)와 대조한 뒤 새 키로 \`data/yt-dlp-signing-key.asc\` 와 \`src/sources/ytdlp-release.ts\` 의 지문을 바꾸세요. 확인 전에 급하면 운영자는 \`pnpm run update:ytdlp --skip-signature\` 로 설치할 수 있습니다(체크섬은 확인)."
+            echo "yt-dlp 의 공지(README 의 서명 절, 릴리스 노트)와 대조한 뒤 새 키로 \`data/yt-dlp-signing-key.asc\` 와 \`src/sources/ytdlp-release.ts\` 의 지문을 바꾸세요. 패치를 기다릴 여유가 없는 운영자는 \`pnpm run update:ytdlp --skip-signature\` 로 설치할 수 있습니다(체크섬은 확인)."
             echo
             echo "이 워크플로가 매주 이 본문을 갱신합니다."
           } > issue.md

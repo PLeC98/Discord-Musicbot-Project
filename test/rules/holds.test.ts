@@ -30,7 +30,7 @@ test("보여 줄 사유는 표의 차례(mute, stage, alone)의 첫째", () => {
   assert.equal(heldBy(new Set()), null);
 });
 
-test("듣는 사람: 봇과 헤드셋을 끈 사람(스스로, 서버가)은 세지 않는다", () => {
+test("듣는 사람: 봇과 헤드셋을 끈 사람(직접, 서버가)은 세지 않는다", () => {
   const member = (bot: boolean, selfDeaf = false, serverDeaf = false) => ({ user: { bot }, voice: { selfDeaf, serverDeaf } });
   assert.equal(listenersIn([member(false), member(false)]), 2);
   assert.equal(listenersIn([member(true), member(false, true), member(false, false, true)]), 0);

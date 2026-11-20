@@ -1,5 +1,5 @@
 // 특권 인텐트: 기동이 앱 설정(GET /applications/@me)을 읽어 개발자 포털에서 켜진 것만 요청한다. 꺼진 것은 빼고 그것에 기대는 기능만 끈다(infra/gateway-intents).
-// 거절되면 인텐트를 줄여서 다시 로그인하지 않는다. discord.js 는 로그인에 실패하면 클라이언트를 스스로 destroy() 하고(app/login), 대시보드와 패널이 로그인 전에 이미 그 클라이언트를 쓴다.
+// 거절되면 인텐트를 줄여서 다시 로그인하지 않는다. discord.js는 로그인에 실패하면 클라이언트를 자체적으로 destroy() 하고(app/login), 대시보드와 패널이 로그인 전에 이미 그 클라이언트를 쓴다.
 // 그래서 앱 설정을 못 읽으면 특권 인텐트를 모두 요청하고, 그래도 거절되면(4014) 무엇을 켜면 되는지 알리고 멈춘다
 
 import { GatewayIntentBits, REST, Routes } from "discord.js";
@@ -25,10 +25,10 @@ function readApp(token: string): Promise<AppFlags> {
 }
 
 // 꺼진 스위치를 어떻게 켜나. 승인이 필요한 규모면 스위치가 아니라 신청
-const howToEnable = (app: AppFlags | null) => (needsApproval(app) ? `서버가 ${APPROVAL_SERVERS}개 이상이라 디스코드의 승인이 필요함(${PORTAL} 에서 신청)` : `${PORTAL} 에서 켜고 다시 시작`);
+const howToEnable = (app: AppFlags | null) => (needsApproval(app) ? `서버가 ${APPROVAL_SERVERS}개 이상이라 디스코드의 승인이 필요함(${PORTAL}에서 신청)` : `${PORTAL}에서 켜고 다시 시작`);
 
 /**
- * 요청할 인텐트를 고르고 이 프로세스의 인텐트로 적는다. 앱 설정을 못 읽거나 flags 가 없으면 다 요청한다(모르는 것은 꺼짐이 아니다).
+ * 요청할 인텐트를 고르고 이 프로세스의 인텐트로 적는다. 앱 설정을 못 읽거나 flags가 없으면 다 요청한다(모르는 것은 꺼짐이 아니다).
  * read: 앱 설정을 읽는 것(테스트가 넘긴다)
  */
 async function choosePrivilegedIntents(read: () => Promise<AppFlags>): Promise<GatewayIntentBits[]> {

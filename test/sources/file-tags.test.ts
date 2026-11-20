@@ -1,5 +1,5 @@
 // src/sources/file-tags.ts: 음원 파일의 태그(제목, 가수, 앨범, 앨범아트). 파일은 그대로, 스트림은 헤더까지만 받고 끊는다.
-// 픽스처는 ffmpeg 로 만든다(앨범아트가 붙은 MP3, FLAC, M4A(moov 앞, 끝), Ogg Vorbis). ffmpeg 가 없으면 건너뛴다
+// 픽스처는 ffmpeg로 만든다(앨범아트가 붙은 MP3, FLAC, M4A(moov 앞, 끝), Ogg Vorbis). ffmpeg가 없으면 건너뛴다
 
 import path from "node:path";
 import os from "node:os";
@@ -30,7 +30,7 @@ function ffmpeg(args: string[]): Promise<boolean> {
 
 const META = ["-metadata", "title=노래 제목", "-metadata", "artist=가수", "-metadata", "album=앨범"];
 const TONE = ["-f", "lavfi", "-i", "sine=frequency=440:duration=20"];
-// Ogg Vorbis 픽스처는 ffmpeg 에 들어 있는 vorbis 인코더로 만든다(실험 기능이라 -strict, 2채널만). libvorbis 는 빌드마다 없을 수 있다(macOS 의 brew 기본 빌드)
+// Ogg Vorbis 픽스처는 ffmpeg에 들어 있는 vorbis 인코더로 만든다(실험 기능이라 -strict, 2채널만). libvorbis는 빌드마다 없을 수 있다(macOS의 brew 기본 빌드)
 const VORBIS = ["-c:a", "vorbis", "-strict", "experimental", "-ac", "2"];
 let ready = false;
 let cover: Buffer;
@@ -49,7 +49,7 @@ before(async () => {
   if (ready) cover = fs.readFileSync(at("cover.jpg"));
 });
 
-/** 파일을 조금씩(16KB) 내보내는 스트림. end 가 false 면 다 보낸 뒤에도 닫지 않는다(끝이 없는 응답 흉내). 보낸 양을 센다 */
+/** 파일을 조금씩(16KB) 내보내는 스트림. end가 false면 다 보낸 뒤에도 닫지 않는다(끝이 없는 응답 흉내). 보낸 양을 센다 */
 function trickle(bytes: Buffer, { end = true, from = 0 } = {}) {
   let at = from;
   const sent = { bytes: 0, destroyed: false };
@@ -77,7 +77,7 @@ function trickle(bytes: Buffer, { end = true, from = 0 } = {}) {
 const LIMITS: StreamLimits = { maxBytes: 8 * 1024 * 1024, timeoutMs: 10_000 };
 const sameCover = (data: Uint8Array | undefined) => Buffer.compare(Buffer.from(data ?? []), cover) === 0;
 
-test("파일: 형식마다 제목, 가수, 앨범과 그림(원본과 같은 바이트). MP4 는 moov 가 끝이어도", async (t) => {
+test("파일: 형식마다 제목, 가수, 앨범과 그림(원본과 같은 바이트). MP4는 moov가 끝이어도", async (t) => {
   if (!ready) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   for (const name of ["a.mp3", "a.flac", "end.m4a", "front.m4a"]) {
     const tags = await fromFile(at(name));
@@ -97,7 +97,7 @@ test("스트림: 헤더까지만 받고 끊는다. 끝이 없는 응답이어도
     const { stream, sent } = trickle(bytes, { end: false });
     const tags = await fromStream(stream, LIMITS);
     assert.equal(tags?.title, "노래 제목", name);
-    assert.ok(sent.bytes < bytes.length, `${name}: ${sent.bytes} / ${bytes.length} 만 받는다`);
+    assert.ok(sent.bytes < bytes.length, `${name}: ${sent.bytes} / ${bytes.length}만 받는다`);
     assert.ok(sent.destroyed, `${name}: 다 읽으면 스트림을 부순다`);
   }
   const mp3 = await fromStream(trickle(fs.readFileSync(at("a.mp3"))).stream, LIMITS);
@@ -106,7 +106,7 @@ test("스트림: 헤더까지만 받고 끊는다. 끝이 없는 응답이어도
   assert.deepEqual(bare, { title: null, artist: null, album: null, picture: null }, "태그가 없으면 빈 태그");
 });
 
-test("스트림 MP4: moov 가 mdat 뒤면 그 자리를 따로 받고, 받을 길이 없으면 null", { timeout: 30_000 }, async (t) => {
+test("스트림 MP4: moov가 mdat 뒤면 그 자리를 따로 받고, 받을 길이 없으면 null", { timeout: 30_000 }, async (t) => {
   if (!ready) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   const bytes = fs.readFileSync(at("end.m4a"));
   const asked: number[] = [];
@@ -119,18 +119,18 @@ test("스트림 MP4: moov 가 mdat 뒤면 그 자리를 따로 받고, 받을 �
   assert.equal(tags?.album, "앨범");
   assert.ok(sameCover(tags?.picture?.data), "그림");
   assert.equal(asked.length, 1, "moov 자리를 한 번 받는다");
-  assert.ok(main.sent.bytes < bytes.length / 2, `mdat 을 다 받지 않는다(${main.sent.bytes} / ${bytes.length})`);
+  assert.ok(main.sent.bytes < bytes.length / 2, `mdat을 다 받지 않는다(${main.sent.bytes} / ${bytes.length})`);
 
-  assert.equal(await fromStream(trickle(bytes).stream, LIMITS), null, "rangeFrom 이 없으면 읽지 않는다");
+  assert.equal(await fromStream(trickle(bytes).stream, LIMITS), null, "rangeFrom이 없으면 읽지 않는다");
   assert.equal(await fromStream(trickle(bytes).stream, { ...LIMITS, rangeFrom: async () => null }), null, "서버가 이어 받기를 따르지 않으면 읽지 않는다");
 });
 
-test("스트림 상한: 바이트를 넘으면 null(없음), 시간을 넘으면 던진다, 스트림 오류도 던진다", { timeout: 30_000 }, async (t) => {
+test("스트림 상한: 바이트를 넘으면 null(없음), 시간을 넘으면 예외를 던진다, 스트림 오류도 던진다", { timeout: 30_000 }, async (t) => {
   if (!ready) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   const mp3 = fs.readFileSync(at("a.mp3"));
   assert.ok(cover.length > 25_000, `그림 ${cover.length}B`);
   assert.equal(await fromStream(trickle(mp3).stream, { ...LIMITS, maxBytes: 4096 }), null, "첫 청크부터 넘는다");
-  assert.equal(await fromStream(trickle(mp3).stream, { ...LIMITS, maxBytes: 20_000 }), null, "그림이 든 헤더가 20KB 를 넘는다(이어 받는 동안)");
+  assert.equal(await fromStream(trickle(mp3).stream, { ...LIMITS, maxBytes: 20_000 }), null, "그림이 든 헤더가 20KB를 넘는다(이어 받는 동안)");
 
   const stalled = new Readable({ read() {} });
   stalled.push(mp3.subarray(0, 100));

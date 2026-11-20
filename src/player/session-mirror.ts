@@ -19,7 +19,7 @@ const POSITION_SAVE_MS = 5000;
 const SETTINGS_SETTLE_MS = 200;
 
 // 저장한 직후 메모리를 비우는 경로다. 미러를 붙인 채 비우면 방금 저장한 곡이 DB에서 삭제된다.
-// leave-for-join 은 /join 으로만 이어 듣게 남긴다(기동 복원, 24/7 자리 지킴이가 이어 틀지 않는다)
+// leave-for-join은 /join으로만 이어 듣게 남긴다(기동 복원, 24/7 자리 지킴이가 이어 틀지 않는다)
 const FOR_JOIN = "leave-for-join";
 const FINAL_REASONS = new Set(["leave", FOR_JOIN, "shutdown"]);
 
@@ -29,7 +29,7 @@ const liveStore = () => (stateDb.isOpen() ? sessions() : null);
 // 재생 위치는 플레이어마다 타이머를 두지 않고 하나로 모아 한 트랜잭션에 쓴다.
 const active = new Set<SessionPersistence>();
 let tickTimer: NodeJS.Timeout | null = null;
-// DB 가 잠기면 5초마다 같은 실패가 난다. 처음 한 번만 error, 풀리면 한 줄
+// DB가 잠기면 5초마다 같은 실패가 난다. 처음 한 번만 error, 풀리면 한 줄
 const positionSave = repeatingFailure(log, "재생 위치 저장");
 
 function saveTick() {
@@ -74,7 +74,7 @@ class SessionPersistence {
 
   /**
    * 앞 플레이어가 남긴 세션(/leave, 음성 복구 포기 등)을 지우고 이 플레이어의 것으로 삼는다. 지운 곡 중 사람이 넣은 곡 수.
-   * 새 플레이어의 증분 쓰기는 옛 행 위에 얹혀 메모리와 어긋나므로 첫 쓰기 전에 부른다. 이어 듣기는 /join 이 복원으로 한다
+   * 새 플레이어의 증분 쓰기는 옛 행 위에 얹혀 메모리와 어긋나므로 첫 쓰기 전에 부른다. 이어 듣기는 /join이 복원으로 한다
    */
   claimSaved(): number {
     if (this.claimed) return 0;
@@ -230,12 +230,12 @@ class SessionPersistence {
     }
   }
 
-  /** 세션 행을 곧바로 쓴다. saveNow 와 같고 Promise 를 돌려준다: 기다리는 곳(종료, bestEffort)과 테스트가 차례를 끼우는 곳이 쓴다 */
+  /** 세션 행을 곧바로 쓴다. saveNow와 같고 Promise를 돌려준다: 기다리는 곳(종료, bestEffort)과 테스트가 차례를 끼우는 곳이 쓴다 */
   async save(reason: string) {
     this.saveNow(reason);
   }
 
-  /** 세션 행을 곧바로 쓴다(DB 쓰기는 동기다). 기다릴 수 없는 곳(치명 종료)이 부른다. reason 이 나감, 종료면 이 뒤로는 옮기지 않는다 */
+  /** 세션 행을 곧바로 쓴다(DB 쓰기는 동기다). 기다릴 수 없는 곳(치명 종료)이 부른다. reason이 나감, 종료면 이 뒤로는 옮기지 않는다 */
   saveNow(reason: string) {
     const p = this.player;
     const store = liveStore();
@@ -260,7 +260,7 @@ class SessionPersistence {
   removeSession() {
     const store = liveStore();
     const guildId = this.player.guild?.id;
-    // 넘겨받지 않은 세션은 앞 플레이어가 남긴 것이다. /join 이 복원할 수 있게 둔다
+    // 넘겨받지 않은 세션은 앞 플레이어가 남긴 것이다. /join이 복원할 수 있게 둔다
     if (!store || !guildId || !this.claimed) return;
     try {
       store.removeSession(guildId);
@@ -293,18 +293,18 @@ class SessionPersistence {
   reviveTrack(data: RestoredTrack | null): QueuedTrack | null {
     if (!data) return null;
     const { requesterId, id, title, duration, platform, artist, album, entry, ...rest } = data;
-    // 행은 빈 열을 null 로 준다. 곡의 타입에 맞춘다(없는 필드는 비우고, 꼭 있어야 하는 필드는 빈 값)
+    // 행은 빈 열을 null로 준다. 곡의 타입에 맞춘다(없는 필드는 비우고, 꼭 있어야 하는 필드는 빈 값)
     const track: QueuedTrack = { ...rest, id: id ?? undefined, title: title ?? "", duration: duration ?? 0, platform: platform ?? "", artist: artist ?? undefined, album: album ?? undefined };
     // 요청자는 권한 판정과 멘션에 id만 쓰인다
     if (requesterId) track.requestedBy = { id: requesterId };
-    // 대기열 ID는 다시 시작하기 전과 같게(track-state 가 찍는 것과 같은 열거되지 않는 필드). 없으면 track-state 가 추가할 때 새로 찍는다
+    // 대기열 ID는 다시 시작하기 전과 같게(track-state가 찍는 것과 같은 열거되지 않는 필드). 없으면 track-state가 추가할 때 새로 찍는다
     if (entry) Object.defineProperty(track, "entry", { value: entry, enumerable: false });
     return track;
   }
 
   /**
    * 저장한 세션을 복원해 이어 튼다. 무엇이 됐나: restored 이어 틂, failed 틀 곡을 열지 못함(남은 곡은 대기열에), empty 틀 곡이 없음.
-   * announce 를 끄면 텍스트 채널에 복원했다고 알리지 않고, 연달아 실패해 멈춘 것도 알리지 않는다(/join 이 명령 응답으로 말한다)
+   * announce를 끄면 텍스트 채널에 복원했다고 알리지 않고, 연달아 실패해 멈춘 것도 알리지 않는다(/join이 명령 응답으로 말한다)
    */
   async restoreSession(record: RestoredSession | null | undefined, { announce = true }: { announce?: boolean } = {}): Promise<"restored" | "parked" | "failed" | "empty"> {
     const player = this.player;
@@ -320,7 +320,7 @@ class SessionPersistence {
     });
 
     this._restoreTracks(record, player.guild.id);
-    // 지금 곡 없이 대기열만 저장됐다(곡 기록이 DB 에 닿지 못한 채 꺼졌다). 첫 곡을 지금 곡으로 올리되 저절로 틀지 않는다(멈춘 채 연다)
+    // 지금 곡 없이 대기열만 저장됐다(곡 기록이 DB에 닿지 못한 채 꺼졌다). 첫 곡을 지금 곡으로 올리되 저절로 틀지 않는다(멈춘 채 연다)
     if (!player.currentTrack && player.queue.length > 0) {
       trackState.shiftNext(player);
       player.pause.setUser(true);
@@ -340,7 +340,7 @@ class SessionPersistence {
     }
 
     await this._reconnect();
-    // 다시 쓰는 세션이 됐다. /join 으로만 이어 듣던 세션도 이제 기동 복원이 이어 튼다(행 전체를 새로 쓰면 저장 위치를 덮어쓴다)
+    // 다시 쓰는 세션이 됐다. /join으로만 이어 듣던 세션도 이제 기동 복원이 이어 튼다(행 전체를 새로 쓰면 저장 위치를 덮어쓴다)
     this._markAutoResume();
     // 이미 붙어 있었으면 붙기가 맞추지 않으므로 여기서 맞춘다(겹쳐 불러도 같다)
     player.syncHolds();
@@ -352,7 +352,7 @@ class SessionPersistence {
       player.quietFailures = false;
     }
     if (!player.currentTrack) return "failed";
-    // 열지 못해 그 곡에서 일시정지해 뒀다. 이어 튼다고 알리지 않는다(까닭은 일시정지해 둘 때의 알림, /join 응답이 말한다). 패널은 일시정지한 곡으로
+    // 열지 못해 그 곡에서 일시정지해 뒀다. 이어 튼다고 알리지 않는다(이유는 일시정지해 둘 때의 알림, /join 응답이 말한다). 패널은 일시정지한 곡으로
     if (player.lifecycle.parked) {
       await this._announceRestored(false);
       return "parked";
@@ -370,7 +370,7 @@ class SessionPersistence {
     if (!finished || player.loop === "track") return;
     trackState.retire(player, finished, { requeue: player.loop === "queue" });
     if (player.queue.length === 0 && player.autoplay) {
-      // pickAutoplayTrack 이 실패를 error 로 남기고 null 을 돌려준다. 여기서는 예외를 던지지 않게만 한다
+      // pickAutoplayTrack이 실패를 error로 남기고 null을 돌려준다. 여기서는 예외를 던지지 않게만 한다
       const picked = await player.pickAutoplayTrack().catch(() => null);
       if (picked) trackState.enqueue(player, [picked]);
     }
@@ -419,14 +419,14 @@ class SessionPersistence {
     try {
       await this.player.voice.connect();
     } catch (error) {
-      // 종료 중이라 붙지 않았다. 연결 실패가 아니므로 그대로 던진다(부른 쪽이 세션을 남기고 정리한다)
+      // 종료 중이라 붙지 않았다. 연결 실패가 아니므로 그대로 예외를 던진다(부른 쪽이 세션을 남기고 정리한다)
       if (codeOf(error) === "bot-shutting-down") throw error;
       log.error("세션 복원 중 음성 연결 실패:", messageOf(error));
       throw codedError("voice-failed", "음성 채널 재연결 실패", { cause: error });
     }
   }
 
-  // 패널을 다시 세운다. announce 면 이어 튼다고 텍스트 채널에 알린다
+  // 패널을 다시 세운다. announce면 이어 튼다고 텍스트 채널에 알린다
   async _announceRestored(announce: boolean) {
     const player = this.player;
     if (player.textChannel) {

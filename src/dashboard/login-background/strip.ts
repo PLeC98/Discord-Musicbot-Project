@@ -1,5 +1,5 @@
 // 로그인 배경의 장면 띠 단계(영상만): 편집 창 시간 막대에 깔 작은 장면들. 미리보기 영상에서 0.5초 간격(최대 160장)으로 높이 128px 장면을 떠
-// 10열 격자 한 장으로 만든다(한 줄로 붙이면 WebP 폭 상한 16383 을 넘는다). ffmpeg 는 PNG 를 내고 WebP 는 sharp 가 만든다(ffmpeg 빌드에 WebP 인코더가 없어도 된다)
+// 10열 격자 한 장으로 만든다(한 줄로 붙이면 WebP 폭 상한 16383을 넘는다). ffmpeg는 PNG를 내고 WebP는 sharp가 만든다(ffmpeg 빌드에 WebP 인코더가 없어도 된다)
 
 import fs from "node:fs";
 import path from "node:path";
@@ -12,7 +12,7 @@ import * as store from "./store.ts";
 import { previewOf } from "./preview.ts";
 import { probeVideo, READ_ARGS } from "./source.ts";
 
-/** 장면 간격의 하한(초), 장면 수 상한, 격자 열 수, 한 셀 높이(화면 띠 64px 의 두 배) */
+/** 장면 간격의 하한(초), 장면 수 상한, 격자 열 수, 한 셀 높이(화면 띠 64px의 두 배) */
 const EVERY_MIN = 0.5;
 const MAX_COUNT = 160;
 const COLUMNS = 10;

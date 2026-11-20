@@ -1,5 +1,5 @@
 // AI 리퀘스트 로그, 사용량 통계 읽기와 쓰기(ai-requests.db, store/ai-log-db).
-// 쓰기 하나가 로그(requests)와 통계(usage) 한 행씩을 함께 쓴다. 열 하나가 너무 크면 앞뒤를 남기고 자른다(모델 목록 응답은 수백 KB 다).
+// 쓰기 하나가 로그(requests)와 통계(usage) 한 행씩을 함께 쓴다. 열 하나가 너무 크면 앞뒤를 남기고 자른다(모델 목록 응답은 수백 KB다).
 // 로그는 저장 용량을 넘으면 오래된 것부터 삭제한다(최근 KEEP_MIN_ROWS 행은 크기와 무관하게 남긴다). 통계는 삭제하지 않는다.
 // 새 행은 듣는 쪽(대시보드의 SSE 연결)에 알린다.
 
@@ -14,7 +14,7 @@ const MAX_FIELD_BYTES = 512 * 1024;
 /** 이만큼 쓸 때마다 저장 용량을 맞춘다(쓸 때마다 세면 큰 표에서 무겁다) */
 const ROTATE_EVERY = 20;
 
-/** 쓸 것. guildName, id, truncated, bytes 는 여기서 정하거나(크기) 읽을 때 붙인다(서버 이름) */
+/** 쓸 것. guildName, id, truncated, bytes는 여기서 정하거나(크기) 읽을 때 붙인다(서버 이름) */
 type NewRecord = Omit<AiLogDetail, "id" | "truncated" | "bytes" | "guildName">;
 
 type RequestRow = {
@@ -177,7 +177,7 @@ function rotate(maxBytes: number) {
   return gone;
 }
 
-/** 필터에 맞는 행을 최근 것부터(before 보다 작은 id). total: 남은 전부, matched: 맞는 것 */
+/** 필터에 맞는 행을 최근 것부터(before보다 작은 id). total: 남은 전부, matched: 맞는 것 */
 function list(query: AiLogQuery, { before, limit }: { before?: number; limit: number }): { entries: AiLogEntry[]; total: number; matched: number } {
   const where: string[] = [];
   const args: Record<string, unknown> = {};
@@ -188,7 +188,7 @@ function list(query: AiLogQuery, { before, limit }: { before?: number; limit: nu
   if (query.result) where.push(query.result === "ok" ? "ok = 1" : "ok = 0");
   const q = query.q.trim();
   if (q) {
-    // 한국어 검색(조합 중인 글자, 초성, 대소문자 무시, 화면의 실시간 필터 aiLogMatches 와 같다). %, _ 는 글자 그대로
+    // 한국어 검색(조합 중인 글자, 초성, 대소문자 무시, 화면의 실시간 필터 aiLogMatches와 같다). %, _는 글자 그대로
     where.push("(ko_match(url, @q) OR ko_match(model, @q) OR ko_match(name, @q) OR ko_match(coalesce(error, ''), @q))");
     args.q = q;
   }
@@ -200,7 +200,7 @@ function list(query: AiLogQuery, { before, limit }: { before?: number; limit: nu
   return { entries: rows.map(toEntry), total: count("SELECT COUNT(*) AS n FROM requests"), matched: count(`SELECT COUNT(*) AS n FROM requests ${filter}`, args) };
 }
 
-/** after 보다 뒤의 행(오래된 것부터, 최근 limit 행까지). SSE 연결이 재연결될 때 놓친 행 */
+/** after보다 뒤의 행(오래된 것부터, 최근 limit 행까지). SSE 연결이 재연결될 때 놓친 행 */
 function since(after: number, limit: number): AiLogEntry[] {
   const rows = aiLogDb.get().prepare(`SELECT ${SUMMARY_COLUMNS} FROM requests WHERE id > ? ORDER BY id DESC LIMIT ?`).all(after, limit) as RequestRow[];
   return rows.reverse().map(toEntry);
@@ -247,7 +247,7 @@ function earliestDay(): string | null {
   return (aiLogDb.get().prepare("SELECT MIN(day) AS day FROM usage").get() as { day: string | null }).day;
 }
 
-/** DB 가 열려 있는가(스크립트, 테스트는 열지 않을 수 있다. 그때는 남기지 않는다) */
+/** DB가 열려 있는가(스크립트, 테스트는 열지 않을 수 있다. 그때는 남기지 않는다) */
 const isOpen = () => aiLogDb.conn !== null;
 
 /** 새 행을 듣는다. 해제 함수를 돌려준다 */

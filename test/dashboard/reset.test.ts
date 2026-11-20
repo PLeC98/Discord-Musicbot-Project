@@ -44,10 +44,10 @@ test("봇 설정: 설정 문서와 비밀값을 지우고 다시 읽는다. 기�
 
   assert.match(done.snapshot, /^settings-before-reset-/);
   assert.ok(snapshots.list().some((one) => one.name === done.snapshot && one.kind === "before-reset"));
-  assert.equal(done.restart, true, "기동 시 true 였던 BGUTIL_ENABLED 가 기본값(false)이 된다");
+  assert.equal(done.restart, true, "기동 시 true 였던 BGUTIL_ENABLED가 기본값(false)이 된다");
   assert.deepEqual(settingsDocs.names(), [], "기본값을 써 넣지 않는다");
   assert.equal(secrets.count(), 0);
-  assert.equal(config.dashboard.rateLimit.apiMax, 120, "운영 조절값은 바로 기본값");
+  assert.equal(config.dashboard.rateLimit.apiMax, 120, "운영 설정값은 바로 기본값");
   assert.equal(config.sources.lastfmKey, null, "바깥 서비스 키도 메모리에서 빠진다");
 
   tunables.load();

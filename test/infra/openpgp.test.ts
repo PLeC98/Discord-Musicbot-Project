@@ -1,4 +1,4 @@
-// src/infra/openpgp.ts: 고정한 키의 분리 서명만 받는다. 픽스처는 yt-dlp stable 2026.10.26 의 SHA2-256SUMS 와 그 서명, 키는 data/ 의 yt-dlp 서명 키
+// src/infra/openpgp.ts: 고정한 키의 분리 서명만 받는다. 픽스처는 yt-dlp stable 2026.10.26의 SHA2-256SUMS와 그 서명, 키는 data/ 의 yt-dlp 서명 키
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -38,7 +38,7 @@ const changed = (buf: Buffer, at: number, value: number) => {
   return copy;
 };
 
-test("yt-dlp 의 SHA2-256SUMS 서명을 고정한 키로 확인한다(공백, 소문자 지문도 같다)", () => {
+test("yt-dlp의 SHA2-256SUMS 서명을 고정한 키로 확인한다(공백, 소문자 지문도 같다)", () => {
   verifyDetached(SUMS, SIG, KEY);
   verifyDetached(SUMS, SIG, pinnedKey(ARMORED.replace(/\n/g, "\r\n"), FINGERPRINT.toLowerCase()));
 });

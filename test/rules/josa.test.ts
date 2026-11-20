@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { josa, finalOf } from "../../src/rules/josa.ts";
 
-// 단어마다 [을/를 선택한 것] 을 적어 둔다
+// 단어마다 [을/를 선택한 것]을 적어 둔다
 const picks = (words: string[], particle: Parameters<typeof josa>[1] = "을") => words.map((w) => `${w}${josa(w, particle)}`);
 
 test("네 조사: 받침 있음, 없음, 모름. 으로는 ㄹ 받침 뒤에서 로", () => {
@@ -27,7 +27,7 @@ test("끝의 공백, 괄호, 따옴표, 기호, 이모지는 건너뛰고 그 �
   assert.deepEqual(picks(["봄날 (Live)", "「春」", '"사랑"', "밤편지!", "좋은 날 ~", "별 ★", "꽃 🌸", "Song [MV]  "]), ["봄날 (Live)를", "「春」을(를)", '"사랑"을', "밤편지!를", "좋은 날 ~을", "별 ★을", "꽃 🌸을", "Song [MV]  를"]);
 });
 
-test("숫자: 읽는 소리의 끝. 끝의 0 은 자릿수(십, 백, 천, 만, 억, 조), 쉼표는 뺀다, 소수는 마지막 숫자", () => {
+test("숫자: 읽는 소리의 끝. 끝의 0은 자릿수(십, 백, 천, 만, 억, 조), 쉼표는 뺀다, 소수는 마지막 숫자", () => {
   const cases: Array<[string, string]> = [
     ["0", "을"],
     ["1", "을"],
@@ -61,10 +61,10 @@ test("숫자: 읽는 소리의 끝. 끝의 0 은 자릿수(십, 백, 천, 만, �
     cases.map(([w]) => josa(w, "을")),
     cases.map(([, p]) => p),
   );
-  assert.deepEqual([josa("21", "으로"), josa("10", "으로"), josa("2", "으로")], ["로", "으로", "로"], "일 · 칠 · 팔 은 ㄹ 받침");
+  assert.deepEqual([josa("21", "으로"), josa("10", "으로"), josa("2", "으로")], ["로", "으로", "로"], "일, 칠, 팔은 ㄹ 받침");
 });
 
-test("영어: 발음 사전의 마지막 소리. 짧은 모음 뒤의 p, t, k 만 받침", () => {
+test("영어: 발음 사전의 마지막 소리. 짧은 모음 뒤의 p, t, k만 받침", () => {
   assert.deepEqual(picks(["Love", "Dream", "Song", "Night", "Cat", "Hit", "Rock", "Cake", "Talk", "Feel", "Girl", "Star", "Shape of You", "Bad", "Dance", "Don't"]), ["Love를", "Dream을", "Song을", "Night를", "Cat을", "Hit을", "Rock을", "Cake를", "Talk를", "Feel을", "Girl을", "Star를", "Shape of You를", "Bad를", "Dance를", "Don't를"]);
   assert.deepEqual([josa("Feel", "으로"), josa("Dream", "으로")], ["로", "으로"]);
 });

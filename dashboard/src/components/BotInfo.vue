@@ -1,9 +1,9 @@
 <template>
-  <!-- 봇 정보 탭: 리싱한 Arch(Hyprland) 데스크톱의 터미널에서 fastfetch 를 실행한 모습(이 탭만 M3E 가 아니라 터미널 스타일).
+  <!-- 봇 정보 탭: 리싱한 Arch(Hyprland) 데스크톱의 터미널에서 fastfetch를 실행한 모습(이 탭만 M3E가 아니라 터미널 스타일).
        간격은 글자 셀 격자(가로 1ch, 세로 한 줄 --term-line, 터미널처럼 글자 크기의 약 1.2배)에 맞춘다.
        창은 내용이 짧아도 바탕화면 아래 끝까지 채운다(재생 바는 그 위에 겹친다. 페이지 아래 여백의 재생 바 몫은 음수 여백으로 돌려준다).
        내용이 길어 스크롤되면 끝까지 스크롤했을 때 마지막 줄이 재생 바 위 끝에서 창 여백만큼 떨어지도록 안쪽 아래 여백에 (재생 바 - 바깥 틈)을 더한다.
-       잘 안 바뀌는 신원, 버전, 환경만 둔다(지금 상태는 봇 상태 탭). 키는 fastfetch 처럼 영어. 한글은 고정폭 글꼴에서 두 칸이라 터미널처럼 같은 글꼴로 쓴다 -->
+       잘 안 바뀌는 신원, 버전, 환경만 둔다(지금 상태는 봇 상태 탭). 키는 fastfetch처럼 영어. 한글은 고정폭 글꼴에서 두 칸이라 터미널처럼 같은 글꼴로 쓴다 -->
   <section class="term-border pane relative rounded-(--r-window) p-(--pad-window) pb-[calc(var(--pad-window)+max(0px,var(--player)-var(--gap-out)))] font-mono text-sm leading-(--term-line) [--term-line:1.0625rem] text-on-surface min-h-[calc(var(--desk-h)-var(--gap-out)*2)] -mb-(--player)">
     <Prompt command="fastfetch" />
     <div class="flex gap-[3ch] items-start">
@@ -17,16 +17,16 @@
               <div class="grid grid-cols-[auto_1fr]">
                 <template v-for="r in g.rows" :key="r.key">
                   <span class="flex items-center gap-[1ch] pr-[1.5ch] whitespace-nowrap" :class="g.tone"><Icon :name="r.icon" :size="14" />{{ r.key }}</span>
-                  <span class="pl-[calc(1.5ch-1px)] border-l border-current/30 truncate" :class="g.tone"
+                  <span class="pl-[calc(1.5ch-1px)] border-l border-current/30 truncate" :class="g.tone" :title="r.full"
                     ><span class="text-on-surface">{{ r.value }}</span
-                    ><span v-if="r.note" class="ml-[1ch] text-on-surface-variant">{{ r.note }}</span></span
+                    ><span v-if="r.note" class="ml-[1ch]" :class="r.warn ? 'text-(--warn-ink)' : 'text-on-surface-variant'">{{ r.note }}</span></span
                   >
                 </template>
               </div>
             </Frame>
           </div>
         </Frame>
-        <!-- 터미널 16색 띠(fastfetch 의 colors 모듈, ███ 세 셀씩): 윗줄 보통 8색, 아랫줄 밝은 8색. 색은 지금 테마의 역할에서. 글자 █ 는 글꼴마다 셀 사이가 비어 줄무늬가 지므로 셀만 한 면으로 -->
+        <!-- 터미널 16색 띠(fastfetch의 colors 모듈, ███ 세 셀씩): 윗줄 보통 8색, 아랫줄 밝은 8색. 색은 지금 테마의 역할에서. 글자 █ 는 글꼴마다 셀 사이가 비어 줄무늬가 지므로 셀만 한 면으로 -->
         <div class="w-max">
           <div v-for="(row, i) in ANSI" :key="i" class="flex">
             <span v-for="c in row" :key="c" class="inline-block w-[3ch] h-(--term-line)" :style="{ background: c }"></span>
@@ -43,10 +43,12 @@
 import { computed, defineComponent, h } from "vue";
 import Icon from "./BaseIcon.vue";
 import type { AdminStatus } from "../../../src/dashboard/contract/admin.ts";
+import type { FfmpegInfo } from "../../../src/media/ffmpeg/info-types.ts";
 import { byteUnit, scaledText } from "../../../src/ui/format.ts";
 import type { IconName } from "../icons.ts";
 import { shell } from "../shell/shell-state.ts";
 import BotInfoLogo from "./BotInfoLogo.vue";
+import { ffmpegLabel, releaseDay } from "../utils/ffmpeg-version.ts";
 
 const props = defineProps<{ status: AdminStatus }>();
 
@@ -54,7 +56,7 @@ const props = defineProps<{ status: AdminStatus }>();
  * 제목이 윗선 가운데에 걸친 상자(터미널의 ╭─ 제목 ─╮). 상자 글자처럼 선은 칸 가운데를 지난다: 세로선은 첫 칸, 끝 칸의 가운데, 모서리는 반 칸 반지름, 내용은 "│ " 다음 칸부터.
  * 아랫선 줄도 한 줄을 다 쓴다(선은 그 줄 가운데, 1px 테두리 몫을 여백에서 뺀다). 폭은 쓰는 쪽이 칸 단위로 맞춘다.
  * 바탕이 반투명이어도 선이 글자 밑을 지나지 않게 윗선을 조각으로 긋는다.
- * tone: 선, 제목 색(text-* 클래스, 선은 currentColor). titleTone: 제목만 다른 색(선이 outline 처럼 글자로는 대비가 모자란 색일 때)
+ * tone: 선, 제목 색(text-* 클래스, 선은 currentColor). titleTone: 제목만 다른 색(선이 outline처럼 글자로는 대비가 모자란 색일 때)
  */
 const Frame = defineComponent({
   props: { title: { type: String, required: true }, tone: { type: String, required: true }, titleTone: { type: String, default: "" } },
@@ -69,7 +71,7 @@ const Frame = defineComponent({
 });
 
 /**
- * starship 식 프롬프트(기본 설정처럼 두 줄): 색 블록(사용자@호스트, 폴더, 브랜치)이 꺾쇠로 이어지고 다음 줄에 ❯ 와 명령. cursor 면 명령 대신 깜박이는 커서
+ * starship 식 프롬프트(한 줄): 색 블록(사용자@호스트, 폴더, 브랜치)이 꺾쇠로 이어지고 바로 뒤에 ❯와 명령. cursor면 명령 대신 깜박이는 커서
  */
 const PROMPT: Array<{ icon: IconName; text: string; tone: string; ink: string }> = [
   { icon: "person", text: "operator@musicbot", tone: "bg-primary text-on-primary", ink: "var(--md-primary)" },
@@ -87,9 +89,8 @@ const Prompt = defineComponent({
           // 꺾쇠: 이 블록 색의 세모를 다음 블록 색(마지막은 투명) 위에
           h("span", { class: "h-(--term-line)", style: { background: PROMPT[i + 1]?.ink ?? "transparent" } }, [h("span", { class: "block h-(--term-line) w-[1ch]", style: { background: seg.ink, clipPath: "polygon(0 0, 100% 50%, 0 100%)" } })]),
         ]),
-        // starship 기본처럼 ❯ 와 명령은 다음 줄
-        h("span", { class: "basis-full h-0" }),
-        h("span", { class: "text-(--ok-ink) font-semibold" }, "❯"),
+        // ❯와 명령은 블록 바로 뒤 같은 줄(좁으면 줄이 바뀐다)
+        h("span", { class: "ml-[1ch] text-(--ok-ink) font-semibold" }, "❯"),
         p.command ? h("span", { class: "ml-[1ch]" }, p.command) : null,
         // 커서는 세 번 깜빡이고 켜진 채 멈춘다(끝없는 움직임을 두지 않는다)
         p.cursor ? h("span", { class: "ml-[1ch] inline-block w-[1ch] h-(--term-line) bg-on-surface animate-[term-blink_1.2s_steps(1)_3]" }) : null,
@@ -101,7 +102,7 @@ const Prompt = defineComponent({
 const NORMAL = ["var(--md-outline)", "var(--md-error)", "var(--ok-ink)", "var(--warn-ink)", "var(--md-primary)", "var(--md-tertiary)", "var(--md-secondary)", "var(--md-on-surface-variant)"];
 const ANSI = [NORMAL, NORMAL.map((c) => `color-mix(in oklab, ${c} 70%, var(--md-on-surface))`)];
 
-// fastfetch 의 길이 말("13 hours, 10 mins"). 0 인 단위는 뺀다
+// fastfetch의 길이 말("13 hours, 10 mins"). 0인 단위는 뺀다
 function uptimeText(sec: number) {
   const days = Math.floor(sec / 86400);
   const hours = Math.floor((sec % 86400) / 3600);
@@ -109,7 +110,7 @@ function uptimeText(sec: number) {
   const part = (n: number, unit: string) => (n ? `${n} ${unit}${n === 1 ? "" : "s"}` : "");
   return [part(days, "day"), part(hours, "hour"), part(mins, "min")].filter(Boolean).join(", ") || "0 mins";
 }
-// 크기: 단위는 크기에 맞게(src/ui/format 의 byteUnit), 이진 단위 이름(GiB, TiB)으로 소수 둘째 자리
+// 크기: 단위는 크기에 맞게(src/ui/format의 byteUnit), 이진 단위 이름(GiB, TiB)으로 소수 둘째 자리
 const binText = (bytes: number) => {
   const { value, unit } = scaledText(bytes, byteUnit, () => 2);
   return `${value} ${unit.replace("B", "iB")}`;
@@ -124,7 +125,30 @@ const dateTimeText = (ms: number) => {
   return `${date.getFullYear()}-${two(date.getMonth() + 1)}-${two(date.getDate())} ${two(date.getHours())}:${two(date.getMinutes())}`;
 };
 
-type InfoRow = { icon: IconName; key: string; value: string; note?: string };
+/** warn: 대비책을 쓰거나 물린 릴리스가 있으면 덧붙인 정보를 경고 색으로 보인다 */
+type InfoRow = { icon: IconName; key: string; value: string; note?: string; warn?: boolean; full?: string };
+
+// ffmpeg: 버전 옆에 출처(설치본이 아닐 때), 고정 여부, 실행되지 않아 물린 릴리스 수를 이 순서로 두 개까지만 덧붙여 줄이 길어지지 않게 한다.
+// 이전 설치본으로 떴으면 대개 새 빌드가 실행되지 않아 물린 것이라 물린 릴리스 수는 덧붙이지 않는다.
+// 기본 릴리스 날짜와 물린 릴리스 목록은 마우스를 올리면 보인다. 대비책(이전 설치본)을 쓰거나 물린 릴리스가 있으면 경고 색으로 보인다
+// 값은 버전 번호와 릴리스 날짜(utils/ffmpeg-version)
+const FFMPEG_SOURCE: Record<FfmpegInfo["source"], string | null> = { installed: null, previous: "previous", env: "FFMPEG_PATH", path: "PATH" };
+function ffmpegRow(info: FfmpegInfo | null): InfoRow {
+  if (!info) return { icon: "movie", key: "ffmpeg", value: "—" };
+  const source = FFMPEG_SOURCE[info.source];
+  const rejectedCount = info.rejected.length && info.source !== "previous" ? `${info.rejected.length} rejected` : null;
+  const shown = [source, info.pin ? "pinned" : null, rejectedCount].filter(Boolean).slice(0, 2);
+  const detail = [source, info.pin ? `pinned, default ${releaseDay(info.defaultRelease)}` : null, info.rejected.length ? `rejected: ${info.rejected.join(", ")}` : null].filter(Boolean);
+  const value = ffmpegLabel(info.version, info.release);
+  return {
+    icon: "movie",
+    key: "ffmpeg",
+    value,
+    note: shown.length ? `(${shown.join(", ")})` : undefined,
+    warn: info.source === "previous" || info.rejected.length > 0,
+    full: [info.version, detail.length ? `(${detail.join("; ")})` : null].filter(Boolean).join(" "),
+  };
+}
 const infoGroups = computed<Array<{ title: string; tone: string; rows: InfoRow[] }>>(() => {
   const { status } = props;
   const memUsed = status.system.totalMem - status.system.freeMem;
@@ -132,7 +156,7 @@ const infoGroups = computed<Array<{ title: string; tone: string; rows: InfoRow[]
   const { bgutil, tls } = status.env;
   // 인증서 파일로 직접 HTTPS를 열었을 때만. 날짜는 Started처럼 이 기기의 시각
   const tlsRows: InfoRow[] = tls ? [{ icon: "lock", key: "TLS", value: `until ${dateTimeText(tls.expiresAt)}`, note: tls.daysLeft > 0 ? `(${tls.daysLeft} days left)` : "(expired)" }] : [];
-  const bgutilRows: InfoRow[] = bgutil ? [{ icon: "key", key: "bgutil", value: bgutil.installed, note: bgutil.installed !== bgutil.target ? `(→ ${bgutil.target})` : bgutil.newer ? `(${bgutil.newer} available)` : undefined }] : [];
+  const bgutilRows: InfoRow[] = bgutil ? [{ icon: "key", key: "bgutil", value: bgutil.installed, note: bgutil.same ? undefined : `(→ ${bgutil.target})` }] : [];
   return [
     {
       title: "Bot",
@@ -154,7 +178,7 @@ const infoGroups = computed<Array<{ title: string; tone: string; rows: InfoRow[]
         { icon: "code", key: "Node.js", value: status.node.version },
         { icon: "forum", key: "discord.js", value: status.env.discordJs },
         { icon: "download", key: "yt-dlp", value: status.env.ytdlp.version ?? "—", note: status.env.ytdlp.autoUpdate ? "(auto-update)" : undefined },
-        { icon: "movie", key: "ffmpeg", value: status.env.ffmpeg ?? "—" },
+        ffmpegRow(status.env.ffmpeg),
         ...bgutilRows,
         { icon: "tag", key: "PID", value: `${status.env.pid}` },
         { icon: "list", key: "Log Level", value: status.logLevel },

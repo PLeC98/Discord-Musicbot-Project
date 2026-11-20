@@ -1,5 +1,5 @@
-// 로그인 배경의 원본: 링크에서 다운로드하고(직접 링크는 infra/safe-url), 무엇인지 읽어 본다(다운로드 단계). 올린 파일의 Content-Type 은 믿지 않는다.
-// 정지 그림은 sharp 로 읽고(픽셀 수 상한), 움직이는 것(영상, 움짤)은 ffmpeg 로 읽는다. ffmpeg 에는 늘 READ_ARGS 를 붙인다:
+// 로그인 배경의 원본: 링크에서 다운로드하고(직접 링크는 infra/safe-url), 무엇인지 읽어 본다(다운로드 단계). 올린 파일의 Content-Type은 믿지 않는다.
+// 정지 그림은 sharp로 읽고(픽셀 수 상한), 움직이는 것(영상, 움짤)은 ffmpeg로 읽는다. ffmpeg에는 늘 READ_ARGS를 붙인다:
 // 재생 목록, 이어 붙이기 목록처럼 다른 파일, 주소를 읽는 형식을 막고(형식 필터링) 파일 말고는 열지 않는다(프로토콜 필터링).
 // 터무니없는 값(작은 파일이 거대한 해상도를 적은 것 등)은 여기서 막는다
 
@@ -14,23 +14,23 @@ import * as store from "./store.ts";
 import { frameRate, stacked } from "./ladder.ts";
 import { inputFilter, VIDEO_FORMATS } from "../../media/ffmpeg/input-filter.ts";
 
-/** 원본을 읽는 ffmpeg 에 늘 붙이는 것(영상 컨테이너와 움직이는 그림만, 파일만) */
+/** 원본을 읽는 ffmpeg에 늘 붙이는 것(영상 컨테이너와 움직이는 그림만, 파일만) */
 const READ_ARGS = inputFilter(VIDEO_FORMATS, "file");
-/** sharp 로 읽는 정지 그림 형식 */
+/** sharp로 읽는 정지 그림 형식 */
 const STILL_FORMATS = ["jpeg", "png", "webp", "gif", "avif", "heif", "tiff"];
 /** 받는 크기, 길이, 초당 프레임 수의 범위 */
 const MIN_SIDE = 16;
 const MAX_SIDE = 16384;
 const MAX_FPS = 240;
-/** sharp 가 읽는 픽셀 수 상한(16K × 12K 남짓) */
+/** sharp가 읽는 픽셀 수 상한(16K × 12K 남짓) */
 const MAX_PIXELS = 200_000_000;
 /** 원본을 읽는 시간 상한 */
 const INSPECT_MS = 60_000;
-/** 링크에서 다운로드할 것: 그림, 영상(Content-Type 이 없으면 다운로드해서 읽어 본다), 홉마다의 응답 대기 */
+/** 링크에서 다운로드할 것: 그림, 영상(Content-Type이 없으면 다운로드해서 읽어 본다), 홉마다의 응답 대기 */
 const LINK_TYPES = /^\s*(image\/|video\/|application\/octet-stream|binary\/octet-stream)/i;
 const LINK_HOP_MS = 15_000;
 
-// libvips 가 연 파일을 캐시에 쥐고 있으면 Windows 에서 배경 폴더를 삭제하지 못한다(EPERM). 파일 핸들 캐시만 끈다(연산 캐시는 그대로)
+// libvips가 연 파일을 캐시에 쥐고 있으면 Windows에서 배경 폴더를 삭제하지 못한다(EPERM). 파일 핸들 캐시만 끈다(연산 캐시는 그대로)
 sharp.cache({ files: 0 });
 
 /** 원본을 읽은 것 */
@@ -39,7 +39,7 @@ type Inspected = Required<Pick<StageResult, "kind" | "width" | "height" | "durat
 const badSource = (why: string) => codedError("background-bad-source", why);
 const sideOk = (side: number) => Number.isFinite(side) && side >= MIN_SIDE && side <= MAX_SIDE;
 
-/** PNG 가 움직이는 것(APNG)인지: 이미지 데이터(IDAT) 앞에 acTL 청크가 있다. sharp 는 APNG 를 한 장으로 읽는다 */
+/** PNG가 움직이는 것(APNG)인지: 이미지 데이터(IDAT) 앞에 acTL 청크가 있다. sharp는 APNG를 한 장으로 읽는다 */
 function isApng(file: string): boolean {
   const head = Buffer.alloc(64 * 1024);
   const fd = fs.openSync(file, "r");
@@ -67,8 +67,8 @@ async function inspectStill(file: string): Promise<Inspected | null> {
 }
 
 /**
- * ffmpeg 가 연 입력의 헤더. 크기는 보이는 크기(90도 돌려 보이는 영상은 가로세로를 바꾼다), alpha 는 투명이 있는 픽셀 형식(움짤),
- * hdr 은 PQ, HLG 전달 함수(SDR 로 톤 매핑해 인코딩한다). 열지 못했으면 null
+ * ffmpeg가 연 입력의 헤더. 크기는 보이는 크기(90도 돌려 보이는 영상은 가로세로를 바꾼다), alpha는 투명이 있는 픽셀 형식(움짤),
+ * hdr은 PQ, HLG 전달 함수(SDR로 톤 매핑해 인코딩한다). 열지 못했으면 null
  */
 type Probed = { format: string; duration: number | null; width: number; height: number; fps: number | null; alpha: boolean; hdr: boolean };
 
@@ -128,18 +128,18 @@ async function inspectMoving(file: string, signal: AbortSignal): Promise<Inspect
   if (!(fps > 0 && fps <= MAX_FPS)) throw badSource(`초당 프레임 수가 범위를 벗어남: ${fps}`);
   const duration = input.duration ?? (await countedDuration(file, signal));
   if (!duration || !Number.isFinite(duration) || duration <= 0) throw badSource("길이를 알 수 없음");
-  // 장면이 하나뿐인 것(sharp 가 못 읽은 정지 그림이 영상 형식으로 열린 것 등)은 영상이 아니다
+  // 장면이 하나뿐인 것(sharp가 못 읽은 정지 그림이 영상 형식으로 열린 것 등)은 영상이 아니다
   if (duration * fps < 1.5) throw badSource(`움직이는 장면이 없음(${duration}초)`);
   // 움직이는 그림은 고르게 편 초당 프레임 수(편집 창의 미리보기, 한 프레임 이동이 그것)
   return { kind: "video", width: input.width, height: input.height, duration: Math.round(duration * 1000) / 1000, fps: stacked(input) ? frameRate(input) : fps };
 }
 
-/** 원본이 무엇인지. 쓸 수 없으면 background-bad-source 를 던진다 */
+/** 원본이 무엇인지. 쓸 수 없으면 background-bad-source를 던진다 */
 async function inspectSource(file: string, signal: AbortSignal): Promise<Inspected> {
   return (await inspectStill(file)) ?? (await inspectMoving(file, signal));
 }
 
-/** 링크의 그림, 영상을 다운로드한다(내부 주소, 리다이렉트, 형식은 safe-url 이 막는다). room 을 넘으면 background-no-space */
+/** 링크의 그림, 영상을 다운로드한다(내부 주소, 리다이렉트, 형식은 safe-url이 막는다). room을 넘으면 background-no-space */
 async function download(url: string, file: string, room: number, signal: AbortSignal, deps?: safeUrl.RequestDeps) {
   const part = `${file}.part`;
   try {

@@ -1,4 +1,4 @@
-// AI 보조의 모양. 판정, 확인, 미리보기가 돌려주는 것은 대시보드가 그대로 받으므로 Node 를 부르지 않는 여기에 둔다
+// AI 보조의 모양. 판정, 확인, 미리보기가 돌려주는 것은 대시보드가 그대로 받으므로 Node를 부르지 않는 여기에 둔다
 
 import type { PromptSection } from "../../config/schema/ai-prompt.ts";
 
@@ -6,10 +6,10 @@ import type { PromptSection } from "../../config/schema/ai-prompt.ts";
 type ListFormat = { lineFormat?: string };
 /**
  * AI 설정 한 벌. 저장된 것이거나 대시보드의 초안이다. 여기서 읽는 필드만.
- * 수 필드는 글자일 수 있어 쓰는 곳에서 Number 로 바꾼다
+ * 수 필드는 글자일 수 있어 쓰는 곳에서 Number로 바꾼다
  */
 type AiSettings = {
-  /** 켜고 끄기. false 면 부르지 않는다. 없으면 provider 로 판단한다 */
+  /** 켜고 끄기. false면 부르지 않는다. 없으면 provider로 판단한다 */
   enabled?: boolean;
   provider?: string;
   model?: string;
@@ -40,12 +40,12 @@ type Judged = { title?: string | null; durationSec?: number | null; duration?: n
 type TestCandidate = Judged & { url?: string; thumbnail?: string | null; channel?: string | null; error?: string };
 /** 저쪽에 보내는 메시지 하나 */
 type Wire = { role: string; content: string };
-/** 화면에 보이는 메시지. at 은 원래 섹션 번호(라벨용, 저쪽에는 보내지 않는다) */
+/** 화면에 보이는 메시지. at은 원래 섹션 번호(라벨용, 저쪽에는 보내지 않는다) */
 type ShownMessage = Wire & { at: number };
 type Body = Record<string, unknown>;
-/** 토큰. input 은 캐시에서 읽은 입력(cached)을 품고, output 은 사고(thoughts)를 품는다 */
+/** 토큰. input은 캐시에서 읽은 입력(cached)을 품고, output은 사고(thoughts)를 품는다 */
 type Usage = { input: number; output: number | null; thoughts: number | null; cached: number | null };
-/** 센 토큰. each 는 메시지마다(저쪽에 물어 셌으면 없다), body 는 감싸는 몫을 뺀 본문 */
+/** 센 토큰. each는 메시지마다(저쪽에 물어 셌으면 없다), body는 감싸는 몫을 뺀 본문 */
 type TokenCount = { total: number; body: number; each?: number[]; by: string; exact: boolean };
 
 /** 나갈 것을 만들어만 본 것. 헤더의 키 값은 가려져 있다 */
@@ -61,12 +61,12 @@ type JudgeResult = Preview & {
 };
 
 /**
- * 모델 목록 확인(무료). 저쪽에 닿기 전에 막혔으면 reason 만 있다.
- * preset 이면 저쪽 목록이 아니라 모델 프로필(config/ai-models)로 채운 목록이다(저쪽에 조회하지 못했다)
+ * 모델 목록 확인(무료). 저쪽에 닿기 전에 막혔으면 reason만 있다.
+ * preset이면 저쪽 목록이 아니라 모델 프로필(config/ai-models)로 채운 목록이다(저쪽에 조회하지 못했다)
  */
 type ModelsCheck = { ok: boolean; reason?: string; url?: string; status?: number | null; models?: string[]; hiddenCount?: number; preset?: boolean; response?: string; tookMs?: number };
 
-/** 짧은 물음 하나로 확인(유료). 저쪽에 닿기 전에 막혔으면 reason 만 있다 */
+/** 짧은 물음 하나로 확인(유료). 저쪽에 닿기 전에 막혔으면 reason만 있다 */
 type PingCheck = { ok: boolean; reason?: string; url?: string; headers?: Record<string, string>; body?: Body; status?: number | null; response?: string; answer?: string; tookMs?: number };
 
 export type { ListFormat, AiSettings, AiDefaults, Judged, TestCandidate, Wire, ShownMessage, Body, Usage, TokenCount, Preview, JudgeResult, ModelsCheck, PingCheck };

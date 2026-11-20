@@ -6,7 +6,7 @@ import type { Client } from "discord.js";
 import { useDocument } from "../helpers/config-docs.ts";
 import * as documents from "../../src/config/documents.ts";
 
-// 장르는 Last.fm, VocaDB 만 쓴다
+// 장르는 Last.fm, VocaDB만 쓴다
 useDocument("genres", { defaults: { prefetchCount: 1 }, genres: { 락: { sources: [{ type: "lastfm", tags: ["rock"] }, { type: "vocadb" }] } } });
 
 const config = (await import("../../src/config/index.ts")).default;
@@ -55,13 +55,13 @@ test("부른 결과: 없으면 쉼, 마지막이 실패면 실패, 오래 걸렸
   assert.deepEqual([rowOf("soundcloud").state, rowOf("soundcloud").note], ["slow", "최근 4번 중 3번 실패"]);
 });
 
-test("디스코드는 게이트웨이, POToken 은 서버 프로세스로 본다", () => {
+test("디스코드는 게이트웨이, POToken은 서버 프로세스로 본다", () => {
   assert.deepEqual([rowOf("discord").state, rowOf("discord").latencyMs], ["ok", 48]);
   config.bgutil.enabled = true;
   assert.deepEqual([rowOf("potoken").state, rowOf("potoken").note], ["fail", "서버가 떠 있지 않음"]);
 });
 
-test("늘 붙는 설명: AI 는 모델, Spotify 는 익명 토큰이 남은 시간, ListenBrainz 는 이름에 올리면 시간 한도", () => {
+test("늘 붙는 설명: AI는 모델, Spotify는 익명 토큰이 남은 시간, ListenBrainz는 이름에 올리면 시간 한도", () => {
   useDocument("ai", { enabled: true, provider: "ollama", model: "qwen3:8b" });
   spotify.graphql._anonToken = { value: "t", expiresAt: Date.now() + 41 * 60_000 + 1000 };
   try {
@@ -76,7 +76,7 @@ test("늘 붙는 설명: AI 는 모델, Spotify 는 익명 토큰이 남은 시�
   }
 });
 
-test("장르 설정이 검사를 못 지나면 자동재생 출처는 그 까닭으로 쓰지 않음", () => {
+test("장르 설정이 검사를 못 지나면 자동재생 출처는 그 이유로 쓰지 않음", () => {
   const good = documents.get("genres");
   useDocument("genres", { genres: "깨짐" });
   try {

@@ -22,7 +22,7 @@ const track = { requestKey: "https://www.youtube.com/watch?v=aaaaaaaaaaa", audio
 
 type OnDownload = (track: DownloadTrack, file: string) => Promise<void>;
 
-// 같은 파일을 다운로드하고, 다운로드는 onDownload 가 대신한다
+// 같은 파일을 다운로드하고, 다운로드는 onDownload가 대신한다
 class RaceDownloader extends TrackDownloader {
   onDownload: OnDownload;
 

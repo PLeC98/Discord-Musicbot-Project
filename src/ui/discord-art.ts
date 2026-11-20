@@ -1,6 +1,6 @@
 // 디스코드에 붙이는 곡 썸네일. 디스코드는 눌러서 크게 보여 주므로 큰 이미지를 붙인다.
-// 유튜브 maxresdefault 는 옛 영상에 없어(404) 영상마다 한 번 HEAD 로 확인한다. 없거나 확인하지 못하면 늘 있는 hqdefault(480×360).
-// 확인은 prepare 가 하고(재생 패널을 그리기 전), 그리는 쪽은 urlOf 로 아는 답만 쓴다(모르면 hqdefault).
+// 유튜브 maxresdefault는 옛 영상에 없어(404) 영상마다 한 번 HEAD로 확인한다. 없거나 확인하지 못하면 늘 있는 hqdefault(480×360).
+// 확인은 prepare가 하고(재생 패널을 그리기 전), 그리는 쪽은 urlOf로 아는 답만 쓴다(모르면 hqdefault).
 // 썸네일 주소가 없는 직접 링크 곡은 찾아 둔 파일 태그 이미지(sources/embedded-art)를 첨부한다(artFor). 디스코드에는 봇의 공개 주소가 없다
 
 import { artOf, youtubeArt, youtubeIdOf } from "../rules/track-art.ts";
@@ -57,8 +57,8 @@ type DiscordArt = { url: string; file?: { attachment: Buffer; name: string }; fi
 
 /**
  * 이 곡에 붙일 썸네일. 곡의 썸네일 주소가 있으면 그 큰 것(유튜브는 큰 썸네일이 있는지 확인해 둔다), 직접 링크 곡이면 찾아 둔 파일 태그 이미지의 첨부.
- * 파일 태그 이미지는 메모리, 캐시 파일에서만 읽는다(통신을 기다리지 않는다. 모르면 null 이고, 찾으면 플레이어가 새로 그린다)
- * wait: false 면 유튜브 큰 썸네일 확인을 기다리지 않고 아는 답(모르면 hqdefault)을 쓴다. 확인은 뒤에서 해 둔다(상호작용의 3초 응답처럼 기다릴 수 없는 곳)
+ * 파일 태그 이미지는 메모리, 캐시 파일에서만 읽는다(통신을 기다리지 않는다. 모르면 null이고, 찾으면 플레이어가 새로 그린다)
+ * wait: false면 유튜브 큰 썸네일 확인을 기다리지 않고 아는 답(모르면 hqdefault)을 쓴다. 확인은 뒤에서 해 둔다(상호작용의 3초 응답처럼 기다릴 수 없는 곳)
  */
 async function artFor(track: { thumbnail?: string | null; audioUrl?: string } | null | undefined, { wait = true }: { wait?: boolean } = {}): Promise<DiscordArt | null> {
   if (!track) return null;

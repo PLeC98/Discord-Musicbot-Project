@@ -1,4 +1,4 @@
-// 곡 추가(usecases/add-tracks 의 queueTracks)를 테스트의 가짜로 바꾼다. 한 파일에 세계(봇 문맥)가 여럿이라 봇 문맥마다 따로 둔다.
+// 곡 추가(usecases/add-tracks의 queueTracks)를 테스트의 가짜로 바꾼다. 한 파일에 세계(봇 문맥)가 여럿이라 봇 문맥마다 따로 둔다.
 // 가짜를 두지 않은 봇 문맥은 진짜로 추가한다
 
 import * as addTracks from "../../src/usecases/add-tracks.ts";

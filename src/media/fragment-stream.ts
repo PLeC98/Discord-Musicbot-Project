@@ -1,13 +1,13 @@
 // 세그먼트로만 주는 소리를 차례로 받아 내보내는 읽기 스트림.
 //
 // 무엇을 받을지는 출처(FragmentSource)가 정하고, 여기는 받아 내보내는 일만 한다: 다음 세그먼트를 미리 받아 두고, 멈추거나 5xx, 네트워크 오류면
-// 조금 기다렸다 다시 받고, 끝내 못 받거나 4xx 면 오류로 끝난다(재생 쪽이 캐시로 갈아타거나 그 위치부터 다시 연다).
+// 조금 기다렸다 다시 받고, 끝내 못 받거나 4xx면 오류로 끝난다(재생 쪽이 캐시로 갈아타거나 그 위치부터 다시 연다).
 // 멈춤은 무응답으로 본다: 출처가 바이트를 받을 때마다 알리면(progress) 한도를 다시 잰다. 알리지 않는 출처는 다 받을 때까지가 한도다.
 // 출처가 큰 세그먼트를 스트림으로 주면 받는 쪽 속도에 맞춰 내보내고 끝나면 다음으로 간다. 내보내기 시작한 뒤의 실패는 재시도하지 않는다(이미 일부를 내보냈다).
 //   유튜브 세그먼트  방송이 끝나고 다시보기를 다 만들기 전(post_live)에 소리를 세그먼트(약 2초)로만 준다. 세그먼트 주소는 포맷 주소 뒤에 `&sq=번호`이고
-//                   세그먼트마다 `ftyp`, `moov` 가 붙어 있어 하나씩 풀린다. ffmpeg 는 이어 붙인 것을 파이프로 읽는다(겹친 moov 는 건너뛴다)
-//   그 밖           출처가 만든다(직접 링크의 HLS 는 sources/hls)
-// 위치 이동은 그 위치가 든 세그먼트부터 받는다. 세그먼트 안의 나머지는 ffmpeg 의 -ss 가 맞춘다(startedAtMs).
+//                   세그먼트마다 `ftyp`, `moov`가 붙어 있어 하나씩 풀린다. ffmpeg는 이어 붙인 것을 파이프로 읽는다(겹친 moov는 건너뛴다)
+//   그 밖           출처가 만든다(직접 링크의 HLS는 sources/hls)
+// 위치 이동은 그 위치가 든 세그먼트부터 받는다. 세그먼트 안의 나머지는 ffmpeg의 -ss가 맞춘다(startedAtMs).
 
 import { Readable, finished } from "stream";
 import { messageOf, timeoutError } from "../rules/error-kind.ts";
@@ -24,7 +24,7 @@ const ignore = () => {
 
 /**
  * 내보낼 세그먼트들. 세그먼트가 무엇인지(F)는 출처만 안다.
- * next 는 순서대로 부른다고 보지 않는다(미리 받기가 앞 세그먼트를 받는 중에 부른다). 출처가 순서를 지킨다
+ * next는 순서대로 부른다고 보지 않는다(미리 받기가 앞 세그먼트를 받는 중에 부른다). 출처가 순서를 지킨다
  */
 type FragmentSource<F> = {
   /** 다음 세그먼트. 끝이면 null(끝난 뒤에도 null). 라이브는 목록에 새 세그먼트가 나올 때까지 기다린다 */
@@ -36,7 +36,7 @@ type FragmentSource<F> = {
   fetch(fragment: F, signal: AbortSignal, progress: () => void): Promise<Buffer | Readable>;
   /** 내보내기 시작하는 곡 안의 위치(ms). 받는 첫 세그먼트의 시작 */
   startedAtMs: number;
-  /** 지금 상태 한 줄. sent 는 내보낸 세그먼트 수 */
+  /** 지금 상태 한 줄. sent는 내보낸 세그먼트 수 */
   describe(sent: number): string;
   /** 스트림이 닫혔다(라이브 목록 다시 받기를 멈춘다) */
   close?(): void;
@@ -47,7 +47,7 @@ type FragmentStream = Readable & {
   startedAtMs: number;
   /** 입력 상태 한 줄(끊겼을 때 남긴다) */
   describe(): string;
-  /** 첫 세그먼트를 받아 둔다. 못 받으면 던진다(읽기는 받아 둔 것부터 내보낸다) */
+  /** 첫 세그먼트를 받아 둔다. 못 받으면 예외를 던진다(읽기는 받아 둔 것부터 내보낸다) */
   prime(): Promise<void>;
 };
 
@@ -185,7 +185,7 @@ type FragmentOptions = StreamOptions & {
   fetchImpl?: FragmentFetch;
 };
 
-/** 세그먼트 하나의 길이(ms). 전체 길이를 세그먼트 수로 나눈다. 세그먼트마다의 길이는 yt-dlp 도 주지 않는다 */
+/** 세그먼트 하나의 길이(ms). 전체 길이를 세그먼트 수로 나눈다. 세그먼트마다의 길이는 yt-dlp도 주지 않는다 */
 const fragmentMsOf = ({ count }: Fragments, durationMs: number) => durationMs / count;
 
 /** 이 위치가 속한 세그먼트 번호와 그 세그먼트의 시작 시각(ms)을 구한다. 곡 길이를 모르면 처음부터 시작한다 */
@@ -219,8 +219,8 @@ function createFragmentStream(options: FragmentOptions): FragmentStream {
 }
 
 /**
- * 유튜브 세그먼트 목록을 열어 첫 세그먼트까지 받아 둔다(청크 스트림의 openChunkedStream 과 같은 약속).
- * 막힌 주소(만료, 추출한 IP 와 다른 망)가 여는 자리에서 드러나야 재생 쪽이 새로 받거나 캐시로 넘긴다
+ * 유튜브 세그먼트 목록을 열어 첫 세그먼트까지 받아 둔다(청크 스트림의 openChunkedStream과 같은 약속).
+ * 막힌 주소(만료, 추출한 IP와 다른 망)가 여는 자리에서 드러나야 재생 쪽이 새로 받거나 캐시로 넘긴다
  */
 async function openFragmentStream(options: FragmentOptions): Promise<FragmentStream> {
   const stream = createFragmentStream(options);

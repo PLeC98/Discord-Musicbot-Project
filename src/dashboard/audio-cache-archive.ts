@@ -1,4 +1,4 @@
-// 오디오 캐시 백업(설정 내보내기의 audio-cache 종류). ZIP 의 audio-cache/ 아래에 캐시 파일(files/<캐시 파일 이름>)과 마지막 항목의 행 목록(rows.json).
+// 오디오 캐시 백업(설정 내보내기의 audio-cache 종류). ZIP의 audio-cache/ 아래에 캐시 파일(files/<캐시 파일 이름>)과 마지막 항목의 행 목록(rows.json).
 // 행 목록: 담은 캐시 파일의 행, 링크 데이터 전부(곡 파일 없이 내보내도 같다), 직접 지정한 음원, 연령 제한, SponsorBlock 구간(불러오기에서 선택한다).
 // 스포티파이 익명 상태, 재생 테스트 결과는 담지 않는다. 곡 파일 없이 내보내면(files=0) 캐시 파일 행도 담지 않는다.
 // 내보내는 동안 담을 파일을 지킨다(퇴거, 삭제, 초기화가 지우지 않게, audioCache.holdForExport). 그래도 사라진 파일은 건너뛰고 행 목록에서 뺀다.
@@ -7,7 +7,7 @@
 //   링크 데이터     이 봇의 행을 둔다(더 새 결과). 음원이 같으면 확인된 제목을 앞세운다
 //   직접 지정한 음원 파일의 것으로 덮는다(운영자가 정한 것을 불러온다)
 //   연령 제한, SponsorBlock 합친다
-// 연령 제한을 먼저 불러온다(퇴거 점수가 읽는다). 파일은 임시 이름으로 받아 옮긴다(받는 동안 정리가 지우지 않게 지킨다). 설정 DB 가 아니라 스냅샷을 뜨지 않는다.
+// 연령 제한을 먼저 불러온다(퇴거 점수가 읽는다). 파일은 임시 이름으로 받아 옮긴다(받는 동안 정리가 지우지 않게 지킨다). 설정 DB가 아니라 스냅샷을 뜨지 않는다.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -34,7 +34,7 @@ const FILES_MAX = ZIP_MAX_ENTRIES - 2;
 // rows.json 크기 상한. 링크 데이터, SponsorBlock 구간이 수만 행이어도 들어간다
 const ROWS_MAX_BYTES = 64 * 1024 * 1024;
 
-/** rows.json 의 모양. 읽을 때 같은 모양으로 검사한다 */
+/** rows.json의 모양. 읽을 때 같은 모양으로 검사한다 */
 const text = (max: number) => z.string().max(max);
 const time = z.number().int().min(0);
 const RowsSchema = z.object({
@@ -86,14 +86,14 @@ function rowsOf(files: audioCache.AudioRow[]): Rows {
 
 const cachedRows = () => audioCache.allRows().filter((row) => row.status === "cached");
 
-/** 내보낼 수 없는 까닭(캐시 파일이 ZIP 하나의 상한보다 많다). 없으면 null */
+/** 내보낼 수 없는 이유(캐시 파일이 ZIP 하나의 상한보다 많다). 없으면 null */
 function exportProblem(withFiles: boolean): { code: "archive-too-many-files"; max: number } | null {
   return withFiles && cachedRows().length > FILES_MAX ? { code: "archive-too-many-files", max: FILES_MAX } : null;
 }
 
 /**
  * 내보낼 항목(settings.json 다음에 붙인다): 캐시 파일(파일째), 마지막에 실제로 담은 파일만 적은 행 목록.
- * release 는 다 보냈거나 끊겼을 때 지킴을 푼다(여러 번 불러도 된다)
+ * release는 다 보냈거나 끊겼을 때 지킴을 푼다(여러 번 불러도 된다)
  */
 function exportInputs({ withFiles }: { withFiles: boolean }): { inputs: ZipInput[]; release: () => void } {
   const files = withFiles ? cachedRows() : [];
@@ -109,23 +109,23 @@ const AUDIO_ITEMS = ["audio-files", "audio-ledger", "audio-pins", "audio-age", "
 type AudioItem = (typeof AUDIO_ITEMS)[number];
 const isAudioItem = (item: ArchiveItem): item is AudioItem => (AUDIO_ITEMS as readonly string[]).includes(item);
 
-/** 읽은 번들: 행 목록과 ZIP 의 캐시 파일 항목(이름 → 항목) */
+/** 읽은 번들: 행 목록과 ZIP의 캐시 파일 항목(이름 → 항목) */
 type Bundle = { rows: Rows; entries: Map<string, ZipItem> };
 
-/** 올린 ZIP 의 행 목록을 읽는다. 없거나 모양이 틀리면 BAD_ARCHIVE */
+/** 올린 ZIP의 행 목록을 읽는다. 없거나 모양이 틀리면 BAD_ARCHIVE */
 function readBundle(file: string): Bundle {
   const zipped = openZip(file);
   try {
     const entry = zipped.entries.find((one) => one.name === ROWS_NAME);
-    if (!entry) throw codedError("BAD_ARCHIVE", `${ROWS_NAME} 이 없음. 오디오 캐시 내보내기 파일이 아님`);
+    if (!entry) throw codedError("BAD_ARCHIVE", `${ROWS_NAME}이 없음. 오디오 캐시 내보내기 파일이 아님`);
     let raw: unknown;
     try {
       raw = JSON.parse(zipped.read(entry, ROWS_MAX_BYTES).toString("utf8"));
     } catch {
-      throw codedError("BAD_ARCHIVE", `${ROWS_NAME} 이 JSON 이 아니거나 너무 큼`);
+      throw codedError("BAD_ARCHIVE", `${ROWS_NAME}이 JSON이 아니거나 너무 큼`);
     }
     const parsed = RowsSchema.safeParse(raw);
-    if (!parsed.success) throw codedError("BAD_ARCHIVE", `${ROWS_NAME} 의 형식이 맞지 않음: ${parsed.error.issues[0]?.path.join(".")}`);
+    if (!parsed.success) throw codedError("BAD_ARCHIVE", `${ROWS_NAME}의 형식이 맞지 않음: ${parsed.error.issues[0]?.path.join(".")}`);
     return { rows: parsed.data, entries: new Map(zipped.entries.filter((one) => one.name.startsWith(FILES_DIR)).map((one) => [one.name, one])) };
   } finally {
     zipped.close();
@@ -139,7 +139,7 @@ function roomForCache() {
 }
 
 /**
- * 불러올 캐시 파일: 이 봇에 없고 ZIP 에 파일이 있는 것을 퇴거 점수가 낮은 것부터, 캐시 상한(크기, 수)과 남은 디스크까지.
+ * 불러올 캐시 파일: 이 봇에 없고 ZIP에 파일이 있는 것을 퇴거 점수가 낮은 것부터, 캐시 상한(크기, 수)과 남은 디스크까지.
  * existing: 이 봇에 이미 있다(받는 중 포함), over: 상한 밖
  */
 function planFiles(bundle: Bundle, moreAge: Iterable<string>) {
@@ -206,7 +206,7 @@ function previewRows(bundle: Bundle): ArchiveRow[] {
 // 캐시 폴더 안의 임시 이름(정리가 다운로드 중인 파일로 보고 건너뛴다)
 const tempFor = (audioKey: string) => path.join(audioCache.cacheDir(), `${path.basename(audioCache.getFilePath(audioKey), ".opus")}.tmp-${process.pid}-${crypto.randomBytes(4).toString("hex")}.opus`);
 
-// 캐시 파일 하나를 ZIP 에서 임시 이름으로 받아 이 봇의 캐시 경로로 옮긴다. 옮겼으면 true
+// 캐시 파일 하나를 ZIP에서 임시 이름으로 받아 이 봇의 캐시 경로로 옮긴다. 옮겼으면 true
 async function importFile(zipped: ReturnType<typeof openZip>, entry: ZipItem, row: FileRow) {
   const temp = tempFor(row.audioKey);
   audioCache.protectFile(temp);

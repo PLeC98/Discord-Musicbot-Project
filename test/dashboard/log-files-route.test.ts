@@ -51,7 +51,7 @@ test("목록과 한 쪽: 운영자는 파일 목록, 필터링한 줄을 받는�
   assert.equal(page.more, true);
   assert.equal(page.since, T0);
   const found = (await (await fetch(`${base}/file?name=bot.log&q=${encodeURIComponent("줄 1")}`)).json()) as FilePage;
-  assert.equal(found.matches, 11, "줄 1 · 10 ~ 19");
+  assert.equal(found.matches, 11, "줄 1, 10 ~ 19");
 });
 
 test("목록에 없는 이름, 경로는 log-file-not-found", async () => {

@@ -3,7 +3,7 @@
 //   given    요청 그대로(유튜브, 사운드클라우드, 직접 링크)
 //   ledger   오디오 링크 데이터(track_lookup)에서 온 것, 또는 자동으로 찾아 링크 데이터에 한 번 넣은 것
 //   search   지금 검색으로 찾은 것(아직 링크 데이터에 넣지 않았다)
-//   pinned   운영자가 캐시 DB 에서 직접 지정한 음원(pinned_sources)
+//   pinned   운영자가 캐시 DB에서 직접 지정한 음원(pinned_sources)
 
 const AUDIO_FOUND_BY = ["given", "ledger", "search", "pinned"] as const;
 type AudioFoundBy = (typeof AUDIO_FOUND_BY)[number];

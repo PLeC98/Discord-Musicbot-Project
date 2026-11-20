@@ -32,7 +32,7 @@ test("켜면 이 실행의 파일에 봇(실행 파일 이름 포함)과 살아 
   assert.equal(path.basename(file), registry.recordNameOf(read().owner));
 
   const before = Date.now();
-  // 경로는 이 OS 의 모양으로(POSIX 의 basename 은 역슬래시를 구분자로 보지 않는다)
+  // 경로는 이 OS의 모양으로(POSIX의 basename은 역슬래시를 구분자로 보지 않는다)
   const releaseA = registry.register(fakeChild(990_002, path.join("C:", "Program Files", "node.exe")), "bgutil");
   const releaseB = registry.register(fakeChild(990_003, "/usr/bin/yt-dlp"), "yt-dlp", { group: true });
   const children = read().children;

@@ -1,80 +1,195 @@
-// bgutil-ytdlp-pot-provider (POToken 공급자) 설치/업데이트 스크립트.
-//   pnpm run install:bgutil, update:bgutil. 둘은 같은 일을 한다:
-//   설정한 태그를 받아 고정한 커밋인지 맞춰 보고, 그 커밋으로 깨끗하게 체크아웃, 그 태그의 잠금 파일 그대로 의존성 설치 + 빌드
+// bgutil-ytdlp-pot-provider(POToken 공급자) 설치. pnpm run install:bgutil, update:bgutil(같은 일을 한다).
+//   태그와 커밋을 vendor/bgutil/<태그>-<설치 시각>/에 다운로드해 빌드하고, 실행 테스트를 거친 뒤 가리킴(vendor/bgutil/state.json)을 바꾼다(src/sources/bgutil/install).
+//   새 폴더에 설치하므로 봇이 켜져 있어도 되고(돌고 있는 POToken 서버가 쥔 파일과 부딪치지 않는다), 켜져 있는 봇은 다시 시작하면 새 것을 쓴다.
 //
-// 설치하는 버전은 src/config/vendor-versions.ts 의 기본 태그와 커밋이고, .env 의 BGUTIL_VERSION, BGUTIL_COMMIT 으로 바꾼다.
+// 설치하는 버전은 업데이트 탭의 bgutil 카드가 고정한 태그와 커밋(설정 DB)이고, 고정하지 않았거나 설정 DB가 없으면(첫 설치) src/config/vendor-versions.ts의 기본 짝이다.
+//   설정 DB가 있는데 읽지 못하면 설치하지 않고 1로 끝난다(저장해 둔 고정을 무시하고 기본값을 설치하지 않게).
+// --pin <태그> [--commit <커밋>]: 그 태그를 설치하고 고정한다. 커밋을 주지 않으면 저장소에서 태그가 가리키는 커밋을 확인해 보인다. --unpin: 고정을 풀고 기본값을 설치한다.
+//   설치한 뒤에 저장한다(설치하지 못하면 설정은 그대로). 봇이 켜져 있으면 하지 않는다(대시보드에서 바꾼다): 켜진 봇은 설정을 메모리에 들고 있어 여기서 고쳐도 모른다.
+//   그동안 봇 실행 잠금을 쥐어 봇이 켜지지 않게 한다.
+// --tag <태그> --commit <커밋>: 그 짝을 설치만 한다(봇의 설치 작업이 넘긴다). --force: 이미 그 태그와 커밋이어도 새 폴더에 다시 설치한다(망가진 설치를 고칠 때).
+// 인자는 src/sources/bgutil/cli-args가 읽는다.
+//
 // 기본 브랜치를 따라가지 않고 잠금 파일을 고치지 않는다(npm audit fix 없음). 설치한 날에 따라 다른 코드가 깔리지 않게.
 // 잠금 파일의 취약점은 새 태그로 고친다(주마다 도는 vendor-updates 워크플로가 알린다).
 // 설치 스크립트는 잠금 파일에서 설치 스크립트가 있는 실행 의존성(canvas)만 돌린다. 개발 의존성의 설치 스크립트는 잠금 파일 밖에서 받을 수 있다.
-//
-// 봇은 실행 시 설치된 bgutil을 감지해 POToken 서버를 함께 시작한다(실행마다 빈 포트).
+// 출력은 봇 로그와 같은 모양으로 찍는다(infra/script-line). 설정 DB를 읽는 모듈은 로거를 부르고 로거는 console을 가로채므로, 그때부터는 로거로 찍는다.
 
-import "../src/app/env-bootstrap.ts"; // 설정을 읽기 전에 .env 를 읽는다(없으면 만든다)
-import { execFileSync } from "child_process";
-import path from "path";
-import fs from "fs";
+import "../src/app/env-bootstrap.ts"; // 설정을 읽기 전에 .env를 읽는다(없으면 만든다)
+import path from "node:path";
 import config from "../src/config/index.ts";
 import { BGUTIL_COMMIT, BGUTIL_VERSION } from "../src/config/vendor-versions.ts";
-import { bgutilPin, rebuildTargets, rootInstallScripts } from "../src/rules/bgutil-install.ts";
-import { checkoutPinned } from "../src/infra/pinned-checkout.ts";
+import { BGUTIL_REPO, taggedCommit } from "../src/rules/bgutil-install.ts";
+import { checkoutPinned, gitWith } from "../src/infra/pinned-checkout.ts";
+import { runTool } from "../src/infra/tool-run.ts";
+import { toolEnv } from "../src/config/tool-env.ts";
 import { messageOf } from "../src/rules/error-kind.ts";
 import { PROJECT } from "../src/infra/project-paths.ts";
+import { acquireInstanceLock } from "../src/infra/instance-lock.ts";
+import { installBgutil, type InstallIo, type InstallOutcome } from "../src/sources/bgutil/install.ts";
+import { trialRun } from "../src/sources/bgutil/trial.ts";
+import { scriptLine, type ScriptLevel } from "../src/infra/script-line.ts";
+import { parseInstallArgs, type InstallMode } from "../src/sources/bgutil/cli-args.ts";
 
-const ROOT = PROJECT.root;
-const DIR = PROJECT.bgutil;
-const SERVER = path.join(DIR, "server");
-const REPO = "https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git";
-const TAGS_URL = "https://github.com/Brainicism/bgutil-ytdlp-pot-provider/tags";
+const REPO = `https://github.com/${BGUTIL_REPO}.git`;
+const TAGS_URL = `https://github.com/${BGUTIL_REPO}/tags`;
 
-// 윈도우의 npm 은 .cmd 라 셸로 부른다. 인자는 잠금 파일의 패키지 이름뿐이다
-function npm(args: string[]) {
+// 명령마다의 상한(ms). 체크아웃의 git(합쳐 11분)과 이 셋을 더해도 30분 안이다
+const NPM_CI_MS = 10 * 60_000;
+const NPM_REBUILD_MS = 5 * 60_000;
+const TSC_MS = 3 * 60_000;
+
+// 외부 도구에는 봇의 비밀값 환경 변수를 뺀 환경을 넘긴다(npm rebuild는 다운로드한 의존성의 설치 스크립트를 실행한다)
+const env = toolEnv();
+const show = (dir: string) => path.relative(PROJECT.root, dir);
+
+const SETTINGS_DB = path.join(PROJECT.database, "settings.db");
+
+let say: (level: ScriptLevel, line: string) => void = scriptLine("bgutil");
+
+// 설정 DB를 읽는 모듈을 부른 뒤로는 로거로 찍는다(같은 모양)
+async function sayWithLogger() {
+  const { default: logger } = await import("../src/infra/log/logger.ts");
+  const log = logger.child({ category: "bgutil" });
+  say = (level, line) => log[level](line);
+}
+
+// 윈도우의 npm은 .cmd라 셸로 실행한다. 인자는 잠금 파일의 패키지 이름뿐이다(rebuildTargets가 모양을 본다)
+async function npm(serverDir: string, args: string[], timeoutMs: number) {
   const cmd = `npm ${args.join(" ")}`;
-  console.log(`\n$ ${cmd}   (${path.relative(ROOT, SERVER)})`);
-  execFileSync(cmd, { cwd: SERVER, stdio: "inherit", shell: true });
+  const run = { cwd: serverDir, env, label: cmd, timeoutMs };
+  await (process.platform === "win32" ? runTool(cmd, [], { ...run, shell: true }) : runTool("npm", args, run));
 }
 
-function fail(lines: string[]): never {
-  for (const line of lines) console.error(line);
-  process.exit(1);
+const io: InstallIo = {
+  checkout: (repoDir, tag, commit) => checkoutPinned({ dir: repoDir, repo: REPO, tag, commit, git: gitWith(env), log: (line) => say("info", `${line} (${show(repoDir)})`) }),
+  npmCi: (serverDir) => npm(serverDir, ["ci", "--ignore-scripts"], NPM_CI_MS),
+  npmRebuild: (serverDir, names) => npm(serverDir, ["rebuild", ...names], NPM_REBUILD_MS),
+  // build/main.js 생성(tsconfig outDir=./build). npx를 거치지 않고 잠금 파일의 typescript를 쓴다
+  tsc: async (serverDir) => {
+    const tsc = path.join(serverDir, "node_modules", "typescript", "bin", "tsc");
+    await runTool(process.execPath, [tsc], { cwd: serverDir, env, label: "tsc", timeoutMs: TSC_MS });
+  },
+  trial: trialRun,
+  now: () => Date.now(),
+  pid: process.pid,
+  log: (line) => say("info", line),
+};
+
+/** 봇이 켜져 있나. parent: 이 스크립트를 띄운 봇(봇의 설치 작업), other: 따로 켜져 있는 봇 */
+async function botNow(): Promise<"none" | "parent" | "other"> {
+  const held = await acquireInstanceLock(PROJECT.database);
+  if (held.ok) {
+    await held.release();
+    return "none";
+  }
+  return held.holder === process.ppid ? "parent" : "other";
 }
 
-const pin = bgutilPin(config.bgutil.version, config.bgutil.commit, { version: BGUTIL_VERSION, commit: BGUTIL_COMMIT });
-if ("error" in pin) fail([`\n❌ ${pin.error}`, `   태그 목록: ${TAGS_URL}`]);
-const { tag, commit } = pin;
+function report(outcome: InstallOutcome, bot: "none" | "parent" | "other"): number {
+  for (const note of outcome.notes) say("warn", note);
+  switch (outcome.kind) {
+    case "unchanged":
+      say("info", `이미 ${outcome.tag}(서버 ${outcome.version}) 사용 중`);
+      return 0;
+    case "installed":
+      say("info", `${outcome.tag}(서버 ${outcome.version}) 설치 완료${outcome.from ? `(이전 ${outcome.from})` : ""}`);
+      // 켜져 있는 봇은 기동 때 정한 빌드를 계속 쓴다. yt-dlp 플러그인은 서버와 메이저 버전이 다르면 거부하므로 둘을 함께 바꿔야 한다
+      if (bot !== "none") say("warn", "켜져 있는 봇을 다시 시작하세요(다시 시작해야 새 버전 적용)");
+      return 0;
+    case "failed":
+      say("error", `${outcome.tag} 설치 실패(지금 쓰는 bgutil 그대로): ${outcome.reason}`);
+      say("error", "git, node, canvas 네이티브 모듈용 빌드 도구가 있는지, 네트워크와 태그를 확인하세요");
+      return 1;
+    case "busy":
+      say("error", `설치 건너뜀: 다른 프로세스(${outcome.holder ? `PID ${outcome.holder}` : "PID 모름"})가 vendor/bgutil 사용 중`);
+      return 1;
+  }
+}
+
+type Target = { tag: string; commit: string };
+
+// 설정 DB의 고정을 설정 객체에 올린다(없으면 기본값). 읽지 못하면 예외를 던진다
+async function settingsTarget(): Promise<Target> {
+  const tunables = await import("../src/store/tunables.ts");
+  await sayWithLogger();
+  tunables.loadReadOnly(SETTINGS_DB, { strict: true });
+  return { tag: config.bgutil.version, commit: config.bgutil.commit };
+}
+
+// 태그가 가리키는 커밋을 저장소에서 확인한다
+async function remoteCommit(tag: string): Promise<string> {
+  const out = await gitWith(env)(["ls-remote", REPO, `refs/tags/${tag}`, `refs/tags/${tag}^{}`], PROJECT.root);
+  const commit = taggedCommit(out, tag);
+  if (!commit) throw new Error(`저장소에 태그가 없음: ${tag}(태그 목록: ${TAGS_URL})`);
+  say("info", `태그 ${tag}의 커밋: ${commit}`);
+  return commit;
+}
+
+/** 설치한다. 설치했거나 이미 그것이면 true. botOff: 봇 실행 잠금을 이 스크립트가 쥐고 있다(--pin, --unpin) */
+async function install(target: Target, force: boolean, botOff = false): Promise<boolean> {
+  const bot = botOff ? "none" : await botNow();
+  const outcome = await installBgutil({ dir: PROJECT.bgutil, tag: target.tag, commit: target.commit, force, io });
+  return report(outcome, bot) === 0;
+}
+
+// --pin, --unpin: 봇이 꺼져 있을 때만. 설정 DB를 쓰기로 열고, 설치한 뒤 저장한다
+async function changePin(mode: Extract<InstallMode, { kind: "pin" | "unpin" }>, force: boolean): Promise<boolean> {
+  const held = await acquireInstanceLock(PROJECT.database);
+  if (!held.ok) throw new Error(`봇이 실행 중이라(${held.holder ? `PID ${held.holder}` : "PID 모름"}) bgutil 고정을 바꾸지 않습니다. 대시보드 운영자 패널의 업데이트 탭에서 바꾸거나, 봇을 끄고 다시 실행하세요`);
+  const { settingsDb } = await import("../src/store/settings-db.ts");
+  const tunables = await import("../src/store/tunables.ts");
+  await sayWithLogger();
+  try {
+    settingsDb.open(SETTINGS_DB);
+    tunables.load();
+    const was = config.bgutil.pinned ? `${config.bgutil.version}(${config.bgutil.commit})` : "없음";
+    const target = mode.kind === "unpin" ? { tag: BGUTIL_VERSION, commit: BGUTIL_COMMIT } : { tag: mode.tag, commit: mode.commit ?? (await remoteCommit(mode.tag)) };
+    if (!(await installGuarded(target, force))) {
+      say("warn", `설치하지 못해 설정은 그대로 둠(고정 ${was})`);
+      return false;
+    }
+    tunables.saveCard(mode.kind === "unpin" ? { BGUTIL_VERSION: null, BGUTIL_COMMIT: null } : { BGUTIL_VERSION: target.tag, BGUTIL_COMMIT: target.commit });
+    say("warn", `터미널에서 bgutil 고정 변경: ${was} → ${mode.kind === "unpin" ? "없음" : `${target.tag}(${target.commit})`}`);
+    return true;
+  } finally {
+    settingsDb.close();
+    await held.release();
+  }
+}
+
+// 설치하는 동안의 예외는 실패 줄로 남기고 false(--pin, --unpin. 봇 실행 잠금을 쥔 채 부른다)
+async function installGuarded(target: Target, force: boolean): Promise<boolean> {
+  try {
+    return await install(target, force, true);
+  } catch (error) {
+    say("error", `${target.tag} 설치 실패(지금 쓰는 bgutil 그대로): ${messageOf(error)}`);
+    return false;
+  }
+}
+
+async function main(): Promise<number> {
+  const args = parseInstallArgs(process.argv);
+  if ("error" in args) {
+    say("error", args.error);
+    return 1;
+  }
+  const { mode, force } = args;
+  if (mode.kind === "pin" || mode.kind === "unpin") return (await changePin(mode, force)) ? 0 : 1;
+  if (mode.kind === "exact") return (await install(mode, force)) ? 0 : 1;
+  let target: Target;
+  try {
+    target = await settingsTarget();
+  } catch (error) {
+    say("error", `설정 DB(database/settings.db)에서 bgutil 고정 값을 읽지 못해 설치하지 않음: ${messageOf(error)}`);
+    return 1;
+  }
+  return (await install(target, force)) ? 0 : 1;
+}
 
 try {
-  try {
-    checkoutPinned({ dir: DIR, repo: REPO, tag, commit, log: (line) => console.log(`\n$ ${line}   (${path.relative(ROOT, DIR)})`) });
-  } catch (error) {
-    fail([`\n❌ bgutil ${tag} 받기 실패: ${messageOf(error)}`, "   윈도우에서는 봇이 켜져 있으면 POToken 서버가 node_modules의 파일(canvas.node)을 물고 있어 지우지 못합니다. 봇을 끄고 다시 실행하세요.", `   그 밖의 경우라면 네트워크와 태그(${TAGS_URL})를 확인하세요.`]);
-  }
-  console.log(`ℹ️  bgutil ${tag} (${commit.slice(0, 12)}) 체크아웃 확인됨`);
-
-  if (!fs.existsSync(SERVER)) throw new Error(`server 디렉터리를 찾을 수 없습니다: ${SERVER}`);
-  const pkg = JSON.parse(fs.readFileSync(path.join(SERVER, "package.json"), "utf8")) as { scripts?: Record<string, unknown> };
-  const rootScripts = rootInstallScripts(pkg);
-  if (rootScripts.length) fail([`\n❌ bgutil ${tag}의 server/package.json에 설치 스크립트(${rootScripts.join(", ")})가 생겼습니다. 무엇을 하는지 확인한 뒤 scripts/install-bgutil.ts를 고치세요.`]);
-  const rebuild = rebuildTargets(JSON.parse(fs.readFileSync(path.join(SERVER, "package-lock.json"), "utf8")));
-
-  // bgutil은 자체 npm 프로젝트(별도 ecosystem). 잠금 파일 그대로만 설치한다(npm install 로 넘어가면 그날의 트리가 깔린다)
-  try {
-    npm(["ci", "--ignore-scripts"]);
-    if (rebuild.length) npm(["rebuild", ...rebuild]);
-  } catch {
-    fail(["\n❌ 의존성 설치 실패. 위의 npm 오류를 보세요(네트워크, canvas 네이티브 모듈용 빌드 툴체인)."]);
-  }
-
-  // build/main.js 생성(tsconfig outDir=./build). npx 를 거치지 않고 잠금 파일의 typescript 를 쓴다
-  const tsc = path.join(SERVER, "node_modules", "typescript", "bin", "tsc");
-  console.log(`\n$ node ${path.relative(SERVER, tsc)}   (${path.relative(ROOT, SERVER)})`);
-  execFileSync(process.execPath, [tsc], { cwd: SERVER, stdio: "inherit" });
-
-  console.log("\n✅ bgutil POToken 공급자 준비 완료. 봇 실행 시 자동 감지되어 함께 시작됩니다.");
-  // yt-dlp 플러그인은 서버와 메이저 버전이 다르면 거부한다(경고가 아니라 중단).
-  // 봇이 실행해 둔 서버는 설치 전 코드를 그대로 물고 있으므로, 재시작 전까지 POToken이 아예 나오지 않는다.
-  console.log("\n⚠️  봇이 실행 중이라면 재시작하세요.");
-  console.log("   봇이 실행한 POToken 서버는 아직 이전 버전으로 돌고 있고,");
-  console.log("   플러그인과 메이저 버전이 다르면 토큰 발급이 거부됩니다.");
-} catch (e) {
-  fail([`\n❌ bgutil 설치/업데이트 실패: ${messageOf(e)}`, "   git과 node, 그리고 canvas 네이티브 모듈용 빌드 툴체인이 설치돼 있는지 확인하세요."]);
+  process.exitCode = await main();
+} catch (error) {
+  say("error", `설치 실패(지금 쓰는 bgutil 그대로): ${messageOf(error)}`);
+  process.exitCode = 1;
 }

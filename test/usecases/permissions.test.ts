@@ -1,5 +1,5 @@
 // src/usecases/permissions.ts: 권한 3계층(서버 관리자/DJ/일반) 판정.
-// 서버 설정은 진짜를 임시 DB 로 쓴다.
+// 서버 설정은 진짜를 임시 DB로 쓴다.
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -23,7 +23,7 @@ function fakeMember({ id = "u0", perms = [], roles = [], guildRoles = ["r1", "r2
     permissions: { has: (p: bigint) => perms.includes(p) },
     guild: {
       id: "g",
-      // rbot 은 봇 역할(디스코드가 봇에 붙인 역할)
+      // rbot은 봇 역할(디스코드가 봇에 붙인 역할)
       roles: { cache: new Map(guildRoles.map((id) => [id, { id, tags: id === "rbot" ? { botId: "bot" } : null }])) },
       members: { me: { voice: { channel: botVoice ? { id: botVoice } : null }, isCommunicationDisabled: () => false } },
     },
@@ -157,7 +157,7 @@ test("대기열 제거: 비-DJ여도 그 곡 요청자 본인은 가능", async 
 
   assert.equal(await checkRemoveTracks(requester, [track, track]), null, "여러 곡이 모두 자기 곡");
   assert.equal(await checkRemoveTracks(requester, [track, { requestedBy: { id: "u2" } }]), "must-dj", "한 곡이라도 남의 곡이면 DJ 판정");
-  assert.equal(await checkRemoveTracks(requester, [{ requestedBy: null }]), "must-dj", "넣은 사람이 없는 곡(자동재생)은 DJ 만");
+  assert.equal(await checkRemoveTracks(requester, [{ requestedBy: null }]), "must-dj", "넣은 사람이 없는 곡(자동재생)은 DJ만");
   assert.equal(await checkRemoveTracks(requester, []), "must-dj", "빈 목록은 자기 곡으로 치지 않는다");
 });
 
@@ -176,7 +176,7 @@ test("소환: 서버 관리자여도 본인이 음성 채널에 있어야 한다
   assert.equal(checkSummon(fakeMember({ perms: [PermissionFlagsBits.ManageGuild] })), "must-be-in-voice");
 });
 
-test("소환: 봇에게 보기, Connect, Speak 가 없으면 거부", () => {
+test("소환: 봇에게 보기, Connect, Speak가 없으면 거부", () => {
   assert.equal(checkSummon(fakeMember({ voice: "vc1", botChannelPerms: [PermissionFlagsBits.Connect, PermissionFlagsBits.Speak] })), "permission-voice", "보기 없음");
   assert.equal(checkSummon(fakeMember({ voice: "vc1", botChannelPerms: [PermissionFlagsBits.Speak] })), "permission-voice", "Connect 없음");
   assert.equal(checkSummon(fakeMember({ voice: "vc1", botChannelPerms: [PermissionFlagsBits.Connect] })), "permission-voice", "Speak 없음");
@@ -187,7 +187,7 @@ test("소환: 요청자가 음성에 있고 봇 권한이 갖춰지면 통과", 
   assert.equal(checkSummon(fakeMember({ voice: "vc1" })), null);
 });
 
-// ── voiceEntryRefusal (봇이 음성 채널에 들어갈 수 있나. join 의 거절, checkSummon, 자리 지킴이가 같이 쓴다) ──
+// ── voiceEntryRefusal (봇이 음성 채널에 들어갈 수 있나. join의 거절, checkSummon, 자리 지킴이가 같이 쓴다) ──
 
 const VOICE_OK = [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect, PermissionFlagsBits.Speak];
 // full: 인원 제한이 찼다 / timedOut: 봇이 타임아웃 / botIn: 봇이 지금 있는 채널
@@ -197,7 +197,7 @@ function entry({ perms = VOICE_OK, full = false, timedOut = false, botIn = null 
   return voiceEntryRefusal(me, channel);
 }
 
-test("들어갈 수 있나: 권한, 타임아웃, 인원 제한을 까닭별로 가른다(discord.js joinable 과 같은 조건)", () => {
+test("들어갈 수 있나: 권한, 타임아웃, 인원 제한을 원인별로 구분한다(discord.js joinable과 같은 조건)", () => {
   assert.equal(entry(), null);
   assert.equal(entry({ perms: [] }), "permission-voice");
   assert.equal(voiceEntryRefusal(null, fake<VoiceBasedChannel>({ permissionsFor: () => null })), "permission-voice", "봇 멤버를 모르면");

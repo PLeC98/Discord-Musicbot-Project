@@ -1,5 +1,5 @@
-// src/store/audio-cache.ts 의 resetCache(parts), src/dashboard/reset.ts 의 resetAudioCache: 오디오 캐시 초기화는 선택한 것의 표만 비운다.
-// 캐시 DB 의 모든 표가 선택 하나에 들어(cache-db 의 TABLES_OF_PART) 새 표가 초기화에서 빠지지 않는다. 지운 크기는 실제로 지운 파일만 센다.
+// src/store/audio-cache.ts의 resetCache(parts), src/dashboard/reset.ts의 resetAudioCache: 오디오 캐시 초기화는 선택한 것의 표만 비운다.
+// 캐시 DB의 모든 표가 선택 하나에 들어(cache-db의 TABLES_OF_PART) 새 표가 초기화에서 빠지지 않는다. 지운 크기는 실제로 지운 파일만 센다.
 
 import fs from "node:fs";
 import { test, after, beforeEach } from "node:test";
@@ -38,7 +38,7 @@ beforeEach(() => {
   db.prepare("INSERT INTO pinned_sources (request_key, audio_url, pinned_at) VALUES ('https://y/a', 'https://soundcloud.com/a/b', 1)").run();
 });
 
-test("캐시 DB 의 표는 모두 선택 하나에 꼭 한 번 든다", () => {
+test("캐시 DB의 표는 모두 선택 하나에 꼭 한 번 든다", () => {
   const tables = (store.db().prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'").pluck().all() as string[]).sort();
   const listed = AUDIO_CACHE_PARTS.flatMap((part) => TABLES_OF_PART[part]);
   assert.deepEqual([...listed].sort(), tables);

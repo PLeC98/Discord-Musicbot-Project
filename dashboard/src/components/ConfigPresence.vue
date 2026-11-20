@@ -1,7 +1,7 @@
 <!--
   상태 문구 편집기 (운영자 패널).
 
-  설정은 settings.db 의 "status" 문서다. 저장 번호로 두 탭이 서로 덮지 않게 한다(composables/config-file).
+  설정은 settings.db의 "status" 문서다. 저장 번호로 두 탭이 서로 덮지 않게 한다(composables/config-file).
 -->
 <template>
   <!-- 목록(첫 항목 "기본 문구", 그 아래 기간, 시간대 문구. 위에 있는 것이 먼저 맞는다), 선택한 것의 편집(M3 목록, 상세, composables/list-detail).
@@ -135,7 +135,7 @@ const { loaded, dirty, saving, loadError, serverProblems, fetch, save, revert } 
 
 // 저장할 때 서버가 보는 검사 그대로(schema/status). 저장 버튼을 누르기 전에 알려 준다
 const problems = computed(() => (loaded.value ? [...statusProblems(payload.value), ...serverProblems.value] : []));
-// 운영자 패널의 저장 막대에 올린다(검사에 걸린 값이 있으면 막대가 저장을 막는다)
+// 운영자 패널의 저장 바에 올린다(검사에 걸린 값이 있으면 저장 바가 저장을 막는다)
 useSaveTarget({ tab: "presence", dirty, saving, blocked: computed(() => problems.value.length > 0), save: () => save(), revert });
 
 // ── 목록, 상세(composables/list-detail). 주소는 ?presence= ────────────────────

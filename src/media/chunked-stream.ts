@@ -3,7 +3,7 @@
 // googlevideo는 순차 GET을 재생 속도의 약 2배로 조이고(Range는 우회한다), 재생 속도 이하로 읽히는
 // 연결은 수십 초 안에 리셋한다. 그래서 청크 본문은 최대 속도로 받아 두고 공급만 소비 속도에 맞춘다.
 // 끊기면 onInterrupt에 먼저 묻고(호출부가 캐시로 넘겨받을 수 있다), 아니면 받은 위치부터 이어받는다.
-// 이미 열린 첫 응답(first, 직접 링크의 GET)을 받으면 그 본문을 끝까지 내보내고, 끊긴 뒤에만 Range 로 잇는다.
+// 이미 열린 첫 응답(first, 직접 링크의 GET)을 받으면 그 본문을 끝까지 내보내고, 끊긴 뒤에만 Range로 잇는다.
 // 이을 때 처음 응답의 검증값(ifRange)을 보내 파일이 바뀌었으면(200), 구간이 어긋나면, 전체 크기가 다르면 이어받기를 그만둔다.
 // 위치를 옮길 때는 목표 앞의 키프레임 바이트(startByte)부터 받고 그 앞에 파일의 헤더(prefix)를 내보낸다(media/seek-start). 그때는 받은 첫 바이트가
 // 그 키프레임인지(expectStart) 확인한 뒤에야 열렸다고 알리고, 색인 탓의 실패(seekMismatch)를 따로 표시해 여는 쪽이 처음부터 다시 열게 한다.
@@ -35,9 +35,9 @@ type ChunkedOptions = {
   chunkSize: number;
   onInterrupt?: ((err: unknown) => boolean) | null;
   onResumed?: ((info: Resumed) => void) | null;
-  /** 이미 열린 첫 응답의 본문(처음부터 끝까지). 끊기면 Range 로 잇는다 */
+  /** 이미 열린 첫 응답의 본문(처음부터 끝까지). 끊기면 Range로 잇는다 */
   first?: Readable | null;
-  /** 이을 때 보낼 If-Range(처음 응답의 강한 ETag 나 Last-Modified) */
+  /** 이을 때 보낼 If-Range(처음 응답의 강한 ETag나 Last-Modified) */
   ifRange?: string | null;
   /** 첫 요청의 자리(파일 안의 바이트). 받은 양은 이 자리부터 센 절대 위치다 */
   startByte?: number;
@@ -60,7 +60,7 @@ type StreamStats = {
   idleMs: number | null;
   expiresInS: number | null;
   resuming: boolean; // 끊겨서 이어받는 중인가
-  startByte: number; // 첫 요청의 자리(0 이면 파일 처음부터)
+  startByte: number; // 첫 요청의 자리(0이면 파일 처음부터)
 };
 type ChunkedStream = Readable & { prime(): Promise<void>; stats(): StreamStats };
 
@@ -146,7 +146,7 @@ class ChunkedReader {
   handedOff = false;
   aborter: AbortController | null = null;
   first: Readable | null; // 아직 읽기 시작하지 않은 첫 응답
-  verifying: boolean; // 첫 바이트를 확인하기 전(expectStart 를 줬을 때). 그동안은 열림을 알리지 않는다
+  verifying: boolean; // 첫 바이트를 확인하기 전(expectStart를 줬을 때). 그동안은 열림을 알리지 않는다
   probe: Buffer[] = []; // 확인하려고 모으는 첫 바이트
   firstBody: Readable | null = null; // 읽는 중인 첫 응답(끝나거나 끊기면 부순다)
   stallTimer: NodeJS.Timeout | undefined;
@@ -170,7 +170,7 @@ class ChunkedReader {
     this.first = first;
     this.verifying = expectStart !== null;
     this.pos = startByte;
-    // 헤더는 받은 양에 세지 않고 줄에만 둔다(take 는 받은 위치, 실패 횟수, 이어받기 알림을 건드린다)
+    // 헤더는 받은 양에 세지 않고 줄에만 둔다(take는 받은 위치, 실패 횟수, 이어받기 알림을 건드린다)
     if (prefix?.length) {
       this.chunks.push(Buffer.from(prefix));
       this.queued += prefix.length;
@@ -234,7 +234,7 @@ class ChunkedReader {
     this.o.onResumed?.(info);
   }
 
-  // 지금 청크를 요청한다(이미 열린 첫 응답이 있으면 그것을 끝까지). 응답이 맞지 않으면 던진다
+  // 지금 청크를 요청한다(이미 열린 첫 응답이 있으면 그것을 끝까지). 응답이 맞지 않으면 예외를 던진다
   async open() {
     const { url, headers, fetchImpl, totalBytes, ifRange } = this.o;
     const signal = (this.aborter as AbortController).signal;
@@ -247,7 +247,7 @@ class ChunkedReader {
     }
     const range = { Range: `bytes=${this.pos}-${this.target - 1}`, ...(ifRange ? { "If-Range": ifRange } : {}) };
     const res = await fetchImpl(url, { headers: { ...headers, ...range }, signal });
-    // 위치를 옮긴 첫 요청이면 Range 무시(200), 416, 구간 어긋남은 색인 탓으로 본다(주소 탓의 403, 404 는 아니다)
+    // 위치를 옮긴 첫 요청이면 Range 무시(200), 416, 구간 어긋남은 색인 탓으로 본다(주소 탓의 403, 404는 아니다)
     const mid = !this.primed && this.o.startByte > 0;
     if (res.status === 206) {
       try {
@@ -266,7 +266,7 @@ class ChunkedReader {
     return res.body.getReader();
   }
 
-  // 줄이 청크 하나와 여유분을 넘을 때 걸린다(Range 를 무시한 200 응답, 헤더를 먼저 줄에 둔 첫 요청).
+  // 줄이 청크 하나와 여유분을 넘을 때 걸린다(Range를 무시한 200 응답, 헤더를 먼저 줄에 둔 첫 요청).
   // 파일 전체를 메모리에 올리지 않도록 줄이 빌 때까지 기다린다. 기다리는 사이 스트림이 부서졌으면 false
   async waitForRoom() {
     clearTimeout(this.stallTimer);
@@ -328,7 +328,7 @@ class ChunkedReader {
     if (held + bytes.length >= Math.min(this.o.expectStart?.bytes ?? 0, this.target - this.pos)) this.verifyFirst();
   }
 
-  // 모은 첫 바이트가 그 키프레임인가. 맞으면 열림을 알리고 줄에 넣는다. 아니면 재시도하지 않는 실패(열림 전이라 prime 이 거부된다)
+  // 모은 첫 바이트가 그 키프레임인가. 맞으면 열림을 알리고 줄에 넣는다. 아니면 재시도하지 않는 실패(열림 전이라 prime이 거부된다)
   verifyFirst() {
     if (!this.verifying) return;
     const head = Buffer.concat(this.probe);
@@ -351,7 +351,7 @@ class ChunkedReader {
     this.drain();
   }
 
-  // 한 번 실패했다. 계속 받을지(true), 호출부가 넘겨받아 끝낼지(false). 다시 받아도 안 될 실패면 던진다
+  // 한 번 실패했다. 계속 받을지(true), 호출부가 넘겨받아 끝낼지(false). 다시 받아도 안 될 실패면 예외를 던진다
   async retryAfter(err: unknown) {
     if (this.primed && !this.interruptedAt) {
       this.interruptedAt = Date.now();
@@ -367,7 +367,7 @@ class ChunkedReader {
     return !this.stream.destroyed;
   }
 
-  // 다음 청크를 받는다. fill 은 실패를 스스로 받아 스트림을 닫는다. 그래도 새면 스트림을 오류로 닫는다
+  // 다음 청크를 받는다. fill은 실패를 자체적으로 받아 스트림을 닫는다. 그래도 새면 스트림을 오류로 닫는다
   _fillOrFail() {
     this.fill().catch((error: unknown) => this.stream.destroy(error instanceof Error ? error : new Error(String(error))));
   }
@@ -428,13 +428,13 @@ class ChunkedReader {
 }
 
 /**
- * createChunkedStream + 첫 요청 대기. 실패하면 여기서 던지므로 호출부의 폴백이 그대로 동작한다.
+ * createChunkedStream + 첫 요청 대기. 실패하면 여기서 예외를 던지므로 호출부의 폴백이 그대로 동작한다.
  */
 async function openChunkedStream(opts: ChunkedOptions): Promise<ChunkedStream> {
   const stream = createChunkedStream(opts);
   // 호출부는 여전히 자기 on("error")를 붙여야 한다.
   stream.on("error", () => {
-    /* 오류는 prime() 의 거부로도 전달된다. 듣는 사람 없는 error 이벤트가 uncaughtException 이 되는 것만 막는다 */
+    /* 오류는 prime()의 거부로도 전달된다. 듣는 사람 없는 error 이벤트가 uncaughtException이 되는 것만 막는다 */
   });
   try {
     await stream.prime();

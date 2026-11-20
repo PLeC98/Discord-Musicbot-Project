@@ -1,9 +1,9 @@
 // src/store/loudness.ts: 음원의 볼륨 값(볼륨 정규화가 게인을 정할 때 쓴다)
 //
-// 지키는 것: file 값을 저장하면 그 음원의 file-failed 표시가 지워지고, file 값이 있으면 들으며 잰 값은 저장하지 않는다. heard-full 은 늘 교체하고,
-// heard-part 는 들은 양이 min(기존 들은 양, 600초) 이상이거나 기존 값이 30일보다 오래됐을 때만 교체한다(교체하지 않아도 마지막 사용 시각은 갱신한다).
-// file-failed 는 같은 파일(크기, 길이)과 같은 측정 방식에서만 다시 재지 않는다. file 값의 중앙값은 30개부터 구하고, 저장하거나 초기화하면 다시 계산한다.
-// 180일 동안 쓰지 않은 행은 하루에 한 번 지운다. 재는 동안 캐시 파일의 삭제를 막는다(audio-cache 의 holdForMeasure).
+// 지키는 것: file 값을 저장하면 그 음원의 file-failed 표시가 지워지고, file 값이 있으면 들으며 잰 값은 저장하지 않는다. heard-full은 늘 교체하고,
+// heard-part는 들은 양이 min(기존 들은 양, 600초) 이상이거나 기존 값이 30일보다 오래됐을 때만 교체한다(교체하지 않아도 마지막 사용 시각은 갱신한다).
+// file-failed는 같은 파일(크기, 길이)과 같은 측정 방식에서만 다시 재지 않는다. file 값의 중앙값은 30개부터 구하고, 저장하거나 초기화하면 다시 계산한다.
+// 180일 동안 쓰지 않은 행은 하루에 한 번 지운다. 재는 동안 캐시 파일의 삭제를 막는다(audio-cache의 holdForMeasure).
 
 import fs from "node:fs";
 import { test, after, beforeEach } from "node:test";
@@ -37,13 +37,13 @@ test("file 값을 저장하면 file-failed 표시가 지워지고, file 값이 �
   assert.equal(loudness.rowsOf("yt:a")["heard-full"], undefined);
 });
 
-test("heard-full 은 늘 교체한다", () => {
+test("heard-full은 늘 교체한다", () => {
   loudness.recordHeard("yt:b", "heard-full", { value: value(-10), identity: file, heardSec: 190 }, NOW);
   assert.equal(loudness.recordHeard("yt:b", "heard-full", { value: value(-11), identity: file, heardSec: 40 }, NOW + 1), true);
   assert.equal(loudness.rowsOf("yt:b")["heard-full"]?.integrated, -11);
 });
 
-test("heard-part 는 들은 양이 min(기존 들은 양, 600초) 이상이거나 30일이 지났을 때만 교체하고, 교체하지 않아도 마지막 사용 시각은 갱신한다", () => {
+test("heard-part는 들은 양이 min(기존 들은 양, 600초) 이상이거나 30일이 지났을 때만 교체하고, 교체하지 않아도 마지막 사용 시각은 갱신한다", () => {
   loudness.recordHeard("dl:r", "heard-part", { value: value(-20), identity: unknown, heardSec: 7200 }, NOW);
   assert.equal(loudness.recordHeard("dl:r", "heard-part", { value: value(-5), identity: unknown, heardSec: 40 }, NOW + 1000), false, "두 시간 들은 값을 40초가 지우지 못한다");
   const kept = loudness.rowsOf("dl:r")["heard-part"];
@@ -54,7 +54,7 @@ test("heard-part 는 들은 양이 min(기존 들은 양, 600초) 이상이거�
   assert.equal(loudness.rowsOf("dl:r")["heard-part"]?.heardSec, 31);
 });
 
-test("file-failed 는 같은 파일(크기, 길이)과 같은 측정 방식에서만 다시 재지 않는다", () => {
+test("file-failed는 같은 파일(크기, 길이)과 같은 측정 방식에서만 다시 재지 않는다", () => {
   loudness.recordFileFailed("yt:c", file, NOW);
   assert.equal(loudness.failedBefore("yt:c", file), true);
   assert.equal(loudness.failedBefore("yt:c", { ...file, sizeBytes: 1001 }), false, "다시 받은 다른 파일");

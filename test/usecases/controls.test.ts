@@ -28,11 +28,11 @@ useDefaultDocuments();
 
 afterEach(() => playerEvents._reset());
 
-// 권한 판정이 서버 설정(DJ 역할)을 읽는다. 임시 DB 로
+// 권한 판정이 서버 설정(DJ 역할)을 읽는다. 임시 DB로
 const store = openTempStore("controls-");
 after(() => store.close());
 
-// 거절 까닭. 해냈으면 undefined
+// 거절 이유의 코드(code). 해냈으면 undefined
 const codeOf = (r: object) => ("code" in r ? r.code : undefined);
 // 해낸 결과의 사실. 거절이면 실패
 function accepted<R extends { ok: boolean }>(r: R) {
@@ -44,7 +44,7 @@ const guild = fake<Guild>({ id: "g1", name: "서버", members: { me: { voice: { 
 const member = ({ mod = true, inVoice = true, id = "u1" } = {}) => fake<GuildMember>({ id, user: { tag: `사람 ${id}` }, guild, permissions: { has: () => mod }, voice: { channel: inVoice ? { id: "vc1" } : null }, roles: { cache: new Map() } });
 const DJ: Actor = { member: member() };
 
-// DJ 역할을 정해 둔 동안(정하지 않으면 모든 멤버가 DJ 다). 역할이 없는 멤버는 DJ 가 아니다
+// DJ 역할을 정해 둔 동안(정하지 않으면 모든 멤버가 DJ다). 역할이 없는 멤버는 DJ가 아니다
 async function withDjRole(run: () => Promise<void>) {
   guildSettings.setDjRoles("g1", ["dj"]);
   try {
@@ -57,7 +57,7 @@ const OUTSIDER: Actor = { member: member({ mod: false, inVoice: false }) };
 
 const track = (title: string, extra: Partial<QueuedTrack> = {}): QueuedTrack => ({ title, pageUrl: "", requestKey: title, platform: "youtube", duration: 0, ...extra });
 
-// 부른 것을 적는 가짜 플레이어. 멈춤은 진짜 상태 모듈(오디오는 재생 중인 가짜). user, holds 로 처음 상태를 준다
+// 부른 것을 적는 가짜 플레이어. 멈춤은 진짜 상태 모듈(오디오는 재생 중인 가짜). user, holds로 처음 상태를 준다
 function fakePlayer({ user = false, holds = [] as Hold[], ...over }: { user?: boolean; holds?: Hold[] } & { [K in keyof Player]?: unknown } = {}) {
   const calls: string[] = [];
   const audio = { state: { status: "playing" }, pause: () => true, unpause: () => true };
@@ -117,7 +117,7 @@ function panel() {
   return seen;
 }
 
-test("공통: 플레이어가 없으면 no-song, 권한이 없으면 권한 판정이 막은 까닭의 코드", async () => {
+test("공통: 플레이어가 없으면 no-song, 권한이 없으면 권한 판정이 막은 사유(오류 코드)", async () => {
   assert.deepEqual(await controls.pause(null, DJ), { ok: false, code: "no-song" });
   assert.deepEqual(await controls.pause(fakePlayer(), OUTSIDER), { ok: false, code: "must-be-in-same-voice" });
 });
@@ -151,7 +151,7 @@ test("억제 사유(서버 음소거, 스테이지 청중, 혼자 남음)로 멈
   assert.equal(accepted(await controls.pause(fakePlayer({ holds: ["alone", "stage"] }), DJ)).heldBy, "stage", "여럿이면 보여 줄 첫째");
 });
 
-test("건너뛰기: 다음 곡이 없어도 거절하지 않는다(곡 끝 처리가 대기열 소진으로 끝낸다, 한곡 반복은 처음부터). 곡 요청자는 DJ 가 아니어도 된다", async () => {
+test("건너뛰기: 다음 곡이 없어도 거절하지 않는다(곡 끝 처리가 대기열 소진으로 끝낸다, 한곡 반복은 처음부터). 곡 요청자는 DJ가 아니어도 된다", async () => {
   const last = fakePlayer({ queue: [] });
   assert.deepEqual(await controls.skip(last, DJ), { ok: true, track: last.currentTrack, restarted: false });
   assert.deepEqual(last.calls, ["skip"]);
@@ -231,7 +231,7 @@ test("볼륨: 잇달아 바꾸면 소리는 바로, 로그 한 줄과 패널 고
   assert.deepEqual(lines, ["볼륨: 50% → 80%"]);
 });
 
-test("볼륨: 멈춘 뒤 settled 를 처음 값 → 마지막 값으로 한 번 부른다. 처음 값으로 돌아왔으면 부르지 않는다", async (t) => {
+test("볼륨: 멈춘 뒤 settled를 처음 값 → 마지막 값으로 한 번 부른다. 처음 값으로 돌아왔으면 부르지 않는다", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const shown: string[] = [];
   const settled = (from: number, to: number) => shown.push(`${from}→${to}`);
@@ -281,7 +281,7 @@ test("섞기, 비우기: 곡 수가 모자라면 거절", async () => {
   assert.equal(accepted(await controls.clear(fakePlayer(), DJ)).count, 2);
 });
 
-test("빼기: 빈 대기열, 범위 밖 거절, 권한은 그 곡을 보고(넣은 사람은 DJ 가 아니어도 뺀다)", async () => {
+test("빼기: 빈 대기열, 범위 밖 거절, 권한은 그 곡을 보고(넣은 사람은 DJ가 아니어도 뺀다)", async () => {
   assert.equal(codeOf(await controls.remove(fakePlayer({ queue: [] }), DJ, 0)), "queue-empty");
   assert.deepEqual(await controls.remove(fakePlayer(), DJ, 5), { ok: false, code: "bad-position", size: 2 });
   const p = fakePlayer({ queue: [track("남의 곡"), track("내 곡", { requestedBy: { id: "u9" } })] });
@@ -326,7 +326,7 @@ test("옮기기: 두 곡 미만, 범위 밖, 같은 위치 거절", async () => 
   assert.deepEqual(p.calls, ["move:1->0"]);
 });
 
-// 대기열 ID를 단 곡(track-state 가 들어올 때 찍는 열거되지 않는 필드와 같게)
+// 대기열 ID를 단 곡(track-state가 들어올 때 찍는 열거되지 않는 필드와 같게)
 const entered = (title: string, entry: number, extra: Partial<QueuedTrack> = {}) => Object.defineProperty(track(title, extra), "entry", { value: entry, enumerable: false });
 
 test("지금 곡 확인(onTrack): 지금 곡이 그 줄이 아니면 건너뛰기, 이전, 이동, 처음부터, 하이라이트를 하지 않는다", async () => {
@@ -371,7 +371,7 @@ test("대기열 ID로 빼기: 보던 순번이 밀려도 그 곡을 뺀다. 그 
   assert.equal(accepted(await controls.removeEntries(mine, requester, [2])).removed[0].title, "내 곡");
 });
 
-test("대기열 ID로 여러 곡 빼기: 대기열 차례로 빼고 없는 ID 는 건너뛴다. 넣은 사람은 모두 자기 곡일 때만(하나라도 남의 곡이면 모두 거절)", async () => {
+test("대기열 ID로 여러 곡 빼기: 대기열 차례로 빼고 없는 ID는 건너뛴다. 넣은 사람은 모두 자기 곡일 때만(하나라도 남의 곡이면 모두 거절)", async () => {
   const p = fakePlayer({ queue: [entered("a", 1), entered("b", 2), entered("c", 3), entered("d", 4)] });
   const r = accepted(await controls.removeEntries(p, DJ, [4, 99, 2]));
   assert.deepEqual([r.removed.map((t: QueuedTrack) => t.title), r.left, p.calls], [["b", "d"], 2, ["remove:1,3"]]);
@@ -389,7 +389,7 @@ test("대기열 ID로 여러 곡 빼기: 대기열 차례로 빼고 없는 ID �
   });
 });
 
-test("대기열 ID로 옮기기: 그 곡 앞으로(null 이면 맨 끝). 그 사이 빠졌으면 entry-gone, 제자리면 same-position", async () => {
+test("대기열 ID로 옮기기: 그 곡 앞으로(null이면 맨 끝). 그 사이 빠졌으면 entry-gone, 제자리면 same-position", async () => {
   const queue = () => [entered("a", 1), entered("b", 2), entered("c", 3)];
   const titles = (p: ReturnType<typeof fakePlayer>) => p.queue.map((t: QueuedTrack) => t.title).join("");
   const front = fakePlayer({ queue: queue() });
@@ -409,7 +409,7 @@ test("대기열 ID로 옮기기: 그 곡 앞으로(null 이면 맨 끝). 그 사
   assert.equal(codeOf(await controls.moveEntry(fakePlayer({ queue: queue() }), OUTSIDER, 1, 3)), "must-be-in-same-voice");
 });
 
-test("점프: 대기열 ID 의 곡을 맨 앞으로 옮기고 jump 로 넘긴다. 못 넘기면 되돌린다", async () => {
+test("점프: 대기열 ID의 곡을 맨 앞으로 옮기고 jump로 넘긴다. 못 넘기면 되돌린다", async () => {
   const p = fakePlayer({ queue: [entered("a", 1), entered("b", 2)] });
   assert.equal(accepted(await controls.jump(p, DJ, 2)).track.title, "b");
   assert.deepEqual(p.calls, ["move:1->0", "skip:jump"]);
@@ -425,7 +425,7 @@ test("점프: 대기열 ID 의 곡을 맨 앞으로 옮기고 jump 로 넘긴다
 
 test("점프: 메뉴를 그린 뒤 앞 곡이 빠져도 선택한 곡으로 간다. 없는 ID, 권한을 기다린 사이 빠진 곡은 entry-gone", async () => {
   const shifted = fakePlayer({ queue: [entered("b", 2), entered("c", 3)] });
-  assert.equal(accepted(await controls.jump(shifted, DJ, 3)).track.title, "c", "번호(2)가 아니라 ID 로 찾는다");
+  assert.equal(accepted(await controls.jump(shifted, DJ, 3)).track.title, "c", "번호(2)가 아니라 ID로 찾는다");
   assert.deepEqual(shifted.calls, ["move:1->0", "skip:jump"]);
 
   assert.equal(codeOf(await controls.jump(fakePlayer({ queue: [entered("a", 1)] }), DJ, 9)), "entry-gone");
@@ -444,10 +444,10 @@ test("나가기: 권한부터 본다. 플레이어가 있으면 저장하고 빼
   players.set("g1", p);
   const r = await controls.leave(guild, DJ, players);
   assert.deepEqual(r, { ok: true, left: "player", track: p.currentTrack, saved: { queue: 2, positionSec: 65 }, stayOff: false });
-  assert.deepEqual(p.calls, ["dispose:save-for-join:leave"], "세션을 /join 으로만 이어 듣게 저장하고 끝난 패널(leave)로 버린다");
+  assert.deepEqual(p.calls, ["dispose:save-for-join:leave"], "세션을 /join으로만 이어 듣게 저장하고 끝난 패널(leave)로 버린다");
 
   let disconnected = 0;
-  // 샤드가 끊겨 있으면 게이트웨이 없이 REST 로 나간다(게이트웨이 경로는 아래 테스트)
+  // 샤드가 끊겨 있으면 게이트웨이 없이 REST로 나간다(게이트웨이 경로는 아래 테스트)
   const lingering = fake<Guild>({ id: "g2", shard: { status: Status.Disconnected }, members: { me: { voice: { channel: { id: "vc1" }, channelId: "vc1", disconnect: async () => disconnected++ } } } });
   assert.deepEqual(await controls.leave(lingering, DJ, players), { ok: true, left: "voice-only", stayOff: false });
   assert.equal(disconnected, 1);
@@ -490,7 +490,7 @@ test("자동재생 켜기: 모르는 장르는 거절. 플레이어가 없으면
   assert.deepEqual(await controls.autoplay(null, DJ, "없는장르", { create: () => assert.fail("거절하면 만들지 않는다") }), { ok: false, code: "unknown-genre", genre: "없는장르" });
   assert.equal(plainText(controlMessage({ code: "unknown-genre", genre: "없는장르" })), "알 수 없는 장르예요!\n그 사이 장르 목록이 변경되어 `없는장르`는 없어졌어요. 장르를 다시 선택해 주세요.");
 
-  // 음성에 먼저 붙고 나서 켠다(첫 곡을 넣는 것은 DB 에 쓴다. 붙지 못했을 때 앞 플레이어가 남긴 세션을 건드리지 않게)
+  // 음성에 먼저 붙고 나서 켠다(첫 곡을 넣는 것은 DB에 쓴다. 붙지 못했을 때 앞 플레이어가 남긴 세션을 건드리지 않게)
   const order: string[] = [];
   const made = fakePlayer({ currentTrack: null, connection: null, voice: { connect: async () => order.push("connect") }, setAutoplay: (g: unknown) => order.push(`set:${g}`), playAutoplayNow: async () => order.push("first") });
   const r = await controls.autoplay(null, DJ, genre, { create: () => (order.push("create"), made), onAccepted: () => order.push("answer") });
@@ -513,7 +513,7 @@ test("자동재생 켜기: 모르는 장르는 거절. 플레이어가 없으면
   });
   assert.deepEqual(await controls.autoplay(null, DJ, genre, { create: () => stranded }), { ok: false, code: "voice-failed" });
   assert.deepEqual(disposed, [{ reason: "음성 채널 접속 실패", session: "keep", end: "connect-failed" }]);
-  // 종료 중이라 붙지 않았으면 bot-shutting-down 으로 거절한다
+  // 종료 중이라 붙지 않았으면 bot-shutting-down으로 거절한다
   const stopping = fakePlayer({ currentTrack: null, connection: null, voice: { connect: async () => Promise.reject(codedError("bot-shutting-down", "종료 중")) }, setAutoplay: () => assert.fail("켜지 않는다"), dispose: async (o: (typeof disposed)[number]) => void disposed.push(o) });
   assert.deepEqual(await controls.autoplay(null, DJ, genre, { create: () => stopping }), { ok: false, code: "bot-shutting-down" });
   assert.equal(disposed.length, 2);
@@ -550,7 +550,7 @@ test("상주 모드: 정지는 대기열만 비우고 채널에 남는다(재생
   }
 });
 
-test("상주 모드: 플레이어도 없고 봇이 음성 채널에도 없으면(상주 채널 재접속 대기 중) 나가기는 상주 모드만 끈다고 답한다", async () => {
+test("상주 모드: 플레이어도 없고 봇이 음성 채널에도 없으면(상주 채널 재접속 대기 중) 나가기는 상주 모드만 끈다고 응답한다", async () => {
   const away = fake<Guild>({ id: "g1", name: "서버", members: { me: { voice: { channel: null } } } });
   const someone = fake<GuildMember>({ id: "u1", user: { tag: "사람" }, guild: away, permissions: { has: () => false }, voice: { channel: null }, roles: { cache: new Map() } });
   const players = new Map<string, Player>();
@@ -564,7 +564,7 @@ test("상주 모드: 플레이어도 없고 봇이 음성 채널에도 없으면
   }
 });
 
-test("멈춤: 휴면 중인 곡이면 ▶ 가 멈춤을 풀고 스트림을 다시 연다(기다리지 않고 답한다)", async () => {
+test("멈춤: 휴면 중인 곡이면 ▶ 가 멈춤을 풀고 스트림을 다시 연다(기다리지 않고 응답한다)", async () => {
   let woke = 0;
   const p = fakePlayer({ user: true, resting: true, wake: async () => void (woke += 1) });
   const r = accepted(await controls.pause(p, DJ));
@@ -598,7 +598,7 @@ const raced = async <T>(work: Promise<T>) =>
       .then(() => "waiting" as const),
   ]);
 
-test("조작은 패널 갱신을 기다리지 않고 돌아온다(응답이 패널 REST 를 기다리지 않게). 갱신이 실패해도 처리되지 않은 거부가 없다", async () => {
+test("조작은 패널 갱신을 기다리지 않고 돌아온다(응답이 패널 REST를 기다리지 않게). 갱신이 실패해도 처리되지 않은 거부가 없다", async () => {
   const gate = held();
   const off = playerEvents.on("refresh", () => gate.promise);
   try {
@@ -609,8 +609,8 @@ test("조작은 패널 갱신을 기다리지 않고 돌아온다(응답이 패�
       ["섞기", () => controls.shuffle(fakePlayer({ queue: [track("a"), track("b"), track("c")] }), DJ)],
       ["빼기", () => controls.remove(fakePlayer(), DJ, 0)],
       ["옮기기", () => controls.move(fakePlayer(), DJ, 0, 1)],
-      ["대기열 ID 로 빼기", () => controls.removeEntries(fakePlayer({ queue: [entered("a", 1)] }), DJ, [1])],
-      ["대기열 ID 로 옮기기", () => controls.moveEntry(fakePlayer({ queue: [entered("a", 1), entered("b", 2)] }), DJ, 1, null)],
+      ["대기열 ID로 빼기", () => controls.removeEntries(fakePlayer({ queue: [entered("a", 1)] }), DJ, [1])],
+      ["대기열 ID로 옮기기", () => controls.moveEntry(fakePlayer({ queue: [entered("a", 1), entered("b", 2)] }), DJ, 1, null)],
       ["비우기", () => controls.clear(fakePlayer(), DJ)],
       ["자동재생 끄기", () => controls.autoplay(fakePlayer({ autoplay: "kpop", setAutoplay: () => {} }), DJ, false)],
     ];
@@ -641,7 +641,7 @@ test("조작은 패널 갱신을 기다리지 않고 돌아온다(응답이 패�
   }
 });
 
-test("정지, 나가기: 정리를 시작한 뒤 onAccepted 로 답하고 정리가 끝난 뒤 돌아온다. 답이 던져도 정리는 끝까지 하고 그 오류를 올린다", async () => {
+test("정지, 나가기: 정리를 시작한 뒤 onAccepted로 응답하고 정리가 끝난 뒤 돌아온다. 응답이 예외를 던져도 정리는 끝까지 하고 그 오류를 올린다", async () => {
   const order: string[] = [];
   const slow = (gate: { promise: Promise<void> }) =>
     fakePlayer({
@@ -655,7 +655,7 @@ test("정지, 나가기: 정리를 시작한 뒤 onAccepted 로 답하고 정리
   const p = slow(gate);
   const stopping = controls.stop(p, DJ, { onAccepted: (facts) => void order.push(`accepted:${facts.cleared}`) });
   await settle();
-  assert.deepEqual(order, ["dispose:remove", "accepted:2"], "정리를 먼저 시작하고 답한다");
+  assert.deepEqual(order, ["dispose:remove", "accepted:2"], "정리를 먼저 시작하고 응답한다");
   assert.equal(await raced(stopping), "waiting", "정리가 끝나기 전에는 돌아오지 않는다");
   gate.release();
   assert.deepEqual(await stopping, { ok: true, track: p.currentTrack, cleared: 2, stayed: false });
@@ -671,7 +671,7 @@ test("정지, 나가기: 정리를 시작한 뒤 onAccepted 로 답하고 정리
   await settle();
   failing.release();
   await assert.rejects(broken, /응답 실패/);
-  assert.deepEqual(order, ["dispose:remove", "disposed"], "답이 실패해도 정리는 끝난다");
+  assert.deepEqual(order, ["dispose:remove", "disposed"], "응답이 실패해도 정리는 끝난다");
 
   order.length = 0;
   const leaving = held();
@@ -684,7 +684,7 @@ test("정지, 나가기: 정리를 시작한 뒤 onAccepted 로 답하고 정리
   assert.equal(accepted(await left).left, "player");
 });
 
-test("상주 모드 정지: 대기열 비우기를 시작한 뒤 답하고, 끝난 패널을 기다리는 사이 끝난 패널 그리기가 실패해도 처리되지 않은 거부 없이 warn 으로 남긴다", async () => {
+test("상주 모드 정지: 대기열 비우기를 시작한 뒤 응답하고, 끝난 패널을 기다리는 사이 끝난 패널 그리기가 실패해도 처리되지 않은 거부 없이 warn으로 남긴다", async () => {
   staySeats.set("g1", "vc1", "u1");
   const rejected: unknown[] = [];
   const onRejection = (error: unknown) => void rejected.push(error);
@@ -718,7 +718,7 @@ test("상주 모드 정지: 대기열 비우기를 시작한 뒤 답하고, 끝�
   }
 });
 
-test("멈춤(▶): 실패로 일시정지해 둔 곡이면 onAccepted 로 먼저 답한 뒤 다시 연다. 답한 사이 곡이 바뀌면 track-changed, 정리되면 no-song. 보통 곡은 onAccepted 를 부르지 않는다", async () => {
+test("멈춤(▶): 실패로 일시정지해 둔 곡이면 onAccepted로 먼저 응답한 뒤 다시 연다. 응답한 사이 곡이 바뀌면 track-changed, 정리되면 no-song. 보통 곡은 onAccepted를 부르지 않는다", async () => {
   const order: string[] = [];
   const parked = (over: object = {}) => fakePlayer({ parked: true, retryParked: async () => void order.push("retry"), ...over });
 
@@ -739,15 +739,15 @@ test("멈춤(▶): 실패로 일시정지해 둔 곡이면 onAccepted 로 먼저
   assert.deepEqual(order, []);
 
   const plain = fakePlayer();
-  await controls.pause(plain, DJ, { onAccepted: () => assert.fail("보통 곡은 곧바로 답한다") });
+  await controls.pause(plain, DJ, { onAccepted: () => assert.fail("보통 곡은 곧바로 응답한다") });
 });
 
-test("자동재생 켜기: 답(onAccepted)이 던져도 켠 자동재생은 첫 곡을 선택하고 답의 오류를 올린다. 둘 다 던지면 첫 곡의 오류는 warn 으로 남긴다", async () => {
+test("자동재생 켜기: 응답(onAccepted)이 예외를 던져도 켠 자동재생은 첫 곡을 선택하고 응답의 오류를 올린다. 둘 다 예외를 던지면 첫 곡의 오류는 warn으로 남긴다", async () => {
   const [genre] = Object.keys(genreConfig.genres().genres);
   const order: string[] = [];
   const idle = (first: () => Promise<void>) => fakePlayer({ currentTrack: null, connection: {}, setAutoplay: () => {}, playAutoplayNow: first });
   const answerFails = () => {
-    throw new Error("답 실패");
+    throw new Error("응답 실패");
   };
   await assert.rejects(
     controls.autoplay(
@@ -756,7 +756,7 @@ test("자동재생 켜기: 답(onAccepted)이 던져도 켠 자동재생은 첫 
       genre,
       { onAccepted: answerFails },
     ),
-    /답 실패/,
+    /응답 실패/,
   );
   assert.deepEqual(order, ["first"], "봇이 음성에 붙은 채 아무것도 틀지 않는 일이 없다");
 
@@ -764,7 +764,7 @@ test("자동재생 켜기: 답(onAccepted)이 던져도 켠 자동재생은 첫 
   const both = idle(async () => {
     throw new Error("첫 곡 실패");
   });
-  await assert.rejects(controls.autoplay(both, DJ, genre, { onAccepted: answerFails }), /답 실패/);
+  await assert.rejects(controls.autoplay(both, DJ, genre, { onAccepted: answerFails }), /응답 실패/);
   assert.ok(sink.buffer.slice(from).some((e) => e.level === "warn" && e.text.includes("첫 곡 실패")));
 
   await assert.rejects(
@@ -774,15 +774,15 @@ test("자동재생 켜기: 답(onAccepted)이 던져도 켠 자동재생은 첫 
       genre,
     ),
     /첫 곡 실패/,
-    "답이 멀쩡하면 첫 곡의 오류는 그대로 올린다",
+    "응답이 멀쩡하면 첫 곡의 오류는 그대로 올린다",
   );
 });
 
-test("나가기(음성에만 남음): 먼저 답하고 나간다(어떻게 나가는지는 player/voice-leave 테스트)", async () => {
+test("나가기(음성에만 남음): 먼저 응답하고 나간다(어떻게 나가는지는 player/voice-leave 테스트)", async () => {
   const { guild, order } = lingeringGuild();
   const r = await controls.leave(guild, DJ, new Map(), { onLeaving: () => void order.push("answer") });
   assert.deepEqual(r, { ok: true, left: "voice-only", stayOff: false });
-  assert.deepEqual(order, ["answer", "fetch:@me:true:false", "op4:vc1", "op4:null"], "나가기 전에 답한다");
+  assert.deepEqual(order, ["answer", "fetch:@me:true:false", "op4:vc1", "op4:null"], "나가기 전에 응답한다");
 });
 
 test("나가기(음성에만 남음): 이미 나가 있었으면(40032) 나간 것, 못 나가면 leave-failed", async () => {

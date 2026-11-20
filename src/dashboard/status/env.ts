@@ -3,23 +3,26 @@
 import { version as discordJs } from "discord.js";
 import config from "../../config/index.ts";
 import logSink from "../../infra/log/sink.ts";
-import { ffmpegVersion } from "../../media/ffmpeg/path.ts";
+import { ffmpegInfo } from "../../media/ffmpeg/path.ts";
 import { ytdlpBinary } from "../../sources/ytdlp-binary.ts";
-import { bgutilVersion } from "../../sources/bgutil-version.ts";
+import { bgutilVersions } from "../../sources/bgutil/version.ts";
 import type { AdminStatus } from "../contract/admin.ts";
 import { tlsStatus } from "../tls-files.ts";
+import { jobNow, jobRunning } from "../../infra/script-job.ts";
 
 /** commandCount: 켜진 슬래시 명령 수, dashboardClients: 지금 열린 대시보드 연결 수, launcher: 다시 시작할 수 있는가(조립이 넘긴 다시 시작이 있다) */
 function envStatus(commandCount: number, dashboardClients: number, launcher: boolean): AdminStatus["env"] {
   const state = ytdlpBinary.state;
   return {
     discordJs,
-    ffmpeg: ffmpegVersion(),
+    ffmpeg: ffmpegInfo(),
     pid: process.pid,
     launcher,
-    // 스스로 새 버전을 다운로드하는가(알리기만 하는 notify, 버전 고정은 아니다). 다음 확인은 알리기만 해도 있다
+    // 진행 중인 설치 작업(ffmpeg, POToken 서버). 다시 시작하면 중단되어 다시 시작 창에서 안내한다
+    installJob: jobRunning() ? (jobNow()?.name ?? null) : null,
+    // 자동으로 새 버전을 다운로드하는가(알리기만 하는 notify, 버전 고정은 아니다). 다음 확인은 알리기만 해도 있다
     ytdlp: { version: state?.version ?? null, autoUpdate: config.ytdlp.update === "auto" && !config.ytdlp.version, checkedAt: state?.lastChecked || null, nextCheckAt: ytdlpBinary.nextAt },
-    bgutil: bgutilVersion.state(),
+    bgutil: bgutilVersions(),
     commands: { count: commandCount, scope: config.discord.guildId ? "guild" : "global" },
     dashboardClients,
     // 인증서 파일로 직접 HTTPS를 열었으면 그 인증서의 기한(수동으로 갱신하는 사람이 잊지 않게)

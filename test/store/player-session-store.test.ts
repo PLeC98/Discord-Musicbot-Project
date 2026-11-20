@@ -184,7 +184,7 @@ test("기록은 상한을 넘으면 가장 오래된 것부터 버린다", () =>
   assert.equal(history[0].title, "h7");
 });
 
-test("트랙 필드: 링크 필드 셋과 표시 정보, 음원을 어떻게 알았나, 대기열 ID가 저장한 그대로 돌아오고, 요청자는 id만 남는다. 올린 사람(uploader), live 는 저장하지 않는다", () => {
+test("트랙 필드: 링크 필드 셋과 표시 정보, 음원을 어떻게 알았나, 대기열 ID가 저장한 그대로 돌아오고, 요청자는 id만 남는다. 올린 사람(uploader), live는 저장하지 않는다", () => {
   const { store } = open();
   const track = {
     id: "amq:1",
@@ -203,7 +203,7 @@ test("트랙 필드: 링크 필드 셋과 표시 정보, 음원을 어떻게 알
     isLive: true,
     requestedBy: { id: "u1", username: "someone" },
   };
-  // 대기열 ID는 track-state 가 찍는 열거되지 않는 필드다
+  // 대기열 ID는 track-state가 찍는 열거되지 않는 필드다
   Object.defineProperty(track, "entry", { value: 7, enumerable: false });
   store.setCurrent(G, track);
 
@@ -223,7 +223,7 @@ test("트랙 필드: 링크 필드 셋과 표시 정보, 음원을 어떻게 알
     requesterId: "u1",
     entry: 7,
   });
-  // 번호가 없는 곡(복원한 옛 곡 등)은 빈 값. 복원할 때 track-state 가 새로 찍는다
+  // 번호가 없는 곡(복원한 옛 곡 등)은 빈 값. 복원할 때 track-state가 새로 찍는다
   store.setCurrent(G, { title: "번호 없음", pageUrl: "https://y/2", requestKey: "https://y/2" });
   assert.equal(loaded(store).current?.entry, null);
 });
@@ -246,7 +246,7 @@ test("세션 행: 저장, 조회, 위치 갱신은 위치만 바꾼다", () => {
   assert.deepEqual({ ...session, positionMs: undefined }, { voiceChannelId: "v1", textChannelId: "c1", volume: 40, loopMode: "queue", autoplay: "kpop", userPaused: true, positionMs: undefined, autoResume: true });
 });
 
-test("세션 행: /join 으로만 이어 듣게 저장하면 자동 이어 틀기가 꺼지고, 표시만 다시 켜면 다른 열은 그대로다", () => {
+test("세션 행: /join으로만 이어 듣게 저장하면 자동 이어 틀기가 꺼지고, 표시만 다시 켜면 다른 열은 그대로다", () => {
   const { store } = open();
   store.saveSession(G, { voiceChannelId: "v1", textChannelId: "c1", volume: 40, positionMs: 7000, autoResume: false });
   assert.equal(loaded(store).session.autoResume, false);
@@ -327,7 +327,7 @@ test("loadAll: 트랙이 없는 세션도 빈 목록으로 돌아온다", () => 
   assert.deepEqual(titles(all[G].queue), ["A"]);
 });
 
-test("모양이 틀린 행은 되읽을 때 버리고 DB 에서도 삭제한다. 남은 곡의 위치가 메모리와 맞는다", () => {
+test("모양이 틀린 행은 되읽을 때 버리고 DB에서도 삭제한다. 남은 곡의 위치가 메모리와 맞는다", () => {
   const { db, store } = open();
   store.append(G, [t("A"), t("B"), t("C")]);
   db.prepare("UPDATE session_tracks SET request_key = NULL WHERE title = 'B'").run(); // 손으로 고쳤거나 옛 코드가 남긴 행
@@ -349,7 +349,7 @@ test("트랙 필드: 음원을 어떻게 알았나는 아는 값만 되읽는다
   assert.equal(loaded(store).current?.audioFoundBy, undefined, "음원 주소가 요청과 달라도 링크 데이터에서 온 것으로 가리지 않는다");
 });
 
-test("세션 행: 곡 길이는 0 보다 큰 유한한 수만 저장하고 나머지는 모름(null)", () => {
+test("세션 행: 곡 길이는 0보다 큰 유한한 수만 저장하고 나머지는 모름(null)", () => {
   const { store } = open();
   for (const [duration, expected] of [
     [185.5, 185.5],

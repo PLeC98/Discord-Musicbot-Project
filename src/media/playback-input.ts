@@ -1,5 +1,5 @@
-// 소리를 여는 곳. 캐시 파일, HLS 주소, 스트림 파이프 셋 중 하나로 ffmpeg 를 실행하고, 그 PCM 에 출력 스트림(media/opus-output)을 붙여 오디오 리소스를 만든다.
-// 어느 분기로 갈지는 transportOf 가 정했다. 스트림 파이프가 열리지 않으면 나란히 다운로드하던 캐시 파일로 연다.
+// 소리를 여는 곳. 캐시 파일, HLS 주소, 스트림 파이프 셋 중 하나로 ffmpeg를 실행하고, 그 PCM에 출력 스트림(media/opus-output)을 붙여 오디오 리소스를 만든다.
+// 어느 분기로 갈지는 transportOf가 정했다. 스트림 파이프가 열리지 않으면 나란히 다운로드하던 캐시 파일로 연다.
 
 import { codedError } from "../rules/error-kind.ts";
 import { StreamType } from "@discordjs/voice";
@@ -26,9 +26,9 @@ import { sec } from "../infra/log/seconds.ts";
 import { watchBodyIdle } from "../infra/safe-url.ts";
 
 type Splicer = InstanceType<typeof AudioSplicer>;
-// 바깥 경계에서 여기서 부르고 읽는 필드만. R 은 오디오 리소스(건드리지 않고 돌려준다)
+// 바깥 경계에서 여기서 부르고 읽는 필드만. R은 오디오 리소스(건드리지 않고 돌려준다)
 type FfmpegChild = { stdout: Readable; stderr: Readable; stdin: Writable; kill(signal?: NodeJS.Signals): boolean; once(event: "exit", listener: (code: number | null, signal: NodeJS.Signals | null) => void): unknown };
-// startedAtMs: 내보내기 시작하는 곡 안의 위치(세그먼트 스트림은 그 위치를 포함한 세그먼트부터, 청크 스트림은 위치 앞의 키프레임부터 받는다. 나머지는 ffmpeg 의 -ss). describe: 끊겼을 때 남길 입력 상태.
+// startedAtMs: 내보내기 시작하는 곡 안의 위치(세그먼트 스트림은 그 위치를 포함한 세그먼트부터, 청크 스트림은 위치 앞의 키프레임부터 받는다. 나머지는 ffmpeg의 -ss). describe: 끊겼을 때 남길 입력 상태.
 // bounded: 직접 링크가 끝이 있고 크기, 길이를 안다(나란히 다운로드해도 된다). live: 직접 링크가 라이브다. resumable: 끊기면 이을 수 있다(media/direct-input)
 type OpenedStream = Readable & {
   headers?: Record<string, unknown>;
@@ -69,9 +69,9 @@ type InputOptions<R> = {
   /** 볼륨 정규화의 게인 탭을 연다(player/gain-control). 입력 방식이 정해진 뒤(출력 스트림을 만들 때) 부른다. 없으면 정규화하지 않는다 */
   openTap?: OpenTap | null;
   onProgress(): void;
-  /** 라이브로 추가된 곡이다(직접 링크 HLS 의 목록이 끝났으면 live-ended) */
+  /** 라이브로 추가된 곡이다(직접 링크 HLS의 목록이 끝났으면 live-ended) */
   liveOnly?: boolean;
-  /** 주소를 새로 받는다. 부르는 쪽은 재사용한 주소(streamInfo.reused)일 때만 주고, 열리지 않으면 한 번 부른다 */
+  /** 주소를 새로 받는다. 호출부는 재사용한 주소(streamInfo.reused)일 때만 주고, 열리지 않으면 한 번 부른다 */
   refresh?: (() => Promise<StreamInfo>) | null;
   label: string;
 };
@@ -91,7 +91,7 @@ const SWITCH_FADE_MS = 40; // 캐시로 갈아탈 때 등출력 크로스페이�
  * @param o.onStreamLost  스트림이 끊기면 캐시로 갈아탈 예약. 예약했으면 true
  * @param o.onProgress  입력이 들어왔다(버퍼링 감시가 본다)
  * @param o.label  로그용 곡 이름
- * @returns cacheFile 은 결국 파일로 열었으면 그 경로. health 는 연 소스의 온전함(곡 끝 판정이 본다)
+ * @returns cacheFile은 결국 파일로 열었으면 그 경로. health는 연 소스의 온전함(곡 끝 판정이 본다)
  */
 async function openInput<R>(o: InputOptions<R>): Promise<Opened<R>> {
   if (!o.io.encoderAvailable()) throw codedError("encoder-unavailable", "쓸 수 있는 재생 인코딩 워커가 없음");
@@ -105,7 +105,7 @@ async function openInput<R>(o: InputOptions<R>): Promise<Opened<R>> {
   return o.cacheFile ? openFile(o) : { resource: null, cacheFile: null, health: null };
 }
 
-// 볼륨, 인코딩은 우리 출력이 하고 voice 에는 Opus 패킷을 넘긴다
+// 볼륨, 인코딩은 우리 출력이 하고 voice에는 Opus 패킷을 넘긴다
 function resourceOf<R>(o: InputOptions<R>, input: Readable, facts: PathFacts): { resource: R; output: OpusOutput; tap: GainTap | null } {
   const tap = o.openTap?.(facts) ?? null;
   const output = attachOpusOutput(input, { gain: o.gain, openEncoder: o.io.openEncoder, tap });
@@ -113,7 +113,7 @@ function resourceOf<R>(o: InputOptions<R>, input: Readable, facts: PathFacts): {
   return { resource, output, tap };
 }
 
-// 목록에 필요한 ffmpeg 능력. 모르는 방식은 https 만 있으면 ffmpeg 에 맡겨 본다
+// 목록에 필요한 ffmpeg 능력. 모르는 방식은 https만 있으면 ffmpeg에 맡겨 본다
 const CAN_OPEN: Record<"hls" | "dash" | "other", (caps: Capabilities) => boolean> = {
   hls: (caps) => caps.ok,
   dash: (caps) => caps.https && caps.dash,
@@ -122,14 +122,14 @@ const CAN_OPEN: Record<"hls" | "dash" | "other", (caps: Capabilities) => boolean
 
 // HLS, DASH. 목록은 "받아 둔 바이트"가 아니라 "받아 올 주소"를 줘야 열린다
 function openUrl<R>(o: InputOptions<R>, streamInfo: StreamInfo): Opened<R> {
-  // yt-dlp 가 준 주소만 온다. 맨 앞이 http(s)가 아니면(file:, concat: 등) ffmpeg 에 넘기지 않는다. 그 안쪽에서 여는 것은 ffmpeg 의 http 기본 목록이 좁힌다
+  // yt-dlp가 준 주소만 온다. 맨 앞이 http(s)가 아니면(file:, concat: 등) ffmpeg에 넘기지 않는다. 그 안쪽에서 여는 것은 ffmpeg의 http 기본 목록이 좁힌다
   if (!/^https?:\/\//i.test(String(streamInfo.url))) {
     throw Object.assign(codedError("stream-failed", `스트림 주소가 http(s)가 아님(${streamInfo.protocol ?? "프로토콜 모름"})`), { scope: "track" });
   }
   // 스트림 주소를 고를 때(canPlayHls) 먼저 필터링하지만, 여기까지 온 것은 막는다.
   const list = o.transport.list ?? "hls";
   if (!CAN_OPEN[list](o.io.ffmpegCapabilities())) {
-    // 범위: 이 ffmpeg 로는 이 꼴의 스트림이 모두 안 된다(player/failure-scope)
+    // 범위: 이 ffmpeg로는 이 꼴의 스트림이 모두 안 된다(player/failure-scope)
     throw Object.assign(codedError("stream-failed", `이 ffmpeg 빌드로는 ${list === "other" ? (streamInfo.protocol ?? "없음") : list.toUpperCase()} 스트림을 재생할 수 없음`), { scope: "environment" });
   }
 
@@ -150,7 +150,7 @@ function openUrl<R>(o: InputOptions<R>, streamInfo: StreamInfo): Opened<R> {
   return { ...resourceOf(o, ffmpeg.stdout, { kind: "url", live, bounded: null, sizeBytes: null, downloading: Boolean(o.download), cacheFile: null }), cacheFile: null, health };
 }
 
-// HLS 는 세그먼트를 끝내 못 받으면 건너뛰고 이어 내보낸 뒤 0 으로 끝난다(빠진 만큼 소리가 짧다).
+// HLS는 세그먼트를 끝내 못 받으면 건너뛰고 이어 내보낸 뒤 0으로 끝난다(빠진 만큼 소리가 짧다).
 // 다시보기는 그 자리에서 입력을 끊는다. 이어 내보낸 채 끝나면 끊긴 위치가 빠진 길이만큼 앞당겨져, 그 위치부터 다시 열 때 들은 끝부분을 되풀이한다.
 // 끊어 두면 곡 끝 판정이 입력 깨짐으로 보고 빠진 세그먼트 앞에서 다시 연다. 라이브는 짧은 빈틈보다 재연결 공백이 길어 이어 튼다
 const SEGMENT_SKIPPED = /failed too many times, skipping/;
@@ -227,7 +227,7 @@ async function fallBack<R>(o: InputOptions<R>, download: Download | null, direct
 // 로그에 적는 분기 이름
 const branchOf = (t: Pick<Transport, "via" | "live">) => `${{ pipe: "파이프", url: "주소", file: "파일" }[t.via]}${t.live ? "(라이브)" : ""}`;
 
-// 재사용한 주소(받아 둔 영상 정보, 직전 재생의 주소)가 열리지 않았다. 주소는 추출한 IP 에 묶여 망을 옮기면 안 열린다.
+// 재사용한 주소(받아 둔 영상 정보, 직전 재생의 주소)가 열리지 않았다. 주소는 추출한 IP에 묶여 망을 옮기면 안 열린다.
 // 새로 받아 한 번 더 연다. 그것도 안 되면 null(원래 오류로 캐시 폴백에 맡긴다)
 async function reopenFresh<R>(o: InputOptions<R>, hooks: Hooks, error: unknown): Promise<{ streamInfo: StreamInfo; audioStream: OpenedStream | null } | null> {
   if (!o.refresh) return null;
@@ -255,7 +255,7 @@ const SINGLE_GET_IDLE_MS = 6000;
 
 /**
  * 스트림을 연다. 첫 요청까지 여기서 끝내 실패가 캐시 폴백으로 가게 한다.
- * 유튜브는 앞 광고가 붙은 응답이면 광고가 끝날 때까지 본편 요청을 403 으로 막는다(클라이언트에 따라 막지 않기도 한다).
+ * 유튜브는 앞 광고가 붙은 응답이면 광고가 끝날 때까지 본편 요청을 403으로 막는다(클라이언트에 따라 막지 않기도 한다).
  * 곧바로 열어 보고, 막혔는데 광고가 끝나는 시각(availableAt)이 아직이면 그때까지 기다려 한 번 더 연다
  */
 async function openStream<R>(o: InputOptions<R>, streamInfo: StreamInfo, hooks: Hooks): Promise<OpenedStream | null> {
@@ -270,7 +270,7 @@ async function openStream<R>(o: InputOptions<R>, streamInfo: StreamInfo, hooks: 
   }
 }
 
-// 403 이고 광고가 끝나는 시각(초)이 아직이면 기다릴 ms. 아니면 null(다른 까닭의 실패)
+// 403이고 광고가 끝나는 시각(availableAt, 초)이 아직이면 기다릴 ms(AD_WAIT_MAX_MS를 넘으면 null). 그 밖은 null(다른 원인의 실패)
 function adWaitMs(error: unknown, availableAt: number | null | undefined, now: number): number | null {
   if ((error as { status?: unknown } | null)?.status !== 403 || typeof availableAt !== "number") return null;
   const ms = availableAt * 1000 - now;
@@ -291,7 +291,7 @@ async function openStreamOnce<R>(o: InputOptions<R>, streamInfo: StreamInfo, hoo
   if (streamInfo.fragments) return o.io.openFragmentStream({ fragments: streamInfo.fragments, durationMs: (streamInfo.duration || o.durationSec) * 1000, startMs: o.startMs, headers });
 
   // 전체 길이를 알면 Range로 나눠 받는다. 순차 GET은 서버가 재생시간의 약 2배속으로 조인다.
-  // 길이를 모르는 입력은 나눌 수가 없으므로 처음부터 받는다(위치는 ffmpeg 의 -ss 가 정한다).
+  // 길이를 모르는 입력은 나눌 수가 없으므로 처음부터 받는다(위치는 ffmpeg의 -ss가 정한다).
   const totalBytes = contentLengthFromUrl(url);
   if (totalBytes) return openChunked(o, { url, headers, totalBytes, durationMs: (streamInfo.duration || o.durationSec) * 1000 }, hooks);
   // 헤더 대기만 끊는다(fetch는 신호를 본문까지 물고 간다. 본문은 무응답 감시가 본다). 시간 초과(TimeoutError)라 실패 범위 판정이 네트워크 탓으로 본다
@@ -317,8 +317,8 @@ async function openStreamOnce<R>(o: InputOptions<R>, streamInfo: StreamInfo, hoo
 }
 
 /**
- * 청크 스트림. 먼 위치면 파일의 인덱스로 목표 앞의 키프레임 바이트부터 받고(헤더를 먼저 내보낸다, media/seek-start) 나머지는 ffmpeg 의 -ss 가 맞춘다.
- * 색인이 없거나, 받지 못하거나, 그 자리가 색인 탓으로 열리지 않으면 처음부터 받는다(주소, 네트워크 탓의 실패는 그대로 던진다)
+ * 청크 스트림. 먼 위치면 파일의 인덱스로 목표 앞의 키프레임 바이트부터 받고(헤더를 먼저 내보낸다, media/seek-start) 나머지는 ffmpeg의 -ss가 맞춘다.
+ * 색인이 없거나, 받지 못하거나, 그 자리가 색인 탓으로 열리지 않으면 처음부터 받는다(주소, 네트워크 탓의 실패는 그대로 예외를 던진다)
  */
 async function openChunked<R>(o: InputOptions<R>, { url, headers, totalBytes, durationMs }: { url: string; headers: Record<string, string>; totalBytes: number; durationMs: number }, hooks: Hooks): Promise<OpenedStream> {
   const chunkSize = config.stream.chunkBytes;
@@ -326,7 +326,7 @@ async function openChunked<R>(o: InputOptions<R>, { url, headers, totalBytes, du
   if (!(o.startMs > 0)) return o.io.openChunkedStream(base);
   const seek = await o.io.seekStart({ url, headers, totalBytes, startMs: o.startMs, durationMs, chunkBytes: chunkSize });
   if (!seek.ok) {
-    // 주소가 막혔다. 처음부터 받아도 똑같이 막히므로 오류를 던진다(앞 광고 시간이면 openStream 이 기다렸다 다시 연다)
+    // 주소가 막혔다. 처음부터 받아도 똑같이 막히므로 오류를 던진다(앞 광고 시간이면 openStream이 기다렸다 다시 연다)
     if (seek.refused) throw Object.assign(new Error(seek.why), { status: seek.refused, permanent: true });
     if (seek.slow) log.warn(`인덱스 불러오기 실패(처음부터 스트리밍): ${o.label} | ${seek.why}`);
     else if (seek.failed) log.warn(`탐색 인덱스 조회 실패(처음부터 스트리밍해 ${sec(o.startMs)}초 지점까지 디코딩): ${o.label} | ${seek.why}`);
@@ -346,8 +346,8 @@ async function openChunked<R>(o: InputOptions<R>, { url, headers, totalBytes, du
 }
 
 /**
- * 직접 링크는 SSRF 가드(SafeUrl)를 통과해 연다. HLS VOD 는 위치가 든 세그먼트부터 받는다.
- * 이을 수 있는 파일은 청크 스트림으로: 연 응답을 끝까지 내보내고, 끊기면 캐시 전환을 먼저 묻고 받은 위치부터 Range 로 잇는다
+ * 직접 링크는 SSRF 가드(SafeUrl)를 통과해 연다. HLS VOD는 위치가 든 세그먼트부터 받는다.
+ * 이을 수 있는 파일은 청크 스트림으로: 연 응답을 끝까지 내보내고, 끊기면 캐시 전환을 먼저 묻고 받은 위치부터 Range로 잇는다
  */
 async function openDirect<R>(o: InputOptions<R>, url: string, hooks: Hooks): Promise<OpenedStream> {
   const input = await o.io.directStream(url, { startMs: o.startMs, liveOnly: o.liveOnly, onResumed: (info) => hooks.resumed(info) });
@@ -375,7 +375,7 @@ async function cacheFallback(download: Download, streamError: unknown): Promise<
     try {
       return await inFlight;
     } catch {
-      // 다운로드 실패는 cache-download 가 error 로 남겼다. 원래 스트림 오류를 다시 던진다
+      // 다운로드 실패는 cache-download가 error로 남겼다. 원래 스트림 오류를 다시 던진다
     }
   }
   throw streamError;
@@ -384,7 +384,7 @@ async function cacheFallback(download: Download, streamError: unknown): Promise<
 function pipeResource<R>(o: InputOptions<R>, streamInfo: StreamInfo, audioStream: OpenedStream, hooks: Hooks): Opened<R> {
   // 스트림이 곡 중간부터 내보내면(세그먼트 스트림) 그 앞은 이미 건너뛰었다
   const ffmpeg = o.io.spawnFfmpeg(buildFfmpegArgs({ seekMs: o.startMs - (audioStream.startedAtMs ?? 0) }), "stream");
-  // 입력을 닫아 ffmpeg 가 0 으로 끝나도 스트림이 깨졌으면 끝이 아니다. 오류와 덜 받은 채 끝남을 따로 적는다
+  // 입력을 닫아 ffmpeg가 0으로 끝나도 스트림이 깨졌으면 끝이 아니다. 오류와 덜 받은 채 끝남을 따로 적는다
   const kind = streamInfo.fragments ? "세그먼트" : audioStream.stats ? "청크" : streamInfo.platform === "direct" ? "직접 링크" : "단일 GET";
   const health = new InputHealth(kind).watch(ffmpeg);
 

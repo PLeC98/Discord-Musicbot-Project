@@ -1,5 +1,5 @@
 // 로그인 세션과 서버 연결의 상태. 요청 한 곳(utils/request)이 적고, 화면은 대화상자, 띠를 표시하며 SSE 연결, 주기 읽기를 멈춘다
-// ended: 401 을 받았다(세션이 끝났다). 다시 로그인할 때까지 SSE 연결을 닫는다. 편집 중인 화면은 그대로 둔다
+// ended: 401을 받았다(세션이 끝났다). 다시 로그인할 때까지 SSE 연결을 닫는다. 편집 중인 화면은 그대로 둔다
 // reauth: 민감한 조작(비밀값, 주소 변경, 다시 시작, 다른 기기 로그아웃)이 로그인한 지 오래되어 거절됐다(middleware/recent-login). 세션은 살아 있으며 로그인 창에서 다시 로그인하면 거절된 요청을 다시 보낸다
 // offline: 마지막 요청이 서버에 닿지 못했다(봇이 꺼졌거나 네트워크). 로그아웃이 아니다
 // streamDown: 탭의 SSE 연결(stores/guilds)이 열려 있지 않다. 재연결하는 동안은 30초마다 전부 다시 읽는다
@@ -19,8 +19,8 @@ export const session = reactive({ ended: false, reauth: false, offline: false, s
 export const blocked = (): boolean => session.ended || session.switched;
 
 // ── 다시 로그인 ──
-// 로그인은 작은 창(로그인 창)에서 한다. 끝나면 그 창(/login-done)이 같은 주소의 탭들에 알리고 스스로 닫는다.
-// window.opener 는 쓰지 않는다. 디스코드를 거쳐 오면 끊길 수 있다(브라우저의 창 격리)
+// 로그인은 작은 창(로그인 창)에서 한다. 끝나면 그 창(/login-done)이 같은 주소의 탭들에 알리고 자동으로 닫는다.
+// window.opener는 쓰지 않는다. 디스코드를 거쳐 오면 끊길 수 있다(브라우저의 창 격리)
 
 const CHANNEL = "musicbot-session";
 
@@ -62,7 +62,7 @@ export function onSignedIn(listener: () => void): () => void {
 // 다시 로그인을 기다리는 요청들. 마치면 다시 보내고(true), 그만두면 원래 거절대로 실패한다(false)
 let reauthWaiters: Array<(signedIn: boolean) => void> = [];
 
-/** 위험한 조작이 reauth-required 로 거절됐다. 대화상자를 열고 다시 로그인을 마칠 때까지 기다린다 */
+/** 위험한 조작이 reauth-required로 거절됐다. 대화상자를 열고 다시 로그인을 마칠 때까지 기다린다 */
 export function waitForReauth(): Promise<boolean> {
   session.reauth = true;
   return new Promise((resolve) => reauthWaiters.push(resolve));

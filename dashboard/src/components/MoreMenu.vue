@@ -1,5 +1,5 @@
 <template>
-  <!-- ⋯ 버튼과 그 메뉴. 메뉴는 카드의 overflow 에 잘리지 않게 body 로 빼고 좌표로 붙인다(버튼 오른쪽 끝에 맞춰 아래로, 아래가 모자라면 위로).
+  <!-- ⋯ 버튼과 그 메뉴. 메뉴는 카드의 overflow에 잘리지 않게 body로 빼고 좌표로 붙인다(버튼 오른쪽 끝에 맞춰 아래로, 아래가 모자라면 위로).
        keepFocus: 버튼, 메뉴를 누르는 동안 포커스를 옮기지 않는다(입력란 옆 메뉴. 입력란이 포커스를 잃으면 닫히는 것이 있다) -->
   <button ref="triggerEl" type="button" :class="buttonClass" :disabled="disabled" aria-haspopup="menu" :aria-expanded="open" :aria-label="label" v-tooltip="open ? null : label" @mousedown="keepFocus && $event.preventDefault()" @click="toggle"><Icon :name="icon ?? 'more_vert'" :size="20" /></button>
   <Teleport to="body">
@@ -21,7 +21,7 @@ import type { IconName } from "../icons.ts";
 type Item = { label: string; icon: IconName; danger?: boolean; select: () => void };
 /** icon: 버튼의 기호(기본 ⋮), keepFocus: 누르는 동안 포커스를 옮기지 않는다 */
 defineProps<{ items: Item[]; label: string; buttonClass?: string | string[]; icon?: IconName; disabled?: boolean; keepFocus?: boolean }>();
-/** 메뉴가 열리고 닫힐 때(부르는 쪽이 키 입력을 메뉴에 양보한다) */
+/** 메뉴가 열리고 닫힐 때(부모 컴포넌트가 키 입력을 메뉴에 양보한다) */
 const emit = defineEmits<{ open: [open: boolean] }>();
 
 const triggerEl = ref<HTMLElement | null>(null);

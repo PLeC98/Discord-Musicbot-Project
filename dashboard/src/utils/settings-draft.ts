@@ -42,7 +42,7 @@ function patchOf(base: SettingsValues, draft: SettingsValues, keys: readonly Set
 /** 합친 결과. touched: 고치는 값이 바뀐 키(화면은 그 키의 입력만 고쳐 쓴다) */
 type Merged = { base: SettingsValues; draft: SettingsValues; touched: SettingsKey[] };
 
-/** 저장 응답을 반영한다. 보낸 키만 기준값을 응답 값으로 바꾸고, 고치는 값이 보낸 그대로면 그것도 응답 값으로 바꾼다(서버가 거른 역할이 화면에서도 빠지게). 그사이 또 고쳤으면 둔다 */
+/** 저장 응답을 반영한다. 보낸 키만 기준값을 응답 값으로 바꾸고, 고치는 값이 보낸 그대로면 그것도 응답 값으로 바꾼다(서버가 필터링한 역할이 화면에서도 빠지게). 그사이 또 고쳤으면 둔다 */
 function acceptSaved(base: SettingsValues, draft: SettingsValues, sent: SettingsValues, values: SettingsValues): Merged {
   const touched: SettingsKey[] = [];
   for (const key of keysOf(sent)) {
@@ -126,7 +126,7 @@ function fieldKeysOf(reply: unknown): SettingsKey[] {
   return [...keys];
 }
 
-/** 저장 실패의 종류. 상태 하나에 코드가 여럿이라(409 에 account-changed 도 있다) 문제 코드로 구분한다 */
+/** 저장 실패의 종류. 상태 하나에 코드가 여럿이라(409에 account-changed도 있다) 문제 코드로 구분한다 */
 type Failure = { kind: "conflict"; conflict: SettingsConflict } | { kind: "field"; keys: SettingsKey[] } | { kind: "permission" } | { kind: "gone" } | { kind: "other" };
 
 /** 서버나 멤버가 사라졌다(다시 해도 같다) */
@@ -154,7 +154,7 @@ const lostView = (error: unknown) => statusOf(error) === 403 || GONE_CODES.inclu
 
 /** 저장 컨트롤러가 화면에서 넘겨받는 함수 */
 type SaverIO = {
-  /** PATCH 를 보내고 응답(values)을 돌려준다 */
+  /** PATCH를 보내고 응답(values)을 돌려준다 */
   send(patch: SettingsPatch): Promise<SettingsSaved>;
   /** GET */
   fetch(): Promise<GuildSettings>;

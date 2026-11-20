@@ -1,5 +1,5 @@
 // src/dashboard/login-background/archive.ts: 로그인 배경 백업(설정 내보내기의 login-background 종류).
-// 다 만든 배경의 내는 파일만 담고, 불러오면 새 id 로 풀어 기록을 통째로 바꾼다. 남이 준 파일의 모르는 파일, 빠진 파일, 바깥을 가리키는 목록은 받지 않는다
+// 다 만든 배경의 내는 파일만 담고, 불러오면 새 id로 풀어 기록을 통째로 바꾼다. 남이 준 파일의 모르는 파일, 빠진 파일, 바깥을 가리키는 목록은 받지 않는다
 
 process.env.OWNER_ID = "owner";
 
@@ -152,7 +152,7 @@ test("자기 내보내기를 미리 보면 같다. 미리 보기 줄은 로그�
   assert.deepEqual([row.item, row.inFile, row.same, row.problems, row.count], ["login-background", true, true, [], 1]);
 });
 
-test("불러오기는 통째로 바꾼다: 새 id 로 풀고 지금 배경, 화면 값, 한도를 복원하며, 지금 기록(만드는 중인 것까지)은 삭제한다", async () => {
+test("불러오기는 통째로 바꾼다: 새 id로 풀고 지금 배경, 화면 값, 한도를 복원하며, 지금 기록(만드는 중인 것까지)은 삭제한다", async () => {
   const image = await made("image", "그림");
   const video = await made("video", "영상");
   store.show(video.id);
@@ -190,7 +190,7 @@ test("불러오기는 통째로 바꾼다: 새 id 로 풀고 지금 배경, 화�
   assert.deepEqual(
     now.map((one) => one.link),
     ["https://example.com/clip.mp4", null],
-    "링크는 http · https 만",
+    "링크는 http와 https만",
   );
   for (const id of oldIds) assert.equal(fs.existsSync(store.folderOf(id)), false, "옛 배경의 폴더는 지운다");
   const shown = store.find(store.loaded().current!)!;
@@ -202,10 +202,10 @@ test("불러오기는 통째로 바꾼다: 새 id 로 풀고 지금 배경, 화�
   assert.equal(fs.readdirSync(uploadDir).length, 0, "불러온 파일은 지운다(같은 세션이 앞서 미리 보기만 하고 닫지 않은 것은 새로 올릴 때 지웠다)");
 
   const again = await preview(file);
-  assert.equal(again.row.same, true, "불러온 뒤에는 같다(id 가 아니라 만든 때 · 이름 · 파일로 본다)");
+  assert.equal(again.row.same, true, "불러온 뒤에는 같다(id가 아니라 만든 때, 이름, 파일로 본다)");
 });
 
-test("남이 준 파일: 모르는 파일, 기록에 없는 배경, 빠진 정지 그림, 바깥을 가리키는 목록, WebP 가 아닌 그림은 받지 않고 아무것도 바꾸지 않는다", async () => {
+test("남이 준 파일: 모르는 파일, 기록에 없는 배경, 빠진 정지 그림, 바깥을 가리키는 목록, WebP가 아닌 그림은 받지 않고 아무것도 바꾸지 않는다", async () => {
   const one = await made("video", "영상");
   store.show(one.id);
   const file = await exported();
@@ -258,7 +258,7 @@ test("풀다 실패하면(내용이 깨졌다) 푼 것을 삭제하고 지금 �
   store.show(one.id);
   store.save();
   const file = await exported();
-  // 세그먼트의 몸통을 바꾼다(중앙 디렉터리의 CRC 와 어긋나 풀 때 걸린다)
+  // 세그먼트의 몸통을 바꾼다(중앙 디렉터리의 CRC와 어긋나 풀 때 걸린다)
   const at = file.indexOf(Buffer.from("segment"));
   file[at] ^= 0xff;
   assert.deepEqual((await preview(file)).row.problems, [], "미리 보기는 중앙 디렉터리, 목록, 이미지만 본다");

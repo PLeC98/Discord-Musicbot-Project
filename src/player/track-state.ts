@@ -123,7 +123,7 @@ function rewind(player: Tracks) {
   player.queue.unshift(prev);
   const current = player.currentTrack;
   if (current) player.queue.splice(1, 0, current);
-  // 기록을 하나 더 뺐으면 저장소는 통째로 다시 쓴다(onRewind 는 기록 한 행만 뺀다)
+  // 기록을 하나 더 뺐으면 저장소는 통째로 다시 쓴다(onRewind는 기록 한 행만 뺀다)
   if (stale) sinkOf(player)?.onReplace();
   else sinkOf(player)?.onRewind(prev, copy, current, true);
   return prev;
@@ -146,12 +146,12 @@ function restartsOnPrevious(player: Pick<Tracks, "loop" | "queue">) {
   return player.loop === "track" || (player.loop === "queue" && player.queue.length === 0);
 }
 
-/** 이전 곡을 누르면 틀 곡. 바꾸지 않고 본다(player.previous 와 같은 선택: 처음부터, rewindRing, rewind) */
+/** 이전 곡을 누르면 틀 곡. 바꾸지 않고 본다(player.previous와 같은 선택: 처음부터, rewindRing, rewind) */
 function previousOf(player: Tracks) {
   if (!player.currentTrack) return null;
   if (restartsOnPrevious(player)) return player.currentTrack;
   if (player.loop === "queue") return player.queue.at(-1) ?? null;
-  // rewind 처럼 기록 끝의 지금 곡(같은 객체)은 건너뛴다
+  // rewind처럼 기록 끝의 지금 곡(같은 객체)은 건너뛴다
   return player.previousTracks.findLast((track) => track !== player.currentTrack) ?? null;
 }
 

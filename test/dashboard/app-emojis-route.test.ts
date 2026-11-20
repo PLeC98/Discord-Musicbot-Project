@@ -1,5 +1,5 @@
 // src/dashboard/routes/app-emojis.ts, app-emoji-glyphs.ts: 앱 이모지 목록(입력란 문자), 이미지, 그림 글꼴.
-// 이미지는 캐시 폴더에 미리 둬 CDN 에 가지 않는다
+// 이미지는 캐시 폴더에 미리 둬 CDN에 가지 않는다
 
 import fs from "node:fs";
 import path from "node:path";
@@ -33,7 +33,7 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
   else Object.assign(req, { session: fake<Request["session"]>({}) });
   next();
 });
-// 운영자 패널의 조작은 가짜(app/app-emojis 의 AppEmojis 대신). 받은 것을 적고, 실패할 코드를 정할 수 있다
+// 운영자 패널의 조작은 가짜(app/app-emojis의 AppEmojis 대신). 받은 것을 적고, 실패할 코드를 정할 수 있다
 const ops: string[] = [];
 let failWith: string | null = null;
 const failing = () => {
@@ -93,7 +93,7 @@ test("목록: 이모지마다 보조 사용자 정의 영역 문자, 아이콘�
   assert.deepEqual((await list()).emojis, first.emojis);
 });
 
-test("아이콘은 다시 올려 id 가 바뀌어도 같은 문자, 판은 바뀐다", async () => {
+test("아이콘은 다시 올려 id가 바뀌어도 같은 문자, 판은 바뀐다", async () => {
   const before = await list();
   useAppEmojis([PARTY, { ...PAUSE, id: "333333333333333333" }]);
   try {
@@ -105,16 +105,16 @@ test("아이콘은 다시 올려 id 가 바뀌어도 같은 문자, 판은 바�
   }
 });
 
-test("이미지: 앱 목록에 있는 id 만, 확장자도 맞아야. id 주소로 오래 캐시", async () => {
+test("이미지: 앱 목록에 있는 id만, 확장자도 맞아야. id 주소로 오래 캐시", async () => {
   const ok = await fetch(`${base}/${PARTY.id}.png`);
   assert.equal(ok.status, 200);
   assert.match(ok.headers.get("cache-control") ?? "", /immutable/);
-  assert.equal((await fetch(`${base}/999999999999999999.png`)).status, 404, "앱에 없는 id 를 받아 오지 않는다");
+  assert.equal((await fetch(`${base}/999999999999999999.png`)).status, 404, "앱에 없는 id를 받아 오지 않는다");
   assert.equal((await fetch(`${base}/${PARTY.id}.gif`)).status, 404);
   assert.equal((await fetch(`${base}/party.png`)).status, 404);
 });
 
-test("글꼴: 목록의 문자를 모두 담고, ETag 로 다시 확인한다", async () => {
+test("글꼴: 목록의 문자를 모두 담고, ETag로 다시 확인한다", async () => {
   const { emojis } = await list();
   for (const format of ["sbix", "svg"]) {
     const res = await fetch(`${base}/font.${format}`);
@@ -149,7 +149,7 @@ test("올리기, 이름 바꾸기, 지우기는 운영자만", async () => {
   assert.equal((await fetch(`${base}/${PARTY.id}`, { method: "DELETE" })).status, 403);
 });
 
-test("올리기: 이름 규칙, 아이콘 이름은 거절, 편집 값으로 128px 를 만들어 넘긴다", async () => {
+test("올리기: 이름 규칙, 아이콘 이름은 거절, 편집 값으로 128px를 만들어 넘긴다", async () => {
   await asOwner(async () => {
     ops.length = 0;
     assert.equal(await problemCode(upload("name=a&rotate=0&left=0&top=0&side=100")), "emoji-name-bad");

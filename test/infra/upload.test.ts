@@ -1,4 +1,4 @@
-// 봇 상태 탭의 업로드: 봇이 보낸 누계(src/infra/upload-meter.ts), 시스템 송신 누계(src/infra/system-upload.ts), 구간 속도(src/dashboard/status/upload.ts).
+// src/infra/upload-meter.ts, system-upload.ts, src/dashboard/status/upload.ts: 봇 상태 탭의 업로드. 봇이 보낸 누계, 시스템 송신 누계, 구간 속도.
 // 시스템 누계는 프로그램을 띄우지 않는 부분(답 읽기, 차이, sysfs 폴더)만 본다
 
 import { test, beforeEach } from "node:test";

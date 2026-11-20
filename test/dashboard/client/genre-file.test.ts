@@ -8,7 +8,7 @@ import { toRows, toMap } from "../../../dashboard/src/utils/genre-rows.ts";
 const KNOWN = new Set(["spotify", "keyword"]);
 const GENRE = { label: "팝", emoji: "🎤", sources: [{ type: "spotify", url: "https://open.spotify.com/playlist/AAA", weight: 3 }], maxDurationSec: 600 };
 
-test("내보낸 파일을 그대로 불러오면 같은 장르가 된다(편집 중 붙인 _key 는 빠진다)", () => {
+test("내보낸 파일을 그대로 불러오면 같은 장르가 된다(편집 중 붙인 _key는 빠진다)", () => {
   const [row] = toRows({ pop: GENRE });
   row.sources[0]._key = 7;
   const { name, body } = genreFile(row);

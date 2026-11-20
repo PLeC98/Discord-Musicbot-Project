@@ -1,7 +1,7 @@
 <!--
   자동재생 장르 편집기 (운영자 패널).
 
-  설정은 settings.db 의 "genres" 문서다. 저장 번호로 두 탭이 서로 덮지 않게 한다(composables/config-file).
+  설정은 settings.db의 "genres" 문서다. 저장 번호로 두 탭이 서로 덮지 않게 한다(composables/config-file).
 -->
 <template>
   <!-- 목록(첫 항목 "전역 설정", 그 아래 장르들), 선택한 것의 편집(M3 목록, 상세). 넓으면(52rem 이상) 2열, 좁으면 1열로 하나씩:
@@ -13,7 +13,7 @@
       <BaseCard v-if="showList" icon="library_music" :title="T.listTitle(rows.length, SELECT_MAX)" :class="listCardClass">
         <template #actions>
           <button type="button" :class="[ICON_BTN, 'size-8']" :disabled="rows.length >= SELECT_MAX" :aria-label="T.addGenre" v-tooltip="rows.length >= SELECT_MAX ? T.atMost(SELECT_MAX) : text.common.add" @click="addRow"><Icon name="add" :size="20" /></button>
-          <!-- 기본값, 장르 파일은 편집기에 불러오기만 한다(저장 막대로 저장하거나 되돌린다) -->
+          <!-- 기본값, 장르 파일은 편집기에 불러오기만 한다(저장 바에서 저장하거나 되돌린다) -->
           <MoreMenu
             :label="text.editor.more"
             :button-class="[ICON_BTN, 'size-8']"
@@ -43,7 +43,7 @@
             <EmojiGlyph v-if="row.emoji" :char="row.emoji" :size="24" class="shrink-0" />
             <Icon v-else name="music_note" :size="24" class="shrink-0" :class="!isOn(i) && 'text-on-surface-variant'" />
             <span class="min-w-0 flex-1 truncate" :class="!shownName(row) && !isOn(i) && 'text-on-surface-variant'">{{ shownName(row) || T.noName }}</span>
-            <!-- 오른쪽 끝: 문제(오류) 또는 경고(쓰이지 않는 출처 등), 출처 수, 열린다는 꺾쇠. 아이콘에 올리면 까닭 -->
+            <!-- 오른쪽 끝: 문제(오류) 또는 경고(쓰이지 않는 출처 등), 출처 수, 열린다는 꺾쇠. 아이콘에 올리면 이유 -->
             <Icon v-if="rowProblem(row)" name="error" :size="20" fill class="shrink-0" :class="!isOn(i) && 'text-error'" v-tooltip="rowProblem(row)" />
             <Icon v-else-if="rowWarning(row)" name="warning" :size="20" fill class="shrink-0" :class="!isOn(i) && 'text-(--warn-ink)'" v-tooltip="rowWarning(row)" />
             <span class="shrink-0 text-xs nums" :class="!isOn(i) && 'text-on-surface-variant'">{{ T.sourceCount(row.sources.length) }}</span>
@@ -75,7 +75,7 @@
               <input :value="selected.label" :placeholder="selected.name.trim() || T.labelPlaceholder" :aria-label="T.label" :class="[FIELD, 'min-w-0 flex-1']" @input="selected.label = valueOf($event)" />
               <button type="button" :class="[ICON_BTN, 'size-8', 'hover:text-error']" :aria-label="T.removeGenre" v-tooltip="text.common.remove" @click="removeRow(selectedIndex)"><Icon name="delete" :size="20" /></button>
             </div>
-            <!-- 식별자: 주소, 디스코드 버튼, AI 의 {{genre}}. 라벨(위 입력란)은 보여 줄 이름이라 바꿔도 깨지지 않는다 -->
+            <!-- 식별자: 주소, 디스코드 버튼, AI의 {{genre}}. 라벨(위 입력란)은 보여 줄 이름이라 바꿔도 깨지지 않는다 -->
             <label class="block">
               <span :class="FIELD_LABEL" class="flex items-center gap-1">{{ T.id }}<Icon name="info" :size="14" class="cursor-help" v-tooltip="T.idTip" /></span>
               <input :value="selected.name" :placeholder="T.idPlaceholder" spellcheck="false" :class="[FIELD, 'w-full font-mono placeholder:font-sans']" @input="selected.name = valueOf($event)" />
@@ -162,7 +162,7 @@ const sourceTypesError = ref("");
 const payload = computed(() => ({ defaults: draft.value.defaults, genres: toMap(rows.value) }));
 
 function apply(data: Record<string, unknown>) {
-  // 파일에 필드가 없을 때의 값은 봇이 그때 쓰는 값(schema/genres 의 GENRE_DEFAULTS). 다른 값을 채워 두면 손대지 않고 저장해도 동작이 바뀐다
+  // 파일에 필드가 없을 때의 값은 봇이 그때 쓰는 값(schema/genres의 GENRE_DEFAULTS). 다른 값을 채워 두면 손대지 않고 저장해도 동작이 바뀐다
   const defaults: Defaults = { ...GENRE_DEFAULTS, blockedKeywords: [], ...((data.defaults as Partial<Defaults> | undefined) || {}) };
   // 제외 키워드는 제목을 소문자로 바꿔 비교하므로, 입력되는 값도 소문자로 둔다. 대문자로 입력해 두면 아무것도 필터링하지 못한다
   defaults.blockedKeywords = [...new Set((defaults.blockedKeywords || []).map((k) => String(k).trim().toLowerCase()))];
@@ -175,7 +175,7 @@ const { loaded, dirty, saving, loadError, serverProblems, fetch, save, revert, l
 
 // 저장할 때 서버가 보는 검사 그대로(schema/genres). 저장 버튼을 누르기 전에 알려 준다
 const problems = computed(() => (loaded.value ? [...genreProblems(payload.value), ...serverProblems.value] : []));
-// 운영자 패널의 저장 막대에 올린다(검사에 걸린 값이 있으면 막대가 저장을 막는다)
+// 운영자 패널의 저장 바에 올린다(검사에 걸린 값이 있으면 저장 바가 저장을 막는다)
 useSaveTarget({ tab: "autoplay", dirty, saving, blocked: computed(() => problems.value.length > 0), save: () => save(), revert });
 
 // ── 순서 바꾸기. 접어 둔 기억도 그 장르를 따라간다 ─────────────────────────
@@ -208,7 +208,7 @@ const globalProblems = computed(() => (loaded.value ? genreProblems({ defaults: 
 // 어느 항목의 것도 아닌 문제: 장르가 없음, 저장할 때 서버가 가리킨 것
 const listProblems = computed(() => [...(loaded.value && !rows.value.length ? [T.problems.noGenres] : []), ...serverProblems.value]);
 
-// 목록에 표시할 경고: 쓰이지 않는 출처(.env 에 키가 없음), 모르는 종류. 출처 편집기의 안내와 같은 말
+// 목록에 표시할 경고: 쓰이지 않는 출처(.env에 키가 없음), 모르는 종류. 출처 편집기의 안내와 같은 말
 function rowWarning(row: GenreRow) {
   if (sourceTypesState.value !== "ready") return "";
   const lines = row.sources.flatMap((one) => {
@@ -246,7 +246,7 @@ function exportRow(row: GenreRow) {
 async function importPicked(event: Event) {
   const input = event.target as HTMLInputElement;
   const files = [...(input.files ?? [])];
-  input.value = ""; // 같은 파일을 다시 선택해도 change 가 오게
+  input.value = ""; // 같은 파일을 다시 선택해도 change가 오게
   const parsed = await Promise.all(files.map(async (file) => ({ file, got: parseGenreFile(await file.text()) })));
   const bad = parsed.filter((one) => !one.got).map((one) => one.file.name);
   const good = parsed.flatMap((one) => (one.got ? [one.got] : []));
@@ -271,7 +271,7 @@ async function importPicked(event: Event) {
   if (bad.length) notify({ title: T.importBad, body: bad.join("\n") });
 }
 
-// 어떤 출처를 쓸 수 있고 무슨 필드를 받는지는 서버가 안다(.env 의 키 유무까지).
+// 어떤 출처를 쓸 수 있고 무슨 필드를 받는지는 서버가 안다(.env의 키 유무까지).
 // 못 읽어도 편집은 막지 않는다. 그때는 이미 입력돼 있는 것만 보이고 새로 선택하지는 못한다.
 async function fetchSourceTypes() {
   try {

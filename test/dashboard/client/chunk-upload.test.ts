@@ -1,4 +1,4 @@
-// dashboard/src/utils/chunk-upload.ts: 청크로 올리기, 끊기면 받은 위치부터 이어 올리기, 위치 맞추기, 다시 해 보기 상한, 그만두면 봇의 업로드 지우기
+// dashboard/src/utils/chunk-upload.ts: 청크로 올리기, 끊기면 받은 위치부터 이어 올리기, 위치 맞추기, 재시도 상한, 그만두면 봇의 업로드 지우기
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -11,7 +11,7 @@ import type { Params } from "../../../src/rules/problems.ts";
 type Sent = { method: string; url: string; offset?: number; bytes?: number };
 type Reply = { data?: unknown; problem?: Code; params?: Params; fail?: string; status?: number; headers?: Record<string, string> };
 
-/** 가짜 봇. route 가 요청마다 답을 고른다. 보낸 요청과, 그 봇에 보내는 axios */
+/** 가짜 봇. route가 요청마다 응답을 고른다. 보낸 요청과, 그 봇에 보내는 axios */
 function serve(route: (req: Sent, sent: Sent[]) => Reply) {
   const sent: Sent[] = [];
   const adapter = async (config: InternalAxiosRequestConfig): Promise<AxiosResponse> => {
@@ -31,7 +31,7 @@ const ID = "a".repeat(32);
 const file = (size: number) => new Blob([new Uint8Array(size)]);
 const started = (chunkSize: number): Reply => ({ data: { id: ID, chunkSize, received: 0 } });
 
-test("크기를 알리고 청크 크기대로 차례로 올린다. 진행률은 1 로 끝나고 업로드 id 를 돌려준다", async () => {
+test("크기를 알리고 청크 크기대로 차례로 올린다. 진행률은 1로 끝나고 업로드 id를 돌려준다", async () => {
   let received = 0;
   const { sent, http } = serve((req) => {
     if (req.method === "POST") return started(4);
@@ -59,7 +59,7 @@ test("끊기면 기다렸다 봇이 받은 위치를 물어 그 위치부터 이
     if (req.method === "GET") return { data: { received, size: 8 } };
     if (req.offset === 4 && !failed) {
       failed = true;
-      received = 8; // 봇은 다 받았는데 답이 끊겼다
+      received = 8; // 봇은 다 받았는데 응답이 끊겼다
       return { fail: "ERR_NETWORK" };
     }
     received += req.bytes ?? 0;
@@ -89,7 +89,7 @@ test("응답 없이 끊긴 것은 오류 코드와 상관없이 다시 해 본�
   assert.equal(stopped.sent.filter((one) => one.method === "PUT").length, 1);
 });
 
-test("위치가 어긋나면 응답의 받은 위치로 맞추고, 요청 제한은 Retry-After 만큼 기다린다", async () => {
+test("위치가 어긋나면 응답의 받은 위치로 맞추고, 요청 제한은 Retry-After만큼 기다린다", async () => {
   let received = 0;
   let limited = false;
   const { sent, http } = serve((req) => {
@@ -124,7 +124,7 @@ test("다시 해 볼 실패가 아니면(공간 부족) 곧바로 그만두고 �
   );
 });
 
-test("받은 위치가 오르지 않은 채 6번 다시 해 보고도 실패하면 그만둔다(받은 위치가 오르면 다시 센다)", async () => {
+test("받은 위치가 오르지 않은 채 6번 재시도하고도 실패하면 그만둔다(받은 위치가 오르면 다시 센다)", async () => {
   const { sent, http } = serve((req) => {
     if (req.method === "POST") return started(4);
     if (req.method === "GET") return { data: { received: 0, size: 8 } };
@@ -135,7 +135,7 @@ test("받은 위치가 오르지 않은 채 6번 다시 해 보고도 실패하�
   assert.equal(sent.filter((one) => one.method === "PUT").length, 7);
 });
 
-test("받은 위치가 오르면 실패를 다시 센다: 청크마다 답이 끊겨도(봇은 받았다) 끝까지 올린다", async () => {
+test("받은 위치가 오르면 실패를 다시 센다: 청크마다 응답이 끊겨도(봇은 받았다) 끝까지 올린다", async () => {
   let received = 0;
   const { http } = serve((req) => {
     if (req.method === "POST") return started(1);

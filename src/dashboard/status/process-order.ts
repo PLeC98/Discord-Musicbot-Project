@@ -1,4 +1,4 @@
-// 봇 상태 탭의 자식 프로세스 정렬(열 하나와 방향). Node 를 부르지 않아 더미 대시보드의 가짜 서버도 쓴다
+// 봇 상태 탭의 자식 프로세스 정렬(열 하나와 방향). Node를 부르지 않아 더미 대시보드의 가짜 서버도 쓴다
 
 import type { ProcessRow, ProcessSort } from "../contract/admin.ts";
 import type { Job } from "../../infra/process-job.ts";
@@ -6,7 +6,7 @@ import type { Job } from "../../infra/process-job.ts";
 // 작업 순서: 서버 이름 있는 작업 → 나간 서버의 작업 → 서버 밖 작업 → 봇 헬퍼. 서버 이름(가나다) 다음은 작업(재생, 다음 곡, 곡 찾기, 없음), 헬퍼는 이 순서.
 // 화면 글(헬퍼 이름, "나간 서버")은 화면 언어를 따르므로 그 글로 정렬하지 않는다
 const TASKS: Array<Job | null> = ["play", "prefetch", "lookup", null];
-const HELPERS: Job[] = ["pot-server", "ytdlp-update", "login-background", "net-stats", "loudness"];
+const HELPERS: Job[] = ["pot-server", "ytdlp-update", "ffmpeg-install", "bgutil-install", "dashboard-build", "login-background", "net-stats", "loudness"];
 const collator = new Intl.Collator("ko");
 function jobKey(p: ProcessRow): [number, string, number] {
   if (p.job && HELPERS.includes(p.job)) return [3, "", HELPERS.indexOf(p.job)];

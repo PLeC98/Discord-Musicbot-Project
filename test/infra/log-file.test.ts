@@ -127,7 +127,7 @@ test("keep=0이면 분리는 하되 오래된 것을 삭제하지 않는다", ()
   assert.ok(rotated(dir).length >= 4, "제한이 없으므로 계속 쌓인다");
 });
 
-test("직렬화 불가(순환 참조)여도 던지지 않고 메시지는 남긴다", () => {
+test("직렬화 불가(순환 참조)여도 예외를 던지지 않고 메시지는 남긴다", () => {
   const file = path.join(tmpdir(), "bot.log");
   const dest = createFileDestination({ file, maxBytes: 1e9, keep: 3 });
   const circular: { self?: object } = {};
@@ -173,7 +173,7 @@ test("필드가 아주 많아 상한을 넘어도 줄인 레코드는 뺀 필드
   assert.match(JSON.parse(raw!).msg, new RegExp(`^필드 많음 \\| 로그 줄이 상한을 넘어\\(\\d+바이트\\) 뺀 필드: ${names} 외 19990개$`));
 });
 
-test("파일을 못 열면 던지지 않고 조용히 중단한다 (로깅이 봇을 멈추지 않는다)", () => {
+test("파일을 못 열면 예외를 던지지 않고 조용히 중단한다 (로깅이 봇을 멈추지 않는다)", () => {
   const blocker = path.join(tmpdir(), "blocked");
   fs.writeFileSync(blocker, "이건 파일이라 디렉터리로 못 만든다");
   const notices: string[] = []; // 안내 한 줄은 테스트 출력 대신 여기로
@@ -197,7 +197,7 @@ test("멈춘 파일 로그는 간격마다 다시 열어 보고, 열리면 한 �
   assert.match(notices[0], /파일 로그\(.*\) 실패: 파일을 열 수 없음/);
 
   clock += 30_000;
-  dest.write(rec("못 남김 3")); // 간격이 지났지만 아직 막혀 있다: 같은 까닭은 다시 알리지 않는다
+  dest.write(rec("못 남김 3")); // 간격이 지났지만 아직 막혀 있다: 같은 원인은 다시 알리지 않는다
   assert.equal(notices.length, 1);
 
   fs.rmSync(dir);
@@ -212,7 +212,7 @@ test("멈춘 파일 로그는 간격마다 다시 열어 보고, 열리면 한 �
 });
 
 test("backupPath: 확장자 앞에 시각을 넣고, 확장자가 없으면 뒤에 붙인다", () => {
-  const at = new Date(2026, 8, 10, 14, 23, 5, 123); // 월은 0부터라 8 이 9월
+  const at = new Date(2026, 8, 10, 14, 23, 5, 123); // 월은 0부터라 8이 9월
   assert.equal(backupPath("/a/bot.log", at), "/a/bot-2026-09-10T14-23-05.123.log");
   assert.equal(backupPath("/a/bot", at), "/a/bot-2026-09-10T14-23-05.123");
 });

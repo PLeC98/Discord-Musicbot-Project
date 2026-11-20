@@ -11,7 +11,7 @@ const GROW = "height 460ms var(--ease-spring), padding 460ms var(--ease-spring),
 const SHRINK = "height 460ms var(--ease-spring), padding 460ms var(--ease-spring), margin 460ms var(--ease-spring), opacity 160ms var(--ease-effects)";
 const PROPS = ["overflow", "transition", "height", "paddingTop", "paddingBottom", "marginTop", "marginBottom", "opacity"] as const;
 
-// 세로 flex 안이면 접힌 동안 부모의 gap 만큼 위로 당겨, 생기고 빠지는 순간 아래가 gap 만큼 튀지 않게 한다
+// 세로 flex 안이면 접힌 동안 부모의 gap만큼 위로 당겨, 생기고 빠지는 순간 아래가 gap만큼 튀지 않게 한다
 function collapsed(el: HTMLElement): Partial<CSSStyleDeclaration> {
   const parent = el.parentElement ? getComputedStyle(el.parentElement) : null;
   const gap = parent && parent.display.includes("flex") && parent.flexDirection.startsWith("column") ? parseFloat(parent.rowGap) || 0 : 0;

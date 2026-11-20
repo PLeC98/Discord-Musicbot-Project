@@ -1,5 +1,5 @@
 /**
- * 토크나이저로 글 하나를 센다. 바깥 API 를 부르지 않고 직접 센다.
+ * 토크나이저로 글 하나를 센다. 바깥 API를 부르지 않고 직접 센다.
  * 무엇으로 셀지와 요청 하나를 세는 것은 tokens.ts
  */
 import fs from "fs";
@@ -7,9 +7,9 @@ import path from "path";
 import { PROJECT } from "../../infra/project-paths.ts";
 import { codeOf, describeError } from "../../rules/error-kind.ts";
 
-// gpt-tokenizer 는 표가 커서 불러 두면 메모리를 꽤 쓴다. AI 보조를 안 쓰는 봇이 떠안지 않게 처음 셀 때 부른다
+// gpt-tokenizer는 표가 커서 불러 두면 메모리를 꽤 쓴다. AI 보조를 안 쓰는 봇이 떠안지 않게 처음 셀 때 부른다
 let tik: Promise<typeof import("gpt-tokenizer")> | null = null;
-// 본문에 적힌 <|endoftext|> 같은 특수 토큰 글자는 글자 그대로 센다(API 도 사용자 글을 그렇게 받는다). 기본값은 예외를 던진다
+// 본문에 적힌 <|endoftext|> 같은 특수 토큰 글자는 글자 그대로 센다(API도 사용자 글을 그렇게 받는다). 기본값은 예외를 던진다
 const tikCount = async (body: string) => (await (tik ??= import("gpt-tokenizer"))).countTokens(body, { disallowedSpecial: new Set() });
 
 type Counted = { tokens: number; by: string; exact: boolean };
@@ -20,7 +20,7 @@ const GEMMA_FILE = path.join(PROJECT.data, "gemma-tokenizer.model");
 // 조각마다 점수가 있고 점수가 높은 짝부터 붙인다. merges 목록이 따로 없는 이유다.
 // 조각 → 점수. 파일이 없으면 false
 let gemma: Map<string, number> | false | null = null;
-// 파일이 있는데 읽지 못한 까닭. 이 모듈은 세는 스레드에서 돌아 로그가 봇 로그에 닿지 않으므로 스레드가 부모에게 한 번 넘긴다
+// 파일이 있는데 읽지 못한 원인. 이 모듈은 세는 스레드에서 돌아 로그가 봇 로그에 닿지 않으므로 스레드가 부모에게 한 번 넘긴다
 let gemmaProblem: string | null = null;
 
 function varint(buf: Buffer, at: number): [number, number] {
@@ -35,7 +35,7 @@ function varint(buf: Buffer, at: number): [number, number] {
   return [out, at];
 }
 
-/** ModelProto 에서 조각과 점수만 */
+/** ModelProto에서 조각과 점수만 */
 function readPieces(buf: Buffer) {
   const piece: string[] = [];
   const score: number[] = [];
@@ -56,7 +56,7 @@ function readPieces(buf: Buffer) {
     [len, at] = varint(buf, at);
     const sub = buf.subarray(at, at + len);
     at += len;
-    if (field !== 1) continue; // pieces 만
+    if (field !== 1) continue; // pieces만
 
     let j = 0;
     let text = "";
@@ -92,20 +92,20 @@ function loadGemma(): Map<string, number> | false {
     for (let i = 0; i < piece.length; i++) rank.set(piece[i], score[i]);
     gemma = rank;
   } catch (error) {
-    gemma = false; // 파일이 없으면 tik 로 떨어진다
+    gemma = false; // 파일이 없으면 tik로 떨어진다
     gemmaProblem = `${GEMMA_FILE} (${codeOf(error) ?? describeError(error)})`;
   }
   return gemma;
 }
 
-/** 젬마 파일을 읽지 못한 까닭. 한 번 꺼내면 비운다 */
+/** 젬마 파일을 읽지 못한 원인. 한 번 꺼내면 비운다 */
 function takeGemmaProblem() {
   const problem = gemmaProblem;
   gemmaProblem = null;
   return problem;
 }
 
-// 붙일 짝 하나. left, right 는 처음 글자 위치(왼쪽이 먼저인 순서를 지킨다)
+// 붙일 짝 하나. left, right는 처음 글자 위치(왼쪽이 먼저인 순서를 지킨다)
 type Pair = { score: number; left: number; right: number; joined: string };
 // 점수가 높은 것, 같으면 왼쪽이 먼저
 const before = (a: Pair, b: Pair) => a.score > b.score || (a.score === b.score && a.left < b.left);
@@ -115,7 +115,7 @@ const before = (a: Pair, b: Pair) => a.score > b.score || (a.score === b.score &
  * 조각을 연결 목록으로, 붙일 짝을 힙으로 둔다. 붙일 때마다 전부 훑으면 글 길이의 제곱이 든다
  */
 function countGemma(text: string, rank: Map<string, number>) {
-  // 스페이스를 ▁ 로 바꾸는 것이 SentencePiece 의 규약이다
+  // 스페이스를 ▁ 로 바꾸는 것이 SentencePiece의 규약이다
   const parts = [...("▁" + String(text).replace(/ /g, "▁"))];
   const n = parts.length;
   const prev = Array.from({ length: n }, (_, i) => i - 1);
@@ -181,7 +181,7 @@ async function count(text: unknown, tokenizer = "tik"): Promise<Counted> {
     const rank = loadGemma();
     if (rank) return { tokens: body ? countGemma(body, rank) : 0, by: "gemma", exact: true };
   }
-  // claude 는 공개 토크나이저가 없다. gemma 파일이 없을 때도 여기로 온다.
+  // claude는 공개 토크나이저가 없다. gemma 파일이 없을 때도 여기로 온다.
   return { tokens: body ? await tikCount(body) : 0, by: "tik", exact: tokenizer === "tik" };
 }
 

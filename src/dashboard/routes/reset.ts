@@ -18,7 +18,7 @@ import { assertSignedIn, sessionEnded } from "../session-requests.ts";
 const resetRouter = express.Router();
 resetRouter.use(requireOwner);
 
-// 대시보드가 보이는 봇 이름(identity 의 /api/bot 과 같다). 준비 전이면 빈 문자열(봇 전체 초기화를 받지 않는다)
+// 대시보드가 보이는 봇 이름(identity의 /api/bot과 같다). 준비 전이면 빈 문자열(봇 전체 초기화를 받지 않는다)
 const botNameOf = (req: Request) => (req.app.locals.bot.client.user?.username as string | undefined) ?? "";
 const launcherOf = (req: Request) => Boolean(req.app.locals.restart);
 const overviewOf = (req: Request): ResetOverview => reset.overview(botNameOf(req), launcherOf(req));
@@ -48,7 +48,7 @@ resetRouter.post("/", requireRecentLogin, async (req, res) => {
     else {
       const restart = req.app.locals.restart;
       done = { kind: "all", ...(await reset.stageFullReset(by, Boolean(restart), go)), restarting: Boolean(restart) };
-      // 실행기로 켰으면 답을 보낸 뒤 다시 시작한다(다음 기동이 삭제한다)
+      // 실행기로 켰으면 응답을 보낸 뒤 다시 시작한다(다음 기동이 삭제한다)
       if (restart) res.on("finish", () => restart(by));
     }
   } catch (error) {

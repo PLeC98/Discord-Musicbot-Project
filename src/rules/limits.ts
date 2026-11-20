@@ -1,6 +1,6 @@
 // 디스코드 명령, 버튼과 대시보드가 같이 지키는 상한
 
-/** 볼륨은 0 ~ VOLUME_MAX 의 정수. VOLUME_BASE 가 원래 크기(0 dB)이고 그 위는 증폭이다 */
+/** 볼륨은 0 ~ VOLUME_MAX의 정수. VOLUME_BASE가 원래 크기(0 dB)이고 그 위는 증폭이다 */
 const VOLUME_BASE = 100;
 const VOLUME_MAX = 125;
 

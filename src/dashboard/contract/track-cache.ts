@@ -1,5 +1,5 @@
-// 캐시 DB(운영자 패널 "캐시 DB" 탭)의 모양. /api/admin/track-cache. 봇과 화면이 같이 읽으므로 Node 를 부르지 않는다.
-// 겉은 DB Browser for SQLite 의 데이터 보기를 본뜨지만 원본 표가 아니다: 표 셋(요청, 캐시 파일, 연령 제한)은 이 화면의 표이고(cache.db 의 표를 봇이 이어 붙인다),
+// 캐시 DB(운영자 패널 "캐시 DB" 탭)의 모양. /api/admin/track-cache. 봇과 화면이 같이 읽으므로 Node를 부르지 않는다.
+// 겉은 DB Browser for SQLite의 데이터 보기를 본뜨지만 원본 표가 아니다: 표 셋(요청, 캐시 파일, 연령 제한)은 이 화면의 표이고(cache.db의 표를 봇이 이어 붙인다),
 // 셀 편집은 정해진 조작(TrackCacheOp)으로 바꿔 보낸다. 서버는 열 이름을 받지 않는다.
 // 읽기는 표 하나의 구간(필터, 정렬은 서버가), 쓰기는 조작 목록을 한 번에(모두 검사한 뒤 조작마다 결과), 재생 확인은 바로 하는 일이라 따로 큐에 넣는다.
 
@@ -12,9 +12,9 @@ const isTrackCacheTable = (value: unknown): value is TrackCacheTable => TRACK_CA
 
 /**
  * 표마다의 열(화면의 처음 순서). 필터, 정렬은 이 이름으로만 받고 원시 값으로 한다(크기는 바이트, 때는 ms).
- * 합친 열의 원시 값: pinnedAt, ageMarkedAt 은 그 때(없으면 빔), file, status 는 상태 문자열(cached, downloading, error, none),
- * check 는 확인 결과 문자열(ok 또는 실패 코드, 확인하지 않았으면 빔. 정렬은 확인한 때),
- * source 는 원본 상태 문자열(same, changed, ok 또는 실패 코드, 받은 뒤 확인하지 않았으면 빔. 정렬은 확인한 때)
+ * 합친 열의 원시 값: pinnedAt, ageMarkedAt은 그 때(없으면 빔), file, status는 상태 문자열(cached, downloading, error, none),
+ * check는 확인 결과 문자열(ok 또는 실패 코드, 확인하지 않았으면 빔. 정렬은 확인한 때),
+ * source는 원본 상태 문자열(same, changed, ok 또는 실패 코드, 받은 뒤 확인하지 않았으면 빔. 정렬은 확인한 때)
  */
 const TRACK_CACHE_COLUMNS = {
   requests: ["requestKey", "platform", "title", "artist", "audioUrl", "pinnedAt", "file", "size", "plays", "lastPlayedAt", "ageMarkedAt", "check"],
@@ -32,7 +32,7 @@ const isTrackCacheColumn = <T extends TrackCacheTable>(table: T, value: unknown)
 
 /** 한 번에 읽는 행 수, 확인 결과를 한 번에 묻는 음원 키 수 상한 */
 const TRACK_CACHE_PAGE_MAX = 200;
-/** 열 하나의 필터 식, 아무 열에서나 필터, 그 안의 정규식 길이 상한(식을 읽는 rules/track-cache-filter 의 것) */
+/** 열 하나의 필터 식, 아무 열에서나 필터, 그 안의 정규식 길이 상한(식을 읽는 rules/track-cache-filter의 것) */
 const TRACK_CACHE_FILTER_MAX = FILTER_MAX;
 const TRACK_CACHE_REGEX_MAX = REGEX_MAX;
 /** 한 번에 쓰는 조작, 그중 파일 삭제 상한 */
@@ -46,12 +46,12 @@ const TRACK_CACHE_PROBE_MAX = 20;
 /** 캐시 파일의 상태. none: 행이 없다(밀려났거나 다운로드한 적 없음, 음원 키를 계산할 수 없는 주소 포함) */
 type TrackFileStatus = "cached" | "downloading" | "error" | "none";
 
-/** 재생 확인 결과. 운영자가 누른 확인과 직접 지정한 음원이 재생 중 실패한 것이 같은 위치에 남는다. code 는 실패한 까닭(라이브면 "live") */
+/** 재생 확인 결과. 운영자가 누른 확인과 직접 지정한 음원이 재생 중 실패한 것이 같은 위치에 남는다. code는 실패한 이유(라이브면 "live") */
 type TrackCheck = { ok: true; at: number } | { ok: false; code: Code | "live"; at: number };
 
 /**
  * 캐시 파일의 원본: 받은 뒤 마지막 확인(재생 테스트, 캐시로 재생한 곡의 재확인)에서 본 것. 받은 뒤 확인하지 않았으면 null.
- * same 캐시와 같은 원본, changed 원본이 바뀜(다시 받으려면 캐시 파일 삭제), ok 열리지만 버전은 비교하지 못함, gone 원본을 재생할 수 없음(code 는 까닭)
+ * same 캐시와 같은 원본, changed 원본이 바뀜(다시 받으려면 캐시 파일 삭제), ok 열리지만 버전은 비교하지 못함, gone 원본을 재생할 수 없음(code는 이유)
  */
 type TrackSource = { state: "same" | "changed" | "ok"; at: number } | { state: "gone"; code: Code | "live"; at: number };
 
@@ -72,7 +72,7 @@ type TrackRequestRow = {
   audioUrl: string;
   /** 링크 데이터의 자동 검색 결과(지정했어도 둔다: 풀면 돌아갈 곳). 링크 데이터 행이 없으면 null */
   ledgerAudioUrl: string | null;
-  /** 지정한 때. 지정하지 않았으면 null(지정했으면 audioUrl 이 직접 지정한 음원이다) */
+  /** 지정한 때. 지정하지 않았으면 null(지정했으면 audioUrl이 직접 지정한 음원이다) */
   pinnedAt: number | null;
   /** 쓰는 음원이 원래 링크 그대로다(음원 키가 같다). 지정하지 않은 행이면 자동 검색 결과가 없어 삭제가 막힌다 */
   sameAsRequest: boolean;
@@ -91,12 +91,12 @@ type TrackRequestRow = {
   sharedBy: number;
 };
 
-/** 캐시 파일 표의 한 행: audio_cache 의 행. 요청이 가리키지 않는 파일도 있다(requests 0) */
+/** 캐시 파일 표의 한 행: audio_cache의 행. 요청이 가리키지 않는 파일도 있다(requests 0) */
 type TrackFileRow = {
   audioKey: string;
   /**
-   * 음원 주소. 유튜브는 영상 id 로, 사운드클라우드는 키(첫 부분에 점이 있으면 호스트부터, 없으면 soundcloud.com 의 경로)로 다시 만든다.
-   * 직접 링크(dl:)는 md5 라 되돌릴 수 없어 그 키를 가리키는 링크 데이터 행, 직접 지정한 음원에서 온다(없으면 null)
+   * 음원 주소. 유튜브는 영상 id로, 사운드클라우드는 키(첫 부분에 점이 있으면 호스트부터, 없으면 soundcloud.com의 경로)로 다시 만든다.
+   * 직접 링크(dl:)는 md5라 되돌릴 수 없어 그 키를 가리키는 링크 데이터 행, 직접 지정한 음원에서 온다(없으면 null)
    */
   audioUrl: string | null;
   title: string | null;
@@ -121,7 +121,7 @@ type TrackCacheRow<T extends TrackCacheTable = TrackCacheTable> = { requests: Tr
 
 type TrackCacheSort<T extends TrackCacheTable = TrackCacheTable> = ReadonlyArray<{ column: TrackCacheColumn<T>; dir: "asc" | "desc" }>;
 
-/** 처음 정렬(화면이 처음에 보내고 헤더에 표시한다). sort 를 보내지 않으면 키 순서만(정렬 지우기) */
+/** 처음 정렬(화면이 처음에 보내고 헤더에 표시한다). sort를 보내지 않으면 키 순서만(정렬 지우기) */
 const TRACK_CACHE_DEFAULT_SORT: { readonly [T in TrackCacheTable]: TrackCacheSort<T> } = {
   requests: [{ column: "lastPlayedAt", dir: "desc" }],
   files: [{ column: "lastPlayedAt", dir: "desc" }],
@@ -129,8 +129,8 @@ const TRACK_CACHE_DEFAULT_SORT: { readonly [T in TrackCacheTable]: TrackCacheSor
 };
 
 /**
- * 읽기. filters 는 열마다 DB Browser for SQLite 의 필터 식 그대로(그냥 쓰면 포함, =, <>, > < >= <=, a~b, /정규식/, ='', <>'',
- * 크기는 10MB 같은 단위, 때는 2026-10-17 같은 날짜도), q 는 아무 열에서나(단어마다 어느 열에든 들어간 행). 열끼리는 AND.
+ * 읽기. filters는 열마다 DB Browser for SQLite의 필터 식 그대로(그냥 쓰면 포함, =, <>, > < >= <=, a~b, /정규식/, ='', <>'',
+ * 크기는 10MB 같은 단위, 때는 2026-10-17 같은 날짜도), q는 아무 열에서나(단어마다 어느 열에든 들어간 행). 열끼리는 AND.
  * 정렬은 선택한 열 다음에 그 표의 키를 끝 기준으로 붙여 같은 값의 행이 흔들리지 않는다
  */
 type TrackCacheQuery<T extends TrackCacheTable = TrackCacheTable> = {
@@ -138,16 +138,16 @@ type TrackCacheQuery<T extends TrackCacheTable = TrackCacheTable> = {
 }[T];
 
 /**
- * 읽은 구간. total: 그 표의 전부, matched: 필터에 맞는 것. revision 은 이 표들에 쓰면 오르는 리비전 번호(다르면 화면이 "새 변경 사항이 있어요" 칩),
- * checkRevision 은 재생 확인 결과의 번호(운영자가 누른 확인은 칩을 표시하지 않게 따로)
+ * 읽은 구간. total: 그 표의 전부, matched: 필터에 맞는 것. revision은 이 표들에 쓰면 오르는 리비전 번호(다르면 화면이 "새 변경 사항이 있어요" 칩),
+ * checkRevision은 재생 확인 결과의 번호(운영자가 누른 확인은 칩을 표시하지 않게 따로)
  */
 type TrackCachePage<T extends TrackCacheTable = TrackCacheTable> = {
   [K in T]: { table: K; rows: Array<TrackCacheRow<K>>; offset: number; total: number; matched: number; revision: number; checkRevision: number };
 }[T];
 
 /**
- * 읽기를 URL 쿼리로: f.<열>=식, q, sort=<열>:asc,<열>:desc, offset, limit. 빈 필터, 빈 q 는 보내지 않는다.
- * 서버는 모르는 열, 같은 키가 여럿, 정렬 열이 겹치는 것을 거절한다(문제의 pointer 는 /filters/<열>, /q, /sort)
+ * 읽기를 URL 쿼리로: f.<열>=식, q, sort=<열>:asc,<열>:desc, offset, limit. 빈 필터, 빈 q는 보내지 않는다.
+ * 서버는 모르는 열, 같은 키가 여럿, 정렬 열이 겹치는 것을 거절한다(문제의 pointer는 /filters/<열>, /q, /sort)
  */
 function trackCacheSearch(query: TrackCacheQuery): URLSearchParams {
   const search = new URLSearchParams({ table: query.table, offset: String(query.offset), limit: String(query.limit) });
@@ -160,20 +160,20 @@ function trackCacheSearch(query: TrackCacheQuery): URLSearchParams {
 // ── 쓰기(POST /api/admin/track-cache) ──
 
 /**
- * 조작 하나. expect 는 화면이 본 값(그사이 봇이 바꿨으면 그 조작은 "changed" 로 막힌다). 봇이 늘 다시 쓰는 열(재생 수, 마지막 재생)은 비교하지 않는다.
+ * 조작 하나. expect는 화면이 본 값(그사이 봇이 바꿨으면 그 조작은 "changed"로 막힌다). 봇이 늘 다시 쓰는 열(재생 수, 마지막 재생)은 비교하지 않는다.
  * pin: 직접 지정한 음원으로(새 행도 이것), unpin: 직접 지정한 음원 풀기, clearResult: 링크 데이터의 자동 검색 결과 삭제(다음에 다시 찾는다),
  * deleteRequest: 링크 데이터 행과 직접 지정한 음원 삭제, deleteFile: 캐시 파일 삭제(파일 없는 error 행은 행만), clearAge: 연령 제한 표시 지우기
  */
 type TrackCacheOp = { op: "pin"; requestKey: string; audioUrl: string; expect: string | null } | { op: "unpin"; requestKey: string; expect: string } | { op: "clearResult"; requestKey: string; expect: string } | { op: "deleteRequest"; requestKey: string; expect: { ledgerAudioUrl: string | null; pinned: string | null } } | { op: "deleteFile"; audioKey: string; expect: number | null } | { op: "clearAge"; videoId: string; expect: number };
 type TrackCacheOpName = TrackCacheOp["op"];
 
-/** 쓰기. 먼저 모두 검사한다: 하나라도 걸리면 아무것도 쓰지 않고 문제로 답한다(errors 의 pointer 가 /ops/<번호>/<필드>) */
+/** 쓰기. 먼저 모두 검사한다: 하나라도 걸리면 아무것도 쓰지 않고 문제로 응답한다(errors의 pointer가 /ops/<번호>/<필드>) */
 type TrackCacheWrite = { ops: TrackCacheOp[] };
 
 /** 파일이 쓰이는 곳: 재생 중, 대기열 앞(미리 다운로드하는 곡), 저장된 세션 앞, 내보내는 중, 볼륨을 재는 중 */
 type TrackFileUse = "playing" | "queued" | "saved-session" | "exporting" | "measuring";
 
-/** 바뀐 지금 값(조작의 expect 와 같은 형식) */
+/** 바뀐 지금 값(조작의 expect와 같은 형식) */
 type TrackCacheCurrent = string | number | null | { ledgerAudioUrl: string | null; pinned: string | null };
 
 /**
@@ -183,15 +183,15 @@ type TrackCacheCurrent = string | number | null | { ledgerAudioUrl: string | nul
  */
 type TrackCacheOpResult = { ok: true } | { ok: false; code: "changed"; current: TrackCacheCurrent } | { ok: false; code: "gone" } | { ok: false; code: "in-use"; where: TrackFileUse } | { ok: false; code: "downloading" } | { ok: false; code: "failed" };
 
-/** 쓰기의 답. results 는 조작 순서 그대로. 화면은 실패한 것을 바뀐 채 두고 다시 읽는다 */
+/** 쓰기의 응답. results는 조작 순서 그대로. 화면은 실패한 것을 바뀐 채 두고 다시 읽는다 */
 type TrackCacheWritten = { results: TrackCacheOpResult[]; revision: number };
 
 /**
- * 값 검사 미리 보기(POST /api/admin/track-cache/inspect). 셀 편집 창의 정보 줄: 어떤 주소인지, 음원 키, 막힌 까닭.
- * 음원 키 계산(audioKeyOf)이 Node 를 불러 화면이 직접 하지 못한다. 주소만 보고 통신하지 않는다(재생되는지는 재생 확인)
+ * 값 검사 미리 보기(POST /api/admin/track-cache/inspect). 셀 편집 창의 정보 줄: 어떤 주소인지, 음원 키, 막힌 이유.
+ * 음원 키 계산(audioKeyOf)이 Node를 불러 화면이 직접 하지 못한다. 주소만 보고 통신하지 않는다(재생되는지는 재생 확인)
  */
 type TrackCacheInspect = { requestKey?: string; audioUrl?: string };
-/** ok 면 저장될 형식(canonicalUrl), 종류, 음원 키, 아니면 막힌 까닭의 문제 코드 */
+/** ok면 저장될 형식(canonicalUrl), 종류(platform, kind), 음원 키(audioKey). 아니면 막힌 이유의 문제 코드(code) */
 type TrackCacheInspected = {
   request?: { ok: true; canonical: string; platform: string } | { ok: false; code: Code };
   audio?: { ok: true; canonical: string; kind: string; audioKey: string } | { ok: false; code: Code };
@@ -201,7 +201,7 @@ type TrackCacheInspected = {
 
 /** 재생 확인 큐에 넣기(POST /api/admin/track-cache/probe). 쓰기 전 값이 있으면 그 주소로. 곧바로 돌아오고 봇이 하나씩 순서대로 한다 */
 type TrackCacheProbe = { audioUrls: string[] };
-/** 넣은 것: queued 새로 넣음, already 이미 큐에 있음, keys 는 주소마다의 음원 키(쓰기 전 주소도 checking, checks 와 맞춰 보게) */
+/** 넣은 것: queued 새로 넣음, already 이미 큐에 있음, keys는 주소마다의 음원 키(쓰기 전 주소도 checking, checks와 맞춰 보게) */
 type TrackCacheProbeQueued = { queued: number; already: number; keys: string[] };
 
 /** 리비전 번호(GET /api/admin/track-cache/revision). 탭이 보이는 동안 운영자 패널의 3초 읽기가 이것만 본다. checking: 확인을 기다리거나 하는 중인 음원 키 */
@@ -209,7 +209,7 @@ type TrackCacheRevision = { revision: number; checkRevision: number; checking: s
 
 /**
  * 확인 결과(GET /api/admin/track-cache/checks?keys=<음원 키>,…, 한 번에 TRACK_CACHE_PAGE_MAX 개까지). 확인 번호가 바뀌었을 때 화면의 행만 다시 받는다.
- * sources 는 캐시 파일이 있는 키의 원본(캐시 파일 표의 source 열)
+ * sources는 캐시 파일이 있는 키의 원본(캐시 파일 표의 source 열)
  */
 type TrackCacheChecks = { checks: Record<string, TrackCheck>; sources: Record<string, TrackSource>; checkRevision: number };
 

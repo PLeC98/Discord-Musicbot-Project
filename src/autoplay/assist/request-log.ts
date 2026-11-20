@@ -1,7 +1,7 @@
 // AI 리퀘스트 로그에 남기며 보낸다. AI 보조가 모델과 주고받는 곳(자동재생 판정, 판정 테스트, 연결 확인, 모델 목록)이 모두 이것을 지난다.
-// 보내고, 본문 첫 청크가 온 때를 재고, 본문을 글로 다 읽은 뒤 기록하고 { res, text } 를 돌려준다(본문은 이미 읽었으니 부른 쪽은 text 를 쓴다).
+// 보내고, 본문 첫 청크가 온 때를 재고, 본문을 글로 다 읽은 뒤 기록하고 { res, text }를 돌려준다(본문은 이미 읽었으니 부른 쪽은 text를 쓴다).
 // 기록은 저장할 때 키를 가린다(assist/mask: 헤더 값, 주소, 본문, 응답). 비용은 그때의 값표로 센다(config/ai-prices).
-// 기록이 꺼져 있거나(AI_LOG_ENABLED) DB 가 열려 있지 않으면(스크립트, 테스트) 남기지 않는다. 기록이 실패해도 요청은 그대로 간다.
+// 기록이 꺼져 있거나(AI_LOG_ENABLED) DB가 열려 있지 않으면(스크립트, 테스트) 남기지 않는다. 기록이 실패해도 요청은 그대로 간다.
 
 import config from "../../config/index.ts";
 import * as requests from "../../store/ai-requests.ts";
@@ -19,7 +19,7 @@ import type { Usage } from "./types.ts";
 
 type Send = (input: string, init?: RequestInit) => Promise<Response>;
 
-/** 무엇을 보내는가. tokensOf: 응답(JSON)에서 토큰을 읽는다. explain: 2xx 인데 쓸 수 없는 답의 까닭(판정을 못 읽음). keep: 이 답을 남기는가(모델 목록의 404 다음 주소) */
+/** 무엇을 보내는가. tokensOf: 응답(JSON)에서 토큰을 읽는다. explain: 2xx인데 쓸 수 없는 답의 원인(판정을 못 읽음). keep: 이 답을 남기는가(모델 목록의 404 다음 주소) */
 type Call = {
   source: AiLogSource;
   provider: string;
@@ -65,7 +65,7 @@ function tokensFrom(call: Call, text: string): AiTokens | null {
     const usage = call.tokensOf(JSON.parse(text));
     return usage ? { input: usage.input, output: usage.output ?? 0, cached: usage.cached ?? 0, reasoning: usage.thoughts ?? 0 } : null;
   } catch {
-    // 외부 서비스의 응답이 JSON 이 아니면 사용량을 알 수 없다(null). 원문은 같은 로그 줄에 남는다
+    // 외부 서비스의 응답이 JSON이 아니면 사용량을 알 수 없다(null). 원문은 같은 로그 줄에 남는다
     return null;
   }
 }
@@ -113,7 +113,7 @@ function write(call: Call, url: string, init: RequestInit, got: Outcome) {
   }
 }
 
-/** 실패 응답의 까닭 한 줄(HTTP 상태와 저쪽 문구) */
+/** 실패 응답의 원인 한 줄(HTTP 상태와 저쪽 문구) */
 function failureOf(status: number, text: string) {
   const { key, detail } = retry.summaryOf(status, text);
   return detail ? `${key}: ${detail}` : key;

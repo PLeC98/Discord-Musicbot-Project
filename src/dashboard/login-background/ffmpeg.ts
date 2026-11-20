@@ -10,7 +10,7 @@ const backstopFor = (seconds: number) => seconds * 300_000 + 3_600_000;
 
 const ffmpeg = (args: string[], job: FfmpegJob = {}) => runFfmpeg(args, { label: "login-background", job: "login-background", ...job });
 
-/** 긴 작업: 진행이 멈추면 끊고 넉넉한 상한을 건다(인자에 PROGRESS_ARGS 가 있어야 한다) */
+/** 긴 작업: 진행이 멈추면 끊고 넉넉한 상한을 건다(인자에 PROGRESS_ARGS가 있어야 한다) */
 const longJob = (seconds: number): Pick<FfmpegJob, "stallMs" | "timeoutMs"> => ({ stallMs: STALL_MS, timeoutMs: backstopFor(seconds) });
 
 export { ffmpeg, longJob, PROGRESS_ARGS, STALL_MS };

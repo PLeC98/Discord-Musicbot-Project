@@ -17,7 +17,7 @@ import { fake, fakePlayer } from "../helpers/fake.ts";
 
 const BOT_CHANNEL = "chan-1";
 
-// 패널 채널을 정할 때 전용 채널을 조회한다. 임시 DB 에 두고, 기본은 "전용 채널 없음"
+// 패널 채널을 정할 때 전용 채널을 조회한다. 임시 DB에 두고, 기본은 "전용 채널 없음"
 const store = tempStore.openTempStore("repost-");
 after(() => store.close());
 const gone = () => Object.assign(new Error("Unknown Message"), { code: 10008 });
@@ -121,7 +121,7 @@ test("지워진 임베드는 다시 올린다. 같은 오류를 반복하지 않
   assert.deepEqual(calls.edited, ["100", calls.sent[0]]);
 });
 
-test("다시 올린 까닭: 패널이 있던 채널이 서버에 없으면 채널이 삭제된 것, 있으면 메시지가 삭제된 것", async () => {
+test("다시 올린 이유: 패널이 있던 채널이 서버에 없으면 채널이 삭제된 것, 있으면 메시지가 삭제된 것", async () => {
   for (const [cached, reason] of [
     [true, "메시지가 삭제됨"],
     [false, "패널이 있던 채널이 삭제됨"],
@@ -148,7 +148,7 @@ test("패널의 텍스트 채널이 지워졌으면(10003) 다시 올리지 않�
   assert.ok(player.currentTrack, "곡은 그대로");
 });
 
-test("REST 가 제한 시간에 끊은 갱신은 패널을 건드리지 않는다(다음 갱신이 다시 한다)", async () => {
+test("REST가 제한 시간에 끊은 갱신은 패널을 건드리지 않는다(다음 갱신이 다시 한다)", async () => {
   const timedOut = Object.assign(new Error("This operation was aborted"), { name: "AbortError" });
   const { panels, player, calls } = makeSetup({ editError: timedOut });
   const from = sink.buffer.length;
@@ -278,11 +278,11 @@ test("전용 채널에서 임베드가 묻혔는지 판정한다", async () => {
     assert.equal(await panels._isBuried(player, now), false, "위쪽의 옛 메시지는 상관없다");
 
     cache.set("150", { id: "150", createdTimestamp: now - 3000 });
-    assert.equal(await panels._isBuried(player, now), false, "곧 스스로 지워질 안내는 쫓지 않는다");
+    assert.equal(await panels._isBuried(player, now), false, "곧 자동으로 지워질 안내는 쫓지 않는다");
 
     cache.set("155", { id: "155", createdTimestamp: now - 20000 });
     markTransient("155", 30000, now - 20000);
-    assert.equal(await panels._isBuried(player, now), false, "오래 떠 있어도 스스로 지워질 메시지(더 넣기 메뉴)는 세지 않는다");
+    assert.equal(await panels._isBuried(player, now), false, "오래 떠 있어도 자동으로 지워질 메시지(더 넣기 메뉴)는 세지 않는다");
 
     cache.set("160", { id: "160", createdTimestamp: now - 30000 });
     assert.equal(await panels._isBuried(player, now), true, "남아 있는 새 메시지 밑이면 묻힌 것");

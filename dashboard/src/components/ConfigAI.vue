@@ -1,17 +1,17 @@
 <!--
   AI 보조 설정 (운영자 패널). 여기는 목록, 상세 레이아웃과 대화상자, 카드는 ConfigAI* 컴포넌트, 상태, 동작은 composables/ai-editor.
 
-  설정과 **프롬프트**는 settings.db 의 딴 문서("ai", "ai-prompt")다. 저장은 한 요청으로 둘을 함께 한다.
+  설정과 프롬프트는 settings.db의 딴 문서("ai", "ai-prompt")다. 저장은 한 요청으로 둘을 함께 한다.
 
   키는 쓰기 전용이다. 프로바이더마다 따로 비밀 테이블에 암호화해 두고, 입력할 수는 있어도
   화면으로 되읽지는 못한다. 값을 내려보내면 XSS 하나로 새어 나간다.
-  키는 입력할 때 화면에 입력된 주소(custom 의 주소, 버텍스의 리전)에 묶인다. 저장된 주소가 다르면 쓰이지 않는다(moved).
+  키는 입력할 때 화면에 입력된 주소(custom의 주소, 버텍스의 리전)에 묶인다. 저장된 주소가 다르면 쓰이지 않는다(moved).
 
-  미리보기는 **보내지 않고 만들기만** 한다. 테스트는 설정한 엔드포인트로 **실제로 보낸다**.
+  미리보기는 보내지 않고 만들기만 한다. 테스트는 설정한 엔드포인트로 실제로 보낸다.
   조립은 봇이 쓰는 코드를 그대로 부르므로, 보이는 것과 나가는 것이 어긋날 수 없다.
 -->
 <template>
-  <!-- 목록, 상세(자동재생, 상태 문구와 같은 레이아웃, composables/list-detail 의 배치). 선택한 것은 주소 ?ai=(2열이면 선택한 것이 없을 때 모델) -->
+  <!-- 목록, 상세(자동재생, 상태 문구와 같은 레이아웃, composables/list-detail의 배치). 선택한 것은 주소 ?ai=(2열이면 선택한 것이 없을 때 모델) -->
   <div class="flex flex-col gap-(--gap-in)">
     <NoticeBox v-if="problems.length" variant="note" tone="error" icon="error" class="mt-0!">{{ problems.join(NL) }}</NoticeBox>
     <NoticeBox v-if="loadError" variant="note" tone="error" icon="cancel" class="mt-0!">{{ loadError }}</NoticeBox>

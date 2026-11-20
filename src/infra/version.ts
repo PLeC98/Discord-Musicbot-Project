@@ -1,5 +1,5 @@
-// 돌고 있는 봇의 버전: package.json 의 version 과, git 체크아웃이면 지금 커밋(짧은 해시).
-// git 을 실행하지 않고 .git 의 파일을 읽는다(git 이 없는 곳에서도 같다). 기동 시 한 번 읽는다
+// 돌고 있는 봇의 버전: package.json의 version과, git 체크아웃이면 지금 커밋(짧은 해시).
+// git을 실행하지 않고 .git의 파일을 읽는다(git이 없는 곳에서도 같다). 기동 시 한 번 읽는다
 
 import fs from "node:fs";
 import path from "node:path";
@@ -8,7 +8,7 @@ import logger from "./log/logger.ts";
 import { codeOf, messageOf } from "./error-text.ts";
 const log = logger.child({ category: "core" });
 
-// 없거나 폴더면(.git 은 보통 폴더다) 조용히 null
+// 없거나 폴더면(.git은 보통 폴더다) 조용히 null
 const read = (file: string) => {
   try {
     return fs.readFileSync(file, "utf8").trim();
@@ -19,7 +19,7 @@ const read = (file: string) => {
   }
 };
 
-/** .git 폴더. 워크트리, 서브모듈이면 .git 은 "gitdir: …" 를 적은 파일이다 */
+/** .git 폴더. 워크트리, 서브모듈이면 .git은 "gitdir: …"를 적은 파일이다 */
 function gitDir(): string | null {
   const dotGit = path.join(PROJECT.root, ".git");
   const pointer = /^gitdir: (.+)$/m.exec(read(dotGit) ?? "")?.[1];
@@ -27,7 +27,7 @@ function gitDir(): string | null {
   return fs.existsSync(path.join(dotGit, "HEAD")) ? dotGit : null;
 }
 
-/** HEAD 가 가리키는 커밋. 브랜치 이름이면 개별 ref 파일, 없으면 packed-refs 에서(워크트리는 공용 폴더까지) */
+/** HEAD가 가리키는 커밋. 브랜치 이름이면 개별 ref 파일, 없으면 packed-refs에서(워크트리는 공용 폴더까지) */
 function headCommit(): string | null {
   const dir = gitDir();
   if (!dir) return null;

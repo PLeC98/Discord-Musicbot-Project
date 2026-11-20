@@ -32,7 +32,7 @@ test("능력 확인 결과는 캐시된다. 재생할 때마다 프로세스를 
 });
 
 test("liveStatusOf: 방송 중과 시작 전을 구분한다", () => {
-  // _detectLive는 둘 다 참이라 "라이브 계열인가"만 답한다. 재생은 이 둘을 다르게 다뤄야 한다.
+  // _detectLive는 둘 다 참이라 "라이브 계열인가"만 판별한다. 재생은 이 둘을 다르게 다뤄야 한다.
   assert.equal(youtubeSource.liveStatusOf({ live_status: "is_live" }), "is_live");
   assert.equal(youtubeSource.liveStatusOf({ live_status: "is_upcoming" }), "is_upcoming");
   assert.equal(youtubeSource.liveStatusOf({ live_status: "was_live" }), null, "끝난 방송은 VOD다");
@@ -47,7 +47,7 @@ test("liveStatusOf: 방송 중과 시작 전을 구분한다", () => {
 
 test("titleOf: 라이브 제목에 붙는 조회 시각을 떼어 낸다", () => {
   // yt-dlp는 라이브의 `title` 뒤에 조회 시각을 붙인다. 그대로 쓰면 대기열, 패널, 로그에
-  // "... 2026-09-21 02:58" 이 따라다니고, 새로 조회할 때마다 제목이 달라진다.
+  // "... 2026-09-21 02:58"이 따라다니고, 새로 조회할 때마다 제목이 달라진다.
   const live = { live_status: "is_live", title: "lofi radio 2026-09-21 02:26", fulltitle: "lofi radio" };
   assert.equal(youtubeSource.titleOf(live), "lofi radio");
 
@@ -74,7 +74,7 @@ test("진행바: 라이브는 경과 시간 위치에 표식을 넣고 길이를
   assert.match(normal, /3:20/);
   assert.match(normal, /●/);
 
-  // 길이를 모르면(다운로드 전의 직접 링크) 길이 위치를 비운다. 0:00 은 길이가 0 인 곡으로 읽힌다
+  // 길이를 모르면(다운로드 전의 직접 링크) 길이 위치를 비운다. 0:00은 길이가 0인 곡으로 읽힌다
   assert.match(progressBar(65, 0), /^`1:05` ●▬+ `--:--`$/);
 });
 
@@ -210,7 +210,7 @@ const endingPlayer = (overrides = {}) => {
   const played: number[] = [];
   const player = fakePlayer({
     lifecycle: new PlaybackState(),
-    // Object.create 라 클래스 필드 초기값이 없다. 곡 끝 처리가 쓰는 필드를 둔다
+    // Object.create라 클래스 필드 초기값이 없다. 곡 끝 처리가 쓰는 필드를 둔다
     failedTracks: 0,
     failedLabels: [],
     _laterEnd: null,

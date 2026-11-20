@@ -73,7 +73,7 @@ beforeEach(() => {
     g.members.cache.clear();
     g.asked.length = 0;
   }
-  // 디스코드의 답: u1 은 100, 200, 300 에 들었다(200 은 그 뒤 나갔다: 봇의 멤버 판정이 막는다)
+  // 디스코드의 응답: u1은 100, 200, 300에 들었다(200은 그 뒤 나갔다: 봇의 멤버 판정이 막는다)
   tokens.state.guilds.set("u1", ["100", "200", "300", "elsewhere"]);
   tokens.state.guilds.set("owner", []);
   tokens.signIn("u1");
@@ -89,7 +89,7 @@ test("멤버인 서버만, 서버 ID 순서로", async () => {
   );
 });
 
-test("Server Members Intent 가 꺼진 채 로그인했으면 서버 목록을 주지 않는다(409)", async (t) => {
+test("Server Members Intent가 꺼진 채 로그인했으면 서버 목록을 주지 않는다(409)", async (t) => {
   t.after(() => _resetIntents());
   useLoggedIn({ messageContent: true, guildMembers: false });
   const res = await requestJson<{ code: string }>(baseUrl(server), "GET", "/api/guilds");
@@ -129,7 +129,7 @@ test("서버 목록을 받지 못하면(토큰 없음, 401) 이미 확인한 서
   tokens.state.failWith = 401;
   assert.equal((await get()).relogin, true);
   await get();
-  assert.equal(tokens.state.asked.length, 1, "401 을 받은 세션은 다시 로그인할 때까지 묻지 않는다");
+  assert.equal(tokens.state.asked.length, 1, "401을 받은 세션은 다시 로그인할 때까지 묻지 않는다");
 });
 
 test("목록을 받았으면 재로그인 안내가 없다", async () => {

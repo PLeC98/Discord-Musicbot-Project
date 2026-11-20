@@ -1,4 +1,4 @@
-// src/store/stay-seats.ts: 24/7 자리. 메모리가 정본이고 DB 는 다시 시작할 때 읽는 사본이다
+// src/store/stay-seats.ts: 24/7 자리. 메모리가 정본이고 DB는 다시 시작할 때 읽는 사본이다
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -8,7 +8,7 @@ import * as seats from "../../src/store/stay-seats.ts";
 const store = openTempStore("stay-seats-");
 after(() => store.close());
 
-test("적으면 메모리와 DB 에 함께, 옮기면 켠 사람은 그대로, 지우면 둘 다에서 빠지고 다시 읽어도 같다", () => {
+test("적으면 메모리와 DB에 함께, 옮기면 켠 사람은 그대로, 지우면 둘 다에서 빠지고 다시 읽어도 같다", () => {
   seats.set("g1", "vc1", "u1");
   seats.set("g2", "vc9", "u2");
   seats.set("g1", "vc2");

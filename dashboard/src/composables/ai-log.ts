@@ -38,7 +38,7 @@ function listState() {
   const loadError = ref("");
   const query = reactive<AiLogQuery>({ sources: [], result: "", q: "" });
   const more = computed(() => entries.value.length < matched.value);
-  // 늦게 온 앞 요청의 답이 새 필터의 답을 덮지 않게 순서를 센다
+  // 늦게 온 앞 요청의 응답이 새 필터의 응답을 덮지 않게 순서를 센다
   let seq = 0;
 
   function take(page: AiLogPage, append: boolean) {
@@ -187,7 +187,7 @@ export function useAiLog(active: () => boolean) {
       searchTimer = setTimeout(() => void reload(), SEARCH_WAIT_MS);
     },
   );
-  // 연결을 여닫는 로직은 aiLogSync가 맡는다(화면이 보일 때만 열며, 다시 읽기는 처음 열 때, 떠났다가 돌아올 때, 차단된 뒤, 읽기 실패 시에만 수행)
+  // 연결을 여닫는 로직은 aiLogSync가 맡는다
   const opener = aiLogSync({ active, canStream, blocked, reload, loadFailed: () => Boolean(list.loadError.value), start: live.start, stop: live.stop });
   live.whenGap(() => void reload());
   watch([active, blocked], () => void opener.sync(), { immediate: true });

@@ -1,23 +1,23 @@
 // 판정: 직접 링크의 응답이 무엇인가. 보는 것은 응답 헤더(Content-Type)와 본문 앞부분뿐이다(통신 없음). 화면은 부르지 않는다(file-type).
 //   audio  음원(파일, 인터넷 라디오)
-//   hls    HLS 재생목록(#EXTM3U 에 #EXT-X- 줄)
+//   hls    HLS 재생목록(#EXTM3U에 #EXT-X- 줄)
 //   list   단순 목록(PLS, 주소 줄만 있는 M3U). 첫 주소로 다시 판정한다
 //   page   웹 페이지. "알 수 없는 링크"로 거절한다
 //   other  그 밖(이미지, 문서, 모르는 바이트). 거절한다
-// 앞부분이 헤더보다 앞선다(거짓 Content-Type). application/octet-stream, text/plain 은 오디오, 재생목록 둘 다 흔하다.
-// 형식 판별은 file-type 이 하고, 그것이 하지 않는 넷(#EXTM3U, [playlist], 맨 앞 '<', MPEG 프레임 둘 연속)만 여기서 본다
+// 앞부분이 헤더보다 앞선다(거짓 Content-Type). application/octet-stream, text/plain은 오디오, 재생목록 둘 다 흔하다.
+// 형식 판별은 file-type이 하고, 그것이 하지 않는 넷(#EXTM3U, [playlist], 맨 앞 '<', MPEG 프레임 둘 연속)만 여기서 본다
 
 import { fileTypeFromBuffer } from "file-type";
 
 type LinkContent = "audio" | "hls" | "list" | "page" | "other";
 
-/** 판정에 읽는 앞부분(file-type 이 보는 양) */
+/** 판정에 읽는 앞부분(file-type이 보는 양) */
 const HEAD_BYTES = 4100;
 
 const HLS_TYPES = new Set(["application/vnd.apple.mpegurl", "application/x-mpegurl", "audio/mpegurl", "audio/x-mpegurl"]);
 const PLS_TYPES = new Set(["audio/x-scpls", "application/pls+xml"]);
 
-/** Content-Type 의 형식 부분(소문자, 매개변수 뺌) */
+/** Content-Type의 형식 부분(소문자, 매개변수 뺌) */
 const mimeOf = (contentType: string | null | undefined) => (contentType ?? "").split(";")[0].trim().toLowerCase();
 
 /** 앞부분의 글자(BOM 뺌, 앞 공백 뺌) */
@@ -82,7 +82,7 @@ function byText(text: string): LinkContent | null {
   return text.startsWith("<") ? "page" : null;
 }
 
-/** file-type 이 알아본 형식. 동기 바이트로만 알아본 MPEG, ADTS 는 프레임 둘이 이어야 믿는다(ID3 로 시작하면 그대로) */
+/** file-type이 알아본 형식. 동기 바이트로만 알아본 MPEG, ADTS는 프레임 둘이 이어야 믿는다(ID3로 시작하면 그대로) */
 function bySniff(sniffed: { ext: string; mime: string }, head: Uint8Array, mime: string): LinkContent {
   if (!isMedia(sniffed.mime)) return "other";
   const bySync = (sniffed.ext === "mp3" || sniffed.ext === "mp2" || sniffed.ext === "aac") && !startsWithId3(head);
@@ -92,14 +92,14 @@ function bySniff(sniffed: { ext: string; mime: string }, head: Uint8Array, mime:
 
 /** 헤더만으로 아는 것 */
 function byHeader(mime: string, text: string): LinkContent {
-  // 재생목록, 목록 형식이라 하는데 글이 #EXTM3U, [playlist] 가 아니면 주소 줄만 있는 목록이다
+  // 재생목록, 목록 형식이라 하는데 글이 #EXTM3U, [playlist]가 아니면 주소 줄만 있는 목록이다
   if (HLS_TYPES.has(mime) || PLS_TYPES.has(mime)) return /^https?:\/\//im.test(text) ? "list" : "other";
   if (mime === "text/html" || mime === "application/xhtml+xml") return "page";
   // 앞부분만으로는 알 수 없지만 헤더가 음원이라고 알린다(라디오가 프레임 중간부터 보내는 등)
   return isMedia(mime) ? "audio" : "other";
 }
 
-/** 응답이 무엇인가. head 는 본문 앞부분(HEAD_BYTES 쯤, 짧으면 받은 만큼) */
+/** 응답이 무엇인가. head는 본문 앞부분(HEAD_BYTES 쯤, 짧으면 받은 만큼) */
 async function contentOf(contentType: string | null | undefined, head: Uint8Array): Promise<LinkContent> {
   const text = textOf(head);
   const known = byText(text);
@@ -110,7 +110,7 @@ async function contentOf(contentType: string | null | undefined, head: Uint8Arra
 }
 
 /**
- * 단순 목록(PLS, M3U)의 첫 주소. 상대 주소는 목록 주소 기준으로 푼다. http(s) 만. 없으면 null
+ * 단순 목록(PLS, M3U)의 첫 주소. 상대 주소는 목록 주소 기준으로 푼다. http(s)만. 없으면 null
  * PLS: File1=… 줄, M3U: # 로 시작하지 않는 줄
  */
 function listTarget(text: string, baseUrl: string): string | null {

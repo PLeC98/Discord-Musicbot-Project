@@ -20,7 +20,7 @@ const LOOKUP_TIMEOUT_MS = 3000;
 
 type Reason = "hop" | "browser";
 
-/** 이 요청이 인터넷 평문으로 보이는 까닭. 아니면 null */
+/** 이 요청이 인터넷 평문으로 보이는 이유. 아니면 null */
 function plaintextReason(req: Request): Reason | null {
   if (!(req.socket as Partial<TLSSocket>).encrypted && !isInside(req.socket.remoteAddress)) return "hop";
   if (!req.secure && !isInside(clientIp(req))) return "browser";

@@ -1,5 +1,5 @@
 <template>
-  <!-- 앨범아트 크게 보기. 바깥을 누르거나 Esc 로 닫는다. 어두운 오버레이 위라 글은 모드와 상관없이 흰색 -->
+  <!-- 앨범아트 크게 보기. 바깥을 누르거나 Esc로 닫는다. 어두운 오버레이 위라 글은 모드와 상관없이 흰색 -->
   <Teleport to="body">
     <DialogTransition>
       <div v-if="open && track?.thumbnail" class="fixed inset-0 z-300 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center gap-4 p-6 cursor-zoom-out" role="dialog" aria-modal="true" :aria-label="T.albumArt(songTitle(track.title))" @click="open = false">
@@ -25,7 +25,7 @@ import type { Content } from "../theme/art.ts";
 import { text } from "../text/index.ts";
 const T = text.player;
 
-/** content: 레터박스 띠를 뺀 내용의 비율(theme/art 의 useArtContent). 큰 이미지도 같은 프레임이라 같은 비율로 뺀다 */
+/** content: 레터박스 띠를 뺀 내용의 비율(theme/art의 useArtContent). 큰 이미지도 같은 프레임이라 같은 비율로 뺀다 */
 const props = defineProps<{ track: { thumbnail?: string | null; title: string | null; artist?: string | null } | null | undefined; content: Content }>();
 const open = defineModel<boolean>("open", { required: true });
 

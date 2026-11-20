@@ -1,6 +1,6 @@
 <template>
-  <!-- 서버 화면의 조작 한 줄: [셔플] [이전] [재생] [다음] [반복]. spread 면 양끝까지 펼친다(좁은 창, 휴대폰).
-       한 곡 반복 중에는 이전 곡, 다음 곡 = 지금 곡 다시 시작이라 기록, 대기열이 없어도 쓸 수 있다(utils/playback 의 규칙) -->
+  <!-- 서버 화면의 조작 한 줄: [셔플] [이전] [재생] [다음] [반복]. spread면 양끝까지 펼친다(좁은 창, 휴대폰).
+       한 곡 반복 중에는 이전 곡, 다음 곡 = 지금 곡 다시 시작이라 기록, 대기열이 없어도 쓸 수 있다(utils/playback의 규칙) -->
   <div class="flex items-center" :class="spread ? 'justify-between' : 'gap-2'">
     <button type="button" :class="[CTL_BTN, TOGGLE_BTN]" :aria-label="T.shuffle" v-tooltip="T.shuffle" :disabled="!shuffleEnabled(player) || busy('shuffle')" @click="emit('shuffle')"><Icon name="shuffle" :size="24" /></button>
     <button type="button" :class="[CTL_BTN, SIDE_BTN]" :aria-label="T.previous" v-tooltip="T.previous" :disabled="!previousEnabled(player) || busy('previous')" @click="emit('previous')"><Icon name="skip_previous" :size="32" fill /></button>

@@ -18,7 +18,7 @@ class PlayerRegistry extends Collection<string, Player> {
     return super.set(guildId, player);
   }
 
-  /** 버려진 플레이어를 뺀다(reason: 버린 까닭). 그 서버에 이미 다른(새) 플레이어가 있으면 건드리지 않는다 */
+  /** 버려진 플레이어를 뺀다(reason: 버린 원인, 로그용). 그 서버에 이미 다른(새) 플레이어가 있으면 건드리지 않는다 */
   forget(player: Player, reason = "?") {
     const guildId = player.guild?.id;
     if (!guildId || this.get(guildId) !== player) return;
@@ -26,13 +26,13 @@ class PlayerRegistry extends Collection<string, Player> {
     super.delete(guildId);
   }
 
-  /** 플레이어가 버려지면 스스로 뺀다. 떼는 함수를 돌려준다 */
+  /** 플레이어가 버려지면 알아서 뺀다. 떼는 함수를 돌려준다 */
   followDisposals() {
     return playerEvents.on("disposed", (player, reason) => this.forget(player, reason));
   }
 }
 
-/** 레지스트리를 읽거나 올리기만 하는 쪽이 받는 모양. 조립은 레지스트리를, 테스트는 Map 을 넘긴다 */
+/** 레지스트리를 읽거나 올리기만 하는 쪽이 받는 모양. 조립은 레지스트리를, 테스트는 Map을 넘긴다 */
 type PlayerSeats = { get(guildId: string): Player | undefined; has(guildId: string): boolean; set(guildId: string, player: Player): unknown };
 
 export { PlayerRegistry };

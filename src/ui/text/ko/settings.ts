@@ -1,4 +1,4 @@
-// 서버 설정 화면(/setting, /setchannel, /setplaylistlimit)의 문구. icon 은 헤더 줄 아이콘의 키(ui/settings-screens 가 화면 색으로 그린다)
+// 서버 설정 화면(/setting, /setchannel, /setplaylistlimit)의 문구. icon은 헤더 줄 아이콘의 키(ui/settings-screens가 화면 색으로 그린다)
 
 import { icon } from "../../icons.ts";
 
@@ -6,7 +6,7 @@ const roleMentions = (roleIds: string[]) => roleIds.map((id) => `<@&${id}>`).joi
 
 /** 전용 채널을 풀었다 */
 const channelRemoved = () => ({ icon: "channel" as const, title: "전용 채널 해제됨", description: "이제 명령어로만 곡을 재생할 수 있어요." });
-/** 전용 채널을 정했다. channel 은 채널 멘션, typed 는 그 채널에 채팅으로 곡을 넣을 수 있는지(아니면 입력 목록을 보이지 않는다) */
+/** 전용 채널을 정했다. channel은 채널 멘션, typed는 그 채널에 채팅으로 곡을 넣을 수 있는지(아니면 입력 목록을 보이지 않는다) */
 const channelSet = (channel: string, typed: boolean) => ({
   icon: "done" as const,
   title: "전용 채널 설정됨",
@@ -17,9 +17,9 @@ const channelSet = (channel: string, typed: boolean) => ({
 
 const onOff = (enabled: boolean) => (enabled ? "켬" : "끔");
 
-/** 재생목록 한 번에 넣는 곡 수를 기본값으로 되돌렸다. count 는 되돌린 값 */
+/** 재생목록 한 번에 넣는 곡 수를 기본값으로 되돌렸다. count는 되돌린 값 */
 const playlistLimitReset = (count: number) => ({ icon: "playlist_add" as const, title: "기본값으로 되돌렸어요", description: `재생목록을 넣으면 한 번에 **${count}곡**씩 들어가요.` });
-/** 지금 값. isDefault 는 서버가 정하지 않아 기본값인지 */
+/** 지금 값. isDefault는 서버가 정하지 않아 기본값인지 */
 const playlistLimitNow = ({ count, isDefault, min, max }: { count: number; isDefault: boolean; min: number; max: number }) => ({
   icon: "playlist_add" as const,
   title: "재생목록에 한 번에 넣을 곡 수",
@@ -35,7 +35,7 @@ const panel = {
   icon: "modes" as const,
   title: "서버 설정",
   description: "고르거나 누르면 바로 저장돼요.",
-  /** 부분마다 굵은 이름 줄 + 지금 값. roleIds 는 지금 DJ 역할 */
+  /** 부분마다 굵은 이름 줄 + 지금 값. roleIds는 지금 DJ 역할 */
   dj: (roleIds: string[]) => `${icon("dj_role")} **DJ 역할**\n${roleIds.length ? `현재 DJ 역할: ${roleMentions(roleIds)}\n재생 조작은 이 역할이 있는 사람과 서버 관리자만 할 수 있어요.` : "DJ 역할이 없어 **모두**가 재생을 조작할 수 있어요."}`,
   djPlaceholder: "DJ로 지정할 역할 선택",
   sponsor: (enabled: boolean) => `${icon("sponsorblock")} **SponsorBlock 자동 건너뛰기**\n현재 설정: **${onOff(enabled)}**`,

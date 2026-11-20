@@ -1,18 +1,17 @@
 // 화면의 숫자, 시각, 날짜, 상대 시각, 이름 정렬. 언어는 여기 한 곳(LOCALE)에서 정한다(다국어를 추가하면 선택한 언어로 바꾼다).
-// 디자인으로 영어 표기를 쓰는 곳(로그인 화면의 잠금 화면 스타일, 봇 정보 탭의 터미널 스타일)은 그 자리에서 "en-US" 를 적는다
+// 디자인으로 영어 표기를 쓰는 곳(로그인 화면의 잠금 화면 스타일, 봇 정보 탭의 터미널 스타일)은 그 자리에서 "en-US"를 적는다
 
 const LOCALE = "ko-KR";
 
 /** 자릿점을 찍은 수 */
 const formatNumber = (n: number) => n.toLocaleString(LOCALE);
 
-/** 시각. 기본은 24시간제 시:분, seconds 면 초까지 */
+/** 시각. 기본은 24시간제 시:분, seconds면 초까지 */
 const formatClock = (at: number | Date, { seconds = false }: { seconds?: boolean } = {}) => new Date(at).toLocaleTimeString(LOCALE, { hour: "2-digit", minute: "2-digit", ...(seconds ? { second: "2-digit" } : {}), hour12: false });
 
 /** 시각을 그 언어의 보통 형식으로(오전, 오후 등) */
 const formatTime = (at: number | Date, options: Intl.DateTimeFormatOptions) => new Date(at).toLocaleTimeString(LOCALE, options);
 
-/** 날짜 */
 const formatDate = (at: number | Date, options: Intl.DateTimeFormatOptions) => new Date(at).toLocaleDateString(LOCALE, options);
 
 /** 날짜와 시각(2026년 10월 11일 07:30) */

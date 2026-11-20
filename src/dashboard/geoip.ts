@@ -34,7 +34,7 @@ const FIRST_CHECK_MS = 60_000;
 /** 쓰지 않으면 내리는 시간 */
 const IDLE_MS = 10 * 60_000;
 
-/** 파일을 여는 것(테스트는 가짜를 넘긴다: 작은 MMDB 를 만들 도구가 없다) */
+/** 파일을 여는 것(테스트는 가짜를 넘긴다: 작은 MMDB를 만들 도구가 없다) */
 type Open = (file: string) => Promise<Pick<Reader<CityResponse>, "get" | "metadata">>;
 let open: Open = (file) => maxmind.open<CityResponse>(file);
 
@@ -137,7 +137,7 @@ function locate(ip: string): DevicePlace {
 async function sizeOf(version: string): Promise<number | null> {
   const res = await http.fetch(urlOf(version), { method: "HEAD", signal: AbortSignal.timeout(15_000) });
   if (!res.ok) {
-    // 없는 버전이면 404. 다른 거절도 없는 버전으로 보되 까닭을 남긴다
+    // 없는 버전이면 404. 다른 거절도 없는 버전으로 보되 원인을 남긴다
     if (res.status !== 404) log.warn(`IP 위치 DB ${version} 버전 확인: HTTP ${res.status}`);
     return null;
   }
@@ -160,7 +160,7 @@ async function check(): Promise<GeoipCheck> {
   }
 }
 
-/** 그 버전을 받아 교체한다. 실패하면 던지고 쓰던 파일은 그대로 */
+/** 그 버전을 받아 교체한다. 실패하면 예외를 던지고 쓰던 파일은 그대로 */
 async function download(version: string) {
   fs.mkdirSync(DIR, { recursive: true });
   const temp = path.join(DIR, `.download-${process.pid}.mmdb`);
@@ -177,7 +177,7 @@ async function download(version: string) {
     await pipeline(body, createGunzip(), fs.createWriteStream(temp));
     // 읽히는지 본다(도시 DB 인지까지)
     const probe = await open(temp);
-    if (!/City/i.test(probe.metadata.databaseType)) throw new Error(`도시 DB 가 아님(${probe.metadata.databaseType})`);
+    if (!/City/i.test(probe.metadata.databaseType)) throw new Error(`도시 DB가 아님(${probe.metadata.databaseType})`);
     unload();
     for (const old of versionsOnDisk()) fs.rmSync(fileOf(old), { force: true });
     fs.renameSync(temp, fileOf(version));
@@ -206,7 +206,7 @@ function once<T>(work: () => Promise<T>): Promise<T> {
 /** 운영자의 업데이트: 가장 새 버전을 받는다. 이미 그 버전이면 받지 않는다. 받은 버전(없으면 null) */
 const update = () =>
   once(async () => {
-    // 받기 실패는 download 가 남긴다
+    // 받기 실패는 download가 남긴다
     const { latest } = await check().catch((error: unknown) => {
       log.warn(`IP 위치 DB 버전 확인 실패: ${messageOf(error)}`);
       markLogged(error);
@@ -235,7 +235,7 @@ async function autoCheck() {
       log.debug(`IP 위치 DB ${thisMonth} 버전이 아직 없음(내일 다시 확인)`);
     });
   } catch (error) {
-    // 내일 다시 본다(까닭은 probe, download 가 남겼다)
+    // 내일 다시 본다(원인은 probe, download가 남겼다)
     if (!alreadyLogged(error)) log.warn(`GeoIP 다운로드 실패: ${messageOf(error)}`);
   }
 }
@@ -253,7 +253,7 @@ function start() {
   let before = `${config.geoip.enabled}|${config.geoip.autoUpdate}`;
   onTunablesChanged(() => {
     const now = `${config.geoip.enabled}|${config.geoip.autoUpdate}`;
-    if (now === before) return; // 다른 조절값을 저장했다
+    if (now === before) return; // 다른 설정값을 저장했다
     before = now;
     if (!config.geoip.enabled) unload();
     else void autoCheck();

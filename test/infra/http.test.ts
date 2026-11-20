@@ -13,7 +13,7 @@ const fail = (error: Error) => async (): Promise<Response> => {
 };
 const outcomes = () => linkStatus("lastfm")?.recent.map((one) => [one.ok, one.error]);
 
-test("응답을 받으면 성공(4xx 포함), 5xx, 429, 401, 403 은 실패. 마지막 성공 때를 둔다", async () => {
+test("응답을 받으면 성공(4xx 포함), 5xx, 429, 401, 403은 실패. 마지막 성공 때를 둔다", async () => {
   const http = httpFor("lastfm");
   assert.equal(linkStatus("lastfm"), null, "부르기 전에는 없다");
 
@@ -33,7 +33,7 @@ test("응답을 받으면 성공(4xx 포함), 5xx, 429, 401, 403 은 실패. 마
   assert.ok(recent.every((one) => one.ms >= 0));
 });
 
-test("연결 실패, 시간 초과는 까닭을 남기고 던진다. 부른 쪽이 끊은 것은 남기지 않는다", async () => {
+test("연결 실패, 시간 초과는 원인을 남기고 예외를 던진다. 부른 쪽이 끊은 것은 남기지 않는다", async () => {
   const http = httpFor("lastfm");
   const refused = Object.assign(new TypeError("fetch failed"), { cause: { code: "ECONNREFUSED" } });
   const timeout = Object.assign(new Error("timed out"), { name: "TimeoutError" });

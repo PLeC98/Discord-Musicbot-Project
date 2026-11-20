@@ -1,4 +1,4 @@
-// src/app/full-backup.ts: 명령 전체 백업(.env, 설정 DB, 파비콘, 로그인 배경). 다른 봇 폴더에 풀어 덮어쓰면 다음 기동이 설정 DB 를 교체하고 배경 기록을 바꾼다
+// src/app/full-backup.ts: 명령 전체 백업(.env, 설정 DB, 파비콘, 로그인 배경). 다른 봇 폴더에 풀어 덮어쓰면 다음 기동이 설정 DB를 교체하고 배경 기록을 바꾼다
 
 import fs from "node:fs";
 import { execFileSync, spawnSync } from "node:child_process";
@@ -40,7 +40,7 @@ fs.writeFileSync(path.join(faviconDir, "lz0abc12ff.reserve.png"), Buffer.from([1
 // 봇이 쓰지 않는 파일은 담지 않는다
 fs.writeFileSync(path.join(faviconDir, "notes.txt"), "x");
 
-// 풀어 덮어쓸 다른 봇 폴더(그 봇의 설정 DB 가 이미 있다)
+// 풀어 덮어쓸 다른 봇 폴더(그 봇의 설정 DB가 이미 있다)
 function otherBot(version = VERSION) {
   const dir = fs.mkdtempSync(path.join(work, "bot-"));
   fs.mkdirSync(path.join(dir, "database"));
@@ -66,7 +66,7 @@ const statusIn = (file: string) => {
   }
 };
 
-test("켜져 있는 봇에서 만들고(.env, 설정 DB 를 교체할 이름으로, 파비콘), 한 번에 하나만 둔다", async () => {
+test("켜져 있는 봇에서 만들고(.env, 설정 DB를 교체할 이름으로, 파비콘), 한 번에 하나만 둔다", async () => {
   settingsDocs.write("status", { messages: ["옮길 것"] }, settingsDocs.read("status").revision);
   const first = await makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir }, new Date(2026, 9, 10, 9, 0));
   assert.deepEqual(
@@ -106,8 +106,8 @@ test("같은 초에 이미 그 이름이 있으면 번호를 붙여 올린다. �
   );
 });
 
-// root 는 읽기 전용 파일도 쓸 수 있다
-test("ZIP 을 쓰지 못하면 그 까닭으로 실패한다(잡히지 않은 예외로 새지 않는다). 같은 .part 가 이미 있으면(다른 백업의 것) 삭제하지 않는다", async (t) => {
+// root는 읽기 전용 파일도 쓸 수 있다
+test("ZIP을 쓰지 못하면 그 원인으로 실패한다(잡히지 않은 예외로 새지 않는다). 같은 .part가 이미 있으면(다른 백업의 것) 삭제하지 않는다", async (t) => {
   const blockedOut = path.join(work, "blocked-out");
   t.mock.method(crypto, "randomBytes", () => Buffer.from("0badc0de", "hex"));
   const part = path.join(blockedOut, `musicbot-full-20261012-090000.zip.${process.pid}.0badc0de.part`);
@@ -117,24 +117,24 @@ test("ZIP 을 쓰지 못하면 그 까닭으로 실패한다(잡히지 않은 �
   assert.equal(fs.readFileSync(part, "utf8"), "다른 백업");
 });
 
-test("다른 봇 폴더에 풀어 덮어쓰면 다음 기동이 설정 DB 를 교체하고, 그 봇의 것은 스냅샷으로 남긴다", async () => {
+test("다른 봇 폴더에 풀어 덮어쓰면 다음 기동이 설정 DB를 교체하고, 그 봇의 것은 스냅샷으로 남긴다", async () => {
   settingsDocs.write("status", { messages: ["옮길 것"] }, settingsDocs.read("status").revision);
   const made = await makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir });
   const bot = otherBot();
-  fs.writeFileSync(path.join(bot, "database", "settings.db-wal"), "그 봇의 남은 기록"); // 풀어서 settings.db 를 덮었다면 얹혔을 것
+  fs.writeFileSync(path.join(bot, "database", "settings.db-wal"), "그 봇의 남은 기록"); // 풀어서 settings.db를 덮었다면 얹혔을 것
   extract(made.file, bot);
   assert.equal(fs.readFileSync(path.join(bot, ".env"), "utf8"), "DISCORD_TOKEN=token-for-test\n");
 
   const database = path.join(bot, "database");
   assert.match(snapshots.applyStaged(database) ?? "", /전체 백업 musicbot-full-/);
-  assert.ok(!fs.existsSync(path.join(database, "settings.db-wal")), "남은 기록은 치운다(열어 보기 전에 본다. 열면 SQLite 가 새로 만든다)");
+  assert.ok(!fs.existsSync(path.join(database, "settings.db-wal")), "남은 기록은 치운다(열어 보기 전에 본다. 열면 SQLite가 새로 만든다)");
   assert.deepEqual(statusIn(path.join(database, "settings.db")), { messages: ["옮길 것"] });
   const kept = snapshots.list(database).find((one) => one.kind === "before-restore");
   assert.ok(kept);
   assert.deepEqual(statusIn(path.join(database, "backups", kept.name)), { messages: ["그 봇의 것"] });
 });
 
-test("구조 버전이 다른 봇이 만든 백업이면 교체하지 않고 까닭을 알린다(예약된 것, 지금 것은 그대로)", async () => {
+test("구조 버전이 다른 봇이 만든 백업이면 교체하지 않고 RESTORE_FAILED 예외를 던진다(예약된 복원 파일과 지금 DB는 그대로)", async () => {
   const made = await makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir });
   const bot = otherBot();
   extract(made.file, bot);
@@ -176,7 +176,7 @@ test("로그인 배경: 다 만든 배경과 기록을 저장 경로 그대로 �
   assert.deepEqual(
     names.filter((one) => one.includes("login-background")),
     ["database/dashboard/login-background/index.json", `database/dashboard/login-background/${ready.id}/still-1280.webp`],
-    "만드는 중인 배경 · 원본은 담지 않는다",
+    "만드는 중인 배경과 원본은 담지 않는다",
   );
   assert.ok(fs.existsSync(loginBackground.folderOf(uploading)), "기록에 없는 폴더를 지우지 않는다");
   assert.ok(fs.existsSync(loginBackground.folderOf(making.id)));
@@ -199,7 +199,7 @@ test("로그인 배경: 다 만든 배경과 기록을 저장 경로 그대로 �
   loginBackground._useDir(path.join(work, "unused-background"));
 });
 
-test("오디오 캐시 번들: 기본은 캐시 파일 없이, withAudio 면 캐시 파일까지. 풀어 둔 번들은 다음 기동이 합치고 삭제한다", async () => {
+test("오디오 캐시 번들: 기본은 캐시 파일 없이, withAudio면 캐시 파일까지. 풀어 둔 번들은 다음 기동이 합치고 삭제한다", async () => {
   await audioCache.resetCache(AUDIO_CACHE_PARTS);
   fs.mkdirSync(audioCache.cacheDir(), { recursive: true });
   const cached = audioCache.getFilePath("yt:fullbackup1");
@@ -225,13 +225,13 @@ test("오디오 캐시 번들: 기본은 캐시 파일 없이, withAudio 면 캐
   assert.equal(fs.existsSync(path.join(store.dir, "audio-cache.restore.zip")), false, "합친 뒤 삭제한다");
   assert.equal(await applyStagedAudio(store.dir), null, "없으면 null");
 
-  // 읽을 수 없는 번들은 삭제하고 던진다(매번 다시 하지 않게)
+  // 읽을 수 없는 번들은 삭제하고 예외를 던진다(매번 다시 하지 않게)
   fs.writeFileSync(path.join(store.dir, "audio-cache.restore.zip"), "깨진 것");
   await assert.rejects(applyStagedAudio(store.dir), { code: "BAD_ZIP" });
   assert.equal(fs.existsSync(path.join(store.dir, "audio-cache.restore.zip")), false);
 });
 
-// 명령(pnpm run backup)은 봇과 다른 프로세스라 캐시 DB 를 열지 않은 채 부른다: cache.db 의 한 시점 사본을 열어 읽는다
+// 명령(pnpm run backup)은 봇과 다른 프로세스라 캐시 DB를 열지 않은 채 부른다: cache.db의 한 시점 사본을 열어 읽는다
 test("다른 프로세스에서 만들면 cache.db 사본을 열어 번들을 만든다", async () => {
   const folder = fs.mkdtempSync(path.join(work, "cli-"));
   for (const name of ["settings.db", "cache.db"]) {
@@ -257,16 +257,16 @@ function deadPid() {
   return child.pid;
 }
 
-test("끝난 프로세스가 남긴 .part 만 삭제한다. 살아 있거나 확인할 수 없는(EPERM) 프로세스의 것, 잘못된 이름은 두고, 옛 형식은 남긴 채 알린다", async () => {
+test("끝난 프로세스가 남긴 .part만 삭제한다. 살아 있거나 확인할 수 없는(EPERM) 프로세스의 것, 잘못된 이름은 두고, 옛 형식은 남긴 채 알린다", async () => {
   const sweptOut = path.join(work, "swept-out");
   fs.mkdirSync(sweptOut);
   const dead = `musicbot-full-20261001-090000.zip.${deadPid()}.abcd1234.part`;
   const alive = `musicbot-full-20261001-090000.zip.${process.pid}.abcd1234.part`;
   const legacy = "musicbot-full-20261001-0900.zip.part";
-  // 잘못된 이름(pid 가 십진수가 아님. 0x7ffffffe 는 숫자로 읽으면 끝난 pid 다)
+  // 잘못된 이름(pid가 십진수가 아님. 0x7ffffffe는 숫자로 읽으면 끝난 pid다)
   const odd = ["musicbot-full-20261001-090000.zip.12x.abcd1234.part", "musicbot-full-20261001-090000.zip.0x7ffffffe.abcd1234.part"];
   const names = [dead, alive, legacy, ...odd];
-  // 권한이 없어 확인할 수 없는 프로세스(Windows 의 System, POSIX 의 init)
+  // 권한이 없어 확인할 수 없는 프로세스(Windows의 System, POSIX의 init)
   const system = process.platform === "win32" ? 4 : 1;
   const denied = `musicbot-full-20261001-090000.zip.${system}.abcd1234.part`;
   if (process.getuid?.() !== 0) names.push(denied);
@@ -275,11 +275,11 @@ test("끝난 프로세스가 남긴 .part 만 삭제한다. 살아 있거나 확
   const left = fs.readdirSync(sweptOut);
   assert.ok(!left.includes(dead), "끝난 프로세스의 것");
   assert.ok(left.includes(alive) && left.includes(legacy) && odd.every((one) => left.includes(one)));
-  if (process.getuid?.() !== 0) assert.ok(left.includes(denied), "EPERM 은 모른다");
+  if (process.getuid?.() !== 0) assert.ok(left.includes(denied), "EPERM은 모른다");
   assert.deepEqual(made.legacyParts, [legacy]);
 });
 
-test("겹쳐 도는 두 백업은 서로의 .part 를 덮지 않고 둘 다 끝난다(같은 초면 번호를 붙인다)", async () => {
+test("겹쳐 도는 두 백업은 서로의 .part를 덮지 않고 둘 다 끝난다(같은 초면 번호를 붙인다)", async () => {
   const bothOut = path.join(work, "both-out");
   const at = new Date(2026, 9, 16, 9, 0);
   const [a, b] = await Promise.all([makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir: bothOut }, at), makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir: bothOut }, at)]);
@@ -289,14 +289,14 @@ test("겹쳐 도는 두 백업은 서로의 .part 를 덮지 않고 둘 다 끝�
     left.filter((one) => one.endsWith(".part")),
     [],
   );
-  for (const zip of left) assert.equal(unzip(fs.readFileSync(path.join(bothOut, zip))).at(-1)?.name, ".env", "남은 것은 온전한 ZIP 이다");
+  for (const zip of left) assert.equal(unzip(fs.readFileSync(path.join(bothOut, zip))).at(-1)?.name, ".env", "남은 것은 온전한 ZIP이다");
 });
 
-test("담은 설정 DB 사본은 WAL 표시가 없다(풀어 둔 것을 읽기 전용으로 열어도 -wal, -shm 이 생기지 않는다)", async () => {
+test("담은 설정 DB 사본은 WAL 표시가 없다(풀어 둔 것을 읽기 전용으로 열어도 -wal, -shm이 생기지 않는다)", async () => {
   const walOut = path.join(work, "wal-out");
   const made = await makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir: walOut }, new Date(2026, 9, 17, 9, 0));
   const db = unzip(fs.readFileSync(made.file)).find((one) => one.name === "database/settings.restore.db")!.data;
-  // SQLite 헤더 18, 19 바이트: 쓰기, 읽기 형식(1 은 롤백 저널, 2 는 WAL)
+  // SQLite 헤더 18, 19 바이트: 쓰기, 읽기 형식(1은 롤백 저널, 2는 WAL)
   assert.deepEqual([db[18], db[19]], [1, 1]);
 });
 
@@ -334,7 +334,7 @@ test("목록을 읽은 뒤 겹쳐 도는 백업이 이전 백업을 삭제해 �
   assert.deepEqual(made.replaced, []);
 });
 
-test("ZIP 을 다 쓴 뒤 올리기 전에 실패하면 평문 .env 가 든 .part 를 삭제한다. 임시 사본을 삭제하지 못해도 백업은 끝내고 알린다", async (t) => {
+test("ZIP을 다 쓴 뒤 올리기 전에 실패하면 평문 .env가 든 .part를 삭제한다. 임시 사본을 삭제하지 못해도 백업은 끝내고 알린다", async (t) => {
   const failOut = path.join(work, "fail-out");
   fs.mkdirSync(failOut);
   const readdir = fs.readdirSync;

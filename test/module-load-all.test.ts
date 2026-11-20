@@ -27,7 +27,7 @@ function walk(dir: string, out: string[] = []) {
 
 // 진입 파일. 불러오면 실제 봇이 켜진다(토큰으로 로그인, 대시보드, POToken 서버)
 const ENTRY = path.join(ROOT, "src", "index.ts");
-// 진입 파일의 첫 줄. 불러오면 .env 가 없을 때 저장소 루트에 만들고 .env 를 읽는다(테스트는 둘 다 하면 안 된다)
+// 진입 파일의 첫 줄. 불러오면 .env가 없을 때 저장소 루트에 만들고 .env를 읽는다(테스트는 둘 다 하면 안 된다)
 const BOOTSTRAP = path.join(ROOT, "src", "app", "env-bootstrap.ts");
 const files = DIRS.flatMap((d) => walk(path.join(ROOT, d))).filter((f) => f !== ENTRY && f !== BOOTSTRAP);
 const rel = (f: string) => path.relative(ROOT, f).replace(/\\/g, "/");
@@ -51,7 +51,7 @@ for (const file of files) {
 // 목록 파일(index.ts)은 명령, 이벤트가 아니다
 const modulesOf = (dir: string) => walk(path.join(ROOT, dir)).filter((f) => path.basename(f) !== "index.ts");
 
-test("명령은 data 와 execute 를, 이벤트는 name 과 execute 를 가진다", async () => {
+test("명령은 data와 execute를, 이벤트는 name과 execute를 가진다", async () => {
   for (const file of modulesOf(path.join("src", "discord", "commands"))) {
     const { default: cmd } = await load(file);
     assert.ok(cmd.data?.name, `${rel(file)}: data.name`);

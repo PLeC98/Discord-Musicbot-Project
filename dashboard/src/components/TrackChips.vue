@@ -1,8 +1,8 @@
 <template>
-  <!-- 지금 곡의 작은 배지: 출처(대표색 점), 라이브, 멈춘 까닭, 내가 넣은 곡. 배지의 inline-flex 가 hidden 을 이겨서 감출 때는 ! 로(mineClass) -->
+  <!-- 지금 곡의 작은 배지: 출처(대표색 점), 라이브, 멈춘 원인, 내가 넣은 곡. 배지의 inline-flex가 hidden을 이겨서 감출 때는 ! 로(mineClass) -->
   <span :class="CHIP"><span class="size-2 rounded-full" :style="{ backgroundColor: platformColor(track.platform) }"></span>{{ track.platformLabel }}</span>
   <span v-if="track.isLive" :class="[CHIP, 'bg-error! text-on-error!']"><Icon name="sensors" :size="14" />{{ T.live }}</span>
-  <!-- 억제 사유(음소거, 발언자 기다림, 혼자 남음)로 소리가 멈췄다. 재생 버튼은 사람의 멈춤을 따라 일시정지로 보일 수 있어 까닭을 따로 보인다 -->
+  <!-- 억제 사유(음소거, 발언자 기다림, 혼자 남음)로 소리가 멈췄다. 재생 버튼은 사람의 멈춤을 따라 일시정지로 보일 수 있어 사유를 따로 보인다 -->
   <span v-if="heldMark" :class="[CHIP, 'bg-tertiary-container! text-on-tertiary-container!']"><Icon :name="heldMark.glyph" :size="14" />{{ heldMark.text }}</span>
   <span v-if="mine" :class="[CHIP, mineClass]"><Icon name="person" :size="14" fill />{{ T.mine }}</span>
 </template>

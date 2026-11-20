@@ -79,7 +79,7 @@ test("필터: 레벨, 카테고리, 태그, 검색(실시간 로그와 같은 �
   const yt = (await readLogPage(target, { limit: 3, filter: { category: "youtube", tag: "retry" } }))!;
   assert.deepEqual(texts(yt), [85, 90, 95]);
   const found = (await readLogPage(target, { limit: 3, filter: { q: "줄 4" } }))!;
-  assert.equal(found.matches, 11, "줄 4 · 40 ~ 49");
+  assert.equal(found.matches, 11, "줄 4, 40 ~ 49");
   const ko = (await readLogPage(target, { limit: 3, filter: { q: "ㅈㅅ" } }))!;
   assert.equal(ko.matches, 100, "초성 ㅈㅅ(재생 시작)");
   assert.equal((await readLogPage(target, { limit: 3, filter: { levels: new Set() } }))!.lines.length, 0, "레벨을 모두 끄면 없다");

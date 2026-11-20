@@ -14,7 +14,7 @@ import { repeatingFailure } from "../infra/repeating-failure.ts";
 
 // express-session의 기본 MemoryStore 대체:
 // 다시 시작할 때 세션 소실(로그인 풀림)과 메모리 누수 경고를 SQLite 영속화로 해소.
-// 파일은 로그인 세션 DB(database/sessions.db, store/session-db). 다른 DB 와 함께 열린다.
+// 파일은 로그인 세션 DB(database/sessions.db, store/session-db). 다른 DB와 함께 열린다.
 //
 // 끝난 세션을 다시 쓰지 않는다. express-session은 요청이 끝날 때 그 요청이 읽은 세션을 저장하므로, 로그아웃, 다른 기기 로그아웃 뒤에
 // 그 세션으로 걸려 있던 요청이 끝나면 삭제한 행을 다시 넣는다(set이 upsert). 그래서 끝낸 로그인 세션을 그 절대 기한까지 기억하고(묘비)
@@ -59,7 +59,7 @@ class SqliteSessionStore extends Store {
   _pruneStmt: Statement<[number], { sid: string; data: string }>;
   _saveDeviceStmt: Statement<[string, Buffer, string, number]>;
   _pruneTimer: NodeJS.Timeout;
-  // dbPath 로 따로 연 파일(테스트). 닫을 때 같이 닫는다
+  // dbPath로 따로 연 파일(테스트). 닫을 때 같이 닫는다
   _own: DbFile | null = null;
   /** 끝낸 로그인 세션의 sid → 그 절대 기한. 그때까지 쓰지 않는다 */
   _ended = new Map<string, number>();
@@ -84,7 +84,7 @@ class SqliteSessionStore extends Store {
   /** 새 세션을 요청에 단다. express-session이 세션 미들웨어를 만들 때 이 저장소에 붙인다 */
   declare generate: (req: Request) => void;
 
-  // dbPath 는 테스트용(임시 DB, 운영 DB 를 건드리지 않는다). 없으면 함께 연 로그인 세션 DB
+  // dbPath는 테스트용(임시 DB, 운영 DB를 건드리지 않는다). 없으면 함께 연 로그인 세션 DB
   constructor({ dbPath, pruneIntervalMs = 60 * 60 * 1000 }: { dbPath?: string; pruneIntervalMs?: number } = {}) {
     super();
     if (dbPath) {
@@ -135,7 +135,7 @@ class SqliteSessionStore extends Store {
     return () => void this._listeners.delete(fn);
   }
 
-  // 듣는 쪽마다 따로 부른다(하나가 던져도 삭제가 실패로 돌아가지 않고 다른 쪽도 듣는다)
+  // 듣는 쪽마다 따로 부른다(하나가 예외를 던져도 삭제가 실패로 돌아가지 않고 다른 쪽도 듣는다)
   _announce(sids: string[]) {
     for (const sid of sids) {
       for (const fn of this._listeners) {
@@ -175,7 +175,7 @@ class SqliteSessionStore extends Store {
     log.warn(line);
   }
 
-  // 행을 삭제하고 묘비를 남긴다. 알림은 부르는 쪽이 콜백 뒤에
+  // 행을 삭제하고 묘비를 남긴다. 알림은 호출부가 콜백 뒤에
   _end(sid: string) {
     const row = this._deleteStmt.get(sid);
     if (row) this._bury(sid, row.data);
@@ -192,8 +192,8 @@ class SqliteSessionStore extends Store {
     }
   }
 
-  // 끝낸다. 삭제가 실패해도 묘비를 남기고(지금부터 절대 수명만큼) 삭제하지 못한 것으로 둔다. 알림은 부르는 쪽이 콜백 뒤에.
-  // restore: 끝나면 표시 파일을 되돌린다(여러 세션을 함께 끊을 때는 부르는 쪽이 마지막에 한 번)
+  // 끝낸다. 삭제가 실패해도 묘비를 남기고(지금부터 절대 수명만큼) 삭제하지 못한 것으로 둔다. 알림은 호출부가 콜백 뒤에.
+  // restore: 끝나면 표시 파일을 되돌린다(여러 세션을 함께 끊을 때는 호출부가 마지막에 한 번)
   _endOrBury(sid: string, userId: string | null, restore = true) {
     try {
       if (this._hasRow(sid)) this._dropMarker();
@@ -425,7 +425,7 @@ class SqliteSessionStore extends Store {
   }
 
   // 읽을 수 없는 행은 없는 세션으로 보고 삭제한다. 오류로 넘기면 그 쿠키의 요청이 쿠키가 끝날 때까지 모두 500이 된다.
-  // 절대 기한을 넘은 로그인 세션(이 규칙 전에 쓴 행)도 삭제하고 없는 세션으로 답한다. express-session이 빈 새 세션을 만든다
+  // 절대 기한을 넘은 로그인 세션(이 규칙 전에 쓴 행)도 삭제하고 세션 없음을 반환한다. express-session이 빈 새 세션을 만든다
   _parse(sid: string, data: string, ended: string[] = []): SessionData | null {
     let session: SessionData;
     try {
@@ -547,7 +547,7 @@ class SqliteSessionStore extends Store {
   }
 
   // ── 디스코드 접근 토큰 ──
-  // 로그인 때 받은 토큰을 세션 행에 암호문으로 둔다(세션 JSON 밖, 세션 ID 에 묶음). 세션 행과 함께 삭제된다.
+  // 로그인 때 받은 토큰을 세션 행에 암호문으로 둔다(세션 JSON 밖, 세션 ID에 묶음). 세션 행과 함께 삭제된다.
   // 세션을 저장(set)해도 이 열은 그대로다
 
   /** 그 세션 행에 토큰을 적는다. 행이 없으면(아직 저장 전) false */
@@ -576,7 +576,7 @@ class SqliteSessionStore extends Store {
   }
 }
 
-// 비밀값과 다른 키로 암호화한다(store/secrets 의 용도)
+// 비밀값과 다른 키로 암호화한다(store/secrets의 용도)
 const TOKEN_PURPOSE = "discord-token";
 
 /** 표시 파일이 "끊은 세션 없음"("1")인가. 없거나 읽지 못하면 false */

@@ -1,4 +1,4 @@
-// src/media/ffmpeg/input-filter.ts: 남이 준 바이트를 읽는 ffmpeg 의 입력 필터(형식, 프로토콜).
+// src/media/ffmpeg/input-filter.ts: 남이 준 바이트를 읽는 ffmpeg의 입력 필터(형식, 프로토콜).
 //
 // 막는 것: 직접 링크가 음원 대신 이어 붙이기 목록(concat)을 주면 캐시 변환이 같은 폴더(캐시 폴더)의 다른 파일을 읽어 캐시로 만든다.
 // HLS 목록도 같은 부류다. 붙이는 곳은 캐시 변환, probeAudio, 표준 입력 재생, 캐시 파일 재생이고, 주소 입력(HLS)에는 붙이지 않는다.
@@ -19,7 +19,7 @@ after(() => fs.rmSync(DIR, { recursive: true, force: true }));
 const at = (name: string) => path.join(DIR, name);
 const idx = (args: string[], flag: string) => args.indexOf(flag);
 
-/** ffmpeg 를 돌려 표준 출력 바이트 수와 종료 코드. input 이 있으면 표준 입력으로 */
+/** ffmpeg를 돌려 표준 출력 바이트 수와 종료 코드. input이 있으면 표준 입력으로 */
 function run(args: string[], input?: Buffer): Promise<{ code: number | null; bytes: number }> {
   return new Promise((resolve) => {
     let child;
@@ -37,7 +37,7 @@ function run(args: string[], input?: Buffer): Promise<{ code: number | null; byt
   });
 }
 
-/** 픽스처: 음원 둘(mp3, 캐시 opus)과 그 mp3 를 상대 경로로 가리키는 목록 둘(concat, HLS) */
+/** 픽스처: 음원 둘(mp3, 캐시 opus)과 그 mp3를 상대 경로로 가리키는 목록 둘(concat, HLS) */
 async function samples() {
   const mp3 = await run(["-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "sine=frequency=440:duration=2", "-c:a", "libmp3lame", "-y", at("song.mp3")]);
   const opus = await run(["-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "sine=frequency=440:duration=2", "-c:a", "libopus", "-f", "opus", "-y", at("cache.opus")]);
@@ -47,7 +47,7 @@ async function samples() {
   return true;
 }
 
-test("인자: 파일(캐시)은 ogg 만, 표준 입력은 음원 형식만, 둘 다 -i 앞. 주소 입력(HLS)에는 붙이지 않는다", () => {
+test("인자: 파일(캐시)은 ogg만, 표준 입력은 음원 형식만, 둘 다 -i 앞. 주소 입력(HLS)에는 붙이지 않는다", () => {
   const file = buildFfmpegArgs({ file: "/cache/a.opus", seekMs: 5000 });
   assert.equal(file[idx(file, "-format_whitelist") + 1], CACHE_FORMATS.join(","));
   assert.equal(file[idx(file, "-protocol_whitelist") + 1], "file");
@@ -79,12 +79,12 @@ test("실물: 목록(concat, HLS)은 캐시 변환, probeAudio, 표준 입력 �
   }
 
   await audioConvert.toCacheOpus(at("song.mp3"), at("song.opus"));
-  assert.equal((await probeAudio(at("song.opus"))).codec, "opus", "mp3 는 캐시로 바뀐다");
-  assert.ok((await run(buildFfmpegArgs({}), fs.readFileSync(at("song.mp3")))).bytes > 0, "mp3 를 표준 입력으로 튼다");
-  assert.ok((await run(buildFfmpegArgs({ file: at("cache.opus"), seekMs: 500 }))).bytes > 0, "캐시 opus 를 튼다");
+  assert.equal((await probeAudio(at("song.opus"))).codec, "opus", "mp3는 캐시로 바뀐다");
+  assert.ok((await run(buildFfmpegArgs({}), fs.readFileSync(at("song.mp3")))).bytes > 0, "mp3를 표준 입력으로 튼다");
+  assert.ok((await run(buildFfmpegArgs({ file: at("cache.opus"), seekMs: 500 }))).bytes > 0, "캐시 opus를 튼다");
 });
 
-test("실물: HLS 의 TS 세그먼트(영상이 섞인 화질 목록)를 이어 붙이면 표준 입력 재생, 캐시 변환 모두 세그먼트를 합친 길이가 나온다(mp3 2초와 비교한다)", async (t) => {
+test("실물: HLS의 TS 세그먼트(영상이 섞인 화질 목록)를 이어 붙이면 표준 입력 재생, 캐시 변환 모두 세그먼트를 합친 길이가 나온다(mp3 2초와 비교한다)", async (t) => {
   if (!(await samples())) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   for (const [name, freq] of [
     ["seg0.ts", 440],

@@ -39,7 +39,7 @@ import { text } from "../text/index.ts";
 import { SHEET_EXPAND } from "../utils/sheet-expand.ts";
 const T = text.player;
 
-/** compact: 낮은 화면(휴대폰 가로). 헤더를 64px 로 줄인다 */
+/** compact: 낮은 화면(휴대폰 가로). 헤더를 64px로 줄인다 */
 const props = withDefaults(defineProps<{ title: string; icon?: IconName; next?: string; deskHeight: number; compact?: boolean }>(), { icon: "queue_music", next: "", compact: false });
 
 type Stop = "peek" | "half" | "full";
@@ -110,7 +110,7 @@ function settle(h: number, v: number) {
   stop.value = v < -0.5 ? order[Math.min(2, order.indexOf(nearest(h, "up")))] : v > 0.5 ? order[Math.max(0, order.indexOf(nearest(h, "down")))] : nearest(h);
 }
 // 내용에서 시트 드래그(끝까지 펼치기 전만). 안의 조작에서 시작한 것은 받지 않는다.
-// 내용 영역 자신도 펼치기 전에는 touch-none 이라 내용 영역 안쪽만 본다(아니면 어디를 잡든 조작으로 보여 시트가 드래그되지 않는다)
+// 내용 영역 자신도 펼치기 전에는 touch-none이라 내용 영역 안쪽만 본다(아니면 어디를 잡든 조작으로 보여 시트가 드래그되지 않는다)
 const OWN = "input, textarea, select, button, a, [role=slider], .touch-none";
 function ownControl(target: EventTarget | null) {
   const own = target instanceof Element ? target.closest(OWN) : null;
@@ -127,7 +127,7 @@ function bodyDown(e: PointerEvent) {
 // 끝까지 펼치기 전: 위로 드래그하면 시트가 올라오고, 끝까지 닿은 뒤 남은 움직임은 같은 손짓으로 목록을 스크롤한다(놓으면 그 빠르기로 관성).
 // 끝까지 펼친 뒤: 목록 맨 위에서 아래로 드래그하면 목록 대신 시트가 내려간다. 그 밖(목록을 스크롤하던 중, 위로)은 브라우저가 스크롤한다.
 // 목록은 끝에 닿아도 바깥(페이지)으로 스크롤을 넘기지 않는다(overscroll-contain, 넘기면 당겨서 새로고침이 걸린다).
-// 첫 움직임에서 정하고, 시트가 맡으면 그 손짓 내내 브라우저 스크롤을 막는다(touchmove 를 preventDefault)
+// 첫 움직임에서 정하고, 시트가 맡으면 그 손짓 내내 브라우저 스크롤을 막는다(touchmove를 preventDefault)
 const bodyEl = ref<HTMLElement | null>(null);
 // 손짓이 다룰 목록: 손가락이 닿은 곳에서 가장 가까운 스크롤 목록(대기열 위에 뜬 검색 결과 등), 목록 밖이면 대기열
 function scrollerAt(target: EventTarget | null): HTMLElement | null {
@@ -213,7 +213,7 @@ function bodyWheel(e: WheelEvent) {
   stop.value = "full";
 }
 
-/** h 에 가장 가까운 단계. dir 이 있으면 그 방향 쪽 단계 */
+/** h에 가장 가까운 단계. dir이 있으면 그 방향 쪽 단계 */
 function nearest(h: number, dir?: "up" | "down"): Stop {
   const list = (Object.entries(heights.value) as [Stop, number][]).sort((a, b) => a[1] - b[1]);
   if (dir === "up") return (list.find(([, v]) => v > h) ?? list[list.length - 1])[0];

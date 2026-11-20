@@ -77,7 +77,7 @@ test("모든 문장", () => {
       { icon: "repeat_off", title: "반복 모드를 바꿨어요!", body: "반복 모드를 **해제**했어요." },
       { icon: "volume", title: "볼륨을 조절했어요!", body: "**30%** → **60%**" },
       { icon: "volume", title: "볼륨을 조절했어요!", body: "볼륨이 이미 60%라서 그대로 둘게요." },
-      { title: "볼륨 설정", label: "0에서 125까지의 숫자로 입력해 주세요!", placeholder: "지금 80" },
+      { title: "볼륨 설정", label: "0에서 125까지의 숫자로 입력해 주세요!", placeholder: "현재 80" },
       { title: "👋 음성 채널에서 나갔어요", body: "재생 중이던 곡: **[곡](https://example.com/v)**\n⏱️ 저장한 위치 `1:15` · 📋 저장한 대기열 2곡\n`/join`으로 이어 들을 수 있어요." },
       { title: "👋 음성 채널에서 나갔어요", body: null },
       { icon: "done", title: "음성 채널에 접속했어요!", body: "언제든지 곡을 넣어 주세요." },
@@ -94,7 +94,7 @@ test("제목 없는 곡은 알 수 없는 곡으로 적고, 조사도 그 글자
   assert.deepEqual(controls.paused(true, { title: null, pageUrl: "https://example.com/v" }), { icon: "pause", title: "일시정지했어요!", body: "**[알 수 없는 곡](https://example.com/v)**을 일시정지했어요." });
 });
 
-test("억제 사유로 소리가 함께 멈춰 있으면: 일시정지할 때는 풀려도 멈춘 채, 재개할 때는 지금 멈춘 까닭과 언제 이어 트는지", () => {
+test("억제 사유로 소리가 함께 멈춰 있으면: 일시정지할 때는 풀려도 멈춘 채, 재개할 때는 지금 멈춘 사유와 언제 이어 트는지", () => {
   const track = { title: "곡", pageUrl: "u" };
   assert.deepEqual(
     (["mute", "stage", "alone"] as const).map((held) => controls.paused(true, track, held).body),

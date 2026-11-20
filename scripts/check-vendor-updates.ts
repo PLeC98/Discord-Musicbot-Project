@@ -1,10 +1,10 @@
-// 외부 도구(bgutil, ffmpeg)의 새 버전, 고정한 bgutil 태그가 고정한 커밋을 그대로 가리키는지와 그 lockfile의 취약점,Cloudflare IP 대역(data/cloudflare-ips.json, 대시보드의 사용자 IP 확인용) 변경, yt-dlp 서명 키(data/yt-dlp-signing-key.asc)가 그대로인지를 확인한다. 매주 실행되는 vendor-updates 워크플로가 호출하고, 로컬에서도 실행할 수 있다.
+// 외부 도구(bgutil, ffmpeg)의 새 버전, 고정한 bgutil 태그가 고정한 커밋을 그대로 가리키는지와 그 lockfile의 취약점, Cloudflare IP 대역(data/cloudflare-ips.json, 대시보드의 사용자 IP 확인용) 변경, yt-dlp 서명 키(data/yt-dlp-signing-key.asc)가 그대로인지를 확인한다. 매주 실행되는 vendor-updates 워크플로가 호출하고, 로컬에서도 실행할 수 있다.
 //
-//   node scripts/check-vendor-updates.ts           결과를 JSON 으로 찍는다
-//   node scripts/check-vendor-updates.ts --write   새 버전이 있으면 src/config/vendor-versions.ts의 기본값(bgutil 은 태그와 커밋)을, Cloudflare 대역이 바뀌었으면 data/cloudflare-ips.json을 갱신하고 결과를 출력한다
+//   node scripts/check-vendor-updates.ts           결과를 JSON으로 찍는다
+//   node scripts/check-vendor-updates.ts --write   새 버전이 있으면 src/config/vendor-versions.ts의 기본값(bgutil은 태그와 커밋)을, Cloudflare 대역이 바뀌었으면 data/cloudflare-ips.json을 갱신하고 결과를 출력한다
 //
-// 설정 모듈, .env 를 부르지 않는다(워크플로 실행기에는 .env 가 없다. 비교하는 것은 저장소의 기본값이다).
-// GITHUB_TOKEN 이 있으면 GitHub API 에 실어 보낸다(요청 한도). 잠금 파일은 package.json 과 함께 받아 npm audit --package-lock-only 로 본다(설치하지 않는다)
+// 설정 모듈, .env를 부르지 않는다(워크플로 실행기에는 .env가 없다. 비교하는 것은 저장소의 기본값이다).
+// GITHUB_TOKEN이 있으면 GitHub API에 실어 보낸다(요청 한도). 잠금 파일은 package.json과 함께 받아 npm audit --package-lock-only로 본다(설치하지 않는다)
 
 import fs from "node:fs";
 import os from "node:os";
@@ -20,7 +20,7 @@ import { SIGNING_FINGERPRINT, signingKey } from "../src/sources/ytdlp-release.ts
 
 const BGUTIL_REPO = "Brainicism/bgutil-ytdlp-pot-provider";
 const FFMPEG_REPO = "BtbN/FFmpeg-Builds";
-// 봇이 받는 yt-dlp 채널 중 둘(master 는 nightly 와 같은 키로 서명한다)
+// 봇이 받는 yt-dlp 채널 중 둘(master는 nightly와 같은 키로 서명한다)
 const YTDLP_REPOS = ["yt-dlp/yt-dlp", "yt-dlp/yt-dlp-nightly-builds"];
 const VERSIONS_FILE = path.join(PROJECT.root, "src", "config", "vendor-versions.ts");
 const CLOUDFLARE_FILE = path.join(PROJECT.root, "data", "cloudflare-ips.json");
@@ -43,7 +43,7 @@ async function bgutilCommitOf(tag: string) {
   return sha;
 }
 
-// 고정한 커밋의 잠금 파일을 지금의 취약점 DB 로 본다(설치하는 것과 같은 것)
+// 고정한 커밋의 잠금 파일을 지금의 취약점 DB로 본다(설치하는 것과 같은 것)
 async function auditBgutil(commit: string): Promise<AuditCounts> {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bgutil-audit-"));
   try {
@@ -52,14 +52,14 @@ async function auditBgutil(commit: string): Promise<AuditCounts> {
       if (!res.ok) throw new Error(`bgutil ${commit}의 server/${name} 조회 실패: ${res.status}`);
       fs.writeFileSync(path.join(dir, name), await res.text());
     }
-    // 취약점이 있으면 1 로 끝나므로 종료 코드가 아니라 출력을 읽는다
-    // 윈도우의 npm 은 .cmd 라 셸로 부른다. 인자는 고정 글자뿐이라 한 줄로 넘긴다
+    // 취약점이 있으면 1로 끝나므로 종료 코드가 아니라 출력을 읽는다
+    // 윈도우의 npm은 .cmd라 셸로 부른다. 인자는 고정 글자뿐이라 한 줄로 넘긴다
     const ran = spawnSync("npm audit --package-lock-only --json", { cwd: dir, encoding: "utf8", shell: true, timeout: 120_000 });
     let parsed: unknown = null;
     try {
       parsed = JSON.parse(ran.stdout);
     } catch {
-      /* 아래에서 던진다 */
+      /* 아래에서 예외를 던진다 */
     }
     const counts = auditCounts(parsed);
     if (!counts) throw new Error(`npm audit 결과를 읽지 못했습니다(bgutil ${commit}): ${(ran.stderr || ran.error?.message || "").trim().split("\n")[0]}`);
@@ -79,8 +79,8 @@ async function cloudflareList(family: "v4" | "v6") {
 }
 
 /**
- * yt-dlp 서명 키가 그대로인가. yt-dlp 저장소의 public.key 가 고정한 지문의 키인지, stable, nightly 최신 릴리스의 SHA2-256SUMS 서명이 data/ 의 키로 맞는지.
- * 다르면 키를 사람이 바꿔야 한다(새 키는 yt-dlp 의 공지와 대조한다. 자동으로 바꾸면 릴리스를 바꿔치기한 쪽의 키를 들이게 된다)
+ * yt-dlp 서명 키가 그대로인가. yt-dlp 저장소의 public.key가 고정한 지문의 키인지, stable, nightly 최신 릴리스의 SHA2-256SUMS 서명이 data/ 의 키로 맞는지.
+ * 다르면 키를 사람이 바꿔야 한다(새 키는 yt-dlp의 공지와 대조한다. 자동으로 바꾸면 릴리스를 바꿔치기한 쪽의 키를 들이게 된다)
  */
 async function ytdlpSigningKey() {
   const res = await fetch("https://raw.githubusercontent.com/yt-dlp/yt-dlp/master/public.key", { signal: AbortSignal.timeout(TIMEOUT_MS) });
@@ -116,7 +116,7 @@ const write = process.argv.includes("--write");
 
 const latestBgutil = String(((await github(`/repos/${BGUTIL_REPO}/releases/latest`)) as { tag_name?: unknown }).tag_name ?? "");
 const ffmpegTags = ((await github(`/repos/${FFMPEG_REPO}/releases?per_page=100`)) as Array<{ tag_name?: unknown }>).map((r) => String(r.tag_name ?? ""));
-// 실패해도 다른 확인(특히 고정한 태그의 상태)을 이어 가는 것. 실패는 errors 에 모아 결과를 찍은 뒤 종료 코드 1 로 알린다
+// 실패해도 다른 확인(특히 고정한 태그의 상태)을 이어 가는 것. 실패는 errors에 모아 결과를 찍은 뒤 종료 코드 1로 알린다
 const errors: string[] = [];
 async function attempt<T>(what: string, run: () => Promise<T>): Promise<T | null> {
   try {

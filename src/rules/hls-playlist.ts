@@ -1,11 +1,11 @@
 // HLS 재생목록(RFC 8216) 해석. 보는 것은 목록 글과 그 주소뿐이다(통신 없음).
-// 상위 목록은 화질, 음성 선택지를, 하위 목록은 세그먼트(주소, 바이트 구간, 초기화 세그먼트, 키, 순번)와 끝 표시를 준다. 상대 주소는 목록 주소로 풀고 http(s) 만 남긴다
+// 상위 목록은 화질, 음성 선택지를, 하위 목록은 세그먼트(주소, 바이트 구간, 초기화 세그먼트, 키, 순번)와 끝 표시를 준다. 상대 주소는 목록 주소로 풀고 http(s)만 남긴다
 
 import { codedError } from "./error-kind.ts";
 
 type ByteRange = { offset: number; length: number };
 type Key = { method: "NONE" | "AES-128" | "OTHER"; url: string | null; iv: Uint8Array | null };
-/** unreadable: 이 세그먼트나 초기화 세그먼트의 바이트 구간을 읽을 수 없다(range, init.range 는 null). 받을 차례에 실패한다(sources/hls) */
+/** unreadable: 이 세그먼트나 초기화 세그먼트의 바이트 구간을 읽을 수 없다(range, init.range는 null). 받을 차례에 실패한다(sources/hls) */
 type Segment = { url: string; duration: number; sequence: number; range: ByteRange | null; init: { url: string; range: ByteRange | null } | null; key: Key | null; discontinuity: boolean; unreadable: boolean };
 type MediaPlaylist = { kind: "media"; targetDuration: number; mediaSequence: number; ended: boolean; segments: Segment[] };
 type Variant = { url: string; bandwidth: number; audioGroup: string | null; codecs: string | null };
@@ -140,7 +140,7 @@ const MEDIA_TAGS: Array<[string, (value: string, out: MediaPlaylist, next: Pendi
 function parseMedia(lines: string[], baseUrl: string): MediaPlaylist {
   const out: MediaPlaylist = { kind: "media", targetDuration: 0, mediaSequence: 0, ended: false, segments: [] };
   const next: Pending = { duration: 0, range: null, init: null, key: null, discontinuity: false };
-  const ends = new Map<string, number | null>(); // 주소마다 앞 구간의 끝(오프셋 없는 BYTERANGE). null 은 앞 구간을 읽지 못한 상태
+  const ends = new Map<string, number | null>(); // 주소마다 앞 구간의 끝(오프셋 없는 BYTERANGE). null은 앞 구간을 읽지 못한 상태
   for (const line of lines) {
     if (line === "#EXT-X-ENDLIST") out.ended = true;
     else if (line === "#EXT-X-DISCONTINUITY") next.discontinuity = true;
@@ -162,7 +162,7 @@ function parseMedia(lines: string[], baseUrl: string): MediaPlaylist {
   return out;
 }
 
-/** 목록 글을 해석한다. HLS 가 아니면 null */
+/** 목록 글을 해석한다. HLS가 아니면 null */
 function parsePlaylist(text: string, baseUrl: string): Playlist | null {
   const lines = text
     .replace(/^\uFEFF/, "")
@@ -183,7 +183,7 @@ function chooseMedia(master: MasterPlaylist): string | null {
   return lowest?.url ?? null;
 }
 
-/** VOD 의 길이(초): 세그먼트 길이의 합(1ms 단위, 더하며 생기는 부동소수점 끝자리를 버린다) */
+/** VOD의 길이(초): 세그먼트 길이의 합(1ms 단위, 더하며 생기는 부동소수점 끝자리를 버린다) */
 const lengthOf = (playlist: MediaPlaylist) => Math.round(playlist.segments.reduce((sum, segment) => sum + segment.duration, 0) * 1000) / 1000;
 
 export { parsePlaylist, chooseMedia, lengthOf };

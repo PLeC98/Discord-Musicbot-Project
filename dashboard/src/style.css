@@ -1,21 +1,21 @@
 /* ── 디자인 토큰 ──
-   색은 theme/palette 가 지금 곡의 앨범아트에서 만들어 :root 의 --md-* 로 깐다(머티리얼 3, 2025 규격).
-   이 파일에 있는 것: 글꼴 · 색 역할을 Tailwind 이름으로 · 모양 · 글자 크기 · 움직임 · 유리 · 배경 · 툴팁.
-   @import 는 다른 규칙보다 먼저 와야 한다 */
+   색은 theme/palette가 지금 곡의 앨범아트에서 만들어 :root의 --md-* 로 깐다(머티리얼 3, 2025 규격).
+   이 파일에 있는 것: 글꼴, 색 역할을 Tailwind 이름으로, 모양, 글자 크기, 움직임, 유리, 배경, 툴팁.
+   @import는 다른 규칙보다 먼저 와야 한다 */
 @layer theme, base, utilities;
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/utilities.css" layer(utilities);
-/* 본문: Google Sans Flex 의 쓰지 않는 축(폭 · 획 두께)을 고정한 버전(scripts/build-sans-font.ts) */
+/* 본문: Google Sans Flex의 쓰지 않는 축(폭, 획 두께)을 고정한 버전(scripts/build-sans-font.ts) */
 @import "./google-sans-flex.css";
 @import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
-/* 고정폭: D2Coding 을 서브셋으로 나눠 직접 서빙한다(scripts/build-mono-font.ts). 수정본은 예약된 글꼴 이름을 쓸 수 없어 Musicbot Mono 다 */
+/* 고정폭: D2Coding을 서브셋으로 나눠 직접 서빙한다(scripts/build-mono-font.ts). 수정본은 예약된 글꼴 이름을 쓸 수 없어 Musicbot Mono다 */
 @import "./mono.css";
-/* 이모지: Twemoji 그림을 컬러 글꼴로 바꾼 수정본(scripts/build-twemoji-font.ts). 이모지 범위만 덮고, iOS 에서는 정의하지 않아 기기 이모지로 그린다 */
+/* 이모지: Twemoji 그림을 컬러 글꼴로 바꾼 수정본(scripts/build-twemoji-font.ts). 이모지 범위만 덮고, iOS에서는 정의하지 않아 기기 이모지로 그린다 */
 @import "./twemoji.css";
 /* 앱 이모지: 봇의 앱 이모지를 대시보드 입력란이 진짜 글자로 다루게, 이모지마다 정한 문자(보조 사용자 정의 영역)를 그 그림으로 그리는 글꼴(봇이 만든다,
    src/dashboard/app-emoji-font.ts). 엔진마다 그리는 형식이 달라 두 벌이고 이 차례여야 한다: 크롬, 엣지, 안드로이드, 사파리는 sbix, 파이어폭스는 SVG
-   (사파리는 SVG 도 안다고 답하지만 그 안의 PNG 를 그리지 못한다). 주소는 고정이고 목록이 바뀌면 ETag 가 바뀐다(같은 탭에서 바뀌면 composables/app-emojis 가 새로 건다) */
+   (사파리는 SVG도 안다고 하지만 그 안의 PNG를 그리지 못한다). 주소는 고정이고 목록이 바뀌면 ETag가 바뀐다(같은 탭에서 바뀌면 composables/app-emojis가 새로 건다) */
 @font-face {
   font-family: "Musicbot App Emoji";
   font-display: block;
@@ -25,8 +25,8 @@
   unicode-range: U+F0000-FFFFD;
 }
 
-/* 아이콘 글꼴: 화면이 쓰는 기호만 담은 부분 글꼴(icons.ts, scripts/build-icon-font.ts 가 만든다). 기호는 코드포인트로 그린다.
-   다운로드 전에는 빈 네모가 보이므로 swap 대신 block 으로 다운로드하는 동안 비워 둔다(main.ts 가 미리 다운로드도 건다) */
+/* 아이콘 글꼴: 화면이 쓰는 기호만 담은 부분 글꼴(icons.ts, scripts/build-icon-font.ts가 만든다). 기호는 코드포인트로 그린다.
+   다운로드 전에는 빈 네모가 보이므로 swap 대신 block으로 다운로드하는 동안 비워 둔다(main.ts가 미리 다운로드도 건다) */
 @font-face {
   font-family: "Material Symbols Rounded Variable";
   font-style: normal;
@@ -35,13 +35,13 @@
   src: url("./assets/material-symbols.woff2") format("woff2-variations");
 }
 
-/* 화면 폭 구간은 Tailwind 기본 스케일을 쓰되 md 만 720px 로 내린다(웹사이트라 M3 창 크기 구간을 따르지 않는다. 대화상자는 M3 기본 대화상자처럼 모든 폭에서 가운데).
-   md(720) = 휴대폰 · 태블릿 뼈대 전환(744 폭 기기: 아이패드 미니 6/7 세로 · 폴드 펼침 세로를 태블릿으로), xl(1280) = 뼈대 치수 한 단계(아래 :root). lg(1024) 는 위 막대 글처럼 화면 전체 폭에 놓이는 것만.
-   안쪽 배치(카드 열 수 · 재생 화면 히어로 · 카드 안 칸 나눔)는 화면 폭이 아니라 받은 폭으로 바꾼다(컨테이너 쿼리, Tailwind 컨테이너 스케일):
+/* 화면 폭 구간은 Tailwind 기본 스케일을 쓰되 md만 720px로 내린다(웹사이트라 M3 창 크기 구간을 따르지 않는다. 대화상자는 M3 기본 대화상자처럼 모든 폭에서 가운데).
+   md(720) = 휴대폰과 태블릿 뼈대 전환(744 폭 기기: 아이패드 미니 6/7 세로와 폴드 펼침 세로를 태블릿으로), xl(1280) = 뼈대 치수 한 단계(아래 :root). lg(1024)는 위 막대 글처럼 화면 전체 폭에 놓이는 것만.
+   안쪽 배치(카드 열 수, 재생 화면 히어로, 카드 안 칸 나눔)는 화면 폭이 아니라 받은 폭으로 바꾼다(컨테이너 쿼리, Tailwind 컨테이너 스케일):
    desk = 바탕화면(App), win = 재생 화면 창(AppWindow), card = 카드(BaseCard), content = 운영자 내용 칸.
-   M3 부품 규칙이 화면 폭 구간을 꼭 요구하는 부품이 생기면 이름 붙인 구간을 따로 만든다 */
+   M3 컴포넌트 규칙이 화면 폭 구간을 꼭 요구하는 컴포넌트가 생기면 이름 붙인 구간을 따로 만든다 */
 
-/* 색 역할 중 자주 쓰는 것의 처음 값(테마 모듈이 깔기 전 한순간). 바뀔 때는 theme/blend 가 모든 역할을 한 박자로 옮긴다 */
+/* 색 역할 중 자주 쓰는 것의 처음 값(테마 모듈이 깔기 전 한순간). 바뀔 때는 theme/blend가 모든 역할을 한 박자로 옮긴다 */
 
 @property --md-primary {
   syntax: "<color>";
@@ -165,17 +165,17 @@
 }
 
 /* 화면 크기 구분. 휴대폰 = 폭 720px 미만이거나 높이 512px 이하(휴대폰 가로). 폭만 보면 큰 휴대폰 가로(915×412)가 태블릿 틀을 받아
-   높이 412 에 태블릿 배치가 끼여 망가진다. md 이상(태블릿 · PC)은 폭과 함께 높이도 512 를 넘어야 한다. lg · xl 도 같은 높이 조건을 붙여 순서가 뒤집히지 않게.
-   JS 쪽 판정은 utils/breakpoints 가 같은 기준을 쓴다. 틀 변수(아래 :root 의 @media)도 같은 기준 */
-/* max-md 는 md 의 반대. 쉼표(또는)로 쓰면 Tailwind 가 쉼표를 선택자 목록으로 쪼개 뒤 조건이 깨진다(높이 조건이 빠져 큰 휴대폰 가로에 안 걸린다). not 하나로 쓴다 */
+   높이 412에 태블릿 배치가 끼여 망가진다. md 이상(태블릿, PC)은 폭과 함께 높이도 512를 넘어야 한다. lg, xl도 같은 높이 조건을 붙여 순서가 뒤집히지 않게.
+   JS 쪽 판정은 utils/breakpoints가 같은 기준을 쓴다. 틀 변수(아래 :root의 @media)도 같은 기준 */
+/* max-md는 md의 반대. 쉼표(또는)로 쓰면 Tailwind가 쉼표를 선택자 목록으로 쪼개 뒤 조건이 깨진다(높이 조건이 빠져 큰 휴대폰 가로에 안 걸린다). not 하나로 쓴다 */
 @custom-variant max-md (@media not all and (width >= 45rem) and (height > 32rem));
 @custom-variant md (@media (width >= 45rem) and (height > 32rem));
 @custom-variant lg (@media (width >= 64rem) and (height > 32rem));
 @custom-variant xl (@media (width >= 80rem) and (height > 32rem));
-/* 높이가 넉넉한 넓은 화면(PC 전체 화면 · 패드). 로그인 큰 시계처럼 화면 높이를 따라 키울 것만. md 뒤에 두어 둘 다 맞으면 이것이 이긴다 */
+/* 높이가 넉넉한 넓은 화면(PC 전체 화면, 패드). 로그인 큰 시계처럼 화면 높이를 따라 키울 것만. md 뒤에 두어 둘 다 맞으면 이것이 이긴다 */
 @custom-variant tall (@media (width >= 45rem) and (height >= 56rem));
 
-/* 색 역할 · 모양 · 글자 · 움직임을 Tailwind 이름으로. inline 이라 값이 :root 의 var(...) 를 그대로 가리킨다 */
+/* 색 역할, 모양, 글자, 움직임을 Tailwind 이름으로. inline이라 값이 :root의 var(...)를 그대로 가리킨다 */
 @theme inline {
   --color-primary: var(--md-primary);
   --color-on-primary: var(--md-on-primary);
@@ -211,16 +211,16 @@
   --color-inverse-primary: var(--md-inverse-primary);
   --color-warning: var(--md-warning);
 
-  /* 이모지는 맨 앞의 Musicbot Twemoji 가 그린다(디스코드와 같은 그림). 다른 글꼴에 있는 기호 이모지(↔, ☺ 등)보다 먼저 와야 한다 */
+  /* 이모지는 맨 앞의 Musicbot Twemoji가 그린다(디스코드와 같은 그림). 다른 글꼴에 있는 기호 이모지(↔, ☺ 등)보다 먼저 와야 한다 */
   --font-sans: "Musicbot Twemoji", "Musicbot App Emoji", var(--font-plain);
-  /* 본문 글꼴에서 Musicbot Twemoji 만 뺀 것. 디스코드가 이모지를 Twemoji 로 바꾸지 않고 기기 글꼴로 그리는 글(봇 상태 문구)에 쓴다 */
+  /* 본문 글꼴에서 Musicbot Twemoji만 뺀 것. 디스코드가 이모지를 Twemoji로 바꾸지 않고 기기 글꼴로 그리는 글(봇 상태 문구)에 쓴다 */
   --font-plain: "Google Sans Flex Variable", "Pretendard Variable", Pretendard, system-ui, sans-serif;
-  /* 고정폭(숫자 · 주소 칸, 실시간 로그, 코드). Musicbot Mono(D2Coding 서브셋, 직접 서빙)가 라틴 · 한글 · 가나 · KS 한자를 고정폭으로 그린다.
-     없는 글자: 악센트 라틴 · 키릴은 시스템 고정폭 → Pretendard, 드문 한자는 시스템 CJK 글꼴(Pretendard 에는 한자가 없다).
-     Musicbot Twemoji 는 넣지 않는다: 디스코드도 코드 블록 안의 이모지는 그림으로 바꾸지 않는다 */
+  /* 고정폭(숫자와 주소 칸, 실시간 로그, 코드). Musicbot Mono(D2Coding 서브셋, 직접 서빙)가 라틴, 한글, 가나, KS 한자를 고정폭으로 그린다.
+     없는 글자: 악센트 라틴과 키릴은 시스템 고정폭 → Pretendard, 드문 한자는 시스템 CJK 글꼴(Pretendard에는 한자가 없다).
+     Musicbot Twemoji는 넣지 않는다: 디스코드도 코드 블록 안의 이모지는 그림으로 바꾸지 않는다 */
   --font-mono: "Musicbot Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", "Pretendard Variable", Pretendard, "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans CJK KR", monospace;
   --font-symbols: "Material Symbols Rounded Variable";
-  /* 디스코드 미리보기(공지 임베드)용: 디스코드가 한글을 그리는 시스템 글꼴(맥 Apple SD Gothic Neo · 윈도우 맑은 고딕)만 디스코드 순서에서 선택해 쓰고, 없으면 대시보드 글꼴로 */
+  /* 디스코드 미리보기(공지 임베드)용: 디스코드가 한글을 그리는 시스템 글꼴(맥 Apple SD Gothic Neo, 윈도우 맑은 고딕)만 디스코드 순서에서 선택해 쓰고, 없으면 대시보드 글꼴로 */
   --font-discord: "Musicbot Twemoji", "Musicbot App Emoji", "Apple SD Gothic Neo", "Malgun Gothic", var(--font-sans);
 
   /* M3 Expressive 모양 단계 */
@@ -248,15 +248,15 @@
   --text-body-lg--line-height: 1.5;
   --text-body: 0.875rem;
   --text-body--line-height: 1.45;
-  /* 글자 크기는 Tailwind 이름(xs 12 · sm 14 · base 16 · lg 18 · xl 20 · 2xl 24 · 3xl 30 · 7xl 72 · 8xl 96 · 9xl 128)으로 쓰고 text-[1.23rem] 같은 임의 값은 쓰지 않는다.
-     규격(M3)보다 한 단계 아래로 맞춘다(BodyLarge 16 → 14, LabelLarge 14 → 12). 2xs 는 작은 표(11, M3 label-small) */
+  /* 글자 크기는 Tailwind 이름(xs 12, sm 14, base 16, lg 18, xl 20, 2xl 24, 3xl 30, 7xl 72, 8xl 96, 9xl 128)으로 쓰고 text-[1.23rem] 같은 임의 값은 쓰지 않는다.
+     규격(M3)보다 한 단계 아래로 맞춘다(BodyLarge 16 → 14, LabelLarge 14 → 12). 2xs는 작은 표(11, M3 label-small) */
   --text-2xs: 0.6875rem;
   --text-2xs--line-height: 1rem;
   --text-label: 0.75rem;
   --text-label--line-height: 1.3;
   --text-label--letter-spacing: 0.02em;
 
-  /* M3 Expressive 스프링을 CSS linear() 로(정지할 때까지의 곡선). 길이는 utilities 의 spring-* 가 같이 건다 */
+  /* M3 Expressive 스프링을 CSS linear()로(정지할 때까지의 곡선). 길이는 utilities의 spring-* 가 같이 건다 */
   --ease-spring-fast: linear(0, 0.093, 0.295, 0.526, 0.735, 0.894, 1.005, 1.067, 1.091, 1.09, 1.075, 1.054, 1.033, 1.016, 1.003, 0.996, 0.992, 0.991, 0.992, 0.994, 0.996, 0.998, 0.999, 1, 1);
   --ease-spring: linear(0, 0.061, 0.191, 0.345, 0.498, 0.634, 0.746, 0.834, 0.899, 0.947, 0.978, 0.997, 1.008, 1.013, 1.014, 1.014, 1.012, 1.01, 1.008, 1.006, 1.004, 1.003, 1.002, 1.001, 1);
   --ease-effects: linear(0, 0.071, 0.212, 0.365, 0.506, 0.625, 0.72, 0.793, 0.849, 0.891, 0.922, 0.944, 0.959, 0.971, 0.98, 0.986, 0.99, 0.993, 0.995, 0.997, 0.998, 0.998, 0.999, 0.999, 1);
@@ -264,14 +264,14 @@
   /* M3 emphasized 가속(나가는 시트, 서랍), 감속 */
   --ease-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
   --ease-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
-  /* 길이, 곡선을 적지 않은 transition-* 는 effects 와 같게 */
+  /* 길이, 곡선을 적지 않은 transition-* 는 effects와 같게 */
   --default-transition-duration: 250ms;
   --default-transition-timing-function: var(--ease-effects);
 }
 
 /* 스프링 = 곡선 + 그 곡선이 멎는 시간 */
-/* 모서리 둥글기를 스프링으로 바꾸는 요소에는 rounded-full 을 쓰지 않는다. rounded-full 은 무한대 값이라
-   스프링이 목표를 지나쳤다 돌아오는 순간 계산값이 음수가 되어 0(네모)으로 잘린다. 정사각형은 50%, 알약은 높이의 절반을 px · rem 으로 */
+/* 모서리 둥글기를 스프링으로 바꾸는 요소에는 rounded-full을 쓰지 않는다. rounded-full은 무한대 값이라
+   스프링이 목표를 지나쳤다 돌아오는 순간 계산값이 음수가 되어 0(네모)으로 잘린다. 정사각형은 50%, 알약은 높이의 절반을 px나 rem으로 */
 @utility spring-fast {
   transition-timing-function: var(--ease-spring-fast);
   transition-duration: 390ms;
@@ -280,7 +280,7 @@
   transition-timing-function: var(--ease-spring);
   transition-duration: 460ms;
 }
-/* effects 는 감쇠비 1 스프링이라 강성(fast 3800, default 1600, slow 800)과 상관없이 곡선 모양이 같고 멎는 시간만 다르다 */
+/* effects는 감쇠비 1 스프링이라 강성(fast 3800, default 1600, slow 800)과 상관없이 곡선 모양이 같고 멎는 시간만 다르다 */
 @utility effects-fast {
   transition-timing-function: var(--ease-effects);
   transition-duration: 160ms;
@@ -326,16 +326,16 @@
     color 250ms var(--ease-effects);
 }
 
-/* 둥근 글자. Google Sans Flex 의 ROND 축. 제목 · 숫자에 */
+/* 둥근 글자. Google Sans Flex의 ROND 축. 제목과 숫자에 */
 @utility font-round {
   font-variation-settings: "ROND" 100;
 }
 
-/* ── 면(pane) ── M3 의 색조 면(tonal surface)과 그림자 높이(elevation). 반사광 · 빛 테두리 · 굴절은 두지 않는다.
-   pane: 창, 카드(높이 1, 글이 읽히게 탁하게) / pane-float: 떠 있는 것(저장 띠, 높이 3) / pane-menu: 메뉴, 드롭다운 목록, 알림, 토스트(높이 2, 불투명).
-   대화상자 판은 pane-menu 를 쓰지 않는다(surface-container-high, 그림자 없음)
-   pane 은 뒤를 흐리지 않는다. 뒤가 이미 흐린 배경화면이라 다시 흐려도 보이는 차이가 없고(화면 평균 1/255 미만),
-   색이 옮겨 가는 동안 매 프레임 면마다 뒤를 다시 흐려 프레임을 놓친다. 내용 위에 뜨는 pane-float 만 흐린다 */
+/* ── 면(pane) ── M3의 색조 면(tonal surface)과 그림자 높이(elevation). 반사광, 빛 테두리, 굴절은 두지 않는다.
+   pane: 창, 카드(높이 1, 글이 읽히게 탁하게) / pane-float: 떠 있는 것(저장 바, 높이 3) / pane-menu: 메뉴, 드롭다운 목록, 알림, 토스트(높이 2, 불투명).
+   대화상자 판은 pane-menu를 쓰지 않는다(surface-container-high, 그림자 없음)
+   pane은 뒤를 흐리지 않는다. 뒤가 이미 흐린 배경화면이라 다시 흐려도 보이는 차이가 없고(화면 평균 1/255 미만),
+   색이 옮겨 가는 동안 매 프레임 면마다 뒤를 다시 흐려 프레임을 놓친다. 내용 위에 뜨는 pane-float만 흐린다 */
 @utility pane {
   background-color: color-mix(in oklab, var(--md-surface-container) 78%, transparent);
   box-shadow:
@@ -357,7 +357,7 @@
 }
 
 /* 상태 레이어(state layer). 누르거나 올리면 글자색으로 얇게 덮는다(M3) */
-/* 손가락 기기에서만 누를 자리를 48px 로 넓힌다(M3 최소 터치 영역). 보이는 크기는 그대로. state-layer 는 ::after 를 쓰므로 ::before */
+/* 손가락 기기에서만 누를 자리를 48px로 넓힌다(M3 최소 터치 영역). 보이는 크기는 그대로. state-layer는 ::after를 쓰므로 ::before */
 @utility tap {
   position: relative;
   @media (pointer: coarse) {
@@ -394,14 +394,14 @@
   }
 }
 
-/* 숫자는 고른 폭으로(시간 · 곡 수) */
+/* 숫자는 고른 폭으로(시간, 곡 수) */
 @utility nums {
   font-variant-numeric: tabular-nums;
 }
 
 /* 한 줄 글이 넘치면 … 대신 끝을 투명하게. 넘치지 않으면 스크롤 타임라인이 비활성이라 마스크가 걸리지 않는다.
-   마스크는 content box 기준이라 오른쪽 padding 에는 글이 보이지 않는다(끝에 붙지 않게). 스크롤 타임라인이 없는 브라우저는 … 그대로,
-   padding 에 글이 보이지 않는 것은 clip-path 로 맞춘다 */
+   마스크는 content box 기준이라 오른쪽 padding에는 글이 보이지 않는다(끝에 붙지 않게). 스크롤 타임라인이 없는 브라우저는 … 그대로,
+   padding에 글이 보이지 않는 것은 clip-path로 맞춘다 */
 @utility fade-end {
   overflow: hidden;
   white-space: nowrap;
@@ -425,7 +425,7 @@
 }
 
 :root {
-  /* 색 역할은 theme/theme.ts 가 깐다. 여기 남는 것은 색 바깥의 값 */
+  /* 색 역할은 theme/theme.ts가 깐다. 여기 남는 것은 색 바깥의 값 */
   --md-warning: color-mix(in oklab, #ffcf6b 85%, var(--md-primary));
 
   /* SponsorBlock 카테고리 색상 (공식 확장 기본값) */
@@ -446,8 +446,8 @@
 html {
   scroll-behavior: smooth;
   -webkit-tap-highlight-color: transparent;
-  /* 글자 표시가 기본인 문자(♥, ❤, ☺, ↔ 등)는 VS16(FE0F)이 붙을 때만 이모지로. 없으면 맨 앞의 Musicbot Twemoji 가 ♥ 까지 이모지로 그린다.
-     크롬, 엣지 131 이상, 파이어폭스 141 이상. 사파리는 지원하지 않는다(iOS 는 기기 이모지라 상관없고, 맥은 ♥ 도 이모지로 보인다) */
+  /* 글자 표시가 기본인 문자(♥, ❤, ☺, ↔ 등)는 VS16(FE0F)이 붙을 때만 이모지로. 없으면 맨 앞의 Musicbot Twemoji가 ♥ 까지 이모지로 그린다.
+     크롬, 엣지 131 이상, 파이어폭스 141 이상. 사파리는 지원하지 않는다(iOS는 기기 이모지라 상관없고, 맥은 ♥ 도 이모지로 보인다) */
   font-variant-emoji: unicode;
 }
 
@@ -474,7 +474,7 @@ body {
 }
 
 /* 줄바꿈은 화면 언어(<html lang>)마다. 한국어는 띄어쓰기에서만(글자 사이에서 끊지 않는다), 일본어는 문절 단위(지원하지 않는 브라우저는 기본),
-   영어처럼 띄어 쓰는 말은 기본으로 이미 단어 단위다. 끊을 데가 없는 문자열(긴 주소 · 한국어 화면 속 일본어 곡 제목)는 칸을 넘칠 때만 아무 데서나 끊는다 */
+   영어처럼 띄어 쓰는 말은 기본으로 이미 단어 단위다. 끊을 데가 없는 문자열(긴 주소, 한국어 화면 속 일본어 곡 제목)는 칸을 넘칠 때만 아무 데서나 끊는다 */
 @layer base {
   :root {
     overflow-wrap: break-word;
@@ -488,8 +488,8 @@ body {
 }
 
 /* 입력란의 플레이스홀더: 적힌 값과 헷갈리지 않게 흐리게. 색이 아니라 투명도라 플레이스홀더 속 컬러 이모지(🎵 /play)도 같이 흐려진다.
-   글자색은 입력란마다 on-surface-variant(placeholder:text-on-surface-variant). 0.75 면 바탕과 대비 3:1 남짓(흐리기 전에는 4.9 라 적힌 값과 헷갈린다).
-   preflight 의 opacity: 1 을 덮는다 */
+   글자색은 입력란마다 on-surface-variant(placeholder:text-on-surface-variant). 0.75면 바탕과 대비 3:1 남짓(흐리기 전에는 4.9라 적힌 값과 헷갈린다).
+   preflight의 opacity: 1을 덮는다 */
 @layer base {
   ::placeholder {
     opacity: 0.75;
@@ -521,10 +521,10 @@ body {
 ::-webkit-scrollbar-corner {
   background: transparent;
 }
-/* 핸들을 평소에는 숨기고 sb-show 일 때(올렸을 때 · 스크롤하는 동안, 붙이는 것은 그 화면)만 보인다. 자리는 늘 잡아 둬 나타날 때 글이 밀리지 않는다.
-   :hover 로 하지 않는 까닭: 크롬은 부모의 :hover 만 바뀌면 스크롤바를 다시 그리지 않는다(클래스가 바뀌면 다시 그린다).
+/* 핸들을 평소에는 숨기고 sb-show일 때(올렸을 때와 스크롤하는 동안, 붙이는 것은 그 화면)만 보인다. 자리는 늘 잡아 둬 나타날 때 글이 밀리지 않는다.
+   :hover로 하지 않는 이유: 크롬은 부모의 :hover만 바뀌면 스크롤바를 다시 그리지 않는다(클래스가 바뀌면 다시 그린다).
    위 꾸미기가 레이어 밖이라 이것도 레이어 밖에 둔다(utilities 레이어에 두면 위 규칙에 진다).
-   나타나고 사라질 때는 핸들 색의 비율(--sb-thumb-mix, 등록한 변수라 transition 된다)을 바꾼다. 스크롤바 의사 요소 자체에는 transition 이 걸리지 않는다 */
+   나타나고 사라질 때는 핸들 색의 비율(--sb-thumb-mix, 등록한 변수라 transition 된다)을 바꾼다. 스크롤바 의사 요소 자체에는 transition이 걸리지 않는다 */
 @property --sb-thumb-mix {
   syntax: "<percentage>";
   inherits: true;
@@ -541,7 +541,7 @@ body {
 .sb-auto-hide::-webkit-scrollbar-thumb {
   background-color: color-mix(in oklab, var(--md-on-surface) var(--sb-thumb-mix), transparent);
 }
-/* 사이드바 서버 목록: 칸을 줄여 막대 폭을 덜 늘린다. 손잡이 4px, 여백은 왼쪽 1px · 오른쪽 3px(다른 스크롤바와 같다) */
+/* 사이드바 서버 목록: 칸을 줄여 막대 폭을 덜 늘린다. 핸들 4px, 여백은 왼쪽 1px, 오른쪽 3px(다른 스크롤바와 같다) */
 .rail-list::-webkit-scrollbar {
   width: 8px;
 }
@@ -553,7 +553,7 @@ body {
     scrollbar-color: color-mix(in oklab, var(--md-on-surface) var(--sb-thumb-mix), transparent) var(--sb-track-color);
   }
 }
-/* 파이어폭스는 위의 꾸미기를 읽지 않는다. 표준 둘(얇게 · 색)만 준다(둥근 핸들 · 가장자리 비우기는 안 된다).
+/* 파이어폭스는 위의 꾸미기를 읽지 않는다. 표준 둘(얇게, 색)만 준다(둥근 핸들과 가장자리 비우기는 안 된다).
    base 레이어에 두어 scrollbar-none 같은 클래스가 이긴다(레이어 밖에 두면 모든 칸에 이겨 숨긴 스크롤바가 다시 뜬다) */
 @supports not selector(::-webkit-scrollbar) {
   @layer base {
@@ -565,7 +565,7 @@ body {
 }
 
 /* 움직임을 줄여 달라고 한 사람에게는 스프링, 물결, 매끄러운 스크롤을 멈춘다.
-   data-keep-motion 은 남은 시간을 보이는 움직임(토스트 시간 띠, 저절로 닫히는 닫기 버튼의 고리)이다. 줄이면 남은 시간이 보이지 않아 그대로 둔다 */
+   data-keep-motion은 남은 시간을 보이는 움직임(토스트 시간 띠, 저절로 닫히는 닫기 버튼의 고리)이다. 줄이면 남은 시간이 보이지 않아 그대로 둔다 */
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
@@ -579,7 +579,7 @@ body {
   }
 }
 
-/* 아이콘 글꼴. BaseIcon 이 쓴다. FILL 은 켜진 상태(채운 아이콘) */
+/* 아이콘 글꼴. BaseIcon이 쓴다. FILL은 켜진 상태(채운 아이콘) */
 .symbol {
   font-family: var(--font-symbols);
   font-weight: normal;
@@ -601,7 +601,7 @@ body {
   transition: font-variation-settings 250ms var(--ease-smooth);
 }
 
-/* 툴팁 (v-tooltip 디렉티브). M3 의 일반 툴팁(plain): 뒤집은 면 색, 모서리 4px, 여백 4px · 8px, 글자 body-small(12/16), 그림자 없음 */
+/* 툴팁 (v-tooltip 디렉티브). M3의 일반 툴팁(plain): 뒤집은 면 색, 모서리 4px, 여백 4px 8px, 글자 body-small(12/16), 그림자 없음 */
 .app-tooltip {
   position: fixed;
   z-index: 2000;
@@ -619,7 +619,7 @@ body {
   transition: opacity 150ms var(--ease-smooth);
 }
 
-/* 운영자 패널 탭을 옮기면 내용이 레일 순서 방향에서 미끄러져 들어온다. 끝난 뒤에는 transform 을 남기지 않는다(안의 fixed 가 갇히지 않게) */
+/* 운영자 패널 탭을 옮기면 내용이 레일 순서 방향에서 미끄러져 들어온다. 끝난 뒤에는 transform을 남기지 않는다(안의 fixed가 갇히지 않게) */
 [data-dir="down"] > .admin-page {
   animation: page-in-down 460ms var(--ease-spring) backwards;
 }
@@ -649,14 +649,14 @@ body {
     opacity: 0;
   }
 }
-/* 체크를 그어 그린다(경로 길이를 1 로 둔 SVG 선, 자동 저장 표시) */
+/* 체크를 그어 그린다(경로 길이를 1로 둔 SVG 선, 자동 저장 표시) */
 @keyframes check-draw {
   from {
     stroke-dashoffset: 1;
   }
 }
 /* 대화상자(DialogTransition, <Transition name="dialog">): 겉(막, 또는 막과 판을 담은 것)은 투명도로 나타나고(effects) 사라진다(effects-fast).
-   판(.dialog-panel, 겉의 바로 아래)은 들어올 때만 커진다(spring-fast). 판이 겉보다 늦게 끝나 길이는 DIALOG_MS 로 준다 */
+   판(.dialog-panel, 겉의 바로 아래)은 들어올 때만 커진다(spring-fast). 판이 겉보다 늦게 끝나 길이는 DIALOG_MS로 준다 */
 .dialog-enter-active {
   transition: opacity 250ms var(--ease-effects);
 }
@@ -675,7 +675,7 @@ body {
 }
 
 /* 메뉴, 드롭다운, 피커 판(<Transition name="menu">): 들어올 때 투명도(effects)와 크기 0.9 → 1(spring-fast), 나갈 때 투명도만(effects-fast).
-   커지는 기준점은 판의 origin-* 가 정한다. 겉이 display: contents 면 바로 아래 .menu-panel 이 움직인다 */
+   커지는 기준점은 판의 origin-* 가 정한다. 겉이 display: contents면 바로 아래 .menu-panel이 움직인다 */
 .menu-enter-active,
 .menu-enter-active > .menu-panel {
   transition:
@@ -731,6 +731,36 @@ body {
   transition: transform 390ms var(--ease-spring-fast);
 }
 
+/* 알림 카드(<TransitionGroup name="notice">, shell/NoticeDrawer): 서랍이 아래로 자라는 것과 같은 방향으로, 위 가장자리에서 펴지며 들어온다(공간 스프링, M3 Expressive).
+   서랍이 앞서고 내용이 따라오게 흐려짐은 조금 늦게 시작한다. 나갈 때는 위로 오므라들며 짧게 흐려진다(서랍은 그동안 접힌다).
+   밀어 치운 카드만 오른쪽으로 마저 빠진다(ToastStack이 인라인으로 준다). 남은 카드가 자리를 옮기는 것도 공간 스프링 */
+.notice-enter-active {
+  transform-origin: 50% 0;
+  transition:
+    opacity 250ms var(--ease-effects) 60ms,
+    translate 460ms var(--ease-spring),
+    scale 460ms var(--ease-spring);
+}
+.notice-enter-from {
+  opacity: 0;
+  translate: 0 -0.75rem;
+  scale: 0.9;
+}
+.notice-leave-active {
+  transform-origin: 50% 0;
+  transition:
+    opacity 160ms var(--ease-effects),
+    scale 200ms var(--ease-accelerate),
+    translate 250ms var(--ease-accelerate);
+}
+.notice-leave-to {
+  opacity: 0 !important;
+  scale: 0.9;
+}
+.notice-move {
+  transition: transform 460ms var(--ease-spring);
+}
+
 /* 색이 옮겨 가는 동안(theme/blend)은 넘김 효과를 끈다. 색 역할이 매 프레임 바뀌어 색 넘김이 걸린 요소가 뒤처졌다가 끝에 튄다 */
 :root[data-shifting] *:not([data-shift-keep], [data-shift-keep] *),
 :root[data-shifting] *:not([data-shift-keep] *)::before,
@@ -739,7 +769,7 @@ body {
 }
 
 /* M3 Expressive 슬라이더(볼륨). 굵은 막대 두 토막과 세로 알약 핸들. 값은 --v(0~1).
-   핸들(폭 4px) 가운데는 2px + (폭 - 4px) × v 에 선다(브라우저가 핸들을 막대 안쪽에 둔다). 두 토막은 그 가운데에서 --gap 만큼 떨어져 끝나 양옆 틈이 값과 상관없이 같다 */
+   핸들(폭 4px) 가운데는 2px + (폭 - 4px) × v에 선다(브라우저가 핸들을 막대 안쪽에 둔다). 두 토막은 그 가운데에서 --gap만큼 떨어져 끝나 양옆 틈이 값과 상관없이 같다 */
 .m3-slider {
   appearance: none;
   height: var(--thumb-h);
@@ -749,14 +779,14 @@ body {
   --gap: 0.375rem;
   --thumb-h: 2.75rem;
 }
-/* 얇은 슬라이더: 트랙 4px · 핸들 12px(볼륨 막대 · 진행 막대와 같은 굵기). M3E 의 가장 작은 규격(XS)보다 얇다 */
+/* 얇은 슬라이더: 트랙 4px, 핸들 12px(볼륨 막대나 진행 막대와 같은 굵기). M3E의 가장 작은 규격(XS)보다 얇다 */
 .m3-slider.m3-slider-thin {
   --track: 0.25rem;
   --thumb-h: 0.75rem;
   --gap: 0.25rem;
 }
-/* 작은 슬라이더: 트랙 12px · 핸들 높이 24px. 카드 안의 값 조절에 쓴다.
-   틈은 기본(트랙 16 · 틈 6)과 얇은 것(트랙 4 · 틈 4) 사이를 트랙 두께로 이은 값(5.3)을 정수 px 로 */
+/* 작은 슬라이더: 트랙 12px, 핸들 높이 24px. 카드 안의 값 조절에 쓴다.
+   틈은 기본(트랙 16, 틈 6)과 얇은 것(트랙 4, 틈 4) 사이를 트랙 두께로 이은 값(5.3)을 정수 px로 */
 .m3-slider.m3-slider-compact {
   --track: 0.75rem;
   --thumb-h: 1.5rem;
@@ -805,9 +835,9 @@ body {
 
 /* ── 뼈대 치수(데스크톱 세션) ──
    틀(frame) 안에 둥글게 파인 바탕화면(desk)이 있고, 창(window)이 그 위에 간격을 두고 타일로 놓인다.
-   둥근 정도는 맞물린다: 바탕화면 안쪽 = 창 + 바깥 간격. 창 · 바탕화면 모두 M3 곡률 단계에 떨어지게 정한다
+   둥근 정도는 맞물린다: 바탕화면 안쪽 = 창 + 바깥 간격. 창과 바탕화면 모두 M3 곡률 단계에 떨어지게 정한다
    (창 16px large + 간격 12px = 28px extra-large, 모든 폭 같다).
-   창 안의 부품(입력란 12px · 줄 8px · 선택 목록 16px 등)은 M3 부품 토큰을 그대로 쓰고 창에 맞춰 줄이지 않는다.
+   창 안의 컴포넌트(입력란 12px, 줄 8px, 선택 목록 16px 등)는 M3 컴포넌트 토큰을 그대로 쓰고 창에 맞춰 줄이지 않는다.
    창 여백은 M3 카드 여백 16px(창 반지름을 넘지 않는다) */
 :root {
   --bar: 4rem; /* 세로 막대의 폭(휴대폰은 사이드 드로어 안 아이콘 칸) */
@@ -816,15 +846,15 @@ body {
   --r-window: 1rem;
   --pad-window: 1rem;
   --strip: 3.25rem; /* 바탕화면 위쪽 띠(화면 헤더) */
-  --topbar: 3rem; /* 틀의 위 막대(휴대폰 48px, 태블릿 · PC 36px) */
+  --topbar: 3rem; /* 틀의 위 막대(휴대폰 48px, 태블릿과 PC 36px) */
   --rail: 5rem; /* 바탕화면 안 왼쪽 레일(운영자 패널 탭). 재생 바 노치는 양옆을 이 레일이 들어갈 만큼 비운다 */
   --r-desk: calc(var(--r-window) + var(--gap-out));
-  /* 카드 안의 면(입력란 · 선택 입력란 · 목록 상자)과 그 안의 줄. M3 단계값으로 화면 크기와 상관없이 고정(medium 12px · small 8px) */
+  /* 카드 안의 면(입력란, 선택 입력란, 목록 상자)과 그 안의 줄. M3 단계값으로 화면 크기와 상관없이 고정(medium 12px, small 8px) */
   --r-inner: 0.75rem;
   --r-row: 0.5rem;
   /* 둥근 모서리 밑으로 스크롤바가 깔리지 않게 스크롤바 길 위(아래)를 비우는 길이.
-     막대는 길 폭 10px 에 테두리 3px 이라 가장자리에서 3px 떨어진 폭 4px 의 알약이다. 알약 끝 반원의 가운데를 모서리 원의 가운데 높이에 두면
-     끝과 곡선이 같은 중심이 되어 모서리 쪽 틈도 옆 틈과 같은 3px 이 된다. 그 높이는 r - 2px(반원 반지름), 길에서는 테두리 3px 을 빼 r - 5px.
+     막대는 길 폭 10px에 테두리 3px이라 가장자리에서 3px 떨어진 폭 4px의 알약이다. 알약 끝 반원의 가운데를 모서리 원의 가운데 높이에 두면
+     끝과 곡선이 같은 중심이 되어 모서리 쪽 틈도 옆 틈과 같은 3px이 된다. 그 높이는 r - 2px(반원 반지름), 길에서는 테두리 3px을 빼 r - 5px.
      바탕화면 모서리(--r-desk) → 그 값 - 5px(식으로 따라간다), 선택 입력란 목록(16px) → 11px, 대화상자(28px) → 23px.
      테두리가 있는 상자는 테두리 안쪽 반지름(r - 테두리)으로 계산한다. 곧은 선에 닿는 끝(검색 입력란 아래 등)은 비우지 않는다 */
   --sb-inset-desk: calc(var(--r-desk) - 5px);
@@ -848,9 +878,9 @@ body {
   }
 }
 
-/* 틀에서 자라난 조각(재생 바 노치)의 막. 노치 양옆으로 --cr 만큼 넓힌 한 장에 막 색을 칠하고 뒤를 한 번만 흐린 뒤, 노치 모양으로 자른다:
+/* 틀에서 자라난 조각(재생 바 노치)의 막. 노치 양옆으로 --cr만큼 넓힌 한 장에 막 색을 칠하고 뒤를 한 번만 흐린 뒤, 노치 모양으로 자른다:
    가운데 몸통(위 두 모서리 --r-window 둥글게) + 양옆 아래의 오목한 모서리(--cr). 조각마다 따로 흐리면 이음매에서 블러 결이 끊긴다.
-   아래는 화면 밖으로 --overhang 만큼 더 내린다(바탕화면이 잘라 보이지 않는다). 기기 배율이 3.5 처럼 딱 떨어지지 않으면 화면 맨 아래 줄이
+   아래는 화면 밖으로 --overhang만큼 더 내린다(바탕화면이 잘라 보이지 않는다). 기기 배율이 3.5처럼 딱 떨어지지 않으면 화면 맨 아래 줄이
    반 픽셀에 걸려 블러가 덮지 못하고 뒤 글자가 선명하게 비친다. 오목한 모서리는 원래 바닥에 맞춘다 */
 .dock-film {
   --R: var(--r-window);
@@ -879,8 +909,71 @@ body {
   mask-repeat: no-repeat;
 }
 
-/* 상태 색 중 글 · 선 · 아이콘 · 막대로 바탕 위에 바로 쓰는 것(--warn-ink · --ok-ink). 바탕 대비 4.5:1 이상(WCAG AA 글자)이 되게 밝기마다 따로.
-   밝은 모드의 --status-wait · --status-play(노랑 · 초록)는 바탕 대비가 2:1 아래라 글 · 선에 쓰지 않는다 */
+/* 알림 서랍의 막(shell/NoticeDrawer): 위 막대에서 내려오는 틀 색 면. 안에 배경화면 사본과 틀 색 막을 깔고(위 막대와 같은 색, 뒤를 흐리지 않는다) 모양으로 자른다.
+   몸통 + 왼쪽 아래 볼록한 모서리 + 위 막대와 만나는 왼쪽 위, 바탕화면 오른쪽 끝과 만나는 오른쪽 아래의 오목한 모서리.
+   모서리는 타원이다. 세로(--ry)는 서랍 높이의 절반을 넘지 않고(부모가 크기 컨테이너, cqh) 서랍과 같이 자라고 준다.
+   오목한 모서리의 가로(--notice-cx)는 서랍과 따로 움직인다(NoticeDrawer의 data-phase):
+   열 때 0에서 작은 요소의 빠른 공간 스프링으로 자라고, 닫을 때 두 배로 넓어지며 서랍이 위 막대 속으로 녹아 붙는다(세로는 납작해지고 가로는 넓어진다).
+   가로는 세로의 3배를 넘지 않는다. 더 납작하면 윤곽이 계단처럼 깨진다. 같은 이유로 윤곽 번짐은 1.5px(가로 기준이라 납작한 윗변에서는 더 얇다).
+   막은 가장 넓은 오목한 모서리 자리(왼쪽 2M, 아래 M)만큼 늘 넓혀 둔다. 막 상자가 움직이면 안에 깐 배경화면 사본이 한 프레임 늦게 따라온다 */
+@property --notice-cx {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+.notice-film {
+  --M: var(--r-desk);
+  --ry: min(var(--M), 50cqh);
+  --cx: min(var(--notice-cx), 3 * var(--ry));
+  --vx: min(var(--M), 3 * var(--ry));
+  position: absolute;
+  inset: 0 0 calc(-1 * var(--M)) calc(-2 * var(--M));
+  z-index: -10;
+  pointer-events: none;
+  mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0), radial-gradient(100% 100% at 100% 0, #000 calc(100% - 1.5px), transparent 100%), radial-gradient(100% 100% at 0 100%, transparent calc(100% - 1.5px), #000 100%), radial-gradient(100% 100% at 0 100%, transparent calc(100% - 1.5px), #000 100%);
+  mask-size:
+    calc(100% - 2 * var(--M)) calc(100% - var(--M) - var(--ry)),
+    calc(100% - 2 * var(--M) - var(--vx)) var(--ry),
+    var(--vx) var(--ry),
+    var(--cx) var(--ry),
+    var(--cx) var(--ry);
+  /* 위치는 가장자리에서 잰다(%는 남는 공간 기준이라 calc(100% - …)가 그 자리가 아니다) */
+  mask-position:
+    right 0 top 0,
+    right 0 bottom var(--M),
+    left calc(2 * var(--M)) bottom var(--M),
+    left calc(2 * var(--M) - var(--cx)) top 0,
+    right 0 bottom calc(var(--M) - var(--ry));
+  mask-repeat: no-repeat;
+}
+/* 휴대폰: 서랍이 위 막대 아래 폭 전체라 오목한 모서리가 없다. 아래 두 모서리만 볼록하게(세로는 위와 같이 높이를 따른다) */
+@media not all and (width >= 45rem) and (height > 32rem) {
+  .notice-film {
+    inset: 0;
+    mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0), radial-gradient(100% 100% at 100% 0, #000 calc(100% - 1.5px), transparent 100%), radial-gradient(100% 100% at 0 0, #000 calc(100% - 1.5px), transparent 100%);
+    mask-size:
+      100% calc(100% - var(--ry)),
+      calc(100% - 2 * var(--vx)) var(--ry),
+      var(--vx) var(--ry),
+      var(--vx) var(--ry);
+    mask-position:
+      left 0 top 0,
+      left var(--vx) bottom 0,
+      left 0 bottom 0,
+      right 0 bottom 0;
+  }
+}
+.notice-film[data-phase="open"] {
+  --notice-cx: var(--r-desk);
+  transition: --notice-cx 390ms var(--ease-spring-fast);
+}
+.notice-film[data-phase="closing"] {
+  --notice-cx: calc(2 * var(--r-desk));
+  transition: --notice-cx 460ms var(--ease-spring);
+}
+
+/* 상태 색 중 글, 선, 아이콘, 막대로 바탕 위에 바로 쓰는 것(--warn-ink, --ok-ink). 바탕 대비 4.5:1 이상(WCAG AA 글자)이 되게 밝기마다 따로.
+   밝은 모드의 --status-wait, --status-play(노랑, 초록)는 바탕 대비가 2:1 아래라 글이나 선에 쓰지 않는다 */
 @property --warn-ink {
   syntax: "<color>";
   inherits: true;
@@ -912,9 +1005,10 @@ body {
   --status-wait: #eab308;
 }
 
-/* 저장공간 막대의 조각 색. 앨범아트 색과 상관없이 항목마다 고정(오디오 캐시 · DB · 기타는 dataviz 검증기로 밝기마다 전 쌍 통과, 덜 쨍하게 누른 파랑 · 주황 · 청록).
+/* 저장공간 막대의 조각 색. 앨범아트 색과 상관없이 항목마다 고정(오디오 캐시, DB, 기타는 dataviz 검증기로 밝기마다 전 쌍 통과, 덜 쨍하게 누른 파랑, 주황, 청록).
+   외부 프로그램은 dataviz 기준 팔레트의 보라. 넷을 모두 비교하면 통과하는 색이 없어 이웃끼리만 검증했다(기타 뒤에 두고, DB가 빠진 순서도 통과. 조각 사이 틈과 라벨이 같이 구분한다).
    여유 공간은 빈 길 색, 최소 여유는 반투명 빨강 */
-/* 밝기를 바꿀 때 색 역할(theme/blend, 0.7초 · 끝이 천천히 내려앉는 ease-out cubic)과 같은 박자로 넘어가게 등록하고 :root 에서 넘김을 건다. 움직임 줄이기면 바로 */
+/* 밝기를 바꿀 때 색 역할(theme/blend, 0.7초, 끝이 천천히 내려앉는 ease-out cubic)과 같은 박자로 넘어가게 등록하고 :root에서 넘김을 건다. 움직임 줄이기면 바로 */
 @property --store-cache {
   syntax: "<color>";
   inherits: true;
@@ -930,13 +1024,18 @@ body {
   inherits: true;
   initial-value: transparent;
 }
+@property --store-vendor {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: transparent;
+}
 @property --store-free {
   syntax: "<color>";
   inherits: true;
   initial-value: transparent;
 }
 :root {
-  transition-property: --store-cache, --store-db, --store-other, --store-free, --warn-ink, --ok-ink, --log-trace, --log-debug, --log-info, --log-warn, --log-error, --log-fatal, --log-cat-1, --log-cat-2, --log-cat-3, --log-cat-4, --log-cat-5, --log-cat-6, --log-cat-7, --log-cat-8;
+  transition-property: --store-cache, --store-db, --store-other, --store-vendor, --store-free, --warn-ink, --ok-ink, --log-trace, --log-debug, --log-info, --log-warn, --log-error, --log-fatal, --log-cat-1, --log-cat-2, --log-cat-3, --log-cat-4, --log-cat-5, --log-cat-6, --log-cat-7, --log-cat-8;
   transition-duration: 700ms;
   transition-timing-function: cubic-bezier(0.33, 1, 0.68, 1);
 }
@@ -949,18 +1048,19 @@ body {
   --store-cache: #4a86d4;
   --store-db: #d66a3a;
   --store-other: #2aa37c;
+  --store-vendor: #9085e9;
   --store-free: #3d3938;
   --store-reserve: rgb(208 59 59 / 0.5);
 }
-/* AI 사용량 막대의 계열 색. 테마 역할(primary · secondary · tertiary)은 앨범아트에 따라 서로 비슷해져 쌓은 막대를 구분하지 못한다.
-   저장공간 막대와 같은 검증된 세 색(입력 · 캐시 · 출력), 실패는 빨강. 범례 · 툴팁이 이름을 같이 적는다 */
+/* AI 사용량 막대의 계열 색. 테마 역할(primary, secondary, tertiary)은 앨범아트에 따라 서로 비슷해져 쌓은 막대를 구분하지 못한다.
+   저장공간 막대와 같은 검증된 세 색(입력, 캐시, 출력), 실패는 빨강. 범례와 툴팁이 이름을 같이 적는다 */
 :root {
   --usage-input: #4a86d4;
   --usage-cached: #d66a3a;
   --usage-output: #2aa37c;
   --usage-failed: #d03b3b;
 }
-/* 실시간 로그 레벨 색. 앨범아트 색과 상관없이 고정(밝기마다 따로, 로그 칸 바탕 대비 4.5:1 이상). trace 는 debug 보다 한 단계 덜 또렷하게, fatal 은 error 보다 짙게 */
+/* 실시간 로그 레벨 색. 앨범아트 색과 상관없이 고정(밝기마다 따로, 로그 칸 바탕 대비 4.5:1 이상). trace는 debug보다 한 단계 덜 또렷하게, fatal은 error보다 짙게 */
 @property --log-trace {
   syntax: "<color>";
   inherits: true;
@@ -1079,6 +1179,7 @@ body {
   --store-cache: #3d7cc9;
   --store-db: #d8693c;
   --store-other: #2a9e78;
+  --store-vendor: #6250d6;
   --store-free: #dcd6d4;
 }
 
@@ -1096,7 +1197,7 @@ body {
   --frame-color: color-mix(in srgb, var(--frame-film) var(--frame-alpha), transparent);
 }
 
-/* 공지 미리보기의 디스코드 마크다운(utils/discord-markdown). 링크 · 멘션 · 스포일러 색은 디스코드 것을 밝기마다 따로 */
+/* 공지 미리보기의 디스코드 마크다운(utils/discord-markdown). 링크, 멘션, 스포일러 색은 디스코드 것을 밝기마다 따로 */
 :root {
   --dmd-link: #00a8fc;
   --dmd-mention-bg: rgb(88 101 242 / 0.3);

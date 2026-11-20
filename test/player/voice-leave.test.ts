@@ -23,7 +23,7 @@ async function settle<T>(t: TestContext, work: Promise<T>, times: number) {
   return work;
 }
 
-test("디스코드에 지금 채널을 묻고, 그 채널 참가로 음성 상태를 넘겨받은 뒤 나간다(게이트웨이). REST 는 부르지 않고 리스너를 뗀다", async () => {
+test("디스코드에 지금 채널을 묻고, 그 채널 참가로 음성 상태를 넘겨받은 뒤 나간다(게이트웨이). REST는 부르지 않고 리스너를 뗀다", async () => {
   const { guild, client, sent, order, rests } = lingeringGuild();
   assert.equal(await leaveLingeringVoice(guild, none), "gateway");
   assert.deepEqual(order, [ASKED, "op4:vc1", "op4:null"]);
@@ -51,7 +51,7 @@ test("디스코드가 봇이 음성에 없다고 하면(10065) 아무것도 보�
   assert.deepEqual(order, [ASKED]);
 });
 
-test("넘겨받기에 알림이 없어도 1.5초 뒤 나가기를 보내 본다. 나가기도 1.5초 안에 먹히지 않으면 REST 로 뺀다", async (t) => {
+test("넘겨받기에 알림이 없어도 1.5초 뒤 나가기를 보내 본다. 나가기도 1.5초 안에 통하지 않으면 REST로 뺀다", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const { guild, client, order } = lingeringGuild({ takeOver: false });
   const leaving = leaveLingeringVoice(guild, none);
@@ -68,7 +68,7 @@ test("넘겨받기에 알림이 없어도 1.5초 뒤 나가기를 보내 본다.
   assert.equal(client.listenerCount("voiceStateUpdate"), 0);
 });
 
-test("넘겨받았는데 나가기가 먹히지 않으면 REST. 40032(이미 음성에 없음)는 나간 것, 그 밖의 실패는 failed", async (t) => {
+test("넘겨받았는데 나가기가 통하지 않으면 REST. 40032(이미 음성에 없음)는 나간 것, 그 밖의 실패는 failed", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const stuck = lingeringGuild({ gatewayLeaves: false });
   assert.equal(await settle(t, leaveLingeringVoice(stuck.guild, none), 1), "rest");
@@ -81,7 +81,7 @@ test("넘겨받았는데 나가기가 먹히지 않으면 REST. 40032(이미 음
   assert.equal(await settle(t, leaveLingeringVoice(denied.guild, none), 1), "failed");
 });
 
-test("샤드가 준비되지 않았으면 게이트웨이로 보내지 않고 REST 로 뺀다. 캐시에 채널이 없어도 디스코드가 있다고 했으면 뺀다", async () => {
+test("샤드가 준비되지 않았으면 게이트웨이로 보내지 않고 REST로 뺀다. 캐시에 채널이 없어도 디스코드가 있다고 했으면 뺀다", async () => {
   const { guild, order } = lingeringGuild({ ready: false });
   assert.equal(await leaveLingeringVoice(guild, none), "rest");
   assert.deepEqual(order, [ASKED, "rest"]);
@@ -113,6 +113,6 @@ test("플레이어가 있으면(누가 다시 불렀다) 새로 붙은 연결을
   later.set("g9", {} as Player);
   t.mock.timers.tick(1500);
   assert.equal(await leaving, "superseded");
-  assert.deepEqual(whileLeaving.order, [ASKED, "op4:vc1", "op4:null"], "나가는 사이 생기면 REST 로 빼지 않는다");
+  assert.deepEqual(whileLeaving.order, [ASKED, "op4:vc1", "op4:null"], "나가는 사이 생기면 REST로 빼지 않는다");
   assert.equal(whileLeaving.client.listenerCount("voiceStateUpdate"), 0);
 });

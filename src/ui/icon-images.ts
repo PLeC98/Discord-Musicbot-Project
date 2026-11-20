@@ -29,11 +29,11 @@ const SPIN_DELAY_MS = 50;
 const DIR = path.join(PROJECT.data, "discord-icons");
 
 let glyphs: Record<string, string> | null = null;
-/** 기호 이름 → SVG 경로(글꼴 칸 960, y 위로). scripts/build-discord-icons 가 만든 것 */
+/** 기호 이름 → SVG 경로(글꼴 칸 960, y 위로). scripts/build-discord-icons가 만든 것 */
 function glyphPath(name: string) {
   glyphs ??= (JSON.parse(fs.readFileSync(path.join(DIR, "glyphs.json"), "utf8")) as { glyphs: Record<string, string> }).glyphs;
   const d = glyphs[name];
-  if (!d) throw new Error(`아이콘 SVG 패스가 없음: ${name} (node scripts/build-discord-icons.ts 로 다시 만드세요)`);
+  if (!d) throw new Error(`아이콘 SVG 패스가 없음: ${name} (node scripts/build-discord-icons.ts로 다시 만드세요)`);
   return d;
 }
 
@@ -64,7 +64,7 @@ function svgOf(spec: IconSpec, tint: Tint, rotate = 0) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}">${body}</svg>`;
 }
 
-// 로고 타일. SVG 는 크게 그린 뒤 줄인다(작게 그리면 가장자리가 뭉개진다)
+// 로고 타일. SVG는 크게 그린 뒤 줄인다(작게 그리면 가장자리가 뭉개진다)
 async function logoTile(spec: IconSpec): Promise<Buffer> {
   if (!spec.brand) throw new Error(`로고 브랜드가 없음: ${spec.glyph}`);
   const file = path.join(DIR, spec.glyph);

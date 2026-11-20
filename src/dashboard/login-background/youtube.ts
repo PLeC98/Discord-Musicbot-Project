@@ -1,6 +1,6 @@
 // 로그인 배경의 유튜브: 다운로드 대행. 음원과 같은 yt-dlp 길(클라이언트 바꿔 묻기, POToken, 연령 제한 쿠키)로 영상만 다운로드하고, 그 뒤는 올린 파일과 같다.
-// 다운로드 단계는 편집 창용 480p 를, 고해상도 다운로드 단계(편집을 적용한 뒤)는 짧은 변 2160 이하에서 가장 좋은 것을 다운로드해 원본을 바꾼다.
-// 영상 전체를 다운로드한다: yt-dlp 의 구간 다운로드는 키프레임에서 잘려 시작이 어긋나고, 정확히 자르려면 다시 인코딩하는데 번들 ffmpeg(LGPL)에는 x264 가 없다.
+// 다운로드 단계는 편집 창용 480p를, 고해상도 다운로드 단계(편집을 적용한 뒤)는 짧은 변 2160 이하에서 가장 좋은 것을 다운로드해 원본을 바꾼다.
+// 영상 전체를 다운로드한다: yt-dlp의 구간 다운로드는 키프레임에서 잘려 시작이 어긋나고, 정확히 자르려면 다시 인코딩하는데 번들 ffmpeg(LGPL)에는 x264가 없다.
 // 구간은 인코딩이 원본에서 정확히 자른다. 다운로드하는 크기의 상한은 남은 저장 공간
 
 import fs from "node:fs";
@@ -23,7 +23,7 @@ type Info = { width?: number; height?: number; vcodec?: string; duration?: numbe
 /** 다운로드한 파일(이름.확장자, 정보, 다운로드 중인 파일은 빼고) */
 const downloaded = (folder: string, base: string) => fs.readdirSync(folder).find((name) => name.startsWith(`${base}.`) && !name.endsWith(".info.json") && !name.endsWith(".part") && !name.endsWith(".ytdl"));
 
-/** 영상만, 짧은 변 res 이하에서 가장 좋은 것을 folder/base.확장자 로 다운로드한다. 다운로드한 파일과 yt-dlp 가 적은 정보 */
+/** 영상만, 짧은 변 res 이하에서 가장 좋은 것을 folder/base.확장자 로 다운로드한다. 다운로드한 파일과 yt-dlp가 적은 정보 */
 async function fetchVideo(url: string, folder: string, base: string, res: number, signal: AbortSignal): Promise<{ file: string; info: Info }> {
   for (const name of fs.readdirSync(folder)) if (name.startsWith(`${base}.`)) fs.rmSync(path.join(folder, name), { force: true });
   const room = store.room();
@@ -63,7 +63,7 @@ function bestSize(info: Info): { width: number; height: number } | null {
   return fit[0] ?? null;
 }
 
-/** 다운로드 단계(유튜브): 편집 창용 480p 를 원본 위치에 다운로드한다. 크기는 고해상도로 다운로드할 크기를 적는다 */
+/** 다운로드 단계(유튜브): 편집 창용 480p를 원본 위치에 다운로드한다. 크기는 고해상도로 다운로드할 크기를 적는다 */
 async function receiveYoutube({ item, folder, signal }: StageJob): Promise<StageResult> {
   const { file, info } = await fetchVideo(item.link!, folder, "download", PREVIEW_RES, signal);
   fs.renameSync(file, store.sourceOf(item.id));

@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert";
 import * as retry from "../../src/autoplay/assist/retry.ts";
 
-test("거절 까닭의 key 는 상태 코드와 오류 이름만, 문구는 detail 로", () => {
+test("거절 응답 원인의 key는 상태 코드와 오류 이름만, 문구는 detail로", () => {
   // 규격마다 이름 필드가 다르다(Google status, Anthropic type, OpenAI code)
   assert.deepEqual(retry.summaryOf(429, '{"error":{"code":429,"message":"Resource has been exhausted (e.g. check quota).","status":"RESOURCE_EXHAUSTED"}}'), {
     key: "HTTP 429 RESOURCE_EXHAUSTED",
@@ -11,7 +11,7 @@ test("거절 까닭의 key 는 상태 코드와 오류 이름만, 문구는 deta
   });
   assert.equal(retry.summaryOf(429, '{"type":"error","error":{"type":"rate_limit_error","message":"try again in 20s"}}').key, "HTTP 429 rate_limit_error");
   assert.equal(retry.summaryOf(429, '{"error":{"code":"rate_limit_exceeded","message":"req_abc"}}').key, "HTTP 429 rate_limit_exceeded");
-  // JSON 이 아니면 공백을 접은 본문이 detail
+  // JSON이 아니면 공백을 접은 본문이 detail
   assert.deepEqual(retry.summaryOf(502, "<html>\n Bad   Gateway </html>"), { key: "HTTP 502", detail: "<html> Bad Gateway </html>" });
 });
 
@@ -44,5 +44,5 @@ test("대기는 두 배씩 늘어 상한에서 멈추고, 절반 아래로는 �
     [1, 2, 6].map((n) => retry.backoffMs(n, 1000, 16000, low)),
     [500, 1000, 8000],
   );
-  assert.equal(retry.backoffMs(3, 0, 16000), 0, "처음 대기가 0 이면 늘 0");
+  assert.equal(retry.backoffMs(3, 0, 16000), 0, "처음 대기가 0이면 늘 0");
 });

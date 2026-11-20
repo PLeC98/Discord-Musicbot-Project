@@ -1,4 +1,4 @@
-// 재생 상태가 바뀌었다는 알림(SSE). 받은 화면이 GET 으로 다시 읽는다
+// 재생 상태가 바뀌었다는 알림(SSE). 받은 화면이 GET으로 다시 읽는다
 
 import { tracksMembers } from "../../infra/gateway-intents.ts";
 import express, { type NextFunction, type Request, type Response } from "express";
@@ -11,8 +11,8 @@ import type { DiscordHttp } from "../discord-api.ts";
 import * as sessionRequests from "../session-requests.ts";
 
 // 대시보드발 상태 변경(비-GET 성공) → 그 서버를 볼 수 있는 SSE 구독자에게 넛지.
-// req.params 는 라우터를 빠져나오면 되돌아가므로, 요청 주소(originalUrl)에서 서버 ID 를 미리 추출해 finish 에서 쓴다.
-// (디스코드 쪽, 내부 변화는 player/events 의 touched 가 알린다)
+// req.params는 라우터를 빠져나오면 되돌아가므로, 요청 주소(originalUrl)에서 서버 ID를 미리 추출해 finish에서 쓴다.
+// (디스코드 쪽, 내부 변화는 player/events의 touched가 알린다)
 function nudgeAfterChange(stream: PlayerStream) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (req.method !== "GET") {
@@ -74,9 +74,9 @@ async function botJoinedGuild(stream: PlayerStream, guild: Parameters<typeof mem
 }
 
 /**
- * 게이트웨이에 재연결해 사용 불가(unavailable) 서버가 다시 사용 가능해졌다. discord.js 가 그 서버의 멤버 캐시를 다시 받는데 봇과 음성 채널 사람만 들어,
+ * 게이트웨이에 재연결해 사용 불가(unavailable) 서버가 다시 사용 가능해졌다. discord.js가 그 서버의 멤버 캐시를 다시 받는데 봇과 음성 채널 사람만 들어,
  * 연결을 연 사람이 빠져 소식이 끊긴다. 그 서버를 멤버로 확인했던 연결의 사람만 다시 가져온다(연결 수 × 서버 수만큼 조회하지 않는다).
- * 그사이 나간 사람은 멤버가 아니라는 답을 받아 계속 빠진다
+ * 그사이 나간 사람은 멤버가 아니라는 응답을 받아 계속 빠진다
  */
 async function guildBack(stream: PlayerStream, guild: Parameters<typeof memberOf>[0]) {
   await Promise.all([...stream.watching(guild.id)].map((id) => memberOf(guild, id)));

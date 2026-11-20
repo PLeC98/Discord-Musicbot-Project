@@ -1,10 +1,10 @@
 // 이 호스트의 네트워크 송신 누계(인터페이스마다 바이트). 봇 상태 탭의 시스템 업로드.
-// Linux 는 /sys/class/net/<이름>/statistics/tx_bytes 를 읽는다(프로그램을 실행하지 않는다). 장치가 있는 인터페이스만 센다
-// (docker 브리지, veth, VPN 은 같은 바이트가 실제 카드에서 한 번 더 세진다). 장치가 하나도 없으면(컨테이너 안) 루프백만 뺀다.
-// Windows 는 Node 에 API 가 없어 PowerShell 하나를 띄워 두고 물을 때마다 .NET NetworkInterface 로 읽는다
-// (WMI 를 거치는 Get-NetAdapterStatistics 보다 싸고, 조회마다 띄우면 PowerShell 실행 비용이 매번 든다). 이더넷, 무선 종류만 센다.
-//   언어 설정과 상관없게 인터페이스 Id(GUID)와 숫자만 받는다. 자식 프로세스 기록에 올려 봇이 내려갈 때 함께 내리고, 봇이 갑자기 죽으면 stdin 이 닫혀 스스로 끝난다.
-// 그 밖의 운영체제는 재지 않는다(null). 읽지 못하면 null 을 주고 warn 으로 알린다
+// Linux는 /sys/class/net/<이름>/statistics/tx_bytes를 읽는다(프로그램을 실행하지 않는다). 장치가 있는 인터페이스만 센다
+// (docker 브리지, veth, VPN은 같은 바이트가 실제 카드에서 한 번 더 세진다). 장치가 하나도 없으면(컨테이너 안) 루프백만 뺀다.
+// Windows는 Node에 API가 없어 PowerShell 하나를 띄워 두고 물을 때마다 .NET NetworkInterface로 읽는다
+// (WMI를 거치는 Get-NetAdapterStatistics보다 싸고, 조회마다 띄우면 PowerShell 실행 비용이 매번 든다). 이더넷, 무선 종류만 센다.
+//   언어 설정과 상관없게 인터페이스 Id(GUID)와 숫자만 받는다. 자식 프로세스 기록에 올려 봇이 내려갈 때 함께 내리고, 봇이 갑자기 죽으면 stdin이 닫혀 자동으로 끝난다.
+// 그 밖의 운영체제는 재지 않는다(null). 읽지 못하면 null을 주고 warn으로 알린다
 
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import fs from "node:fs";
@@ -20,7 +20,7 @@ type Sent = Map<string, number>;
 
 const SYS_NET = "/sys/class/net";
 const ANSWER_TIMEOUT_MS = 10_000;
-// 셸이 죽거나 답하지 않으면 이만큼 기다렸다 다시 띄운다(띄우는 비용이 크다). 다시 응답하면 처음 간격부터
+// 셸이 죽거나 응답하지 않으면 이만큼 기다렸다 다시 띄운다(띄우는 비용이 크다). 다시 응답하면 처음 간격부터
 const RESTART_DELAYS_MS = [60_000, 300_000, 1_800_000];
 
 const failures = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "시스템 업로드 읽기");
@@ -50,7 +50,7 @@ async function fromSysfs(dir = SYS_NET): Promise<Sent> {
 
 // ── Windows ──
 
-// 줄마다 "Id<탭>보낸 바이트", 빈 줄이 답의 끝. 종류: Ethernet(6), Wireless80211(71), FastEthernetT(62), FastEthernetFx(69), GigabitEthernet(117), Ethernet3Megabit(26)
+// 줄마다 "Id<탭>보낸 바이트", 빈 줄이 응답의 끝. 종류: Ethernet(6), Wireless80211(71), FastEthernetT(62), FastEthernetFx(69), GigabitEthernet(117), Ethernet3Megabit(26)
 const SCRIPT = `
 $kinds = 6, 71, 62, 69, 117, 26
 while ($null -ne [Console]::In.ReadLine()) {
@@ -62,7 +62,7 @@ while ($null -ne [Console]::In.ReadLine()) {
   [Console]::Out.Flush()
 }`;
 
-/** PowerShell 답 한 번(빈 줄 앞까지)의 줄들 */
+/** PowerShell 응답 한 번(빈 줄 앞까지)의 줄들 */
 function parseAnswer(lines: string[]): Sent {
   const sent: Sent = new Map();
   for (const line of lines) {
@@ -97,9 +97,9 @@ function startShell(): Shell {
   child.stderr.setEncoding("utf8");
   child.stderr.on("data", (chunk: string) => (self.stderr = (self.stderr + chunk).slice(-300)));
   child.stdin.on("error", () => {
-    /* 끝난 뒤 쓰면 EPIPE 가 난다. 끝남은 exit 가 알린다 */
+    /* 끝난 뒤 쓰면 EPIPE가 난다. 끝남은 exit가 알린다 */
   });
-  // 묻는 중이 아니면 비우고 다음 구간에 다시 띄운다. 봇이 내려가며 내린 것이 아니면 warn 으로 알리고 재실행을 미룬다
+  // 묻는 중이 아니면 비우고 다음 구간에 다시 띄운다. 봇이 내려가며 내린 것이 아니면 warn으로 알리고 재실행을 미룬다
   const gone = (why: string, exit?: string) => {
     const idle = shell === self && !self.answer;
     if (shell === self) shell = null;
@@ -165,7 +165,7 @@ async function systemSent(): Promise<Sent | null> {
   } else if (process.platform === "win32") got = await fromShell();
   else return null;
   if (got === null) return null;
-  // 잴 인터페이스가 하나도 없으면 0 이 아니라 못 잰 것이다
+  // 잴 인터페이스가 하나도 없으면 0이 아니라 못 잰 것이다
   if (!("failed" in got) && got.size === 0) got = { failed: "측정할 수 있는 네트워크 인터페이스가 없음" };
   if ("failed" in got) {
     failures.fail(got.failed);

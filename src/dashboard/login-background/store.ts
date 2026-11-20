@@ -1,5 +1,5 @@
-// 로그인 배경의 기록. 배경마다 폴더(database/dashboard/login-background/<id>/)에 파일을 두고, 무엇이 있는지, 지금 배경, 화면에서 거는 값, 한도는 같은 위치의 index.json 에 둔다
-// (파비콘과 같은 까닭: 파일과 한 위치라 백업, 이사, 불러오기에서 함께 움직인다). 단계 실행은 runner.ts 가 하고, 여기는 기록과 그 규칙만 둔다.
+// 로그인 배경의 기록. 배경마다 폴더(database/dashboard/login-background/<id>/)에 파일을 두고, 무엇이 있는지, 지금 배경, 화면에서 거는 값, 한도는 같은 위치의 index.json에 둔다
+// (파비콘과 같은 이유: 파일과 한 위치라 백업, 이사, 불러오기에서 함께 움직인다). 단계 실행은 runner.ts가 하고, 여기는 기록과 그 규칙만 둔다.
 // 규칙: 새 배경은 썸네일이 생기면 로그인 화면에 걸린다(그 전에는 쓰던 배경 그대로). 이전 배경은 걸었던 것 중 지금 배경을 빼고 마지막으로 쓴 것이다.
 // 한도(보관 개수, 최대 용량)는 다 인코딩한 기록 중 지금 배경을 뺀 것을 마지막으로 쓴 지 오래된 것부터 삭제해 지킨다(이전 배경은 가장 나중에 쓴 것이라 맨 마지막).
 // 이전 배경의 파일이 삭제돼도 그것을 보던 화면은 재생이 실패하면 배경 정보를 다시 읽어 지금 배경으로 넘어간다
@@ -49,8 +49,8 @@ type Estimate = { perSecond: number[]; stillBytes: number; crop: LoginBackground
 /** 인코딩한 것: 정지 그림 폭, 대표색, 장면 색, 코덱마다의 HLS 단계(공개 응답이 쓴다) */
 type Media = { stills: number[]; color: string | null; scenes: LoginBackgroundScene[]; rungs: Partial<Record<LoginBackgroundCodec, LoginBackgroundRung[]>> };
 /**
- * 배경 하나의 기록. link 는 링크로 다운로드할 때의 주소(다운로드 단계가 쓴다), appliedAt 은 편집을 적용한 때(0 이면 아직),
- * stage 는 하던 단계(봇이 다시 시작하면 이어서 한다), resumed 는 다시 시작해 이어서 하는 중
+ * 배경 하나의 기록. link는 링크로 다운로드할 때의 주소(다운로드 단계가 쓴다), appliedAt은 편집을 적용한 때(0이면 아직),
+ * stage는 하던 단계(봇이 다시 시작하면 이어서 한다), resumed는 다시 시작해 이어서 하는 중
  */
 type Stored = {
   id: string;
@@ -77,7 +77,7 @@ type Stored = {
   estimate: Estimate | null;
   media: Media;
 };
-/** index.json 의 형식 */
+/** index.json의 형식 */
 type Index = { current: string | null; items: Stored[]; options: LoginBackgroundOptions; limits: LoginBackgroundLimits };
 
 let index: Index | null = null;
@@ -112,7 +112,7 @@ function writeAtomic(file: string, data: string) {
   fs.renameSync(`${file}.tmp`, file);
 }
 
-/** 값이 이 형식인지(index.json 은 사람이 건드리지 않지만 불러오기는 남이 준 파일이다). 못 쓰는 필드는 처음 값으로 */
+/** 값이 이 형식인지(index.json은 사람이 건드리지 않지만 불러오기는 남이 준 파일이다). 못 쓰는 필드는 처음 값으로 */
 function optionsFrom(raw: unknown): LoginBackgroundOptions {
   const one = raw as Partial<LoginBackgroundOptions> | null;
   const seam = one?.seam as Partial<LoginBackgroundOptions["seam"]> | undefined;
@@ -140,7 +140,7 @@ const isStageList = (value: unknown) => Array.isArray(value) && value.every(isSt
 const isProblem = (value: unknown) => value === null || (typeof value === "string" && isCode(value));
 const isPosition = (value: unknown) => isNum((value as Partial<LoginBackgroundPosition> | null)?.x) && isNum((value as Partial<LoginBackgroundPosition> | null)?.y);
 
-/** 기록 한 줄이 쓸 만한 형식인지(index.json 은 사람이 건드리지 않지만 불러오기는 남이 준 파일이다) */
+/** 기록 한 줄이 쓸 만한 형식인지(index.json은 사람이 건드리지 않지만 불러오기는 남이 준 파일이다) */
 function isStored(value: unknown): value is Stored {
   const one = value as Partial<Stored> | null;
   if (!one || typeof one.id !== "string" || !LOGIN_BG_ID.test(one.id) || typeof one.name !== "string") return false;
@@ -150,7 +150,7 @@ function isStored(value: unknown): value is Stored {
   return known && numbers && stages && isProblem(one.problem) && isPosition(one.position) && Array.isArray(one.media?.stills);
 }
 
-/** 저장 위치의 index.json 을 읽기만 한다(쓸 만한 형식, 폴더가 있는 기록만). 다른 프로세스(전체 백업 명령)도 이것으로 읽는다 */
+/** 저장 위치의 index.json을 읽기만 한다(쓸 만한 형식, 폴더가 있는 기록만). 다른 프로세스(전체 백업 명령)도 이것으로 읽는다 */
 function readIndex(folder = dir): Index {
   let raw: Partial<Index> | null = null;
   try {
@@ -164,7 +164,7 @@ function readIndex(folder = dir): Index {
   return { current, items, options: optionsFrom(raw?.options), limits: limitsFrom(raw?.limits) };
 }
 
-/** 기록. 처음 부를 때 index.json 을 읽고(하던 단계가 있으면 이어서 할 것으로 적고, 목록에 없는 폴더는 삭제한다), 그 뒤로는 바꿀 때 같이 고친다 */
+/** 기록. 처음 부를 때 index.json을 읽고(하던 단계가 있으면 이어서 할 것으로 적고, 목록에 없는 폴더는 삭제한다), 그 뒤로는 바꿀 때 같이 고친다 */
 function loaded(): Index {
   if (index) return index;
   index = readIndex();
@@ -215,7 +215,7 @@ function previousId(): string | null {
   );
 }
 
-/** 로그인 화면을 이 배경으로(null 이면 봇 프로필 이미지). 쓰던 배경과 새 배경에 쓴 때를 적는다 */
+/** 로그인 화면을 이 배경으로(null이면 봇 프로필 이미지). 쓰던 배경과 새 배경에 쓴 때를 적는다 */
 function show(id: string | null) {
   const state = loaded();
   const now = Date.now();
@@ -233,7 +233,7 @@ function showIfLatest(one: Stored) {
 }
 
 /**
- * 배경 폴더를 삭제한다. 멈춘 인코딩의 ffmpeg 가 아직 파일을 쥐고 있으면(Windows) 뒤에서 잠시 다시 삭제하고,
+ * 배경 폴더를 삭제한다. 멈춘 인코딩의 ffmpeg가 아직 파일을 쥐고 있으면(Windows) 뒤에서 잠시 다시 삭제하고,
  * 그래도 안 되면 다음에 켤 때 목록에 없는 폴더로 치운다
  */
 function removeFolder(id: string) {
@@ -333,7 +333,7 @@ function folderBytes(id: string): number {
   return sum;
 }
 
-/** 배경이 있는 곳. running 은 단계가 도는 중인가 */
+/** 배경이 있는 곳. running은 단계가 도는 중인가 */
 function phaseOf(one: Stored, running: boolean): LoginBackgroundPhase {
   if (one.problem !== null) return "failed";
   if (one.edit === null) return LOGIN_BG_BEFORE_EDIT.every((stage) => !one.stages.includes(stage) || one.done.includes(stage)) ? "editing" : "preparing";

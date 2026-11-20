@@ -16,8 +16,8 @@ import { iconButton } from "../utils/icon-button.ts";
 import { text } from "../text/index.ts";
 
 /**
- * ms: 저절로 닫히기까지(ms). round 가 바뀌면 처음부터 다시 센다(같은 자리에 새 내용이 왔을 때).
- * paused: 그동안 멈추고 누를 수 없다(끝나면 멈춘 시점부터 이어 센다). pausedTip 은 그동안의 툴팁
+ * ms: 저절로 닫히기까지(ms). round가 바뀌면 처음부터 다시 센다(같은 자리에 새 내용이 왔을 때).
+ * paused: 그동안 멈추고 누를 수 없다(끝나면 멈춘 시점부터 이어 센다). pausedTip은 그동안의 툴팁
  */
 const props = withDefaults(defineProps<{ ms: number; round?: unknown; paused?: boolean; pausedTip?: string }>(), { round: undefined, paused: false, pausedTip: "" });
 /** close: 눌렀거나 시간이 다 됐다 */

@@ -1,6 +1,6 @@
 // yt-dlp 오류를 구분한다(영상 없음, 연령 제한, 클라이언트 탓, 낡은 미디어 주소).
 
-// 오류에서 읽을 텍스트. yt-dlp 오류는 stderr 에, 나머지는 message 에 담긴다
+// 오류에서 읽을 텍스트. yt-dlp 오류는 stderr에, 나머지는 message에 담긴다
 function textOf(error: unknown): string {
   const e = error && typeof error === "object" ? (error as { stderr?: unknown; message?: unknown }) : null;
   const found = e && (e.stderr || e.message);
@@ -30,14 +30,14 @@ function briefError(error: unknown, maxLines = 4) {
   return `${lines.slice(0, maxLines).join("\n")}\n(외 ${lines.length - maxLines}줄)`;
 }
 
-/** yt-dlp 오류가 연령 제한(로그인 필요)인지 판별. yt-dlp 의 연령 제한 판정(_is_agegated)처럼 "inappropriate" 가 들어 있으면 연령 제한으로 본다 */
+/** yt-dlp 오류가 연령 제한(로그인 필요)인지 판별. yt-dlp의 연령 제한 판정(_is_agegated)처럼 "inappropriate"가 들어 있으면 연령 제한으로 본다 */
 function isAgeRestrictedError(error: unknown) {
   const msg = textOf(error);
   return /confirm your age|inappropriate|age.?restricted|only available to registered users/i.test(msg);
 }
 
 /**
- * 붙인 쿠키를 유튜브가 받지 않았는가. yt-dlp 는 이것을 WARNING 으로만 적고 ERROR 에는 연령 확인 요구만 적는다.
+ * 붙인 쿠키를 유튜브가 받지 않았는가. yt-dlp는 이것을 WARNING으로만 적고 ERROR에는 연령 확인 요구만 적는다.
  * 브라우저에서 그 계정을 계속 쓰면 세션이 갱신되며 내보낸 쿠키가 무효가 된다(만료 시각과 무관)
  */
 function isCookiesInvalidError(error: unknown) {
@@ -50,34 +50,34 @@ function isCookiesInvalidError(error: unknown) {
  *   일시적 네트워크, 봇 감지, 연령 제한과는 구별(그것들은 재검색 대상 아님).
  */
 function isVideoUnavailableError(error: unknown) {
-  // 연령 제한을 먼저 뺀다. 쿠키가 무효일 때 yt-dlp 가 내는 "cookies are no longer valid" 가
-  // 아래의 "no longer available" 과 한 단어 차이라, 정규식이 넓어지는 순간 살아 있는 영상이
+  // 연령 제한을 먼저 뺀다. 쿠키가 무효일 때 yt-dlp가 내는 "cookies are no longer valid"가
+  // 아래의 "no longer available"과 한 단어 차이라, 정규식이 넓어지는 순간 살아 있는 영상이
   // 내려간 것으로 분류된다. 자동재생은 그 판정으로 곡을 영구히 버리므로(markDead) 대가가 크다.
-  // 옆의 isClientFault, isStaleMediaError 도 같은 가드를 갖고 있다.
+  // 옆의 isClientFault, isStaleMediaError도 같은 가드를 갖고 있다.
   if (isAgeRestrictedError(error)) return false;
 
   const msg = textOf(error);
-  // 요청 한도도 "This content isn't available, try again later" 로 온다(yt-dlp 가 "rate-limited by YouTube for up to an hour" 를 덧붙인다). 영상은 살아 있다
+  // 요청 한도도 "This content isn't available, try again later"로 온다(yt-dlp가 "rate-limited by YouTube for up to an hour"를 덧붙인다). 영상은 살아 있다
   if (RATE_LIMITED.test(msg)) return false;
   return /video (?:is )?unavailable|no longer available|has been removed|removed by (the )?(uploader|user)|private video|account associated with this video has been terminated|this video is not available|content isn.?t available|violat(?:ing|ion) of youtube/i.test(msg);
 }
 
 /**
- * yt-dlp 가 그 클라이언트를 아예 실행하지 않았는가.
+ * yt-dlp가 그 클라이언트를 아예 실행하지 않았는가.
  *
  * 쿠키를 붙이면 쓸 수 있는 클라이언트 집합이 바뀐다. 쿠키를 못 받는 것들(visionos, android,
- * tv_simply 등)은 건너뛰어지고, 남은 것이 없으면 "Requested format is not available" 로 끝난다.
+ * tv_simply 등)은 건너뛰어지고, 남은 것이 없으면 "Requested format is not available"로 끝난다.
  * 그 메시지만 보면 클라이언트가 실패한 것처럼 보이지만 돌아 본 적조차 없다.
  *
- * 어느 클라이언트가 쿠키를 지원하는지는 표로 두지 않는다. yt-dlp 가 건너뛰면서
- * 이유를 적어 주므로 그것을 읽는다. 표를 박아 두면 유튜브나 yt-dlp 가 바뀔 때 먼저 어긋난다.
+ * 어느 클라이언트가 쿠키를 지원하는지는 표로 두지 않는다. yt-dlp가 건너뛰면서
+ * 이유를 적어 주므로 그것을 읽는다. 표를 박아 두면 유튜브나 yt-dlp가 바뀔 때 먼저 어긋난다.
  */
 function isSkippedClientError(error: unknown) {
   const msg = textOf(error);
   return /Skipping client "[\w-]+"/i.test(msg);
 }
 
-/** 오디오 전용만 받는 시도에서 그 클라이언트가 영상이 섞인 포맷만 줬다(ytdlp-run 이 붙인다) */
+/** 오디오 전용만 받는 시도에서 그 클라이언트가 영상이 섞인 포맷만 줬다(ytdlp-run이 붙인다) */
 const NO_AUDIO_ONLY = "no-audio-only";
 const isNoAudioOnly = (error: unknown) => (error as { code?: unknown } | null)?.code === NO_AUDIO_ONLY;
 
@@ -113,13 +113,13 @@ function isStaleMediaError(error: unknown) {
   return /HTTP Error (?:403|429)|unable to download fragment|fragment .{0,20}not found/i.test(msg);
 }
 
-// yt-dlp 가 적는 문장으로만 구분하는 것. 바꿀 수 없는 문장이라 여기서 읽는다.
-// 거의 모든 줄이 "[youtube] 영상ID:" 로 시작하므로 "youtube", 숫자 하나로는 구분하지 않는다(영상 ID 에 429 가 들 수 있다)
-// 봇 확인: 유튜브의 "Sign in to confirm you’re not a bot" 과 yt-dlp 가 붙이는 "requiring a captcha challenge" 문구
+// yt-dlp가 적는 문장으로만 구분하는 것. 바꿀 수 없는 문장이라 여기서 읽는다.
+// 거의 모든 줄이 "[youtube] 영상ID:"로 시작하므로 "youtube", 숫자 하나로는 구분하지 않는다(영상 ID에 429가 들 수 있다)
+// 봇 확인: 유튜브의 "Sign in to confirm you’re not a bot"과 yt-dlp가 붙이는 "requiring a captcha challenge" 문구
 const BOT_CHECK = /sign in to confirm|confirm you.?re not a bot|captcha/i;
 const GEO_BLOCKED = /in your (?:country|region)|from your location|geo.?restrict/i;
 const RATE_LIMITED = /HTTP Error 429|too many requests|rate.?limit|quota exceeded|try again later/i;
-// 연결이 안 된 것. yt-dlp 는 파이썬 오류 문장을 그대로 옮긴다(Failed to establish a new connection, [WinError 10061] 등)
+// 연결이 안 된 것. yt-dlp는 파이썬 오류 문장을 그대로 옮긴다(Failed to establish a new connection, [WinError 10061] 등)
 const NETWORK = /getaddrinfo|name resolution|connection (?:refused|reset|aborted)|failed to establish a new connection|unable to connect to proxy|timed out|network is unreachable|urlopen error|\[(?:WinError|Errno) (?:10060|10061|10065|110|111|113)\]/i;
 const PLAYLIST_UNAVAILABLE = /playlist does not exist|this playlist is private|playlist (?:is )?(?:unavailable|private)|unable to recognize playlist/i;
 const FFMPEG = /\bffmpeg\b|\bffprobe\b/i;
@@ -129,14 +129,14 @@ const UPCOMING = /this live event will begin|premieres? (?:in|on)\b|premiere wil
 /**
  * yt-dlp 오류에 붙일 이름. 실행하는 곳(ytdlp-spawn)이 실패할 때 한 번 붙인다. 모르면 null.
  * 연령 제한 → 지역 차단 → 영상 없음 순서다. 요청 제한(429)은 주소 어긋남보다 앞이다
- * (다시 받을지는 ytdlp-run 의 runYtDlp 가 isStaleMediaError 로 따로 본다).
+ * (다시 받을지는 ytdlp-run의 runYtDlp가 isStaleMediaError로 따로 본다).
  */
 function codeOf(error: unknown) {
   const msg = textOf(error);
   // 쿠키로 다시 시도했는데 쿠키가 무효였다. 운영자가 쿠키를 다시 입력하면 풀린다
   if (isAgeRestrictedError(error) && isCookiesInvalidError(error)) return "yt-age-cookies-invalid";
   if (isAgeRestrictedError(error)) return "yt-age-no-cookies";
-  // 지역 차단 문장은 "this video is not available ... from your location" 처럼 영상 없음의 문장을 품는다. 먼저 본다
+  // 지역 차단 문장은 "this video is not available ... from your location"처럼 영상 없음의 문장을 품는다. 먼저 본다
   if (GEO_BLOCKED.test(msg)) return "geo-blocked";
   if (isVideoUnavailableError(error)) return "unavailable-contents";
   if (UPCOMING.test(msg)) return "live-upcoming";

@@ -2,7 +2,7 @@
 
 import type { LevelName } from "../../../src/infra/log/levels.ts";
 
-// 레벨 필터는 여럿 켜기다(심각한 것부터). 봇은 지금 trace 를 남기지 않지만 LOG_LEVEL=trace 로 둘 수 있어 칩을 둔다
+// 레벨 필터는 여럿 켜기다(심각한 것부터). 봇은 지금 trace를 남기지 않지만 LOG_LEVEL=trace로 둘 수 있어 칩을 둔다
 const LEVEL_CHIPS: Array<{ value: LevelName; label: string }> = [
   { value: "fatal", label: "FATAL" },
   { value: "error", label: "ERROR" },
@@ -11,7 +11,7 @@ const LEVEL_CHIPS: Array<{ value: LevelName; label: string }> = [
   { value: "debug", label: "DEBUG" },
   { value: "trace", label: "TRACE" },
 ];
-// 레벨 색은 테마와 상관없이 고정(style.css --log-*). 이름은 레벨 색, 글은 trace, debug 는 흐리게(같은 색), info, warn 은 보통 글자색, error, fatal 은 레벨 색
+// 레벨 색은 테마와 상관없이 고정(style.css --log-*). 이름은 레벨 색, 글은 trace, debug는 흐리게(같은 색), info, warn은 보통 글자색, error, fatal은 레벨 색
 const LEVEL_TONE: Record<LevelName, string> = { trace: "text-(--log-trace)", debug: "text-(--log-debug)", info: "text-(--log-info)", warn: "text-(--log-warn)", error: "text-(--log-error)", fatal: "text-(--log-fatal)" };
 const TEXT_TONE: Record<LevelName, string> = { trace: "text-(--log-trace)", debug: "text-(--log-debug)", info: "text-on-surface", warn: "text-on-surface", error: "text-(--log-error)", fatal: "text-(--log-fatal) font-semibold" };
 

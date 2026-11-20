@@ -19,7 +19,7 @@ function client(app: () => Promise<unknown>) {
 }
 const settle = () => new Promise((done) => setImmediate(done));
 
-test("꺼진 채 로그인했는데 그사이 앱 설정에서 켜졌으면 다시 시작하면 적용(now 가 켜짐). 앱 설정은 백그라운드에서 읽어 잠깐 캐시한다", async () => {
+test("꺼진 채 로그인했는데 그사이 앱 설정에서 켜졌으면 다시 시작하면 적용(now가 켜짐). 앱 설정은 백그라운드에서 읽어 잠깐 캐시한다", async () => {
   useLoggedIn({ messageContent: false, guildMembers: true });
   const { c, reads } = client(async () => ({ flags: FLAGS.messageContent.limited | FLAGS.guildMembers.limited, approximate_guild_count: 2 }));
   const first = intentStatus(c, 0);
@@ -36,7 +36,7 @@ test("꺼진 채 로그인했는데 그사이 앱 설정에서 켜졌으면 다�
   assert.equal(reads(), 2, "켜기 뒤에는 다시 읽는다");
 });
 
-test("앱 설정 읽기가 실패해도(동기로 던져도) 상태를 만든다. 아는 것이 없으면 now 는 null", async () => {
+test("앱 설정 읽기가 실패해도(동기로 예외를 던져도) 상태를 만든다. 아는 것이 없으면 now는 null", async () => {
   const c = fake<Client>({
     isReady: () => true,
     rest: {

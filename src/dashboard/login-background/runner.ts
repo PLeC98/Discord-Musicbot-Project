@@ -1,6 +1,6 @@
 // 로그인 배경의 단계를 돌린다. 배경마다 다음 단계를 하나씩 단계 실행기(executors)에 맡기고, 인코딩(h264, encode)은 봇 전체에서 한 번에 하나만 한다(먼저 적용한 배경부터).
 // 다운로드, 미리보기, 썸네일, 정지 그림, 장면 색은 인코딩 순서를 기다리지 않는다(앞 배경을 인코딩하는 동안 적용해도 새 썸네일이 곧 걸린다).
-// 실행기를 아직 달지 않은 단계는 시작하지 않고 기다린다(달면 kick 으로 이어서 한다). 단계가 실패하면 배경을 실패로 남기고(문제 코드, 만든 것은 삭제한다) 운영자가 다시 올린다. 봇이 다시 시작하면 하던 단계부터 이어서 한다(그 단계의 임시 파일은 실행기가 치운다)
+// 실행기를 아직 달지 않은 단계는 시작하지 않고 기다린다(달면 kick으로 이어서 한다). 단계가 실패하면 배경을 실패로 남기고(문제 코드, 만든 것은 삭제한다) 운영자가 다시 올린다. 봇이 다시 시작하면 하던 단계부터 이어서 한다(그 단계의 임시 파일은 실행기가 치운다)
 
 import fs from "node:fs";
 import logger from "../../infra/log/logger.ts";
@@ -10,7 +10,7 @@ import { isCode } from "../../rules/problems.ts";
 import { LOGIN_BG_ENCODE_STAGES, type LoginBackgroundCrop, type LoginBackgroundStage } from "../contract/login-background.ts";
 import * as store from "./store.ts";
 
-/** 단계 하나의 작업. item 은 지금 기록(바꾸지 않는다), folder 는 배경의 폴더, signal 은 취소, progress 는 그 단계의 0 ~ 1 */
+/** 단계 하나의 작업. item은 지금 기록(바꾸지 않는다), folder는 배경의 폴더, signal은 취소, progress는 그 단계의 0 ~ 1 */
 type StageJob = { item: Readonly<store.Stored>; folder: string; signal: AbortSignal; progress: (value: number) => void };
 /** 단계가 알아낸 것(다운로드: 종류, 크기, 길이, 미리보기: 추산, 장면 띠, 인코딩한 것). 기록에 덧쓴다 */
 type StageResult = Partial<Pick<store.Stored, "kind" | "width" | "height" | "duration" | "fps" | "strip" | "estimate" | "media">>;
@@ -134,7 +134,7 @@ function failed(one: store.Stored, run: Run, error: unknown) {
   one.stage = null;
   one.resumed = false;
   log.error({ sub: "admin" }, `로그인 배경 "${one.name}" ${run.stage} 단계 실패: ${messageOf(error)}`);
-  // 만든 것은 삭제하고 기록만 남긴다(운영자가 까닭을 보고 삭제한 뒤 다시 올린다). 걸려 있던 배경이면 이전 배경으로
+  // 만든 것은 삭제하고 기록만 남긴다(운영자가 원인을 보고 삭제한 뒤 다시 올린다). 걸려 있던 배경이면 이전 배경으로
   const folder = store.folderOf(one.id);
   fs.rmSync(folder, { recursive: true, force: true });
   fs.mkdirSync(folder, { recursive: true });

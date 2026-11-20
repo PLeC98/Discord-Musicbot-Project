@@ -7,7 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import run, { useExec, useLaneSizes, useCpuSlots, cpuSlots, type Exec } from "../../src/sources/ytdlp-spawn.ts";
 
-// 부를 때마다 도는 수를 세고, finish 로 하나씩 끝내는 가짜 yt-dlp
+// 부를 때마다 도는 수를 세고, finish로 하나씩 끝내는 가짜 yt-dlp
 function fakeYtdlp() {
   const finishers: Array<() => void> = [];
   let running = 0;
@@ -23,7 +23,7 @@ function fakeYtdlp() {
   }) as unknown as Exec;
   return { exec, running: () => running, most: () => most, finish: () => finishers.shift()?.() };
 }
-// assert 가 실패해도 끝나지 않은 가짜 때문에 테스트가 멈춰 있지 않게, 남은 것을 다 끝낸 뒤 실패를 던진다
+// assert가 실패해도 끝나지 않은 가짜 때문에 테스트가 멈춰 있지 않게, 남은 것을 다 끝낸 뒤 실패를 던진다
 async function settled(ytdlp: ReturnType<typeof fakeYtdlp>, all: Array<Promise<unknown>>, body: () => Promise<void>) {
   try {
     await body();
@@ -114,7 +114,7 @@ test("다운로드는 파일을 받기 시작하면 자리를 내놓아, 끝나�
     await settled(ytdlp, all, async () => {
       await tick();
       assert.equal(ytdlp.running(), 1);
-      // 받기 전부터 있는 .info.json 으로는 자리를 내놓지 않는다
+      // 받기 전부터 있는 .info.json으로는 자리를 내놓지 않는다
       fs.writeFileSync(path.join(dir, "long.info.json"), "{}");
       await new Promise((done) => setTimeout(done, 1_200));
       assert.equal(ytdlp.running(), 1);

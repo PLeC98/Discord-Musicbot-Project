@@ -8,7 +8,7 @@ import { TYPES } from "../../src/autoplay/sources/index.ts";
 
 // 소스를 더하고 라벨을 안 적으면 화면에 "Lbradio" 같은 것이 이름 없이(그리고 회색 점으로) 뜬다.
 test("자동재생 소스는 모두 라벨을 갖는다", () => {
-  // keyword 는 곡을 유튜브에서 바로 집으므로 platform 이 youtube 다. 제 이름이 없다(src/autoplay/route.ts).
+  // keyword는 곡을 유튜브에서 바로 집으므로 platform이 youtube다. 제 이름이 없다(src/autoplay/route.ts).
   const needed = TYPES.filter((t) => t !== "keyword");
   const missing = needed.filter((t) => !isPlatform(t));
   assert.deepEqual(missing, [], `라벨 없는 소스: ${missing.join(", ")}`);
@@ -24,7 +24,7 @@ test("모르는 값은 첫 글자만 올리고, 빈 값은 한 글자로", () =>
   assert.equal(labelOf("touhoudb"), "TouhouDB");
 });
 
-// platform 은 내부 분류 코드라 첫 글자만 올려 쓰면 "Lbradio", "Vocadb", "Lastfm" 처럼 아무도 안 쓰는 표기가 된다.
+// platform은 내부 분류 코드라 첫 글자만 올려 쓰면 "Lbradio", "Vocadb", "Lastfm"처럼 아무도 안 쓰는 표기가 된다.
 test("출처 이름은 그 서비스가 쓰는 표기를 따른다", () => {
   const label = labelOf;
 

@@ -1,6 +1,6 @@
 // src/dashboard/guild-access.ts, routes/player.ts, routes/guild-settings.ts: 서버 경로가 상태를 바꾸기 직전에 로그인 세션을 확인하는 연결.
 // 실제 세션 저장소를 거친다(test/helpers/real-session). 확인 바로 앞에서 도는 가짜(멤버 조회, 채널 찾기, 곡 찾기)가 그 세션을 다른 기기에서 끝내면
-// 경로는 401 login-required로 답하고 아무것도 바꾸지 않는다. 확인을 통과한 경우의 처리는 dashboard-validation, dashboard-join, dashboard-autoplay, dashboard-settings가 본다
+// 경로는 401 login-required로 응답하고 아무것도 바꾸지 않는다. 확인을 통과한 경우의 처리는 dashboard-validation, dashboard-join, dashboard-autoplay, dashboard-settings가 본다
 
 import { test, after, afterEach } from "node:test";
 import assert from "node:assert/strict";
@@ -35,7 +35,7 @@ const guild = {
   id: GUILD_ID,
   name: "서버",
   roles: { cache: new Map() },
-  // 전용 채널 찾기. 찾지 못한 것으로 답한다
+  // 전용 채널 찾기. 찾지 못한 결과(undefined)를 반환한다
   channels: { cache: Object.assign(new Map(), { get: () => (at.channel.now(), undefined) }) },
   voiceStates: { cache: new Map() },
   members: {
@@ -136,7 +136,7 @@ async function endingAt(where: ReturnType<typeof endOnce>) {
   where.arm(() => real.end(who));
   return who;
 }
-// 답과 바뀐 것을 한데 본다(확인을 빼면 200과 바뀐 것이 함께 보인다)
+// 응답과 바뀐 것을 한데 본다(확인을 빼면 200과 바뀐 것이 함께 보인다)
 const outcome = (r: { status: number; json: { code?: string } | null }) => ({ status: r.status, code: r.json?.code, changes: [...changes] });
 const ENDED = { status: 401, code: "login-required", changes: [] };
 

@@ -1,7 +1,7 @@
 // src/autoplay/pool.ts: 소스에서 받아 온 곡을 쥐고 한 곡씩 내주는 풀.
 //
 // 여기서 지키려는 성질은 다섯이다: 같은 곡을 두 번 안 낸다, 다 쓰면 다시 채운다,
-// 설정이 다르면 풀도 다르다, 소스가 죽어도 던지지 않는다, 여러 서버가 함께 채워도 앞의 풀을 덮지 않는다.
+// 설정이 다르면 풀도 다르다, 소스가 죽어도 예외를 던지지 않는다, 여러 서버가 함께 채워도 앞의 풀을 덮지 않는다.
 
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
@@ -67,7 +67,7 @@ test("weight는 풀을 나누지 않는다. 고를 확률일 뿐 내용이 아�
   assert.equal(pool.keyOf({ type: "lastfm", tags: ["pop"], weight: 1 }), pool.keyOf({ type: "lastfm", tags: ["pop"], weight: 9 }));
 });
 
-test("소스가 죽어도 던지지 않는다. 부르는 쪽이 다음 소스로 넘어가야 한다", async () => {
+test("소스가 죽어도 예외를 던지지 않는다. 호출부가 다음 소스로 넘어가야 한다", async () => {
   const fill = async () => {
     throw new Error("HTTP 503");
   };

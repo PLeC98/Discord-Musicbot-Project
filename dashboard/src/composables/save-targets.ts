@@ -1,5 +1,5 @@
-// 운영자 패널의 저장 막대 하나가 저장, 되돌리는 편집기들. 편집기가 자기를 올려 두고(사라지면 내린다),
-// 운영자 패널이 막대를 하나 표시해 고친 편집기를 모두 저장하거나 되돌린다. 탭을 옮겨도 막대는 그대로다.
+// 운영자 패널의 저장 바 하나가 저장, 되돌리는 편집기들. 편집기가 자기를 올려 두고(사라지면 내린다),
+// 운영자 패널이 저장 바를 하나 표시해 고친 편집기를 모두 저장하거나 되돌린다. 탭을 옮겨도 저장 바는 그대로다.
 
 import { shallowReactive, onUnmounted, type Ref, type ComputedRef } from "vue";
 
@@ -14,14 +14,14 @@ export type SaveTarget = {
   saving: Flag;
   /** 검사에 걸린 값이 있다(저장을 막는다) */
   blocked?: Flag;
-  /** 다시 시작해야 먹는 값을 고쳤다("저장 후 다시 시작"을 더 둔다) */
+  /** 다시 시작해야 적용되는 값을 고쳤다("저장 후 다시 시작"을 더 둔다) */
   restart?: Flag;
-  /** 저장. 됐으면 true. restarting 이면 곧 다시 시작한다(다시 시작해야 먹는다는 안내는 뺀다) */
+  /** 저장. 됐으면 true. restarting이면 곧 다시 시작한다(다시 시작해야 적용된다는 안내는 뺀다) */
   save: (restarting: boolean) => Promise<boolean>;
   revert: () => void;
 };
 
-// 얕게 지켜본다(안의 ref 를 풀지 않는다. 편집기마다 제 ref 를 그대로 읽는다)
+// 얕게 지켜본다(안의 ref를 풀지 않는다. 편집기마다 제 ref를 그대로 읽는다)
 export const saveTargets = shallowReactive(new Set<SaveTarget>());
 
 /** 올려 둔다. 돌려준 것을 부르면 내린다 */
@@ -30,7 +30,7 @@ export function addSaveTarget(target: SaveTarget): () => void {
   return () => saveTargets.delete(target);
 }
 
-/** 편집기의 setup 에서 부른다. 편집기가 사라지면 내린다 */
+/** 편집기의 setup에서 부른다. 편집기가 사라지면 내린다 */
 export function useSaveTarget(target: SaveTarget): void {
   onUnmounted(addSaveTarget(target));
 }
@@ -46,7 +46,7 @@ export async function saveAll(order: readonly string[], restarting = false): Pro
   return null;
 }
 
-/** 저장에 실패한 편집기 failed 를 보러 옮겨 갈 탭. 지금 탭(current)에 문제가 있거나 옮길 곳이 없으면 null */
+/** 저장에 실패한 편집기 failed를 보러 옮겨 갈 탭. 지금 탭(current)에 문제가 있거나 옮길 곳이 없으면 null */
 export function tabAfterFailure(failed: SaveTarget, current: string | null): string | null {
   const tabs = failed.failedTabs?.() ?? [failed.tab];
   return tabs.length && !tabs.includes(current ?? "") ? tabs[0]! : null;

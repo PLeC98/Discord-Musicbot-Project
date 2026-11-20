@@ -1,5 +1,5 @@
 // 검색 결과를 잠시 기억하고, 같은 검색어로 동시에 온 요청은 검색 하나를 함께 기다리게 한다. 실패는 기억하지 않는다.
-// 키는 부르는 쪽이 다듬어 넘긴다. 오래된 것부터 삭제해 max 개를 넘지 않는다
+// 키는 호출부가 다듬어 넘긴다. 오래된 것부터 삭제해 max 개를 넘지 않는다
 
 type Remembered<T> = { at: number; value: T };
 
@@ -31,7 +31,7 @@ function queryMemo<T>({ ttlMs, max, now }: { ttlMs: number; max: number; now: ()
       return fresh(key)?.value ?? null;
     },
 
-    /** key 가 그것으로 시작하는 기억 중 가장 긴 것(key 자신 포함). 없으면 null */
+    /** key가 그것으로 시작하는 기억 중 가장 긴 것(key 자신 포함). 없으면 null */
     longestPrefix(key: string): T | null {
       let best: string | null = null;
       for (const known of [...done.keys()]) {

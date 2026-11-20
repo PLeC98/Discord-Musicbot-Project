@@ -1,8 +1,8 @@
 // src/player/player.ts: 자동재생이 곡을 선택하지 못한 뒤의 상태.
 //
 // 후보를 하나도 못 찾아도 대기열 소진 처리(현재곡 비우기, 종료 패널, 퇴장 예약)를 건너뛰지 않는다.
-// 건너뛰면 currentTrack 이 끝난 곡을 가리킨 채 남아 패널이 멈추고, 곡을 넣어도 대기열에만 쌓인다.
-// 키워드 검색이 한 시간짜리 믹스만 돌려주면 후보가 0 이 된다.
+// 건너뛰면 currentTrack이 끝난 곡을 가리킨 채 남아 패널이 멈추고, 곡을 넣어도 대기열에만 쌓인다.
+// 키워드 검색이 한 시간짜리 믹스만 돌려주면 후보가 0이 된다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -91,10 +91,10 @@ test("자동재생이 곡을 선택하지 못하면 대기열 소진 흐름으�
   await onTrackEnd.call(p, "idle");
 
   assert.equal(p.calls.autoplay, 1, "자동재생을 시도는 한다");
-  assert.equal(p.currentTrack, null, "끝난 곡을 들고 있으면 패널 · 대기열이 멈춘다");
+  assert.equal(p.currentTrack, null, "끝난 곡을 들고 있으면 패널과 대기열이 멈춘다");
   assert.equal(p.calls.idleLeave, 1, "퇴장 예약까지 정상 종료 경로를 탄다");
   assert.equal(p.calls.voiceStatus, 1);
-  assert.equal(p.autoplay, "pop", "한 번 못 찾았다고 장르를 꺼버리면 안 된다 — 다음 곡에서 다시 시도한다");
+  assert.equal(p.autoplay, "pop", "한 번 못 찾았다고 장르를 꺼버리면 안 된다. 다음 곡에서 다시 시도한다");
 });
 
 test("자동재생이 곡을 선택하면 종료 흐름을 타지 않는다", async () => {

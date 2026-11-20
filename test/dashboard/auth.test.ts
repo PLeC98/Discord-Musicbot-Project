@@ -34,7 +34,7 @@ after(() => {
   secrets._useKey();
 });
 
-// 가짜 디스코드. 부른 것을 적고, 정한 답을 준다
+// 가짜 디스코드. 부른 것을 적고, 정한 응답을 준다
 type Call = { method: string; url: string; body?: Record<string, string>; auth?: string };
 
 // hold: 토큰 교환을 풀어 줄 때까지 멈춘다(디스코드를 기다리는 사이)
@@ -230,7 +230,7 @@ test("콜백: 다시 로그인하면 세션 id를 새로 받는다(세션 고정
 });
 
 // 화면이 연 로그인 창(다시 로그인)은 끝나면 창을 닫는 화면으로. 다음 로그인이 평소 로그인이면 대시보드로
-test("콜백: 로그인 창(popup=1)으로 시작했으면 /login-done 으로 보낸다. 표시는 그 로그인 한 번만", async () => {
+test("콜백: 로그인 창(popup=1)으로 시작했으면 /login-done으로 보낸다. 표시는 그 로그인 한 번만", async () => {
   const { go } = await start(fakeDiscord());
   assert.equal(location(await go(`/auth/callback?code=abc&state=${stateOf(await go("/auth/login?popup=1"))}`)), "/login-done");
   assert.equal(location(await go(`/auth/callback?code=abc&state=${stateOf(await go("/auth/login"))}`)), "/dashboard");
@@ -268,7 +268,7 @@ test("콜백: 디스코드가 실패하면 실패로 돌려보낸다", async () 
   assert.equal(await (await go("/me")).json(), null);
 });
 
-test("콜백: 디스코드가 봇의 앱 자격(시크릿)을 거절하면 그 까닭으로 돌려보낸다", async () => {
+test("콜백: 디스코드가 봇의 앱 자격(시크릿)을 거절하면 이유를 들어 돌려보낸다", async () => {
   const fail = Object.assign(new Error("bad"), { response: { status: 401, data: { error: "invalid_client" } } });
   const { go } = await start(fakeDiscord({ fail }));
   assert.equal(location(await go(`/auth/callback?code=abc&state=${stateOf(await go("/auth/login"))}`)), "/?error=bad_client");

@@ -3,13 +3,13 @@
   <router-view v-if="!user.isLoggedIn || route.meta.bare" />
 
   <!-- 막대가 있는 쪽에만 틀(frame)이 있다(PC, 태블릿은 왼쪽 세로 막대 + 위 막대, 휴대폰은 위 막대만. 세로 막대는 위 막대의 메뉴 버튼으로 여는 사이드 드로어).
-       바탕화면(desk)은 나머지 가장자리에 붙고 막대 쪽 모서리만 둥글다(휴대폰은 위 둘, 태블릿, PC 는 왼쪽 위, 오른쪽 위, 왼쪽 아래). 바탕화면만 스크롤되고 틀, 막대, 재생 바는 제자리.
+       바탕화면(desk)은 나머지 가장자리에 붙고 막대 쪽 모서리만 둥글다(휴대폰은 위 둘, 태블릿, PC는 왼쪽 위, 오른쪽 위, 왼쪽 아래). 바탕화면만 스크롤되고 틀, 막대, 재생 바는 제자리.
        배경화면은 화면 전체(틀 밑까지)에 깔고, 틀은 바탕화면 바깥을 덮는 반투명한 막이다(바탕화면의 그림자를 넓게 펴서 둥근 모서리를 따른다).
        --player = 떠 있는 재생 바가 차지하는 높이(화면 아래 여백) -->
   <!-- 휴대폰은 세로 스크롤, 확대만 브라우저에 맡긴다(가로로 쓸면 사이드 드로어가 받는다, composables/drawer-swipe) -->
   <div v-else class="relative h-dvh flex flex-col overflow-hidden [touch-action:pan-y_pinch-zoom] md:touch-auto">
     <AppWallpaper />
-    <!-- 권한 수준 오버라이드 중임을 계속 알린다. 틀 맨 위(위 막대, 세로 막대 위, 폭 전체)에 tertiary 로 칠한 줄을 얹는다. 놓치지 않게 틀과 다른 색으로 눈에 띄게 -->
+    <!-- 권한 수준 오버라이드 중임을 계속 알린다. 틀 맨 위(위 막대, 세로 막대 위, 폭 전체)에 tertiary로 칠한 줄을 얹는다. 놓치지 않게 틀과 다른 색으로 눈에 띄게 -->
     <div v-if="user.viewAs" role="status" class="relative z-10 shrink-0 h-7 px-4 flex items-center justify-center gap-1.5 text-xs bg-tertiary text-on-tertiary">
       <Icon name="visibility" :size="16" class="shrink-0" />
       <span class="min-w-0 truncate"
@@ -37,12 +37,13 @@
         </div>
       </template>
 
-      <div class="flex-1 min-h-0 min-w-0 flex flex-col">
+      <!-- --desk-h: 바탕화면 높이(px). 제자리에 붙는 영역(운영자 레일)과 알림 서랍이 재생 바 위까지의 높이를 계산한다 -->
+      <div class="relative flex-1 min-h-0 min-w-0 flex flex-col" :style="{ '--desk-h': `${deskHeight}px` }">
         <!-- 위 막대. 틀의 위쪽 가장자리(휴대폰 48px, 태블릿, PC 36px). 가운데에 보고 있는 서버(서버 화면, 서버 설정), 모든 서버 화면이면 "서버 목록", 운영자 패널이면 그 이름 -->
         <header class="relative z-10 flex shrink-0 h-(--topbar) items-center justify-center px-4 text-on-surface" :aria-label="T.topBar">
           <div v-if="viewedGuild" class="flex items-center gap-2 min-w-0 max-w-[48%] md:max-w-[60%]">
             <GuildAvatar :guild="viewedGuild" active :status="false" size-class="size-6" text-class="text-2xs" />
-            <!-- 넘치는 이름은 재생 바 제목처럼 좌우로 흐른다. 서버 설정의 " 설정" 은 흐르지 않고 뒤에 붙어 있다 -->
+            <!-- 넘치는 이름은 재생 바 제목처럼 좌우로 흐른다. 서버 설정의 " 설정"은 흐르지 않고 뒤에 붙어 있다 -->
             <MarqueeText class="min-w-0 text-sm font-semibold" :text="viewedGuild.name" />
             <span v-if="route.path.endsWith('/settings')" class="shrink-0 text-sm text-on-surface-variant font-medium">{{ T.serverSettingsSuffix }}</span>
           </div>
@@ -59,16 +60,18 @@
             <button type="button" :class="TOPBAR_BTN" class="md:hidden" :aria-label="T.openMenu" :aria-expanded="drawerOpen" @click="drawerOpen = true"><Icon name="menu" :size="24" /></button>
             <div id="topbar-start" class="flex items-center gap-1 min-w-0"></div>
           </div>
-          <div class="absolute right-3 inset-y-0 flex items-center gap-3 max-w-[26%] md:max-w-[35%]">
+          <!-- 운영자 패널은 가운데 제목이 짧아(태블릿, PC는 아이콘과 이름만, 너비 약 6.5rem) 저장 바가 제목 옆까지 쓴다 -->
+          <div class="absolute right-3 inset-y-0 flex items-center gap-3 max-w-[26%]" :class="route.path === '/admin' ? 'md:max-w-[calc(50%-5rem)]' : 'md:max-w-[35%]'">
             <div id="topbar-end" class="flex items-center gap-3 min-w-0"></div>
             <NotificationInbox />
           </div>
         </header>
-        <!-- --desk-h: 바탕화면 높이(px). 제자리에 붙는 영역(운영자 레일)이 재생 바 위까지의 높이를 계산한다 -->
-        <div ref="deskEl" :style="{ '--desk-h': `${deskHeight}px` }" class="relative flex-1 min-h-0 overflow-hidden rounded-tl-(--r-desk) rounded-tr-(--r-desk) md:rounded-bl-(--r-desk) shadow-[0_0_0_100vmax_var(--frame-color)]" :class="np.visible ? '[--player:3.5rem] md:[--player:4.5rem]' : '[--player:0px]'">
+        <div ref="deskEl" class="relative flex-1 min-h-0 overflow-hidden rounded-tl-(--r-desk) rounded-tr-(--r-desk) md:rounded-bl-(--r-desk) shadow-[0_0_0_100vmax_var(--frame-color)]" :class="np.visible ? '[--player:3.5rem] md:[--player:4.5rem]' : '[--player:0px]'">
+          <!-- 화면이 내용 뒤에 까는 층의 자리(서버 화면의 받침 오버레이). 스크롤 칸 안에 두면 오른쪽 스크롤바 자리를 덮지 못해 그 띠만 색이 다르다 -->
+          <div id="desk-back" class="absolute inset-0 pointer-events-none"></div>
           <!-- 스크롤바 트랙은 위를 바탕화면 둥근 모서리가 막대에 닿는 만큼 비운다(--sb-inset-desk. WebKit 계열만). 재생 바 노치는 양옆을 띄워 스크롤바에 닿지 않는다.
-               스크롤바 자리는 늘 비워 둔다. 화면마다 높이가 달라 스크롤바가 생기고 사라지면 내용 폭이 바뀌어 옆으로 밀린다 -->
-          <div class="@container/desk absolute inset-0 overflow-y-auto [scrollbar-gutter:stable] overscroll-contain [touch-action:pan-y_pinch-zoom] md:touch-auto [&::-webkit-scrollbar-track]:mt-(--sb-inset-desk)">
+               스크롤바 자리는 비워 둔다. 화면마다 높이가 달라 스크롤바가 생기고 사라지면 내용 폭이 바뀌어 옆으로 밀린다. 바탕화면 높이에 딱 맞는 화면은 빼고(shell.fitsDesk) -->
+          <div class="@container/desk absolute inset-0 overflow-y-auto overscroll-contain [touch-action:pan-y_pinch-zoom] md:touch-auto [&::-webkit-scrollbar-track]:mt-(--sb-inset-desk)" :class="!shell.fitsDesk && 'scrollbar-gutter-stable'">
             <router-view v-slot="{ Component, route: r }">
               <component :is="Component" v-if="r.meta.workspace" :key="r.fullPath" />
               <!-- 그 밖의 화면(서버 설정, 운영자)은 바탕화면 위에 카드를 놓는다. 쿼리(운영자 패널의 ?genre= 등)만 바뀌면 새로 그리지 않게 경로로 붙잡는다 -->
@@ -78,13 +81,10 @@
             </router-view>
           </div>
           <NowPlayingDock />
-          <!-- 세션 끝, 연결 안 됨 띠와 알림. 라우터 화면 밖이라 페이지를 옮겨도 남는다. 바탕화면 안 오른쪽 위에 둔다(위 막대, 알림함 버튼을 덮지 않게).
-               밀어 치우거나 사라질 때 오른쪽으로 빠지는 것은 바탕화면 끝에서 잘린다 -->
-          <div class="absolute right-(--gap-out) top-(--gap-out) z-300 flex flex-col gap-2 w-[min(26rem,calc(100%-2*var(--gap-out)))] pointer-events-none">
-            <SessionNotice />
-            <ToastStack />
-          </div>
         </div>
+        <!-- 세션 띠, 알림, 알림함: 바탕화면 오른쪽 위에서 위 막대와 이어지는 서랍. 라우터 화면 밖이라 페이지를 옮겨도 남는다.
+             바탕화면 밖에 둔다(안에 두면 바탕화면의 둥근 오른쪽 위 모서리에 잘려, 그 곡선을 따라 틀과 서랍 사이에 틈이 비친다) -->
+        <NoticeDrawer />
       </div>
     </div>
   </div>
@@ -97,10 +97,8 @@ import { useCloseLayer } from "./composables/close-layer.ts";
 import { useDrawerSwipe } from "./composables/drawer-swipe.ts";
 import { PHONE_QUERY } from "./utils/breakpoints.ts";
 import { useRoute, useRouter } from "vue-router";
-import axios from "axios";
 import Icon from "./components/BaseIcon.vue";
-import SessionNotice from "./components/SessionNotice.vue";
-import ToastStack from "./components/ToastStack.vue";
+import NoticeDrawer from "./shell/NoticeDrawer.vue";
 import AppWallpaper from "./components/AppWallpaper.vue";
 import NowPlayingDock from "./shell/NowPlayingDock.vue";
 import NotificationInbox from "./shell/NotificationInbox.vue";
@@ -115,7 +113,8 @@ import { useUserStore } from "./stores/user.ts";
 import { setReportUrl } from "./utils/problem.ts";
 import { setDocsRepo } from "./composables/docs.ts";
 import { setBrandColor } from "./theme/theme.ts";
-import type { BotInfo } from "../../src/dashboard/contract/identity.ts";
+import { useYtdlpNotice } from "./composables/ytdlp-notice.ts";
+import { followBotInfo } from "./composables/bot-info.ts";
 import { text } from "./text/index.ts";
 const T = text.shell;
 
@@ -141,6 +140,7 @@ watch(
 useCloseLayer(drawerOpen, () => (drawerOpen.value = false));
 
 const guilds = useGuildsStore();
+useYtdlpNotice();
 
 // 위 막대 가운데에 표시할, 지금 보고 있는 서버
 const viewedGuild = computed(() => {
@@ -157,20 +157,21 @@ async function clearViewAs() {
   }
 }
 
-// 오류 문장의 "봇 개발자에게 보고" 가 가리킬 곳(소스 저장소). 못 불러오면 링크 없이 글만 보인다
+// 오류 문장의 "봇 개발자에게 보고"가 가리킬 곳(소스 저장소)
+// 봇이 준비 전이면 준비될 때까지 다시 읽는다(composables/bot-info)
 onMounted(() => {
-  axios
-    .get<BotInfo>("/api/bot", { quietSession: true })
-    .then((res) => {
-      setReportUrl(res.data.sourceRepo);
+  followBotInfo(
+    (info) => {
+      setReportUrl(info.sourceRepo);
       // 화면에서 저장소 설명서(docs/)로 가는 링크도 같은 저장소로
-      setDocsRepo(res.data.sourceRepo);
+      setDocsRepo(info.sourceRepo);
       // 곡이 없을 때의 화면 색은 운영자가 지정한 임베드 색에서(theme)
-      setBrandColor(res.data.brandColor);
-      shell.botAvatar = res.data.avatarUrl;
-    })
-    .catch(() => {
-      /* 못 불러오면 보고할 곳 없이 글만 보인다 */
-    });
+      setBrandColor(info.brandColor);
+      shell.botAvatar = info.avatarUrl;
+    },
+    { quietSession: true },
+  ).catch(() => {
+    /* 못 불러오면 보고할 곳 없이 글만 보인다 */
+  });
 });
 </script>

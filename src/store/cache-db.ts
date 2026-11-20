@@ -10,7 +10,6 @@ import type { AudioCachePart } from "../rules/audio-cache-parts.ts";
 const cacheDb = new DbFile({
   label: "캐시 DB",
   fileName: "cache.db",
-  // 7: 재생 테스트, 다시 확인의 원본 버전(source_checks.version). 8: SponsorBlock 구간을 받은 주소(sponsorblock_cache.api_base)
   version: 8,
   synchronous: "NORMAL",
   onMismatch: { lost: "캐시 파일 기록, 오디오 링크 데이터, 직접 지정한 음원, 재생 테스트 결과, SponsorBlock 구간, 연령 제한 기록이 사라지고, 캐시 파일은 기동 시 정리가 삭제한 뒤 다음 재생부터 다시 다운로드함" },
@@ -19,7 +18,7 @@ const cacheDb = new DbFile({
 
 function createTables(db: Db) {
   db.exec(`
-            -- 캐시 파일 하나. 키는 audioKeyOf(음원 주소)다(yt:<id> · sc:<경로> · dl:<md5>).
+            -- 캐시 파일 하나. 키는 audioKeyOf(음원 주소)다(yt:<id>, sc:<경로>, dl:<md5>).
             -- audio_version: 원본의 버전(유튜브 lmt, 직접 링크 ETag 등). 같은 주소에서 음원이 바뀐 것을 알아볼 값
             CREATE TABLE IF NOT EXISTS audio_cache (
                 audio_key           TEXT PRIMARY KEY,
@@ -38,7 +37,7 @@ function createTables(db: Db) {
             );
 
             -- 오디오 링크 데이터. "이 요청은 이 음원이다". 파일이 있든 없든 참이라 퇴거해도 남는다.
-            -- 캐시 키는 저장하지 않는다. 쓸 때 audioKeyOf(audio_url) 로 계산한다
+            -- 캐시 키는 저장하지 않는다. 쓸 때 audioKeyOf(audio_url)로 계산한다
             CREATE TABLE IF NOT EXISTS track_lookup (
                 request_key         TEXT PRIMARY KEY,
                 page_url            TEXT NOT NULL,
@@ -60,9 +59,9 @@ function createTables(db: Db) {
                 pinned_at    INTEGER NOT NULL
             );
 
-            -- 음원 하나를 원본에서 재생할 수 있는지의 마지막 결과(재생 테스트 · 캐시의 다시 확인 · 직접 지정한 음원이 재생에 실패한 것). 키는 audioKeyOf(음원 주소).
-            -- code: 실패 까닭(문제 코드, 라이브면 live). 성공이면 NULL
-            -- version: 그때 본 원본의 버전(audio_cache.audio_version 과 같은 형식). 모르면 NULL. 둘이 다르면 캐시 파일은 원본이 바뀌기 전 것이다
+            -- 음원 하나를 원본에서 재생할 수 있는지의 마지막 결과(재생 테스트, 캐시의 다시 확인, 직접 지정한 음원이 재생에 실패한 것). 키는 audioKeyOf(음원 주소).
+            -- code: 실패 원인(문제 코드, 라이브면 live). 성공이면 NULL
+            -- version: 그때 본 원본의 버전(audio_cache.audio_version과 같은 형식). 모르면 NULL. 둘이 다르면 캐시 파일은 원본이 바뀌기 전 것이다
             CREATE TABLE IF NOT EXISTS source_checks (
                 audio_key    TEXT PRIMARY KEY,
                 ok           INTEGER NOT NULL,
@@ -96,7 +95,7 @@ function createTables(db: Db) {
             );
 
             -- 음원의 볼륨 값(store/loudness). 키는 (audio_key, kind). kind: file, heard-full, heard-part, file-failed.
-            -- integrated: 통합 볼륨(LUFS), true_peak: 피크(dBTP, heard-* 는 샘플 피크), peak_p99: 100ms 프레임 피크의 상위 1%(dB). file-failed 는 셋 다 NULL
+            -- integrated: 통합 볼륨(LUFS), true_peak: 피크(dBTP, heard-* 는 샘플 피크), peak_p99: 100ms 프레임 피크의 상위 1%(dB). file-failed는 셋 다 NULL
             -- heard_sec: 들은 양(절대 게이트를 넘은 블록 x 0.1초). size_bytes, duration_sec, audio_version: 잰 소리의 식별 정보. algo: 측정 방식의 버전
             CREATE TABLE IF NOT EXISTS loudness (
                 audio_key      TEXT NOT NULL,
@@ -121,9 +120,9 @@ function createTables(db: Db) {
   createRevisionTriggers(db);
 }
 
-// 바뀜 번호: 캐시 DB 화면의 표를 이루는 표마다 쓰면 오른다. rows 는 링크 데이터, 직접 지정한 음원, 캐시 파일, 연령 제한, checks 는 재생 테스트 결과
+// 바뀜 번호: 캐시 DB 화면의 표를 이루는 표마다 쓰면 오른다. rows는 링크 데이터, 직접 지정한 음원, 캐시 파일, 연령 제한, checks는 재생 테스트 결과
 // (운영자가 누른 재생 테스트가 "새 변경 사항이 있어요" 알약을 표시하지 않게 따로). 쓰는 곳마다 올리지 않고 트리거가 센다(새로 쓰는 곳이 빠지지 않게).
-// 연결마다의 임시 표, 임시 트리거라 파일에 남지 않고(구조 버전과 무관) 프로세스를 다시 시작하면 1부터다. 캐시 초기화는 sqlite_master 의 표만 비워 이것은 남는다
+// 연결마다의 임시 표, 임시 트리거라 파일에 남지 않고(구조 버전과 무관) 프로세스를 다시 시작하면 1부터다. 캐시 초기화는 sqlite_master의 표만 비워 바뀜 번호는 남는다
 const REVISION_OF: Record<string, "rows" | "checks"> = { track_lookup: "rows", pinned_sources: "rows", audio_cache: "rows", age_restricted: "rows", source_checks: "checks" };
 
 function createRevisionTriggers(db: Db) {

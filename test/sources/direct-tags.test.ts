@@ -1,4 +1,4 @@
-// src/sources/direct-tags.ts, direct.ts 의 getInfo 태그 읽기: 직접 링크 곡 정보를 파일 태그로 고친다.
+// src/sources/direct-tags.ts, direct.ts의 getInfo 태그 읽기: 직접 링크 곡 정보를 파일 태그로 고친다.
 // 담을 때 GET 하나: 1.5초 안에 읽으면 그 곡으로, 아니면 파일 이름으로 담고 마저 읽어 고친다. 고친 것은 링크 데이터에 확인된 제목으로 적는다
 
 import fs from "node:fs";
@@ -26,7 +26,7 @@ const row = (key: string) => store.db().prepare<[string], { display_title: strin
 const FILE = "https://files.test/my_song.mp3";
 const TAGS = { title: "태그 제목", artist: "태그 가수", album: "태그 앨범", picture: null };
 
-/** ffmpeg 로 만든 태그 단 MP3(픽스처가 없으면 null) */
+/** ffmpeg로 만든 태그 단 MP3(픽스처가 없으면 null) */
 const samples = new Map<string, Buffer | null>();
 function ffmpeg(args: string[]): Promise<boolean> {
   return new Promise((resolve) => {
@@ -42,8 +42,8 @@ function ffmpeg(args: string[]): Promise<boolean> {
 }
 
 /**
- * ffmpeg 로 만든 태그 단 MP3(픽스처가 없으면 null).
- * art: 앨범아트가 든 태그(1200px, 앞 8KB 를 크게 넘는다). 담을 때 앞부분 판정 뒤 태그의 나머지가 느리게 오는 것을 흉내 낸다
+ * ffmpeg로 만든 태그 단 MP3(픽스처가 없으면 null).
+ * art: 앨범아트가 든 태그(1200px, 앞 8KB를 크게 넘는다). 담을 때 앞부분 판정 뒤 태그의 나머지가 느리게 오는 것을 흉내 낸다
  */
 async function mp3(title: string, artist: string, album: string, { art = false } = {}): Promise<Buffer | null> {
   const key = `${title}|${artist}|${album}|${art}`;
@@ -57,7 +57,7 @@ async function mp3(title: string, artist: string, album: string, { art = false }
   return bytes;
 }
 
-/** 가짜 SafeUrl: 응답 헤더와 본문. 앞 8KB 뒤의 청크는 laterDelayMs 마다, 다 보내면 닫지 않는다(끝이 없는 응답 흉내) */
+/** 가짜 SafeUrl: 응답 헤더와 본문. 앞 8KB 뒤의 청크는 laterDelayMs마다, 다 보내면 닫지 않는다(끝이 없는 응답 흉내) */
 function netOf(body: Buffer, { headers = { "content-type": "audio/mpeg" } as Record<string, unknown>, laterDelayMs = 0, chunk = 512 } = {}) {
   const seen = { accept: [] as Array<number | undefined>, destroyed: false };
   const net = {
@@ -100,7 +100,7 @@ test("반영: 쓰는 곡이면 고치고 링크 데이터에 확인된 제목으
   assert.equal(pinned.title, "요청 곡");
 });
 
-test("getInfo: 1.5초 안에 태그를 읽으면 그 곡으로 담는다. 홉 대기는 HEAD 와 같다", async (t) => {
+test("getInfo: 1.5초 안에 태그를 읽으면 그 곡 정보로 추가한다. 홉 대기는 HEAD와 같다", async (t) => {
   const body = await mp3("태그 제목", "태그 가수", "태그 앨범");
   if (!body) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   const { net, seen } = netOf(body);
@@ -163,7 +163,7 @@ test("곡 찾기: 직접 링크는 태그를 읽고, 직접 지정한 음원을 
   ]);
 });
 
-test("음원이 아닌 직접 링크(웹 페이지, 그림): getInfo 는 unsupported-link 로 던지고, 곡 찾기는 실패가 아니라 '알 수 없는 링크'로 답한다", async () => {
+test("음원이 아닌 직접 링크(웹 페이지, 그림): getInfo는 unsupported-link 예외를 던지고, 곡 찾기는 실패가 아니라 '알 수 없는 링크' 결과를 반환한다", async () => {
   const page = netOf(Buffer.from("<!doctype html><p>로그인</p>"), { headers: { "content-type": "text/html" } });
   await assert.rejects(directSource.getInfo("https://files.test/page.mp3", { net: page.net }), (e: unknown) => codeOf(e) === "unsupported-link");
   const direct = {

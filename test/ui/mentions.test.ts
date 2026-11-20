@@ -1,7 +1,7 @@
 // src/ui/mentions.ts: 외부에서 받은 문자열이 디스코드 메시지에 안전하게 실리는지.
 //
-// 트랙 제목, 직접 링크 파일명은 남이 정할 수 있다. 제목의 @everyone 이 봇 명의의 대규모 멘션으로 나가거나
-// `[클릭](https://evil.example)` 이 안내 문구 안에서 진짜 링크로 렌더링되면 곡 하나로 피싱 링크를 심을 수 있다.
+// 트랙 제목, 직접 링크 파일명은 남이 정할 수 있다. 제목의 @everyone이 봇 명의의 대규모 멘션으로 나가거나
+// `[클릭](https://evil.example)`이 안내 문구 안에서 진짜 링크로 렌더링되면 곡 하나로 피싱 링크를 심을 수 있다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -88,8 +88,8 @@ test("링크 라벨: 웹훅이 아닌 곳은 이모지를 글자 모양으로(VS
   assert.equal(linkLabel("Song \u{1F3B5} Remix"), `Song \u{1F3B5}${T} Remix`);
   assert.equal(linkLabel("\u{1F1F0}\u{1F1F7}"), `\u{1F1F0}${T}\u{1F1F7}${T}`, "국기는 지역 글자마다");
   assert.equal(linkLabel("\u{1F44D}\u{1F3FD}"), `\u{1F44D}${T}`, "피부색은 뺀다");
-  assert.equal(linkLabel("\u{1F468}\u200D\u{1F469}\u200D\u{1F467}"), `\u{1F468}${T}\u200D\u{1F469}${T}\u200D\u{1F467}${T}`, "ZWJ 는 그대로");
-  assert.equal(linkLabel("1\uFE0F\u20E3"), `1${T}\u20E3`, "키캡은 VS16 을 VS15 로");
+  assert.equal(linkLabel("\u{1F468}\u200D\u{1F469}\u200D\u{1F467}"), `\u{1F468}${T}\u200D\u{1F469}${T}\u200D\u{1F467}${T}`, "ZWJ는 그대로");
+  assert.equal(linkLabel("1\uFE0F\u20E3"), `1${T}\u20E3`, "키캡은 VS16을 VS15로");
   assert.equal(linkLabel("\u2764\uFE0F"), `\u2764${T}`);
   const england = "\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}";
   assert.equal(linkLabel(england), `\u{1F3F4}${T}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}`, "태그 국기의 태그는 그대로");

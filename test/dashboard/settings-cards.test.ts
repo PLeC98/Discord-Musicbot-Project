@@ -12,7 +12,7 @@ const MANAGER = as("server-manager");
 const DJ = as("dj");
 const USER = as("user");
 
-test("카드별 권한 조건: 상주 모드와 볼륨 정규화는 DJ(/247, /normalize 와 같다), 봇 내보내기는 봇을 추방할 수 있는 사람, 나머지는 서버 관리자", () => {
+test("카드별 권한 조건: 상주 모드와 볼륨 정규화는 DJ(/247, /normalize와 같다), 봇 내보내기는 봇을 추방할 수 있는 사람, 나머지는 서버 관리자", () => {
   assert.deepEqual(Object.fromEntries(Object.entries(CARDS).map(([card, rule]) => [card, rule.gate])), { stay: "dj", normalize: "dj", channel: "server-manager", dj: "server-manager", sponsorblock: "server-manager", playlistAdd: "server-manager", agePlace: "server-manager", leave: "kick-bot" });
   assert.deepEqual(shownCards(DJ), ["stay", "normalize"]);
   assert.deepEqual(shownCards(USER), []);
@@ -29,7 +29,7 @@ test("봇 내보내기는 계층과 따로 본다: 서버 관리자라도 추방
   assert.equal(editsAny(as("user", true)), false, "봇 내보내기는 저장 본문(PATCH)으로 고치지 않는다");
 });
 
-test("상주 모드, 볼륨 정규화, 봇 내보내기는 저장 본문(PATCH)으로 고치지 않는다: DJ 는 PATCH 로 고칠 카드가 없고, 거절 까닭은 서버 관리자 권한 필요", () => {
+test("상주 모드, 볼륨 정규화, 봇 내보내기는 저장 본문(PATCH)으로 고치지 않는다: DJ는 PATCH로 고칠 카드가 없고, 거절 사유는 서버 관리자 권한 필요", () => {
   assert.deepEqual([CARDS.stay.fields, CARDS.normalize.fields, CARDS.leave.fields], [[], [], []]);
   assert.equal(editsAny(DJ), false);
   assert.equal(editsAny(MANAGER), true);
@@ -54,10 +54,10 @@ test("저장 본문의 필드는 모두 어느 한 카드에 속한다(속하지
   assert.equal(new Set(claimed).size, claimed.length, "한 필드는 한 카드에만");
 });
 
-// 저장 본문 필드가 있는 DJ 카드가 생겼을 때의 판정. 지금 표에는 없어 시험용 표로 본다
+// 저장 본문 필드가 있는 DJ 카드가 생겼을 때의 판정. 지금 표에는 없어 테스트용 표로 본다
 const WITH_DJ: CardTable = { ...CARDS, playlistAdd: { gate: "dj", fields: ["playlistAddMax"] } };
 
-test("DJ 카드가 있으면: DJ 는 그 카드의 필드만 고친다. 다른 카드의 필드가 하나라도 있으면 서버 관리자 거절", () => {
+test("DJ 카드가 있으면: DJ는 그 카드의 필드만 고친다. 다른 카드의 필드가 하나라도 있으면 서버 관리자 거절", () => {
   assert.deepEqual(shownCards(DJ, WITH_DJ), ["stay", "normalize", "playlistAdd"]);
   assert.equal(fieldRefusal(DJ, { playlistAddMax: 50 }, WITH_DJ), null);
   assert.equal(fieldRefusal(DJ, { playlistAddMax: 50, djRoleIds: ["r1"] }, WITH_DJ), "must-server-manager");

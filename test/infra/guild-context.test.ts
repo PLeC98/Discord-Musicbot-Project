@@ -1,4 +1,4 @@
-// src/infra/guild-context.ts: 서버 문맥이 타이머, 약속, await 를 따라가고, 묶은 리스너는 쏜 쪽과 상관없이 그 서버로 돈다.
+// src/infra/guild-context.ts: 서버 문맥이 타이머, 약속, await를 따라가고, 묶은 리스너는 쏜 쪽과 상관없이 그 서버로 돈다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -53,7 +53,7 @@ async function captureUncaught(run: () => void | Promise<void>) {
   return seen;
 }
 
-test("묶은 리스너가 동기로 던지면 쏜 쪽으로 넘기지 않고(뒤의 리스너도 돈다) 그 서버 문맥에서 따로 던진다", async () => {
+test("묶은 리스너가 동기로 예외를 던지면 쏜 쪽으로 넘기지 않고(뒤의 리스너도 돈다) 그 서버 문맥에서 따로 던진다", async () => {
   const bus = new EventEmitter();
   let after = false;
   bus.on(
@@ -68,7 +68,7 @@ test("묶은 리스너가 동기로 던지면 쏜 쪽으로 넘기지 않고(뒤
   assert.deepEqual(seen, [{ message: "A의 리스너 오류", guild: "A" }]);
 });
 
-test("음성 라이브러리의 공용 오디오 루프: 한 플레이어의 상태 리스너가 던져도 다른 서버의 재생이 멈추지 않는다", async () => {
+test("음성 라이브러리의 공용 오디오 루프: 한 플레이어의 상태 리스너가 예외를 던져도 다른 서버의 재생이 멈추지 않는다", async () => {
   const { createAudioPlayer, createAudioResource, NoSubscriberBehavior, StreamType, AudioPlayerStatus } = await import("@discordjs/voice");
   const { Readable } = await import("node:stream");
   const frames = (n: number) => {
@@ -99,6 +99,6 @@ test("음성 라이브러리의 공용 오디오 루프: 한 플레이어의 상
   const played = b.state.status === AudioPlayerStatus.Playing ? b.state.resource.playbackDuration : 0;
   a.stop(true);
   b.stop(true);
-  assert.ok(played > 1000, `B 가 ${played}ms 만 재생했다(루프가 멈췄다)`);
+  assert.ok(played > 1000, `B가 ${played}ms만 재생했다(루프가 멈췄다)`);
   assert.deepEqual(seen, [{ message: "A의 Idle 리스너 오류", guild: "A" }]);
 });

@@ -3,8 +3,8 @@
 // 지키려는 계약:
 // - mode 파라미터는 하나만 받는다(둘을 주면 400). 모드를 섞으려면 프롬프트 안에서 원소마다 적는다
 // - 길이는 밀리초로 온다. 초로 바꾸고, 없으면 비워 둔다(길이 필터가 따로 다룬다)
-// - MusicBrainz 가 모를 때 채우는 정해진 이름([unknown] 등)은 버린다. 대괄호로 싸인 진짜 이름([Alexandros])은 둔다
-// - 토큰이 없으면 던진다. 부르는 쪽이 다음 소스로 넘어간다
+// - MusicBrainz가 모를 때 채우는 정해진 이름([unknown] 등)은 버린다. 대괄호로 싸인 진짜 이름([Alexandros])은 둔다
+// - 토큰이 없으면 예외를 던진다. 호출부가 다음 소스로 넘어간다
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -74,7 +74,7 @@ test("길이는 밀리초를 초로. 모를 때 채우는 이름은 버리고 �
     ]);
   }));
 
-test("토큰이 없으면 던진다", () =>
+test("토큰이 없으면 예외를 던진다", () =>
   withConfig({ sources: { listenbrainzToken: "" } }, async () => {
     await assert.rejects(lbradio(source({ tags: ["rock"] })), /ListenBrainz 토큰 없음/);
   }));

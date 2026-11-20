@@ -18,7 +18,6 @@ const stage: Record<Exclude<LoginBackgroundStage, "receive">, string> = {
 const receive: Record<LoginBackgroundItem["from"], string> = { upload: "파일 확인 중", link: "다운로드 중", youtube: "영상 다운로드 중" };
 const stageOf = (now: LoginBackgroundStage, from: LoginBackgroundItem["from"]) => (now === "receive" ? receive[from] : stage[now]);
 
-/** 카드 */
 const card = {
   title: "로그인 배경",
   desc: "로그인 화면을 보는 기기에 따라 화질과 효과가 달라질 수 있어요.",
@@ -35,7 +34,7 @@ const card = {
   cancelEditTip: "올린 배경을 버려요.",
   cancelEncode: "인코딩 취소",
   cancelEncodeTip: "만들던 배경을 버리고 이전 배경으로 돌아가요.",
-  /** 지금 배경의 정보. seconds 는 영상의 구간 길이 */
+  /** 지금 배경의 정보. seconds는 영상의 구간 길이 */
   info: (width: number, height: number, seconds: number | null, size: string) => [`${width} × ${height}`, ...(seconds === null ? [] : [`${Math.round(seconds)}초`]), size].join(" · "),
   add: "추가하기",
   change: "변경",
@@ -54,7 +53,7 @@ const card = {
   resetPosition: "위치 초기화",
   resetOptions: "초기화",
   waitingEdit: "완료되지 않은 편집이 있어요.",
-  /** 만들다 실패한 배경(까닭은 봇 문장표의 문제 코드 안내) */
+  /** 만들다 실패한 배경(원인은 봇 문장표의 문제 코드 안내) */
   failed: (name: string) => `"${name}"${josa(name, "을")} 만들지 못했어요.`,
   /** 로그인 화면 위에 지금 배경을 표시해 본다 */
   viewLogin: "미리보기",
@@ -78,14 +77,14 @@ const card = {
 const advanced = {
   title: "고급 설정",
   history: "기록 보관 개수",
-  historyTip: "다시 인코딩하지 않고 바로 바꿔 쓸 수 있게 남겨 둘 배경 수예요. 0 이면 지금 배경만 남겨요.",
+  historyTip: "다시 인코딩하지 않고 바로 바꿔 쓸 수 있게 남겨 둘 배경 수예요. 0이면 지금 배경만 남겨요.",
   maxSize: "최대 용량(GB)",
-  maxSizeTip: "사용 중인 배경과 기록을 합친 크기예요. 넘으면 오래 안 쓴 기록부터 지워요. 0 이면 무제한이에요.",
+  maxSizeTip: "사용 중인 배경과 기록을 합친 크기예요. 넘으면 오래 안 쓴 기록부터 지워요. 0이면 무제한이에요.",
   usedLabel: "사용 중",
   used: (used: string, max: string | null) => (max ? `${used} / ${max}` : `${used} · 무제한`),
   encoders: "인코딩 환경",
   encodersTip: "봇이 시작할 때 이 기기에서 쓸 수 있는 인코더를 확인해 선택해요.",
-  /** 코덱, 인코더 이름(ffmpeg 의 이름 → 보일 이름) */
+  /** 코덱, 인코더 이름(ffmpeg의 이름 → 보일 이름) */
   codec: { av1: "AV1", vp9: "VP9", h264: "H.264" } satisfies Record<LoginBackgroundCodec, string>,
   encoderName: { libsvtav1: "SVT-AV1", "libvpx-vp9": "libvpx", libopenh264: "OpenH264", libx264: "x264", h264_nvenc: "NVENC", h264_qsv: "QuickSync", h264_amf: "AMF", h264_vaapi: "VAAPI" } as Record<string, string>,
   use: (name: string, hardware: boolean) => `${name} · ${hardware ? "GPU" : "CPU"}`,
@@ -134,10 +133,10 @@ const edit = {
   /** 예상 인코딩 시간(이 기기에서 잰 인코딩 속도 × 구간 길이) */
   encodeTime: (minutes: number) => (minutes < 1 ? "예상 인코딩 시간 1분 이내" : `예상 인코딩 시간 약 ${Math.round(minutes)}분`),
   counting: "예상 파일 크기 계산 중…",
-  /** 이 기기에서는 크기 추산을 하지 않는다(AV1 인코더가 SVT-AV1 일 때만 잰다) */
+  /** 이 기기에서는 크기 추산을 하지 않는다(AV1 인코더가 SVT-AV1일 때만 잰다) */
   noEstimate: "예상 파일 크기를 셀 수 없어요",
   noSpace: (free: string) => `남은 저장 공간(${free})보다 커서 적용할 수 없어요`,
-  /** 유튜브는 480p 로 잰 추산이다(고해상도는 적용한 뒤에 다운로드한다) */
+  /** 유튜브는 480p로 잰 추산이다(고해상도는 적용한 뒤에 다운로드한다) */
   rough: "고화질 영상을 받기 전이라 대략적인 값이에요",
   evict: (n: number) => `최대 용량을 넘을 수 있어 오래된 기록 ${n}개를 지우게 될 수 있어요.`,
   overAlone: "이 배경 하나만으로 최대 용량을 넘을 수 있어요. 만들면 기록을 모두 지우고 이것만 남겨요.",
@@ -169,7 +168,6 @@ const timeline = {
   zoom: "확대",
 };
 
-/** 알림 */
 const notice = {
   applied: "로그인 배경을 적용했어요",
   cleared: "로그인 배경을 삭제했어요",

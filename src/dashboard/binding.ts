@@ -1,4 +1,4 @@
-// 대시보드를 연다. 열 주소마다 HTTP 서버 하나(같은 앱). 연 주소나 못 연 까닭을 남긴다.
+// 대시보드를 연다. 열 주소마다 HTTP 서버 하나(같은 앱). 연 주소나 못 연 원인을 남긴다.
 // ::(모든 주소)를 열지 못하면(IPv6가 꺼진 기기) 0.0.0.0으로, ::1을 열지 못하면 그 주소만 빼고 연다. 포트가 겹치면 아무것도 열지 않는다
 
 import http, { type Server } from "node:http";
@@ -12,7 +12,7 @@ import { describeError, messageOf } from "../rules/error-kind.ts";
 
 const log = logger.child({ category: "dashboard" });
 
-// 요청을 읽지 못했을 때 답하는 상태. 들으면 Node 의 기본 처리가 꺼지므로 그 처리(_http_server 의 socketOnError)를 그대로 한다
+// 요청을 읽지 못했을 때 응답하는 상태. 들으면 Node의 기본 처리가 꺼지므로 그 처리(_http_server의 socketOnError)를 그대로 한다
 const CLIENT_ERROR_STATUS: Record<string, string> = { HPE_HEADER_OVERFLOW: "431 Request Header Fields Too Large", HPE_CHUNK_EXTENSIONS_OVERFLOW: "413 Payload Too Large", ERR_HTTP_REQUEST_TIMEOUT: "408 Request Timeout" };
 
 function onClientError(error: Error & { code?: string }, duplex: Duplex) {
@@ -54,7 +54,7 @@ const familyMissing = (error: unknown) => codeOf(error) === "EAFNOSUPPORT" || co
 type Opened = { servers: Server[]; hosts: string[] };
 
 /**
- * 열 주소마다 서버를 연다. 연 서버와 실제로 연 주소. 하나도 못 열었거나 포트가 겹치면 연 것을 닫고 servers는 비어 있다(까닭은 error 로그).
+ * 열 주소마다 서버를 연다. 연 서버와 실제로 연 주소. 하나도 못 열었거나 포트가 겹치면 연 것을 닫고 servers는 비어 있다(원인은 error 로그).
  * makeServer: 서버를 만드는 함수(인증서 파일이 있으면 HTTPS 서버)
  */
 async function listenAll(makeServer: () => Server, hosts: string[], port: number): Promise<Opened> {

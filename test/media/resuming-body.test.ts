@@ -12,7 +12,7 @@ const ACCEPT = { ...SafeUrl.DIRECT_LINK, contentType: /(?:)/ };
 const bytesOf = (size: number) => Buffer.from(Array.from({ length: size }, (_, i) => (i * 7 + (i >> 8)) & 0xff));
 
 type Body = Readable & { headers: Record<string, unknown>; status: number };
-// data 를 from 부터 chunk 씩 내보내고 cut(절대 위치)에서 끊는다
+// data를 from부터 chunk 씩 내보내고 cut(절대 위치)에서 끊는다
 function bodyOf(data: Buffer, { from = 0, cut, chunk = 1000, headers = {}, status = 200 }: { from?: number; cut?: number; chunk?: number; headers?: Record<string, unknown>; status?: number } = {}): Body {
   let off = from;
   const stream = new Readable({
@@ -28,7 +28,7 @@ function bodyOf(data: Buffer, { from = 0, cut, chunk = 1000, headers = {}, statu
 }
 
 type Asked = { from: number; ifRange?: string };
-// 이어 받을 때 받은 요청을 기록하고, answer 가 정한 응답을 준다(Error 면 던진다)
+// 이어 받을 때 받은 요청을 기록하고, answer가 정한 응답을 준다(Error면 예외를 던진다)
 function setup(data: Buffer, answer: (asked: Asked, n: number) => Body | Error, { headBytes = 0, firstCut, firstHeaders = { etag: '"v1"' }, ...rest }: { headBytes?: number; firstCut?: number; firstHeaders?: Record<string, unknown> } & Partial<ResumingOptions> = {}) {
   const asked: Asked[] = [];
   const bodies: Body[] = [];
@@ -53,13 +53,13 @@ async function readAll(stream: Readable) {
   return Buffer.concat(chunks);
 }
 
-// 받은 위치부터 206 으로 응답하고 cuts 의 다음 위치에서 다시 끊는다
+// 받은 위치부터 206으로 응답하고 cuts의 다음 위치에서 다시 끊는다
 const ranged =
   (data: Buffer, cuts: number[] = [], size: string = String(data.length)) =>
   ({ from }: Asked, n: number) =>
     bodyOf(data, { from, cut: cuts[n - 1], status: 206, headers: { "content-range": `bytes ${from}-${data.length - 1}/${size}`, etag: '"v1"' } });
 
-test("청크 경계가 아닌 위치에서 여러 번 끊겨도 받은 위치부터 If-Range 로 이어 받아 원본과 같은 바이트를 내보내고, 이어 받을 때마다 알린다", async () => {
+test("청크 경계가 아닌 위치에서 여러 번 끊겨도 받은 위치부터 If-Range로 이어 받아 원본과 같은 바이트를 내보내고, 이어 받을 때마다 알린다", async () => {
   const data = bytesOf(50_003);
   const { stream, asked, resumed } = setup(data, ranged(data, [20_001, 33_337]), { headBytes: 3_001, firstCut: 7_777 });
   assert.deepEqual(await readAll(stream), data);
@@ -72,7 +72,7 @@ test("청크 경계가 아닌 위치에서 여러 번 끊겨도 받은 위치부
   assert.equal(resumed[0].attempts, 1);
 });
 
-test("Content-Range 전체 크기가 `*` 면 시작 위치만 확인하고, 크기를 모른 채 정상으로 끝나면 이어 받지 않고 완료한다", async () => {
+test("Content-Range 전체 크기가 `*`면 시작 위치만 확인하고, 크기를 모른 채 정상으로 끝나면 이어 받지 않고 완료한다", async () => {
   const data = bytesOf(30_000);
   const { stream } = setup(data, ranged(data, [], "*"), { firstCut: 10_000, firstHeaders: {}, validator: null });
   assert.deepEqual(await readAll(stream), data);
@@ -96,7 +96,7 @@ test("전체 크기를 아는데(처음 응답의 Content-Length) 다 받기 전
   assert.deepEqual(asked, [8_000]);
 });
 
-test("어긋난 구간, 다른 전체 크기, 416, 4xx 는 재시도하지 않고 실패한다", async () => {
+test("어긋난 구간, 다른 전체 크기, 416, 4xx는 재시도하지 않고 실패한다", async () => {
   const data = bytesOf(20_000);
   const cases: Array<[string, (asked: Asked) => Body | Error, RegExp]> = [
     ["시작이 다름", ({ from }) => bodyOf(data, { from: from - 1, status: 206, headers: { "content-range": `bytes ${from - 1}-${data.length - 1}/${data.length}` } }), /어긋/],
@@ -123,7 +123,7 @@ test("구간을 무시한 200: 검증값이 같으면 처음부터 받아 받은
 
   const fails: Array<[string, ReturnType<typeof setup>, RegExp]> = [
     ["검증값이 다름", setup(data, whole({ etag: '"v2"' }), { firstCut: 12_345 }), /바뀜/],
-    ["약한 ETag 는 검증값이 아니다", setup(data, whole({ etag: 'W/"v1"' }), { firstCut: 12_345 }), /바뀜/],
+    ["약한 ETag는 검증값이 아니다", setup(data, whole({ etag: 'W/"v1"' }), { firstCut: 12_345 }), /바뀜/],
     ["검증값이 없음", setup(data, whole({}), { firstCut: 12_345, validator: null, firstHeaders: {} }), /검증값이 없어/],
     ["받은 위치보다 짧음", setup(data, whole({ etag: '"v1"' }, 10_000), { firstCut: 12_345 }), /짧음/],
     ["전체 크기가 다름", setup(data, whole({ etag: '"v1"', "content-length": String(data.length + 1) }), { firstCut: 12_345, firstHeaders: { etag: '"v1"', "content-length": String(data.length) } }), /전체 크기/],
@@ -135,7 +135,7 @@ test("구간을 무시한 200: 검증값이 같으면 처음부터 받아 받은
   }
 });
 
-test("검증값이 Last-Modified 여도 같은 본문인지 확인한다", async () => {
+test("검증값이 Last-Modified여도 같은 본문인지 확인한다", async () => {
   const data = bytesOf(20_000);
   const modified = "Wed, 21 Oct 2026 07:28:00 GMT";
   const { stream, asked } = setup(data, () => bodyOf(data, { headers: { "last-modified": modified } }), { firstCut: 6_000, validator: modified, firstHeaders: { "last-modified": modified } });
@@ -203,13 +203,13 @@ test("읽는 쪽이 멈추면 본문을 멈추고(메모리에 쌓지 않는다)
   assert.equal(Buffer.concat(chunks).length + 1000, data.length);
 });
 
-test("처음 응답에 크기가 없으면 206 이 알린 전체 크기를 기억해 다음 이어 받기와 비교하고, 다 받기 전에 끝나면 끊김으로 본다", async () => {
+test("처음 응답에 크기가 없으면 206이 알린 전체 크기를 기억해 다음 이어 받기와 비교하고, 다 받기 전에 끝나면 끊김으로 본다", async () => {
   const data = bytesOf(30_000);
   const answers = [({ from }: Asked) => bodyOf(data, { from, cut: 18_000, status: 206, headers: { "content-range": `bytes ${from}-${data.length - 1}/${data.length}` } }), ({ from }: Asked) => bodyOf(data, { from, status: 206, headers: { "content-range": `bytes ${from}-${data.length - 1}/${data.length + 5}` } })];
   const changed = setup(data, (asked, n) => answers[n - 1](asked), { firstCut: 9_000, firstHeaders: {}, validator: null });
   await assert.rejects(readAll(changed.stream), (e: Error & { permanent?: boolean }) => e.permanent === true && /전체 크기/.test(e.message));
 
-  // 206 이 전체 크기를 알린 뒤 전체 크기보다 일찍 오류 없이 끝난다
+  // 206이 전체 크기를 알린 뒤 전체 크기보다 일찍 오류 없이 끝난다
   const ends = [({ from }: Asked) => Object.assign(Readable.from([data.subarray(from, 20_000)]), { status: 206, headers: { "content-range": `bytes ${from}-${data.length - 1}/${data.length}` } }), ranged(data)];
   const short = setup(data, (asked, n) => ends[n - 1](asked, 1), { firstCut: 9_000, firstHeaders: {}, validator: null });
   assert.deepEqual(await readAll(short.stream), data);

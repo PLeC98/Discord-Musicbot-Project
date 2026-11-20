@@ -1,8 +1,8 @@
 // src/autoplay/sources/animethemes.ts: AnimeThemes 소스.
 //
 // 지키려는 계약:
-// - 대사가 얹힌 버전(overlap 이 None 이 아닌 것)만 있는 곡은 버린다. 깨끗한 버전이 있으면 그것을 쓴다
-// - 같은 곡이 여러 작품, 시즌의 주제가일 수 있다. 겹침은 song.id 로 막는다
+// - 대사가 얹힌 버전(overlap이 None이 아닌 것)만 있는 곡은 버린다. 깨끗한 버전이 있으면 그것을 쓴다
+// - 같은 곡이 여러 작품, 시즌의 주제가일 수 있다. 겹침은 song.id로 막는다
 // - 연도, 시즌 조건은 anime 쪽에 걸고, 양끝 시즌은 받은 뒤 우리가 자른다
 // - 종류(OP, ED)와 순번이 맞는 주제가만
 
@@ -49,7 +49,7 @@ test("대사가 얹힌 버전만 있으면 버리고, 깨끗한 버전이 있으
   );
 });
 
-test("같은 곡은 한 번만. 겹침은 주제가가 아니라 곡 id 로 막는다", async () => {
+test("같은 곡은 한 번만. 겹침은 주제가가 아니라 곡 id로 막는다", async () => {
   const anime = {
     name: "작품",
     slug: "work",
@@ -74,7 +74,7 @@ test("같은 곡은 한 번만. 겹침은 주제가가 아니라 곡 id 로 막�
   });
 });
 
-test("곡 id 가 없는 주제가는 뺀다(겹침도 출처 키도 가를 수 없다)", async () => {
+test("곡 id가 없는 주제가는 뺀다(겹침도 출처 키도 가를 수 없다)", async () => {
   const noId = { ...theme(0, "id 없음", [video("None", "https://a/x.ogg")]), song: { title: "id 없음", artists: [{ name: "가수" }] } };
   serve(() => ({ animethemes: [noId, theme(9, "id 있음", [video("None", "https://a/9.ogg")])] }));
   const got = await animethemes(source());

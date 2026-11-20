@@ -1,4 +1,4 @@
-// 자동재생 장르 설정(settings.db 의 "genres" 문서, config/documents). 읽을 때 모양과 소스 키를 본다.
+// 자동재생 장르 설정(settings.db의 "genres" 문서, config/documents). 읽을 때 모양과 소스 키를 본다.
 
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "config" });
@@ -13,8 +13,8 @@ import { codeOf, messageOf } from "../rules/error-kind.ts";
 const validateGenres = genreProblems;
 
 /**
- * 소스 한 줄. type 말고 어떤 필드가 있는지는 종류마다 다르다(genreSources 의 SPEC).
- * 검사는 필요한 필드와 선택할 값만 본다. 목록 필드는 편집기가 배열로 쓰고, 수 필드는 글자로 적어도 통과해 읽는 쪽이 Number 로 바꾼다
+ * 소스 한 줄. type 말고 어떤 필드가 있는지는 종류마다 다르다(genreSources의 SPEC).
+ * 검사는 필요한 필드와 선택할 값만 본다. 목록 필드는 편집기가 배열로 쓰고, 수 필드는 글자로 적어도 통과해 읽는 쪽이 Number로 바꾼다
  */
 type GenreSource = {
   type: string;
@@ -59,14 +59,14 @@ type GenreSource = {
 };
 /** label: 보여 줄 이름(없으면 식별자 = 키) */
 type Genre = { label?: string; emoji?: string; sources: GenreSource[] };
-// 수 필드는 글자로 적어도 검사를 통과한다. 읽는 쪽이 Number 로 바꾼다
+// 수 필드는 글자로 적어도 검사를 통과한다. 읽는 쪽이 Number로 바꾼다
 type GenreDefaults = { prefetchCount?: unknown; minDurationSec?: unknown; maxDurationSec?: unknown; blockedKeywords?: unknown[] };
 type GenresConfig = { defaults: GenreDefaults; genres: Record<string, Genre> };
 
 // 같은 말을 되풀이하지 않는다. genres()는 곡을 선택할 때마다 불린다
 let warnedKeys = "";
 
-// 직전에 검사를 지난 설정. 돌던 중 문서가 틀리면 이것으로 계속 돈다(status 와 같다)
+// 직전에 검사를 지난 설정. 돌던 중 문서가 틀리면 이것으로 계속 돈다(status와 같다)
 let lastGood: GenresConfig | null = null;
 let reported = "";
 
@@ -75,7 +75,7 @@ const EMPTY: GenresConfig = { defaults: {}, genres: {} };
 
 /**
  * 장르 설정. 틀렸으면 알리고 직전에 맞던 설정을, 그것도 없으면(기동 시점부터 틀림) 빈 설정을 돌려준다.
- * 기동을 멈추지 않는다. 고칠 대시보드가 실행돼야 한다(DB 를 바깥에서 고쳤을 때 등)
+ * 기동을 멈추지 않는다. 고칠 대시보드가 실행돼야 한다(DB를 바깥에서 고쳤을 때 등)
  */
 function genres(): GenresConfig {
   try {
@@ -91,7 +91,7 @@ function genres(): GenresConfig {
   }
 }
 
-/** 지금 장르 문서가 검사를 못 지나는가(직전 설정, 빈 설정으로 도는 중). 봇 상태 탭이 까닭으로 보인다 */
+/** 지금 장르 문서가 검사를 못 지나는가(직전 설정, 빈 설정으로 도는 중). 봇 상태 탭이 이유로 보인다 */
 function genresBroken() {
   genres();
   return reported !== "";
@@ -112,8 +112,8 @@ function checkedGenres(): GenresConfig {
 }
 
 /**
- * 그 장르의 소스 중 키가 없어 못 쓰는 것의 키 이름과 쓸 수 있는 소스 수. 소스가 하나도 없으면 CONFIG_INVALID 로 던진다.
- * 키가 없는 소스는 빼고 남은 것으로 돌고, 하나도 안 남으면 그 장르만 못 쓴다(선택하면 unusableGenre 로 거절해 까닭을 알린다).
+ * 그 장르의 소스 중 키가 없어 못 쓰는 것의 키 이름과 쓸 수 있는 소스 수. 소스가 하나도 없으면 CONFIG_INVALID 예외를 던진다.
+ * 키가 없는 소스는 빼고 남은 것으로 돌고, 하나도 안 남으면 그 장르만 못 쓴다(선택하면 unusableGenre로 거절해 원인을 알린다).
  * 키를 입력할 대시보드가 봇과 함께 돌므로 기동은 멈추지 않는다
  */
 function keyCheck(name: string, genre: Genre) {
