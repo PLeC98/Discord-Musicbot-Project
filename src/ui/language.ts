@@ -12,8 +12,11 @@ const languagesNow = () => availableLanguages(config.i18n.testLanguage);
 /** 봇 기본 언어: 서버 언어도 개인 언어도 정해지지 않았을 때 */
 const botLanguage = (): Language => BASE_LANGUAGE;
 
-/** 서버 언어. 서버 언어 설정이 없으므로 테스트 언어를 켰으면 모든 서버가 테스트 언어다. 서버를 모르면(guildId 없음) 봇 기본 언어 */
-const guildLanguage = (guildId: string | null | undefined): Language => (guildId && config.i18n.testLanguage ? TEST_LANGUAGE : botLanguage());
+/** 테스트 언어가 적용되는 서버. GUILD_ID(명령을 그 서버에만 배포할 때 쓰는 테스트 서버의 ID)가 있으면 그 서버만, 없으면 모든 서버 */
+const testsIn = (guildId: string) => config.i18n.testLanguage && (config.discord.guildId === null || config.discord.guildId === guildId);
+
+/** 서버 언어. 서버 언어 설정이 없으므로 봇 기본 언어이고, 테스트 언어가 적용되는 서버는 테스트 언어다. 서버 정보가 없으면(guildId 없음) 봇 기본 언어 */
+const guildLanguage = (guildId: string | null | undefined): Language => (guildId && testsIn(guildId) ? TEST_LANGUAGE : botLanguage());
 
 /** 상호작용에서 언어를 고르는 데 쓰는 것 */
 type Asker = { locale?: string | null; guildId: string | null; message?: { flags: { has(flag: MessageFlags): boolean } } | null };
