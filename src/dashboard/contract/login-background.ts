@@ -140,7 +140,7 @@ type LoginBackgroundStrip = { count: number; every: number; columns: number; wid
 type LoginBackgroundLimits = { history: number; maxBytes: number };
 /**
  * 코덱 하나로 인코딩하는 인코더(봇이 켜질 때 작은 테스트로 선택한다). encoder는 ffmpeg의 인코더 이름(없으면 null, 그 코덱으로는 인코딩하지 않는다), hardware는 GPU 인코더인가,
- * why는 더 나은 인코더(하드웨어)를 못 쓰는 원인, 코덱으로 인코딩하지 못하는 원인(규칙 문제, ffmpeg 출력은 plain. 없으면 null)
+ * why는 장치는 있는데 실패한 앞 후보의 원인(더 나은 인코더를 못 쓰거나 그 코덱으로 인코딩하지 못한 이유. 규칙 문제, ffmpeg 출력은 plain). 장치가 없어 못 쓴 것뿐이면 null
  */
 type LoginBackgroundEncoder = { codec: LoginBackgroundCodec; encoder: string | null; hardware: boolean; why: RuleProblem | null };
 /**
