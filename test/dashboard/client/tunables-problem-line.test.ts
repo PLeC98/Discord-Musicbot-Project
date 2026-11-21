@@ -29,6 +29,12 @@ test("모르는 이름은 이름 그대로, plain은 글 그대로", () => {
   assert.equal(ruleLine(plain("아무 글")), "아무 글");
 });
 
+test("감싼 문제의 이유(cause)는 안쪽부터 그려 바깥 문장에 넣는다", () => {
+  assert.equal(ruleLine(rule("ytdlp-unusable", undefined, plain("GLIBC_2.17 not found"))), "이 환경에서 실행되지 않음: GLIBC_2.17 not found");
+  assert.equal(ruleLine(rule("pgp-failed", undefined, rule("pgp-mismatch"))), "서명 확인 실패: 서명이 맞지 않음");
+  assert.equal(ruleLine(rule("ytdlp-kept-check-failed", { target: "2026.10.01" }, rule("run-timeout", { sec: 30 }))), "저장된 yt-dlp 2026.10.01 확인 실패: 30초 안에 끝나지 않아 중단");
+});
+
 test("저장 거절에서 틀린 값이 든 탭(저장 바가 옮겨 갈 곳). 이름을 모르는 실패면 빈 목록", () => {
   const failed = (problems: RuleProblem[]) => ({ response: { data: problemBody("config-invalid", {}, { errors: problems.map((one) => ({ code: "config-invalid" as const, rule: one })) }) } });
   const reason = rule("integer");
