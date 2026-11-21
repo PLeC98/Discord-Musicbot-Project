@@ -205,3 +205,62 @@ test("배포 실패의 원인 안내: 서버 배포의 50001은 GUILD_ID, 그 �
   assert.deepEqual(deployErrorLines({ scope: "guild", error: new Error("Missing Access"), hint: rule("deploy-guild-missing", { guildId: "1" }) }), ["명령어 배포 실패(guild): Missing Access", "GUILD_ID 서버(1)에 봇이 없음. .env의 GUILD_ID가 맞는지, 봇이 서버에서 나가지 않았는지 확인하세요"]);
   assert.deepEqual(deployErrorLines({ scope: "global", error: new Error("boom"), hint: null }), ["명령어 배포 실패(global): boom"]);
 });
+
+test("등록 대상이 서버에서 전역(또는 다른 서버)으로 바뀌면 옛 서버의 명령을 비운다", async () => {
+  const { withConfig } = await import("../helpers/config.ts");
+  const hashPath = freshHashPath();
+  const OLD = "112233445566778899";
+  await withConfig({ discord: { guildId: OLD } }, () => deployCommands({ hashPath, put, get }));
+  assert.equal(JSON.parse(fs.readFileSync(hashPath, "utf8")).guildId, OLD, "등록 대상을 해시와 같이 적는다");
+
+  putCalls = [];
+  const r = await withConfig({ discord: { guildId: null } }, () => deployCommands({ hashPath, put, get }));
+  assert.ok(r.ok && !r.skipped);
+  assert.deepEqual(
+    putCalls.map((one) => [one.route, one.body.length]),
+    [
+      ["/applications/123456789012345678/commands", commands.length],
+      [`/applications/123456789012345678/guilds/${OLD}/commands`, 0],
+    ],
+  );
+  assert.equal(JSON.parse(fs.readFileSync(hashPath, "utf8")).guildId, null);
+
+  putCalls = [];
+  await withConfig({ discord: { guildId: null } }, () => deployCommands({ hashPath, force: true, put, get }));
+  assert.equal(putCalls.length, 1, "대상이 같으면 비우지 않는다");
+});
+
+test("대상을 적기 전의 해시 파일은 지문이 같은 기동에서 지금 대상을 채운다", async () => {
+  const { withConfig } = await import("../helpers/config.ts");
+  const hashPath = freshHashPath();
+  await withConfig({ discord: { guildId: "112233445566778899" } }, () => deployCommands({ hashPath, put, get }));
+  const { fingerprint } = JSON.parse(fs.readFileSync(hashPath, "utf8"));
+  fs.writeFileSync(hashPath, JSON.stringify({ fingerprint }));
+
+  putCalls = [];
+  const r = await withConfig({ discord: { guildId: "112233445566778899" } }, () => deployCommands({ hashPath, put, get }));
+  assert.ok(r.ok && r.skipped);
+  assert.equal(putCalls.length, 0);
+  assert.equal(JSON.parse(fs.readFileSync(hashPath, "utf8")).guildId, "112233445566778899");
+});
+
+test("서버에 등록할 때 남은 전역 명령은 지우지 않고 알린다(다른 서버가 그것으로 돈다)", async () => {
+  const { withConfig } = await import("../helpers/config.ts");
+  const sink = (await import("../../src/infra/log/sink.ts")).default;
+  const from = sink.buffer.length;
+  putCalls = [];
+  await withConfig({ discord: { guildId: "112233445566778899" } }, () => deployCommands({ hashPath: freshHashPath(), put, get }));
+  assert.equal(putCalls.length, 1, "전역은 비우지 않는다");
+  assert.ok(sink.buffer.slice(from).some((e) => e.level === "warn" && e.text.includes("--clear-global")));
+});
+
+test("clearCommands: 빈 목록으로 등록해 비우고, 실패는 던지지 않고 돌려준다", async () => {
+  const { clearCommands } = await import("../../src/app/command-loader.ts");
+  putCalls = [];
+  assert.deepEqual(await clearCommands(null, put), { ok: true });
+  assert.deepEqual(putCalls, [{ route: "/applications/123456789012345678/commands", body: [] }]);
+  const failed = await clearCommands("112233445566778899", async () => Promise.reject(new Error("Missing Access")));
+  assert.ok(!failed.ok && messageOfError(failed.error) === "Missing Access");
+});
+
+const messageOfError = (error: unknown) => (error instanceof Error ? error.message : String(error));

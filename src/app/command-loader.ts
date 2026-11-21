@@ -77,21 +77,25 @@ function deployFingerprint(scope: string, guildId: string | null, commands: unkn
   return crypto.createHash("sha256").update(src).digest("hex");
 }
 
+/** 마지막 배포 기록. guildId는 등록한 서버(전역이면 null, 대상을 적기 전의 파일이면 undefined) */
+type Deployed = { fingerprint: string | null; guildId: string | null | undefined };
+
 // 읽지 못하면 재배포한다(안전한 쪽). 파일이 없는 것은 첫 배포라 남기지 않는다
-function readDeployedFingerprint(hashPath: string) {
+function readDeployed(hashPath: string): Deployed {
   try {
-    return JSON.parse(fs.readFileSync(hashPath, "utf8")).fingerprint || null;
+    const saved = JSON.parse(fs.readFileSync(hashPath, "utf8")) as { fingerprint?: string; guildId?: string | null };
+    return { fingerprint: saved.fingerprint || null, guildId: saved.guildId === null || typeof saved.guildId === "string" ? saved.guildId : undefined };
   } catch (error) {
     if (codeOf(error) !== "ENOENT") log.warn(`명령어 배포 해시 읽기 실패: ${messageOf(error)}`);
-    return null;
+    return { fingerprint: null, guildId: undefined };
   }
 }
 
-// 해시 저장 실패는 다음 기동에서 한 번 더 배포될 뿐이다
-function writeDeployedFingerprint(hashPath: string, fingerprint: string) {
+// 해시 저장 실패는 다음 기동에서 한 번 더 배포될 뿐이다. 등록 대상(guildId)을 같이 적어 대상이 바뀌면 옛 서버를 비운다
+function writeDeployed(hashPath: string, fingerprint: string, guildId: string | null) {
   try {
     fs.mkdirSync(path.dirname(hashPath), { recursive: true });
-    fs.writeFileSync(hashPath, JSON.stringify({ fingerprint, deployedAt: new Date().toISOString() }));
+    fs.writeFileSync(hashPath, JSON.stringify({ fingerprint, guildId, deployedAt: new Date().toISOString() }));
   } catch (error) {
     log.warn(`명령어 배포 해시 저장 실패: ${messageOf(error)}`);
   }
@@ -117,7 +121,10 @@ async function deployCommands({ force = false, hashPath = HASH_PATH, put = putCo
   const fingerprint = deployFingerprint(scope, guildId, commands);
   const route = guildId ? Routes.applicationGuildCommands(appIdOf(), guildId) : Routes.applicationCommands(appIdOf());
 
-  if (!force && readDeployedFingerprint(hashPath) === fingerprint) {
+  const before = readDeployed(hashPath);
+  if (!force && before.fingerprint === fingerprint) {
+    // 지문이 같으면 지금 대상에 등록돼 있다. 대상을 적기 전의 파일이면 대상을 채워 둔다(나중에 대상을 바꾸면 옛 서버를 비우게)
+    if (before.guildId === undefined) writeDeployed(hashPath, fingerprint, guildId);
     try {
       rememberCommandIds(await get(route), guildId);
     } catch (error) {
@@ -128,11 +135,42 @@ async function deployCommands({ force = false, hashPath = HASH_PATH, put = putCo
 
   try {
     const data = await put(route, commands);
-    writeDeployedFingerprint(hashPath, fingerprint); // 성공 시에만 기록. 실패하면 다음 기동에 재시도
+    writeDeployed(hashPath, fingerprint, guildId); // 성공 시에만 기록. 실패하면 다음 기동에 재시도
     rememberCommandIds(data, guildId);
+    await tidyOldTarget(before.guildId, guildId, { put, get });
     return { ok: true, skipped: false, count: data.length, scope, guildId, names: data.map((c) => c.name) };
   } catch (error) {
     return { ok: false, error, scope, guildId, hint: deployHint(scope, guildId, error) };
+  }
+}
+
+/**
+ * 등록 대상이 바뀐 뒤의 옛 명령. 디스코드는 전역 명령과 서버 명령을 따로 가져 그 서버에서는 둘 다 보인다.
+ * 옛 대상이 서버면 비운다(그 서버만의 것이라 다른 서버에 영향이 없다). 서버에 등록할 때 남은 전역 명령은 지우지 않고 알린다:
+ * GUILD_ID를 켠 동안 다른 서버는 그 전역 명령으로 돈다. 지우려면 pnpm commands --clear-global
+ */
+async function tidyOldTarget(was: string | null | undefined, now: string | null, { put, get }: { put: PutCommands; get: GetCommands }) {
+  if (was && was !== now) {
+    const cleared = await clearCommands(was, put);
+    if (cleared.ok) log.info(`등록 대상이 바뀌어 옛 서버 ${was}의 슬래시 명령어를 비움`);
+    else log.warn(`옛 서버 ${was}의 슬래시 명령어 비우기 실패(그 서버에서 명령어가 두 개씩 보일 수 있음. 지우려면 pnpm commands --clear-guild ${was}): ${messageOf(cleared.error)}`);
+  }
+  if (!now) return;
+  try {
+    const left = await get(Routes.applicationCommands(appIdOf()));
+    if (left.length) log.warn(`전역 슬래시 명령어 ${left.length}개가 남아 있어 서버 ${now}에서는 같은 명령어가 두 개씩 보임. 다른 서버는 이 전역 명령어로 동작함. 지우려면 pnpm commands --clear-global`);
+  } catch (error) {
+    log.debug(`전역 슬래시 명령어 읽기 실패(남은 명령어 확인 생략): ${messageOf(error)}`);
+  }
+}
+
+/** 등록한 명령을 비운다(빈 목록으로 등록). guildId가 null이면 전역 */
+async function clearCommands(guildId: string | null, put: PutCommands = putCommands): Promise<{ ok: true } | { ok: false; error: unknown }> {
+  try {
+    await put(guildId ? Routes.applicationGuildCommands(appIdOf(), guildId) : Routes.applicationCommands(appIdOf()), []);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error };
   }
 }
 
@@ -148,5 +186,5 @@ function deployErrorLines(result: { scope: string; error: unknown; hint: RulePro
   return [`명령어 배포 실패(${result.scope}): ${messageOf(result.error)}`, ...(result.hint ? [logRuleLine(result.hint)] : [])];
 }
 
-export { enabledCommands, followEnabledCommands, definitions, deployCommands, deployErrorLines };
+export { enabledCommands, followEnabledCommands, definitions, deployCommands, clearCommands, deployErrorLines };
 export type { SlashCommand, GuildCommand, AnywhereCommand, PutCommands, GetCommands, DeployResult };
