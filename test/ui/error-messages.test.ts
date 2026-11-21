@@ -63,5 +63,5 @@ test("곡을 찾거나 추가하지 못했을 때의 안내: 실패 코드에 �
   assert.deepEqual(addFailureMessage(KO, { code: "lookup-failed" }), text.notice("unknown-error"));
   assert.deepEqual(addFailureMessage(KO, { code: "play-failed" }), text.notice("cannot-start"));
   assert.deepEqual(addFailureMessage(KO, { code: "live-ended" }), text.notice("live-ended"));
-  assert.equal(plainText(addFailureMessage(KO, { code: "more-nothing-playable", skipped: 3 })), "해당 구간에는 재생할 수 없는 곡뿐이에요.\n미리듣기나 지역 제한 등이 걸린 곡들이라 넣지 못했어요. (3곡)");
+  assert.equal(plainText(addFailureMessage(KO, { code: "more-nothing-playable", skipped: 3 })), "해당 구간에는 재생할 수 없는 곡뿐이에요.\n삭제되거나 비공개인 영상, 미리듣기만 가능하거나 지역 제한이 걸린 곡들이라 넣지 못했어요. (3곡)");
 });

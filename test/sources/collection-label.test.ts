@@ -39,6 +39,15 @@ test("유튜브 재생목록은 playlist", async () => {
   assert.equal(r.collection, "playlist");
 });
 
+test("유튜브 재생목록에서 뺀 곡(삭제, 비공개 영상)을 싣고, 구간이 모두 빠졌으면 nothing-playable", async () => {
+  const some = { youtube: { ...youtubeSource, getPlaylist: async () => ({ tracks: songs(2), skipped: 3 }) } };
+  const r = await lookup.findTracks("https://www.youtube.com/playlist?list=PL123", undefined, undefined, some);
+  assert.deepEqual([r.success, r.tracks?.length, r.skipped], [true, 2, 3]);
+
+  const none = { youtube: { ...youtubeSource, getPlaylist: async () => ({ tracks: [], skipped: 5 }) } };
+  assert.deepEqual(await lookup.findTracks("https://www.youtube.com/playlist?list=PL123", undefined, undefined, none), { success: false, code: "nothing-playable", skipped: 5 });
+});
+
 test("안내 문구가 출처 이름을 따른다", () => {
   assert.equal(addedText(songs(11), "album"), "### ✅ 곡을 추가했어요!\n앨범의 11곡을 대기열에 넣었어요.");
   assert.equal(addedText(songs(10), "artist", true), "### ⏫ 곡을 추가했어요!\n아티스트 인기곡의 10곡을 대기열 맨 앞에 넣었어요.");

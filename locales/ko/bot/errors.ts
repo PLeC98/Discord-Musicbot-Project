@@ -130,8 +130,8 @@ const TEXT: ErrorTable = {
   "sc-preview-only": () => warning("blocked", "미리듣기만 가능한 곡이라 틀 수 없어요.", "다른 곡을 재생하거나, 다른 플랫폼으로 시도해 주세요."),
   "geo-blocked": () => warning("blocked", "지역 제한 콘텐츠예요!", "이 링크의 콘텐츠는 제가 있는 곳에서 접근할 수 없어요. 다른 링크로 시도해 보세요."),
   // skipped는 받을 수 없어 뺀 곡 수
-  "nothing-playable": ({ skipped }) => warning("blocked", `앞의 ${skipped}곡이 전부 재생할 수 없는 곡이에요.`, "미리듣기만 가능하거나 지역 제한 등이 걸린 곡들이에요."),
-  "more-nothing-playable": ({ skipped }) => warning("blocked", "해당 구간에는 재생할 수 없는 곡뿐이에요.", `미리듣기나 지역 제한 등이 걸린 곡들이라 넣지 못했어요. (${skipped}곡)`),
+  "nothing-playable": ({ skipped }) => warning("blocked", `앞의 ${skipped}곡이 전부 재생할 수 없는 곡이에요.`, "삭제되거나 비공개인 영상, 미리듣기만 가능하거나 지역 제한이 걸린 곡들이에요."),
+  "more-nothing-playable": ({ skipped }) => warning("blocked", "해당 구간에는 재생할 수 없는 곡뿐이에요.", `삭제되거나 비공개인 영상, 미리듣기만 가능하거나 지역 제한이 걸린 곡들이라 넣지 못했어요. (${skipped}곡)`),
   // 바깥 실패
   // 고치는 법(bgutil, 쿠키)은 운영자 로그에(rules/operator-hints). 사용자는 설정을 만질 수 없다
   "yt-bot-check": () => error("failed", "유튜브가 요청을 차단했어요!", "잠시 후에 재시도해 보고, 계속 동일한 문제가 발생하면 봇 운영자에게 알려주세요."),

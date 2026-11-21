@@ -146,7 +146,12 @@ test("유튜브 재생목록: 구간만 요청하고, 총 곡 수와 원본 기�
 });
 
 test("유튜브 재생목록: 목록, 곡에 제목이 없으면 표시 문구로 채우지 않고 비워 둔다(null)", async () => {
-  ytInfo = { entries: [{ id: "a" }, { id: "b", title: "B" }] };
+  ytInfo = {
+    entries: [
+      { id: "a", channel: "C" },
+      { id: "b", title: "B" },
+    ],
+  };
   const r = await youtubeSource.getPlaylist("https://www.youtube.com/playlist?list=PLy", { exec });
   assert.ok(r);
   assert.equal(r.title, null);
@@ -154,6 +159,24 @@ test("유튜브 재생목록: 목록, 곡에 제목이 없으면 표시 문구�
     r.tracks.map((t) => t.title),
     [null, "B"],
   );
+});
+
+test("유튜브 재생목록: 삭제, 비공개 영상(제목, 채널, 길이가 모두 없음)은 빼고 목록 안 위치를 센다. 길이 없는 라이브는 남긴다", async () => {
+  ytInfo = {
+    playlist_count: 40,
+    entries: [{ id: "a", title: "A", channel: "C", duration: 200 }, { id: "gone" }, { id: "live", title: "라이브", channel: "C" }, { id: "old", title: "[Private video]" }, { id: "untitled", channel: "C", duration: 90 }],
+  };
+  const r = await youtubeSource.getPlaylist("https://www.youtube.com/playlist?list=PLz", { offset: 10, limit: 5, exec });
+  assert.ok(r);
+  assert.deepEqual(
+    r.tracks.map((t) => t.title),
+    ["A", "라이브", null],
+  );
+  assert.deepEqual([r.skipped, r.skippedAt, r.nextOffset], [2, [11, 13], 15]);
+
+  ytInfo = { entries: [{ id: "gone" }] };
+  const none = await youtubeSource.getPlaylist("https://www.youtube.com/playlist?list=PLz", { exec });
+  assert.deepEqual([none?.tracks.length, none?.skipped], [0, 1], "모두 뺐어도 null이 아니라 뺀 곡 수를 준다");
 });
 
 // ── 해석기 ──

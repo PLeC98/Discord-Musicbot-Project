@@ -819,6 +819,28 @@ test("이어 넣기(사운드클라우드 세트): 한 구간만 읽고, 뺀 곡
     assert.deepEqual({ added: done.added, skipped: done.skipped, offset: done.next?.offset, batch: done.next?.batch }, { added: 7, skipped: 3, offset: 20, batch: 10 });
   }));
 
+// 유튜브 재생목록의 삭제, 비공개 영상은 빠진 채 목록 안 위치(skippedAt)로 온다. 앞을 다시 읽는 구간의 것은 지난번에 셌다
+test("이어 넣기: 다시 읽은 앞 구간의 뺀 곡은 다시 세지 않고, 앵커를 못 찾아도 뺀 곡만큼 덜 건너뛴다", () =>
+  withLimits(250, 50, async () => {
+    const GONE = new Set([47, 60, 61]);
+    const withGone = ({ offset = 0, limit = 0 }: Range): Collection => {
+      const tracks: TrackInfo[] = [];
+      const skippedAt: number[] = [];
+      for (let i = offset; i < Math.min(300, offset + limit); i++) {
+        if (GONE.has(i)) skippedAt.push(i);
+        else tracks.push(track(`s${i}`, { id: idOf(i) }));
+      }
+      return { tracks, total: 300, nextOffset: Math.min(300, offset + limit), skipped: skippedAt.length, skippedAt };
+    };
+    const { result, added } = await continueWith({ state: stateAt(50), count: 50, source: withGone });
+    assert.equal(addedTitles(added)[0], "s50");
+    assert.ok(!addedTitles(added).includes("s60"));
+    assert.equal(continued(result).skipped, 2, "앞 구간(45~49)의 47은 지난번에 셌다");
+
+    const lost = await continueWith({ state: stateAt(50, { anchorId: "t-없는-앵커" }), count: 10, source: withGone });
+    assert.equal(addedTitles(lost.added)[0], "s50", "앵커가 없으면 다시 읽은 앞 구간(뺀 곡 하나를 뺀 4곡)을 건너뛴다");
+  }));
+
 test("재생목록을 넣으면 이어 불러올 상태를 결과에 싣는다", async () => {
   mockResolve = () => ({ ...ok("1", "2"), collection: "playlist", total: 120, nextOffset: 2, tracks: [track("1"), { ...track("2"), id: idOf(1) }] });
   const bot = makeBot();

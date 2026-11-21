@@ -23,8 +23,11 @@ const log = logger.child({ category: "track" });
 type FoundTrack = TrackInfo;
 /** 여러 곡 출처에서 불러올 구간 */
 type Range = { offset?: number; limit?: number };
-/** 여러 곡 출처의 한 구간. 소스가 준 그대로라 필드가 빠질 수 있다. total은 모르면 null, skipped는 받을 수 없어 뺀 곡 수 */
-type Collection = { tracks: FoundTrack[]; total?: number | null; nextOffset?: number | null; skipped?: number };
+/**
+ * 여러 곡 출처의 한 구간. 소스가 준 그대로라 필드가 빠질 수 있다. total은 모르면 null, skipped는 받을 수 없어 뺀 곡 수,
+ * skippedAt은 그 곡들의 목록 안 위치(0부터, 유튜브만. 이어 불러오기가 앞을 다시 읽을 때 같은 곡을 두 번 세지 않게)
+ */
+type Collection = { tracks: FoundTrack[]; total?: number | null; nextOffset?: number | null; skipped?: number; skippedAt?: number[] };
 /** 곡을 찾지 못한 원인. 로그에 적고, 사용자 문장은 ui/error-messages가 선택한다 */
 type LookupRefusal = "no-song-result" | "lookup-failed" | "yt-unplayable" | "unsupported-link" | "shoutcast-v1" | "sc-unsupported" | "nothing-playable" | "search-age-gated";
 /**
@@ -83,12 +86,22 @@ async function fromYouTube(query: string, range: Range, youtube: Sources["youtub
       log.warn(`재생목록을 불러오지 못해 단일 영상으로 처리: ${messageOf(error).split("\n")[0]}`);
       return single([await youtube.getInfo(query)]);
     }
-    if (list?.tracks?.length) return { tracks: list.tracks, isPlaylist: true, collection: "playlist", total: list.total ?? null, nextOffset: list.nextOffset ?? null };
+    const found = list && youTubeList(query, list, video);
+    if (found) return found;
     if (!video) return single([]);
     // yt-dlp가 비공개, 개인 목록(LL 등)을 알아보지 못하면 영상 하나만 준다
     log.info(`재생목록이 비었거나 열리지 않아 단일 영상으로 처리(${video})`);
   }
   return single([await youtube.getInfo(query)]);
+}
+
+// 불러온 유튜브 재생목록 구간. 곡이 없으면 null(호출부가 영상 하나로 가거나 없음).
+// 구간이 모두 재생할 수 없는 곡이면 빈 목록과 뺀 곡 수(findTracks가 nothing-playable로 알린다). 주소에 영상이 있으면 그 영상 하나로 가게 null
+function youTubeList(query: string, list: Collection, video: string | null): Found | null {
+  const skipped = list.skipped ?? 0;
+  if (skipped > 0) log.info(`유튜브 재생목록에서 재생할 수 없는 ${skipped}곡을 제외(삭제, 비공개 영상): ${query}`);
+  if (!list.tracks?.length && (skipped === 0 || video)) return null;
+  return { tracks: list.tracks ?? [], isPlaylist: true, collection: "playlist", total: list.total ?? null, nextOffset: list.nextOffset ?? null, skipped };
 }
 
 // 스포티파이 링크(곡, 앨범, 재생목록, 아티스트)
@@ -156,7 +169,7 @@ async function getCollection(url: string, range?: Range, sources: Partial<Source
   const none: Collection = { tracks: [], total: null, nextOffset: null };
   if (links.isYouTubePlaylist(url)) {
     const r = await youtube.getPlaylist(url, range);
-    return r ? { tracks: r.tracks, total: r.total ?? null, nextOffset: r.nextOffset ?? null } : none;
+    return r ? { tracks: r.tracks, total: r.total ?? null, nextOffset: r.nextOffset ?? null, ...(r.skipped ? { skipped: r.skipped, skippedAt: r.skippedAt } : {}) } : none;
   }
   if (links.isSpotifyURL(url)) return spotify.getCollection(url, range);
   if (links.parseSoundCloud(url)?.kind === "set") {

@@ -161,7 +161,7 @@ function useAdder(fake: typeof queueTracks | null | undefined) {
   defaultAdder = fake ?? ((...args) => queueTracks(...args));
 }
 
-/** 곡을 넣을 목록. 찾은 결과거나 이미 찾은 곡. skipped는 출처가 받을 수 없어 뺀 곡 수(사운드클라우드 세트의 미리듣기, 지역 제한) */
+/** 곡을 넣을 목록. 찾은 결과거나 이미 찾은 곡. skipped는 출처가 받을 수 없어 뺀 곡 수(유튜브 재생목록의 삭제, 비공개 영상, 사운드클라우드 세트의 미리듣기, 지역 제한) */
 type Found = { isPlaylist: boolean; collection?: string | null; collectionId?: string | null; tracks: TrackInfo[]; total?: number | null; nextOffset?: number | null; skipped?: number; queueLimited?: boolean };
 
 async function requestPlayback(bot: Bot, asked: PlaybackRequest): Promise<PlaybackResult> {
@@ -373,6 +373,12 @@ async function nextPart(lookup: Lookup, url: string, range: { offset: number; li
   }
 }
 
+// 불러온 구간에서 뺀 곡. before는 다시 읽은 앞 구간(cursor 앞)의 것으로 지난번에 셌다. 위치를 모르는 출처(앞을 다시 읽지 않는다)는 받은 수 그대로
+function skippedIn(part: songLookup.Collection, cursor: number) {
+  const before = part.skippedAt?.filter((at) => at < cursor).length ?? 0;
+  return { before, newlySkipped: part.skippedAt ? part.skippedAt.length - before : (part.skipped ?? 0) };
+}
+
 // 불러온 구간에서 새 곡. 앵커(직전 마지막 곡)를 찾으면 그 뒤, 못 찾으면 다시 불러온 앞 back 곡을 건너뛴 뒤
 function freshOf(tracks: TrackInfo[], anchor: string | undefined, back: number) {
   const hit = tracks.findIndex((t) => t.id === anchor);
@@ -397,15 +403,16 @@ async function gather({ state, onProgress = ignoreProgress, lookup = defaultLook
     const part = await nextPart(lookup, url, { offset: cursor - back, limit }, found.length);
     if (!part) break;
     if (part.total != null) total = part.total;
-    skipped += part.skipped ?? 0;
-    const fresh = freshOf(part.tracks, anchor, back);
+    const { before, newlySkipped } = skippedIn(part, cursor);
+    skipped += newlySkipped;
+    const fresh = freshOf(part.tracks, anchor, back - before);
     found.push(...fresh);
     anchor = fresh.at(-1)?.id ?? anchor;
     const next = part.nextOffset;
     const advanced = next != null && next > cursor;
     if (advanced) cursor = next;
     onProgress(Math.min(found.length, want), want);
-    if (fresh.length === 0 || !advanced || atEnd(cursor, total)) break;
+    if ((fresh.length === 0 && newlySkipped === 0) || !advanced || atEnd(cursor, total)) break;
   }
   return { found, cursor, total, skipped };
 }

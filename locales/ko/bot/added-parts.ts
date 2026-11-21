@@ -29,7 +29,7 @@ const FULL_TITLE = "대기열이 가득 찼어요!";
 /** 대기열이 차서 다 못 넣은 줄과 받을 수 없어 뺀 줄(없으면 null) */
 function shortfallParts({ dropped, queueLimited, skipped, max }: Shortfall) {
   const full = dropped > 0 ? `${dropped}개의 곡을 넣지 못했어요. (최대 ${max}곡)` : queueLimited ? `목록의 일부만 넣었어요. (최대 ${max}곡)` : null;
-  const left = skipped > 0 ? `재생할 수 없는 ${skipped}곡은 제외됐어요. (미리듣기, 지역 제한 등)` : null;
+  const left = skipped > 0 ? `재생할 수 없는 ${skipped}곡은 제외됐어요. (삭제, 비공개, 미리듣기 전용, 지역 제한 등)` : null;
   return { full, left };
 }
 

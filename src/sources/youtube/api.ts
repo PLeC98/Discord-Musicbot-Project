@@ -197,9 +197,15 @@ function playlistTrack(entry: YtInfo) {
   return track;
 }
 
+// 삭제, 비공개 영상. --flat-playlist가 제목, 채널, 길이가 모두 빈 항목으로 준다(옛 yt-dlp는 "[Deleted video]", "[Private video]" 제목을 붙였다).
+// 라이브는 길이가 없어도 제목과 채널이 있다
+const GONE_TITLE = /^\[(deleted|private) video\]$/i;
+const isGone = (entry: YtInfo) => !(entry.uploader || entry.channel || entry.uploader_id) && !entry.duration && (!entry.title || GONE_TITLE.test(entry.title));
+
 // offset부터 limit개만 불러온다. 유튜브는 시작점까지 순서대로 넘겨 가야 해서 비용이 끝 위치에 비례한다.
 // 총 곡 수(playlist_count)는 구간만 불러와도 오지만, 믹스(RD…)는 끝이 없어 null이다.
-// 그 구간에 곡이 없으면 null(목록 끝을 넘은 이어 불러오기 등). 목록을 불러오지 못한 것(없는, 비공개 목록, 네트워크)은 예외를 던진다
+// 그 구간에 항목이 없으면 null(목록 끝을 넘은 이어 불러오기 등). 목록을 불러오지 못한 것(없는, 비공개 목록, 네트워크)은 예외를 던진다.
+// 재생할 수 없는 항목(삭제, 비공개 영상)은 빼고 그 위치(0부터 센 목록 안 위치)를 skippedAt에 담는다
 async function getPlaylist(url: string, { offset = 0, limit = PLAYLIST_ADD_DEFAULT, exec = ytdlp }: { offset?: number; limit?: number; exec?: RunYtDlp } = {}) {
   const raw = await exec(
     url,
@@ -214,15 +220,21 @@ async function getPlaylist(url: string, { offset = 0, limit = PLAYLIST_ADD_DEFAU
 
   if (!info.entries || info.entries.length === 0) return null;
 
-  const tracks = info.entries.map(readInfo).flatMap((entry) => (entry && (entry.id || entry.url) ? [playlistTrack(entry)] : []));
-
-  if (tracks.length === 0) return null;
+  const tracks: ReturnType<typeof playlistTrack>[] = [];
+  const skippedAt: number[] = [];
+  info.entries.forEach((raw, i) => {
+    const entry = readInfo(raw);
+    if (entry && (entry.id || entry.url) && !isGone(entry)) tracks.push(playlistTrack(entry));
+    else skippedAt.push(offset + i);
+  });
 
   return {
     title: info.title || null,
     tracks: tracks,
     total: info.playlist_count ?? null,
     nextOffset: offset + info.entries.length,
+    skipped: skippedAt.length,
+    skippedAt,
     url: url,
     platform: "youtube",
   };
