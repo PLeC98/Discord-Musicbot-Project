@@ -1,4 +1,5 @@
 import { AudioPlayerStatus, createAudioPlayer, createAudioResource, joinVoiceChannel, entersState } from "@discordjs/voice";
+import { logSourceLabel } from "../rules/text/index.ts";
 import logger from "../infra/log/logger.ts";
 import { VOLUME_MAX } from "../rules/limits.ts";
 import { gainOf } from "../rules/volume-gain.ts";
@@ -1444,7 +1445,7 @@ class Player {
     }
     const missing = genreConfig.unusableGenre(genre);
     if (missing) {
-      log.warn(`자동재생 종료: 장르 ${genre}에 ${missing.join(", ")} 키가 없어 쓸 소스가 없음`);
+      log.warn(`자동재생 종료: 장르 ${genre}에 ${missing.map(logSourceLabel).join(", ")} 키가 없어 쓸 소스가 없음`);
       if (!this.quietFailures) playerEvents.notice(this, "autoplay-genre-unusable", { genre, keys: missing.join(", ") }).catch(noticeFailed(this, "autoplay-genre-unusable"));
       this.setAutoplay(false);
       return false;

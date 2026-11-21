@@ -4,10 +4,8 @@
 import * as ko from "./ko/index.ts";
 import { LOG_LANGUAGE, type TextLanguage } from "../languages.ts";
 import { bundles } from "../text-bundle.ts";
-import { ruleLine, type RuleProblem, type RuleSentences } from "../rule-problem.ts";
-
-/** 언어 모듈 번들이 맞출 모양 */
-type RuleSource = { problems: RuleSentences };
+import { ruleLine, type RuleProblem } from "../rule-problem.ts";
+import type { RuleSource } from "./shape.ts";
 
 const SOURCES: Readonly<Record<TextLanguage, RuleSource>> = { ko };
 
@@ -16,5 +14,8 @@ const { textFor: ruleTextFor, missingText: missingRuleText } = bundles(SOURCES, 
 /** 문제 하나를 로그 언어의 문장으로(로그, 예외, 터미널) */
 const logRuleLine = (problem: RuleProblem) => ruleLine(ruleTextFor(LOG_LANGUAGE).problems, problem);
 
-export { ruleTextFor, missingRuleText, logRuleLine };
+/** 소스 종류의 이름(로그 언어). 모르는 종류면 종류 이름 그대로 */
+const logSourceLabel = (type: string) => ruleTextFor(LOG_LANGUAGE).sources[type]?.label ?? type;
+
+export { ruleTextFor, missingRuleText, logRuleLine, logSourceLabel };
 export type { RuleSource };

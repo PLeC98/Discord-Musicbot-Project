@@ -1,6 +1,6 @@
 // 자동재생 장르 설정(settings.db의 "genres" 문서, config/documents). 읽을 때 모양과 소스 키를 본다.
 
-import { logRuleLine } from "../rules/text/index.ts";
+import { logRuleLine, logSourceLabel } from "../rules/text/index.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "config" });
 // 설정 검증과 실제 실행이 같은 표를 봐야 한다. 어긋나면 저장은 되는데 재생이 안 된다
@@ -129,13 +129,12 @@ function keyCheck(name: string, genre: Genre) {
       alive++;
       continue;
     }
-    const need = sources.needsOf(source?.type);
-    if (need && !missing.includes(need.label)) missing.push(need.label);
+    if (sources.needsOf(source?.type) && !missing.includes(source.type)) missing.push(source.type);
   }
   return { missing, alive };
 }
 
-/** 이 장르를 지금 못 쓰면 빠진 키 이름들, 쓸 수 있으면 null(모르는 장르도 null. 그쪽은 unknown-genre) */
+/** 이 장르를 지금 못 쓰면 키가 없는 소스 종류들, 쓸 수 있으면 null(모르는 장르도 null. 그쪽은 unknown-genre) */
 function unusableGenre(name: string): string[] | null {
   const genre = genres().genres[name];
   if (!genre) return null;
@@ -153,7 +152,7 @@ function checkSourceKeys(genres: Record<string, Genre>) {
   for (const [name, genre] of Object.entries(genres)) {
     const { missing, alive } = keyCheck(name, genre);
     if (!missing.length) continue;
-    const key = missing.join(", ");
+    const key = missing.map(logSourceLabel).join(", ");
     const into = alive ? grouped : dead;
     into.set(key, [...(into.get(key) ?? []), name]);
   }

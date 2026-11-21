@@ -50,6 +50,8 @@ function allowed(file: string, dir: string): boolean {
   if (["src/ui/text/index.ts", "src/ui/text/shared.ts", "src/ui/text/contract.ts", "src/rules/text/index.ts"].includes(file)) return true;
   // 화면의 같은 언어 번들(화면도 쓰는 봇 문구와 규칙 문구를 담는다)
   if (file === `dashboard/src/text/${tag}/index.ts`) return true;
+  // 같은 언어의 봇 문구가 규칙 문구(소스 이름 등)를 쓴다
+  if (dir === `src/rules/text/${tag}` && file.startsWith(`src/ui/text/${tag}/`)) return true;
   // 그 언어의 문구표 테스트, 문구 번들 자체를 시험하는 테스트
   if (file.startsWith(`test/ui/text/${tag}/`) || /^test\/ui\/text\/[^/]+\.test\.ts$/.test(file)) return true;
   if (file.startsWith(`test/rules/text/${tag}/`) || /^test\/rules\/text\/[^/]+\.test\.ts$/.test(file)) return true;

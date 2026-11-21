@@ -23,7 +23,6 @@
   "src/config/index.ts": 27,
   "src/config/legacy-ai-defaults.ts": 5,
   "src/config/schema/ai-providers.ts": 23,
-  "src/config/schema/genre-sources.ts": 171,
   "src/dashboard/ai-log-stream.ts": 2,
   "src/dashboard/appearance.ts": 1,
   "src/dashboard/bind-plan.ts": 16,

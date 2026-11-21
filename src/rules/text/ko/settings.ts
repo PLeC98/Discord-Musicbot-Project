@@ -2,16 +2,19 @@
 // 위치 값: 장르는 id(장르 식별자)와 source(몇 번째 소스), 활동 문구는 name(특별 문구 이름. 없으면 평소 문구), AI는 model, 프롬프트는 section(몇 번째 섹션), 줄 형식은 at(몇 번째 글자)
 
 import type { RuleParams, RuleSentences } from "../../rule-problem.ts";
+import { sources } from "./sources.ts";
 
 const sourceAt = (p: RuleParams) => `${p.id}의 ${p.source}번째 소스`;
+// 소스 종류의 이름(sources). 모르는 종류면 종류 이름 그대로
+const typeName = (type: unknown) => (sources as Record<string, { label: string } | undefined>)[String(type)]?.label ?? String(type);
 const statusAt = (p: RuleParams) => (p.name === undefined ? "평소 문구" : String(p.name));
 const or = (list: unknown) => String(list).split(",").join(" 또는 ");
 
 const genres = {
   "genre-source-weight": (p) => `${sourceAt(p)}: weight는 1 이상이어야 해요`,
   "genre-source-min-score": (p) => `${sourceAt(p)}: minScore는 0 이상이어야 해요`,
-  "genre-source-need": (p) => `${sourceAt(p)}(${p.label}): ${or(p.fields)} 중 하나를 적어야 해요`,
-  "genre-source-enum": (p) => `${sourceAt(p)}(${p.label}): ${p.key}에 "${p.value}" 값은 쓸 수 없어요. 쓸 수 있는 것: ${p.allowed}`,
+  "genre-source-need": (p) => `${sourceAt(p)}(${typeName(p.type)}): ${or(p.fields)} 중 하나를 적어야 해요`,
+  "genre-source-enum": (p) => `${sourceAt(p)}(${typeName(p.type)}): ${p.key}에 "${p.value}" 값은 쓸 수 없어요. 쓸 수 있는 것: ${p.allowed}`,
   "genre-source-years": (p) => `${sourceAt(p)}: yearFrom이 yearTo보다 커요`,
   "genre-source-lengths": (p) => `${sourceAt(p)}: minLength가 maxLength보다 커요`,
   "genre-source-missing": (p) => `${sourceAt(p)}: type과 값을 적어야 해요`,

@@ -48,7 +48,7 @@ test("모든 문장", () => {
       "beyond-end": shown(notice("beyond-end", { durationMs: 185000 })),
       "unknown-genre": shown(notice("unknown-genre", { genre: "jazz" })),
       "unknown-genre (받침)": shown(notice("unknown-genre", { genre: "가요" })),
-      "genre-unusable": shown(notice("genre-unusable", { genre: "재즈", keys: "Last.fm" })),
+      "genre-unusable": shown(notice("genre-unusable", { genre: "재즈", keys: "lastfm" })),
       "playlist-limit-out-of-range": shown(notice("playlist-limit-out-of-range", { min: 1, max: 100, queueCap: null })),
       "playlist-limit-out-of-range (대기열 상한)": shown(notice("playlist-limit-out-of-range", { min: 1, max: 100, queueCap: 100 })),
       "more-bad-count": shown(notice("more-bad-count")),

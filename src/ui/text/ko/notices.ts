@@ -3,12 +3,20 @@
 import { noticeOf } from "../notice.ts";
 import { escapeMd } from "../../mentions.ts";
 import { josa } from "../../../rules/josa.ts";
+import { sources } from "../../../rules/text/ko/sources.ts";
 import * as labels from "./labels.ts";
 
 // 저장된 세션의 장르가 장르 목록에서 없어졌다
 const autoplayUnknownGenre = (genre: string) => noticeOf("warning", "autoplay", "알 수 없는 장르예요!", `장르 목록이 변경되어 \`${genre}\`${josa(genre, "이")} 없어져서 자동재생을 껐어요. 장르를 다시 선택해 주세요.`);
 // 장르의 소스가 모두 키가 없어 못 쓴다
-const autoplayGenreUnusable = (genre: string, keys: string) => noticeOf("warning", "autoplay", "지금은 쓸 수 없는 장르예요!", `\`${genre}\` 장르가 쓰는 소스(${keys})의 키가 없어 자동재생을 껐어요. 봇 운영자에게 알려 주세요.`);
+// 소스 종류 id(", "로 이음)를 이름으로
+const sourceNames = (keys: string) =>
+  keys
+    .split(", ")
+    .map((type) => (sources as Record<string, { label: string } | undefined>)[type]?.label ?? type)
+    .join(", ");
+/** keys: 키가 없는 소스 종류 id(", "로 이음) */
+const autoplayGenreUnusable = (genre: string, keys: string) => noticeOf("warning", "autoplay", "지금은 쓸 수 없는 장르예요!", `\`${genre}\` 장르가 쓰는 소스(${sourceNames(keys)})의 키가 없어 자동재생을 껐어요. 봇 운영자에게 알려 주세요.`);
 const autoplayGaveUp = (genre: string) => noticeOf("warning", "autoplay", `\`${genre}\` 장르에서 틀 곡을 찾지 못해 자동재생을 종료했어요.`);
 /** 곡을 열지 못해 그 곡에서 일시정지했다(다음 곡도 같은 이유로 안 된다). 원인 안내 끝에 붙는 줄 */
 const parkedLine = () => "다음 곡으로 넘기지 않고 일시정지했어요. 재생 버튼을 누르면 다시 시도해요.";

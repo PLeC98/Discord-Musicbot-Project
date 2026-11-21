@@ -11,7 +11,8 @@
 
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
-import { SPEC, needsOf, opts, type Field, type SourceTypeView } from "../../config/schema/genre-sources.ts";
+import { SPEC, needsOf, opts, sourceLabel, viewField, type Field, type SourceTypeView } from "../../config/schema/genre-sources.ts";
+import type { RuleSource } from "../../rules/text/shape.ts";
 import { usable } from "../../config/source-keys.ts";
 import { messageOf } from "../../rules/error-kind.ts";
 import type { GenreSource } from "../../config/genres.ts";
@@ -83,9 +84,9 @@ function fillAnisong(field: Field, years: YearRange, anisong: AnisongStats | nul
 
 /**
  * 대시보드가 그릴 소스 목록. 검증, 실행과 같은 표(SPEC)에서 만든다(화면이 따로 들고 있으면 소스를 더할 때 한쪽만 고치게 된다).
- * 필수 여부는 need에서 끌어온다.
+ * 필수 여부는 need에서 끌어온다. text: 보는 사람의 언어의 규칙 문구(이름, 설명, 선택지 이름)
  */
-async function catalog(): Promise<SourceTypeView[]> {
+async function catalog(text: RuleSource): Promise<SourceTypeView[]> {
   // 나란히 부른다. 한쪽이 느리다고 다른 쪽을 기다릴 이유가 없다.
   const [years, anisong] = await Promise.all([animeYearRange(), anisongCatalog()]);
   return TYPES.map((type) => {
@@ -93,13 +94,13 @@ async function catalog(): Promise<SourceTypeView[]> {
     const required = new Set(spec.need.flat());
     return {
       type,
-      label: spec.label,
-      hint: spec.hint || "",
+      label: sourceLabel(text, type),
+      hint: text.sources[type]?.hint ?? "",
       usable: usable(type),
       needs: spec.env || null,
       // need가 [["tags","prompt"]] 형식이면 "둘 중 하나"라는 뜻이다
       either: spec.need.filter((g) => g.length > 1).map((g) => [...g]),
-      fields: (spec.fields || []).map((one) => ({ ...one, required: required.has(one.key), ...fill(one, type, years, anisong) })),
+      fields: (spec.fields || []).map((one) => ({ ...viewField(text, type, one), required: required.has(one.key), ...fill(one, type, years, anisong) })),
       // 곡이 많을 때 선택하는 범위. 화면이 "상위 n곡 중에서"를 표시한다
       window: spec.window || null,
     };

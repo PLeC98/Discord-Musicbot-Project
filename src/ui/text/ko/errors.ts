@@ -5,6 +5,14 @@ import { formatBytes, formatMs } from "../../format.ts";
 import { noticeOf, type ErrorTable, type LinkLook, type Topic } from "../notice.ts";
 import { josa } from "../../../rules/josa.ts";
 import { VOLUME_MAX } from "../../../rules/limits.ts";
+import { sources } from "../../../rules/text/ko/sources.ts";
+
+// 소스 종류 id(", "로 이음)를 이름으로(genre-unusable의 keys)
+const sourceNames = (keys: string) =>
+  keys
+    .split(", ")
+    .map((type) => (sources as Record<string, { label: string } | undefined>)[type]?.label ?? type)
+    .join(", ");
 
 // 봇 쪽 문제, 외부 실패로 못 했다
 const error = (topic: Topic, title: string, body?: string) => noticeOf("error", topic, title, body);
@@ -86,7 +94,7 @@ const TEXT: ErrorTable = {
   "bad-position": ({ size }) => warning("input", "그 번호의 곡은 존재하지 않아요!", `대기열에는 ${size}곡만 있어요. 1~${size} 사이로 적어 주세요.`),
   "same-position": () => warning("input", "제자리로 옮길 수는 없어요!", "옮길 곡의 번호와 옮겨질 위치가 같아요. 번호를 다시 확인해주세요."),
   "beyond-end": ({ durationMs }) => warning("input", "곡이 그만큼 길지 않아요!", `곡 길이(${formatMs(durationMs, "--:--")})보다 뒤로 이동할 수는 없어요.`),
-  "genre-unusable": ({ genre = "", keys = "" }) => warning("state", "지금은 쓸 수 없는 장르예요!", `\`${genre}\` 장르가 쓰는 소스(${keys})의 키가 아직 없어요. 봇 운영자에게 알려 주세요.`),
+  "genre-unusable": ({ genre = "", keys = "" }) => warning("state", "지금은 쓸 수 없는 장르예요!", `\`${genre}\` 장르가 쓰는 소스(${sourceNames(keys)})의 키가 아직 없어요. 봇 운영자에게 알려 주세요.`),
   "unknown-genre": ({ genre = "" }) => warning("stale", "알 수 없는 장르예요!", `그 사이 장르 목록이 변경되어 \`${genre}\`${josa(genre, "은")} 없어졌어요. 장르를 다시 선택해 주세요.`),
   // 재생목록 한 번에 넣는 곡 수가 범위 밖이다. queueCap은 범위의 끝이 대기열 상한이라 그렇다면 그 상한
   "playlist-limit-out-of-range": ({ min, max, queueCap }) => warning("input", "범위를 벗어난 수치예요!", `한 번에 넣을 곡 수는 ${queueCap ? `대기열 상한치인 ${queueCap}곡을 넘을 수 없고, ` : ""}${min}에서 ${max}곡 사이여야 해요.`),

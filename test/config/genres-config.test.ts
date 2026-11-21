@@ -214,7 +214,7 @@ test("쓸 소스가 하나도 없는 장르: 기동은 멈추지 않고 그 장�
   try {
     config.sources.lastfmKey = null;
     assert.deepEqual(Object.keys(genreConfig.genres().genres), ["재즈", "팝"]);
-    assert.deepEqual(genreConfig.unusableGenre("재즈"), ["Last.fm"]);
+    assert.deepEqual(genreConfig.unusableGenre("재즈"), ["lastfm"], "키가 없는 소스 종류(이름은 보낼 때 그 언어로)");
     assert.equal(genreConfig.unusableGenre("팝"), null);
     assert.equal(genreConfig.unusableGenre("없는장르"), null, "모르는 장르는 unknown-genre 쪽이 본다");
 

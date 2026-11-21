@@ -29,13 +29,13 @@ function sourceOf(type: string) {
     .superRefine((source, ctx) => {
       // 안쪽 배열은 "이 중 하나는 있어야 한다"
       for (const group of spec.need) {
-        if (!group.some((key) => filled(source[key]))) ctx.addIssue({ code: "custom", message: coded("genre-source-need", { label: spec.label, fields: group.join(",") }) });
+        if (!group.some((key) => filled(source[key]))) ctx.addIssue({ code: "custom", message: coded("genre-source-need", { type, fields: group.join(",") }) });
       }
       // 값이 정해져 있는 필드의 오타. 여기서 안 잡으면 저쪽이 422를 주고 그 소스가 조용히 빈손이 된다
       for (const [key, allowed] of Object.entries(spec.enums || {})) {
         if (source[key] == null) continue;
         for (const one of Array.isArray(source[key]) ? source[key] : [source[key]]) {
-          if (!allowed.includes(one as string)) ctx.addIssue({ code: "custom", message: coded("genre-source-enum", { label: spec.label, key, value: String(one), allowed: allowed.join(", ") }) });
+          if (!allowed.includes(one as string)) ctx.addIssue({ code: "custom", message: coded("genre-source-enum", { type, key, value: String(one), allowed: allowed.join(", ") }) });
         }
       }
       if (source.yearFrom != null && source.yearTo != null && Number(source.yearFrom) > Number(source.yearTo)) ctx.addIssue({ code: "custom", message: "genre-source-years" });

@@ -1,6 +1,7 @@
 // 봇 운영자(OWNER_ID) 전용 라우터. 모든 엔드포인트가 requireOwner를 지난다.
 // 경로가 /api/admin인 것은 대시보드 운영자 패널의 주소일 뿐, 디스코드 서버 쪽 권한과는 무관하다.
 
+import { ruleTextFor } from "../../rules/text/index.ts";
 import type { RuleProblem } from "../../rules/rule-problem.ts";
 import express from "express";
 import * as sessionRequests from "../session-requests.ts";
@@ -243,7 +244,9 @@ const TIDIERS: Partial<Record<string, (data: unknown) => unknown>> = { genres: g
 // 한쪽만 고치게 된다.
 adminRouter.get("/source-types", async (req, res) => {
   // AnimeThemes 연도 범위를 그쪽에 조회해 채우므로 비동기다(하루에 한 번만 조회하고 캐시한다)
-  res.json({ types: await autoplaySources.catalog() } satisfies SourceTypes);
+  // 이름, 설명, 선택지 이름은 보는 사람의 언어로(화면은 언어를 바꾸면 다시 받는다)
+  const text = ruleTextFor(viewerLanguage({ userId: req.session?.user?.id, acceptLanguage: req.get("accept-language") }));
+  res.json({ types: await autoplaySources.catalog(text) } satisfies SourceTypes);
 });
 
 // 소스 편집기의 자동완성(VocaDB 계열의 태그, 가수). 브라우저가 그쪽에 바로 요청하지 않고 여기를 거친다.

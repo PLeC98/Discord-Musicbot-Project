@@ -119,7 +119,7 @@
 <script setup lang="ts">
 import { ICON_BTN } from "../utils/icon-button.ts";
 import { valueOf } from "../utils/dom.ts";
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import GenreGlobalForm from "./GenreGlobalForm.vue";
 import { useListDetail, LIST_ROW } from "../composables/list-detail.ts";
 import axios from "axios";
@@ -148,7 +148,7 @@ import { ruleLine } from "../utils/rule-line.ts";
 import { SELECT_MAX } from "../../../src/rules/limits.ts";
 import { TYPES, type SourceTypeView } from "../../../src/config/schema/genre-sources.ts";
 import type { SourceTypes, Suggestions } from "../../../src/dashboard/contract/admin.ts";
-import { text } from "../text/index.ts";
+import { text, textLanguage } from "../text/index.ts";
 const T = text.genres;
 
 /** 전역 값(장르 설정의 defaults) */
@@ -284,6 +284,9 @@ async function fetchSourceTypes() {
     sourceTypesError.value = problemText(error, "");
   }
 }
+
+// 이름, 설명, 선택지 이름은 서버가 그 언어로 채운다. 화면 언어를 바꾸면 다시 받는다
+watch(textLanguage, () => void fetchSourceTypes());
 
 onMounted(() => {
   void fetchSourceTypes();
