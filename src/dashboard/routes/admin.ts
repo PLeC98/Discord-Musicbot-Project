@@ -75,9 +75,8 @@ import { leaveGuild } from "../../usecases/leave-guild.ts";
 import { memberGuildIds } from "../user-guilds.ts";
 import { guildList, guildQueryOf, statusQueryOf } from "../list-window.ts";
 import { errorMessage } from "../../ui/error-messages.ts";
-import { viewerLanguage } from "../../ui/language.ts";
+import { botCompare, publicText, viewerLanguage } from "../../ui/language.ts";
 import { textFor } from "../../ui/text/index.ts";
-import { publicText } from "../../ui/language.ts";
 
 const adminRouter = express.Router();
 // 운영자 전용이다. 경로마다 따로 달지 않고 여기서 한 번에 건다(라우터를 어디에 붙이든 보호된다)
@@ -166,7 +165,7 @@ adminRouter.get("/guilds", (req, res) => {
     hasPlayer: players.has(g.id),
   }));
 
-  res.json(guildList(guilds, guildQueryOf(req.query)) satisfies AdminGuilds);
+  res.json(guildList(guilds, guildQueryOf(req.query), botCompare) satisfies AdminGuilds);
 });
 
 // 서버에서 나가기(운영자가 대시보드에서). 되돌릴 수 없어 로그인한 지 오래되면 다시 로그인하게 한다. 정리하고 나가는 순서는 usecases/leave-guild

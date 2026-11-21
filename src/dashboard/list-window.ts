@@ -34,20 +34,22 @@ function guildQueryOf(query: Record<string, unknown>): GuildQuery {
   return { guilds: spanOf(query.guilds, GUILD_QUERY.guilds), q: typeof q === "string" ? q.slice(0, Q_MAX) : GUILD_QUERY.q, playing: playing === "1", sort: oneOf(query.sort, GUILD_SORTS, GUILD_QUERY.sort) };
 }
 
-const collator = new Intl.Collator("ko");
-const GUILD_ORDER: Record<GuildSort, (a: AdminGuild, b: AdminGuild) => number> = {
-  name: (a, b) => collator.compare(a.name, b.name),
-  "name-desc": (a, b) => collator.compare(b.name, a.name),
+/** 이름 비교(부르는 쪽이 정한다. 봇은 봇 기본 언어의 형식 로케일, ui/language의 botCompare) */
+type Compare = (a: string, b: string) => number;
+
+const guildOrder = (compare: Compare): Record<GuildSort, (a: AdminGuild, b: AdminGuild) => number> => ({
+  name: (a, b) => compare(a.name, b.name),
+  "name-desc": (a, b) => compare(b.name, a.name),
   "members-desc": (a, b) => b.memberCount - a.memberCount,
   "members-asc": (a, b) => a.memberCount - b.memberCount,
-};
+});
 
 // 서버 ID(스노플레이크)는 자릿수가 다를 수 있어 길이부터 비교한다
 const byId = (a: AdminGuild, b: AdminGuild) => a.id.length - b.id.length || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
-/** 서버 관리 탭: 필터링하고(재생 중만, 이름 검색) 정렬하고(같으면 서버 ID) 자른다. 수는 전부, 재생 중, 필터링된 것 */
-function guildList(all: AdminGuild[], query: GuildQuery): AdminGuilds {
-  const order = GUILD_ORDER[query.sort];
+/** 서버 관리 탭: 필터링하고(재생 중만, 이름 검색) 정렬하고(같으면 서버 ID) 자른다. 수는 전부, 재생 중, 필터링된 것. compare: 이름 비교 */
+function guildList(all: AdminGuild[], query: GuildQuery, compare: Compare): AdminGuilds {
+  const order = guildOrder(compare)[query.sort];
   const matched = all.filter((g) => (!query.playing || g.hasPlayer) && koMatch(g.name, query.q)).sort((a, b) => order(a, b) || byId(a, b));
   const { from, rows } = cut(matched, query.guilds);
   return { total: all.length, playing: all.filter((g) => g.hasPlayer).length, matched: matched.length, from, guilds: rows };
@@ -60,3 +62,4 @@ function cut<T>(rows: readonly T[], span: Span): { from: number; rows: T[] } {
 }
 
 export { statusQueryOf, guildQueryOf, guildList, cut };
+export type { Compare };

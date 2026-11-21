@@ -3,6 +3,7 @@
 // 쓰기는 모두 검사한 뒤 DB 몫(동기라 그사이 봇이 끼어들지 않는다)을 먼저, 캐시 파일 삭제를 그 뒤에 하나씩. 조작마다 결과를 낸다.
 // 공유 타입이 대시보드 층에 있어 usecases가 아니라 여기 둔다(백업의 settings-archive와 같다).
 
+import { botCompare } from "../ui/language.ts";
 import {
   TRACK_CACHE_COLUMNS,
   TRACK_CACHE_COLUMN_KINDS,
@@ -168,13 +169,12 @@ const FILTER_TIME_MS = 100;
 // 시각을 이 행 수마다 본다
 const FILTER_CHECK_EVERY = 256;
 
-const COLLATOR = new Intl.Collator("ko");
 // 빈 값은 방향과 상관없이 뒤로
 function compare(a: string | number | null, b: string | number | null, dir: "asc" | "desc") {
   if (a === b) return 0;
   if (a === null) return 1;
   if (b === null) return -1;
-  const order = typeof a === "number" && typeof b === "number" ? a - b : COLLATOR.compare(String(a), String(b));
+  const order = typeof a === "number" && typeof b === "number" ? a - b : botCompare(String(a), String(b));
   return dir === "desc" ? -order : order;
 }
 

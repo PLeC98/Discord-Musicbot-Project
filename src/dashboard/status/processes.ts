@@ -10,6 +10,7 @@ import { onWindow } from "../../infra/vitals.ts";
 import { STRAY_SHOWN, type AdminStatus, type ProcessRow, type StatusQuery } from "../contract/admin.ts";
 import { cut } from "../list-window.ts";
 import { oldestFirst, sortProcesses } from "./process-order.ts";
+import { botCompare } from "../../ui/language.ts";
 
 let memory = new Map<number, number>();
 let measuring = false;
@@ -48,7 +49,7 @@ function processSummary(client: Client, players: { has(guildId: string): boolean
   const byLabel = new Map<string, number>();
   for (const p of all) byLabel.set(p.label, (byLabel.get(p.label) ?? 0) + 1);
   const stray = all.filter((p) => p.stray).sort(oldestFirst);
-  const { from, rows } = cut(sortProcesses(all, query.sort, query.desc), query.procs);
+  const { from, rows } = cut(sortProcesses(all, query.sort, query.desc, botCompare), query.procs);
   return {
     total: all.length,
     byLabel: [...byLabel].map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)),

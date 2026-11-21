@@ -39,6 +39,9 @@ const closeWindows = async (n: number) => {
   await new Promise((resolve) => setImmediate(resolve));
 };
 
+// 이름 비교(봇은 봇 기본 언어의 형식 로케일)
+const KO = new Intl.Collator("ko").compare;
+
 test("최근 15분: 구간마다 한 점. 소리를 내는 플레이어 수(멈춤, 곡 없음은 빼고), 디스코드 지연, heap 사용률", async () => {
   startStatusHistory(bot, { readSystem: async () => null });
   const before = Date.now();
@@ -207,18 +210,18 @@ const pids = (rows: ProcessRow[]) => rows.map((p) => p.pid);
 
 test("프로세스 정렬: 방향은 고른 열에만, 같은 값끼리는 늘 오래된 것부터(같으면 pid)", () => {
   const rows = () => [proc(3, 10, { memMb: 40 }), proc(1, 30, { memMb: 40 }), proc(2, 30, { memMb: null }), proc(4, 20, { memMb: 90 })];
-  assert.deepEqual(pids(sortProcesses(rows(), "mem", true)), [4, 1, 3, 2], "못 잰 것은 가장 작게");
-  assert.deepEqual(pids(sortProcesses(rows(), "mem", false)), [2, 1, 3, 4], "같은 40 끼리는 오름차순에서도 오래된 것부터");
-  assert.deepEqual(pids(sortProcesses(rows(), "age", true)), [1, 2, 4, 3]);
-  assert.deepEqual(pids(sortProcesses(rows(), "age", false)), [3, 4, 1, 2]);
+  assert.deepEqual(pids(sortProcesses(rows(), "mem", true, KO)), [4, 1, 3, 2], "못 잰 것은 가장 작게");
+  assert.deepEqual(pids(sortProcesses(rows(), "mem", false, KO)), [2, 1, 3, 4], "같은 40 끼리는 오름차순에서도 오래된 것부터");
+  assert.deepEqual(pids(sortProcesses(rows(), "age", true, KO)), [1, 2, 4, 3]);
+  assert.deepEqual(pids(sortProcesses(rows(), "age", false, KO)), [3, 4, 1, 2]);
   const labels = [proc(1, 1, { label: "yt-dlp" }), proc(2, 2, { label: "ffmpeg" }), proc(3, 3, { label: "node" })];
-  assert.deepEqual(pids(sortProcesses(labels, "label", false)), [2, 3, 1]);
+  assert.deepEqual(pids(sortProcesses(labels, "label", false, KO)), [2, 3, 1]);
 });
 
 test("프로세스 정렬(작업): 서버 이름 있는 작업(이름 가나다 → 재생, 다음 곡, 곡 찾기) → 나간 서버 → 서버 밖 작업 → 봇 헬퍼", () => {
   const rows = [proc(1, 1, { job: "pot-server" }), proc(2, 1, { job: "lookup" }), proc(3, 1, { job: "play", guildId: "x" }), proc(4, 1, { job: "lookup", guildId: "b", guildName: "나비" }), proc(5, 1, { job: "play", guildId: "b", guildName: "나비" }), proc(6, 1, { job: "prefetch", guildId: "a", guildName: "가람" }), proc(7, 1, { job: "net-stats" }), proc(8, 1, { job: "prefetch" })];
-  assert.deepEqual(pids(sortProcesses([...rows], "job", false)), [6, 5, 4, 3, 8, 2, 1, 7]);
-  assert.deepEqual(pids(sortProcesses([...rows], "job", true)), [7, 1, 2, 8, 3, 4, 5, 6]);
+  assert.deepEqual(pids(sortProcesses([...rows], "job", false, KO)), [6, 5, 4, 3, 8, 2, 1, 7]);
+  assert.deepEqual(pids(sortProcesses([...rows], "job", true, KO)), [7, 1, 2, 8, 3, 4, 5, 6]);
 });
 
 test("플레이어: 상태별 개수, 합계는 전부, 행은 필터링된 것(상태, 검색)의 구간만, 멤버 표시는 그 행만", () => {

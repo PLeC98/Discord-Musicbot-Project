@@ -5,7 +5,7 @@
 import { MessageFlags } from "discord.js";
 import config from "../config/index.ts";
 import logger from "../infra/log/logger.ts";
-import { BASE_LANGUAGE, acceptedTags, availableLanguages, discordLanguage, isAvailable, matchLanguage, type Language } from "../rules/languages.ts";
+import { BASE_LANGUAGE, acceptedTags, availableLanguages, discordLanguage, infoOf, isAvailable, matchLanguage, type Language } from "../rules/languages.ts";
 import * as guildSettings from "../store/guild-settings.ts";
 import * as userSettings from "../store/user-settings.ts";
 import { textFor } from "./text/index.ts";
@@ -90,5 +90,16 @@ function readingTexts(asker: Asker) {
   ].map((tag) => textFor(tag));
 }
 
-export { botLanguage, guildLanguage, autoLanguage, personLanguage, audienceLanguage, viewerLanguage, publicText, privateText, audienceText, readingTexts, languagesNow };
+// 로케일마다 한 번 만드는 이름 비교
+const collators = new Map<string, Intl.Collator>();
+
+/** 서버 쪽 정렬(서버 목록, 프로세스, 캐시 DB)의 이름 비교. 봇 기본 언어의 형식 로케일을 쓴다(쪽 나눔과 엮여 있어 보는 사람마다 바꾸지 않는다) */
+function botCompare(a: string, b: string): number {
+  const locale = infoOf(botLanguage()).locale;
+  let collator = collators.get(locale);
+  if (!collator) collators.set(locale, (collator = new Intl.Collator(locale)));
+  return collator.compare(a, b);
+}
+
+export { botCompare, botLanguage, guildLanguage, autoLanguage, personLanguage, audienceLanguage, viewerLanguage, publicText, privateText, audienceText, readingTexts, languagesNow };
 export type { Asker };

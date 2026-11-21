@@ -3,7 +3,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createSettingsSaver, fieldKeysOf, failureOf, inheritCategories, mergeRefresh, patchOf, valuesOf, type Failure } from "../../../dashboard/src/utils/settings-draft.ts";
+import { createSettingsSaver, fieldKeysOf, failureOf, inheritCategories, mergeRefresh, patchOf, unsavedKeys, valuesOf, type Failure } from "../../../dashboard/src/utils/settings-draft.ts";
 import { valueAt, withValue, type SettingsKey, type SettingsValues } from "../../../src/rules/guild-settings-values.ts";
 import type { GuildSettings, SettingsSaved } from "../../../src/dashboard/contract/guilds.ts";
 import type { SettingsPatch } from "../../../src/dashboard/request-schemas.ts";
@@ -95,6 +95,14 @@ test("보낼 본문: 고친 키만, 키마다 기준값(from)과 고치는 값(t
   const draft = withValue(withValue(base, "djRoleIds", ["r2"]), "sponsorblock.enabled", false);
   assert.deepEqual(patchOf(base, draft, ["djRoleIds", "sponsorblock.enabled"]), { djRoleIds: { from: ["r1"], to: ["r2"] }, sponsorblock: { enabled: { from: true, to: false } } });
   assert.equal(patchOf(base, draft, []), null);
+});
+
+test("서버 언어: null(봇 기본 언어를 따름)도 값이라 고친 키로 잡고 보낸다", () => {
+  const base: SettingsValues = { language: null };
+  const picked = withValue(base, "language", "qps-ploc");
+  assert.deepEqual(unsavedKeys(base, picked), ["language"]);
+  assert.deepEqual(patchOf(base, picked, ["language"]), { language: { from: null, to: "qps-ploc" } });
+  assert.deepEqual(patchOf(picked, base, ["language"]), { language: { from: "qps-ploc", to: null } }, "봇 기본 언어를 따름으로 되돌리기");
 });
 
 test("받은 설정은 보이는 카드의 키만 값으로 삼는다(꺼진 연령 제한 카드는 없다)", () => {
