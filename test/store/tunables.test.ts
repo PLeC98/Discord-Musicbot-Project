@@ -288,3 +288,17 @@ test("제거된 운영 설정값은 예전 내보내기 파일에 있어도 모�
     ["tune-unknown-key"],
   );
 });
+
+test("DB에 남은 제거된 운영 설정값은 기동 때 경고 없이 무시하고, 화면에 내려주지 않고, 다음에 저장할 때 지운다", async () => {
+  docs.write("tunables", { TEST_LANGUAGE_ENABLED: "true", QUEUE_MAX_TRACKS: "300" }, 0);
+  const from = sink.buffer.length;
+  tunables.load();
+  assert.equal(config.bot.maxQueueSize, 300);
+  assert.ok(!sink.buffer.slice(from).some((e) => e.text.includes("TEST_LANGUAGE_ENABLED")));
+
+  const view = await req<View>("GET");
+  assert.deepEqual(view.json.values, { QUEUE_MAX_TRACKS: "300" });
+  const saved = await req<View>("PUT", { values: view.json.values, revision: view.json.revision });
+  assert.equal(saved.status, 200);
+  assert.deepEqual(docs.read("tunables").data, { QUEUE_MAX_TRACKS: "300" });
+});
