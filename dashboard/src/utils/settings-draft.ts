@@ -15,6 +15,7 @@ function valuesOf(data: GuildSettings): SettingsValues {
     ...(data.sponsorblock && { sponsorblock: { enabled: data.sponsorblock.enabled, categories: data.sponsorblock.categories && [...data.sponsorblock.categories] } }),
     ...(data.playlistAdd && { playlistAddMax: data.playlistAdd.value }),
     ...(data.agePlace !== undefined && { agePlace: data.agePlace }),
+    ...(data.language && { language: data.language.value }),
   };
 }
 
@@ -109,6 +110,7 @@ const POINTER_KEYS: ReadonlyArray<[RegExp, SettingsKey[]]> = [
   [/^\/sponsorblock$/, ["sponsorblock.enabled", "sponsorblock.categories"]],
   [/^\/playlistAddMax(\/|$)/, ["playlistAddMax"]],
   [/^\/agePlace(\/|$)/, ["agePlace"]],
+  [/^\/language(\/|$)/, ["language"]],
 ];
 
 /** 필드 오류(400)가 가리키는 키. 찾지 못하면 빈 배열 */

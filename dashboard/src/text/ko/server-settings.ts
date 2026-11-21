@@ -81,6 +81,14 @@ const agePlace = {
   allWarning: "이 서버의 모든 음성 채널에서 연령 제한이 걸린 곡을 재생할 수 있어요. 봇은 청취자의 연령을 확인하지 않아요.",
 };
 
+/** 서버 언어(언어가 둘 이상일 때만 보인다. 디스코드 /language의 서버 언어와 같은 값) */
+const language = {
+  title: "서버 언어",
+  desc: "이 서버의 공개 메시지(재생 패널, 알림)에 사용해요.",
+  /** 봇 기본 언어를 따름. name은 지금 봇 기본 언어의 이름(디스코드 /language와 같은 모양) */
+  followBot: (name: string) => `봇 기본 언어를 따름 (${name})`,
+};
+
 /** 봇 내보내기(디스코드에서 봇을 추방할 수 있는 사람). 확인 대화상자는 운영자 패널의 나가기와 같은 결 */
 const leave = {
   title: "봇 내보내기",
@@ -92,4 +100,4 @@ const leave = {
   failed: "봇을 내보내지 못했어요.",
 };
 
-export { backToPlayer, back, loadFailed, saveFailed, stay, normalize, channel, dj, sponsor, playlistAdd, agePlace, leave };
+export { backToPlayer, back, loadFailed, saveFailed, stay, normalize, channel, dj, sponsor, playlistAdd, agePlace, language, leave };

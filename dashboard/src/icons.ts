@@ -75,6 +75,7 @@ const ICONS = {
   info: 0xe88e,
   keep: 0xf027,
   key: 0xe73c,
+  language: 0xea07,
   left_panel_close: 0xf717,
   left_panel_open: 0xf716,
   library_music: 0xe030,

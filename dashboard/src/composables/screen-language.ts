@@ -9,7 +9,8 @@ import axios from "axios";
 import { BASE_LANGUAGE, infoOf, matchLanguage, type Language } from "../../../src/rules/languages.ts";
 import type { BotInfo, LanguageChoice, Me, MyLanguage, MyLanguageBody } from "../../../src/dashboard/contract/identity.ts";
 import { readStored, removeStored, writeStored } from "../utils/storage.ts";
-import { useTextLanguage } from "../text/index.ts";
+import { text, useTextLanguage } from "../text/index.ts";
+import type { Option } from "../utils/options.ts";
 import { useLocale } from "../utils/locale.ts";
 
 /** 고른 값: 언어나 자동 */
@@ -103,8 +104,15 @@ async function chooseLanguage(choice: Wanted, { signedIn }: { signedIn: boolean 
   await show(resolve(choice, navigator.languages, languages.value, botDefault.value));
 }
 
-/** 자동일 때 쓰는 언어(자동(한국어)처럼 보인다) */
-const autoShown = computed(() => autoLanguage(navigator.languages, languages.value, botDefault.value));
+/** 고를 언어가 있는가(언어가 하나면 고르는 곳을 감춘다. 디스코드 /language와 같다) */
+const canChoose = computed(() => languages.value.length > 1);
 
-export { languages, wanted, shown, autoShown, startChoice, resolve, startLanguage, saveToAccount, chooseLanguage };
+/** 고르는 드롭다운의 선택지: 자동(지금 쓰는 언어를 같이), 언어마다 그 언어로 쓴 이름 */
+const languageOptions = computed<Option[]>(() => {
+  const auto = autoLanguage(navigator.languages, languages.value, botDefault.value);
+  const autoName = languages.value.find((one) => one.tag === auto)?.name ?? auto;
+  return [{ value: "auto", label: text.language.autoWith(autoName) }, ...languages.value.map(({ tag, name }) => ({ value: tag, label: name }))];
+});
+
+export { languages, wanted, shown, canChoose, languageOptions, startChoice, resolve, startLanguage, saveToAccount, chooseLanguage };
 export type { Wanted };

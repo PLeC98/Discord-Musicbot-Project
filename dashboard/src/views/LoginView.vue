@@ -11,13 +11,22 @@
     <!-- waybar: 떠 있는 섬 셋 -->
     <!-- 세 열 격자(1fr, 가운데, 1fr): 양옆 섬 폭이 달라도 가운데 섬이 화면 가운데 -->
     <header ref="headerEl" class="relative z-20 grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 pt-3 text-sm font-mono whitespace-nowrap">
-      <!-- 왼쪽: 밝기(어두운, 밝은, 시스템)를 작업 공간 알약 모양으로. 선택한 것은 긴 알약(안에 아이콘), 나머지는 점. 로그인 전에도 바꾸고 저장해 대시보드도 따른다 -->
-      <div :class="[ISLAND, 'justify-self-start px-1.5 gap-0']" role="radiogroup" :aria-label="text.shell.brightness">
-        <button v-for="m in MODE_PILLS" :key="m.mode" type="button" role="radio" :aria-checked="mode === m.mode" :aria-label="m.label" v-tooltip="m.label" class="group/ws h-9 px-1 flex items-center cursor-pointer" @click="setMode(m.mode)">
-          <span class="h-4 rounded-full flex items-center justify-center [transition:width_460ms_var(--ease-spring),height_460ms_var(--ease-spring),background-color_250ms_var(--ease-effects)]" :class="mode === m.mode ? 'w-8 bg-primary text-on-primary' : 'w-2.5 h-2.5! bg-on-surface/25 group-hover/ws:bg-on-surface/50'">
-            <Icon v-if="mode === m.mode" :name="m.icon" :size="12" fill />
-          </span>
-        </button>
+      <!-- 왼쪽: 밝기(어두운, 밝은, 시스템)를 작업 공간 알약 모양으로. 선택한 것은 긴 알약(안에 아이콘), 나머지는 점. 로그인 전에도 바꾸고 저장해 대시보드도 따른다.
+           언어가 둘 이상이면 그 옆에 지구본 버튼(화면 언어. 이 브라우저가 기억하고, 로그인한 뒤 정한 적 없는 계정에 옮긴다). 미리 보기는 화면 언어를 바꾸지 않게 감춘다 -->
+      <div :class="[ISLAND, 'justify-self-start px-1.5 gap-0']">
+        <div class="flex items-center" role="radiogroup" :aria-label="text.shell.brightness">
+          <button v-for="m in MODE_PILLS" :key="m.mode" type="button" role="radio" :aria-checked="mode === m.mode" :aria-label="m.label" v-tooltip="m.label" class="group/ws h-9 px-1 flex items-center cursor-pointer" @click="setMode(m.mode)">
+            <span class="h-4 rounded-full flex items-center justify-center [transition:width_460ms_var(--ease-spring),height_460ms_var(--ease-spring),background-color_250ms_var(--ease-effects)]" :class="mode === m.mode ? 'w-8 bg-primary text-on-primary' : 'w-2.5 h-2.5! bg-on-surface/25 group-hover/ws:bg-on-surface/50'">
+              <Icon v-if="mode === m.mode" :name="m.icon" :size="12" fill />
+            </span>
+          </button>
+        </div>
+        <template v-if="canChoose && !preview">
+          <span class="px-1 text-on-surface-variant">│</span>
+          <SingleSelect :model-value="wanted" :options="languageOptions" :label="text.language.pick" :panel-width="224" trigger-class="h-9 px-1 flex items-center cursor-pointer text-on-surface-variant hover:text-on-surface transition-colors effects-fast" @update:model-value="pickLanguage">
+            <template #trigger><Icon name="language" :size="16" /></template>
+          </SingleSelect>
+        </template>
       </div>
       <div :class="ISLAND" class="hidden md:flex"><Icon name="lock" :size="16" class="text-tertiary" fill />locked</div>
       <div :class="ISLAND" class="col-start-3 justify-self-end">
@@ -98,6 +107,9 @@ import LoginBackdrop from "../components/LoginBackdrop.vue";
 import Icon from "../components/BaseIcon.vue";
 import DiscordMark from "../components/DiscordMark.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
+import SingleSelect from "../components/SingleSelect.vue";
+import { canChoose, chooseLanguage, languageOptions, wanted, type Wanted } from "../composables/screen-language.ts";
+import type { OptionValue } from "../utils/options.ts";
 import { mode, releasePageArt, setMode, setPageArt, type Mode } from "../theme/theme.ts";
 import { useMediaQuery } from "@vueuse/core";
 import { SHORT_QUERY } from "../utils/breakpoints.ts";
@@ -154,6 +166,11 @@ const MODE_PILLS = computed<Array<{ mode: Mode; label: string; icon: IconName }>
   { mode: "light", label: T.modeLight, icon: "light_mode" },
   { mode: "system", label: T.modeSystem, icon: "contrast" },
 ]);
+
+// 지구본 버튼으로 고른 화면 언어. 로그인 전이라 계정에 저장하지 않고 고른 표시를 남긴다(composables/screen-language)
+function pickLanguage(value: OptionValue) {
+  void chooseLanguage(value as Wanted, { signedIn: false });
+}
 
 // 위 막대 오른쪽의 짧은 날짜("Fri 10/09"). 날짜는 여기에만 둔다. 잠금 화면 스타일이라 영어로 적는다(utils/locale의 예외)
 const shortDate = computed(() => `${now.value.toLocaleDateString("en-US", { weekday: "short" })} ${two(now.value.getMonth() + 1)}/${two(now.value.getDate())}`);

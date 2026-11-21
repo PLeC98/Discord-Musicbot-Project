@@ -98,7 +98,7 @@ const MoreCount = z.number().int().min(1).max(MAX_COUNT);
 /**
  * 서버 설정 저장(PATCH)의 본문. 바꾸는 필드만 담고, 필드마다 화면이 읽은 값(from)과 바꿀 값(to)을 넣는다.
  * from은 타입만 본다(범위 밖이 된 저장값도 받는다. 값은 경로가 지금 값과 비교한다). 순서는 문제를 알리는 순서다.
- * 전용 채널, 재생목록 곡 수의 to가 null이면 기본값으로 되돌린다. SponsorBlock 구간의 from이 null이면 운영자의 기본 구간을 따르던 것이다
+ * 전용 채널, 재생목록 곡 수, 서버 언어의 to가 null이면 기본값으로 되돌린다. SponsorBlock 구간의 from이 null이면 운영자의 기본 구간을 따르던 것이다
  */
 function settingsPatch({ min, max }: { min: number; max: number }) {
   const BAD_PLAYLIST_ADD = { error: "playlist-limit-out-of-range" satisfies Code };
@@ -107,6 +107,7 @@ function settingsPatch({ min, max }: { min: number; max: number }) {
   const BAD_ROLES = { error: "bad-dj-roles" satisfies Code };
   const BAD_CHANNEL = { error: "bad-bot-channel" satisfies Code };
   const BAD_AGE = { error: "bad-request" satisfies Code };
+  const BAD_LANGUAGE = { error: "bad-request" satisfies Code };
   const change = <F extends z.ZodType, T extends z.ZodType>(from: F, to: T, error: { error: string }) => z.object({ from, to }, error);
   const categories = z.array(z.string(BAD_CATEGORIES), BAD_CATEGORIES);
   return z.object(
@@ -125,16 +126,18 @@ function settingsPatch({ min, max }: { min: number; max: number }) {
       botChannelId: change(z.union([z.null(), z.string()], BAD_CHANNEL), z.union([z.null(), z.string()], BAD_CHANNEL), BAD_CHANNEL).optional(),
       // 연령 제한 콘텐츠를 재생할 곳(store/guild-settings의 agePlace)
       agePlace: change(z.string(BAD_AGE), z.enum(AGE_PLACES, BAD_AGE), BAD_AGE).optional(),
+      // 서버 언어(store/guild-settings의 language). null은 봇 기본 언어를 따른다. 지금 쓸 수 있는 언어인지는 라우트에서 검사한다
+      language: change(z.union([z.null(), z.string()], BAD_LANGUAGE), z.union([z.null(), z.enum(KNOWN_TAGS)], BAD_LANGUAGE), BAD_LANGUAGE).optional(),
     },
     { error: "bad-settings" satisfies Code },
   );
 }
 
 /** 바로 켜고 끄는 카드(상주 모드, 볼륨 정규화)의 본문 { on }. 참, 거짓이 아니면 거절한다(끄기로 읽지 않는다) */
+const ToggleBody = z.object({ on: z.boolean({ error: "bad-request" satisfies Code }) }, { error: "bad-request" satisfies Code });
+
 /** 개인 언어 저장(PUT /api/me/language)의 본문 { language }. 언어 태그이거나 "auto". 쓸 수 있는 언어인지는 라우트에서 검사한다 */
 const MyLanguageBody = z.object({ language: z.union([z.literal("auto"), z.enum(KNOWN_TAGS)], { error: "bad-request" satisfies Code }) }, { error: "bad-request" satisfies Code });
-
-const ToggleBody = z.object({ on: z.boolean({ error: "bad-request" satisfies Code }) }, { error: "bad-request" satisfies Code });
 
 /** 서버 설정 저장(PATCH)의 본문(화면이 보내는 모양) */
 type SettingsPatch = z.input<ReturnType<typeof settingsPatch>>;

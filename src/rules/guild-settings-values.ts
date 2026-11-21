@@ -1,10 +1,12 @@
 // 대시보드 서버 설정 화면이 주고받는 서버별 설정 값의 타입과 비교 함수. 화면(dashboard/src)과 봇이 같이 쓴다(Node를 부르지 않는다).
 
 import type { AgePlace } from "./age-place.ts";
+import type { Language } from "./languages.ts";
 
 /**
  * 서버 설정 화면이 주고받는 값. 키가 없으면 그 카드가 보이지 않는다.
  * sponsorblock.categories가 null이면 운영자의 기본 구간을 따른다(기본 구간을 그대로 적어 둔 배열과 다르다).
+ * language가 null이면 봇 기본 언어를 따른다(봇 기본 언어를 그대로 고른 것과 다르다)
  */
 type SettingsValues = {
   botChannelId?: string | null;
@@ -12,12 +14,13 @@ type SettingsValues = {
   sponsorblock?: { enabled?: boolean; categories?: string[] | null };
   playlistAddMax?: number | null;
   agePlace?: AgePlace;
+  language?: Language | null;
 };
 
 /** 보내기, 비교, 충돌 판정의 단위 */
-type SettingsKey = "botChannelId" | "djRoleIds" | "sponsorblock.enabled" | "sponsorblock.categories" | "playlistAddMax" | "agePlace";
+type SettingsKey = "botChannelId" | "djRoleIds" | "sponsorblock.enabled" | "sponsorblock.categories" | "playlistAddMax" | "agePlace" | "language";
 
-const SETTINGS_KEYS: readonly SettingsKey[] = ["botChannelId", "djRoleIds", "sponsorblock.enabled", "sponsorblock.categories", "playlistAddMax", "agePlace"];
+const SETTINGS_KEYS: readonly SettingsKey[] = ["botChannelId", "djRoleIds", "sponsorblock.enabled", "sponsorblock.categories", "playlistAddMax", "agePlace", "language"];
 
 /** 키의 값. 없으면 undefined(카드가 안 보임) */
 function valueAt(values: SettingsValues, key: SettingsKey): unknown {
