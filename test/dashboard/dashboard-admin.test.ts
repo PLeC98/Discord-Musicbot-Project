@@ -6,6 +6,7 @@
 process.env.OWNER_ID = "owner";
 
 const { listenForFetch, baseUrl } = await import("../helpers/listen.ts");
+import { plain, rule, type RuleProblem } from "../../src/rules/rule-problem.ts";
 import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
@@ -588,16 +589,16 @@ test("소스 종류: 무엇을 받고 지금 쓸 수 있는지까지 알려준�
 
 // 판정 테스트는 보기 곡이 아니라 진짜 곡으로 테스트한다. 링크 조회는 아무것도 안 보낸다.
 test("AI 보조: 유튜브 주소로 후보를 읽는다", async () => {
-  const bad = await req<{ candidates: { error?: string }[] }>("POST", "/api/admin/ai/judge/lookup", { urls: ["https://example.com/노래"] });
+  const bad = await req<{ candidates: { error?: RuleProblem }[] }>("POST", "/api/admin/ai/judge/lookup", { urls: ["https://example.com/노래"] });
   assert.equal(bad.status, 200);
-  assert.equal(bad.json.candidates[0].error, "유튜브 URL이 아니라 건너뛰었어요.", "못 읽은 줄도 왜 안 됐는지 알려 준다");
+  assert.deepEqual(bad.json.candidates[0].error, rule("ai-cand-not-youtube"), "못 읽은 줄도 왜 안 됐는지 알려 준다");
   // 읽다 예외를 던진 줄은 yt-dlp 원문이 아니라 그 종류의 안내 제목
   // 맨 위에서 불러오면 테스트 준비보다 먼저 설정을 읽어 다른 테스트가 403이 된다
   const { useExec } = await import("../../src/sources/ytdlp-spawn.ts");
   useExec((() => Promise.reject(Object.assign(new Error("exit 1"), { stderr: "ERROR: [youtube] zzzzzzzzzzz: Video unavailable", exitCode: 1 }))) as unknown as Exec);
   try {
-    const gone = await req<{ candidates: { error?: string }[] }>("POST", "/api/admin/ai/judge/lookup", { urls: ["https://www.youtube.com/watch?v=zzzzzzzzzzz"] });
-    assert.equal(gone.json.candidates[0].error, "접근할 수 없거나 존재하지 않는 영상이에요!");
+    const gone = await req<{ candidates: { error?: RuleProblem }[] }>("POST", "/api/admin/ai/judge/lookup", { urls: ["https://www.youtube.com/watch?v=zzzzzzzzzzz"] });
+    assert.deepEqual(gone.json.candidates[0].error, plain("접근할 수 없거나 존재하지 않는 영상이에요!"));
   } finally {
     useExec(null);
   }

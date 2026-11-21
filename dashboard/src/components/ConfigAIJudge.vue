@@ -38,7 +38,7 @@
         <ul class="flex flex-col rounded-(--r-inner) bg-surface-container-highest divide-y divide-outline-variant/40">
           <li v-for="(cand, i) in judgeCands" :key="cand.url" class="flex items-start gap-3 px-3 py-2">
             <span v-if="judgeVerdicts" class="shrink-0 w-16 text-xs font-semibold" :class="verdictOk(judgeVerdicts[i]) ? 'text-primary' : 'text-error'">{{ verdictText(judgeVerdicts[i]) }}</span>
-            <p v-if="cand.error" class="min-w-0 flex-1 text-xs text-error break-all">{{ cand.url }}: {{ cand.error }}</p>
+            <p v-if="cand.error" class="min-w-0 flex-1 text-xs text-error break-all">{{ cand.url }}: {{ ruleLine(cand.error) }}</p>
             <p v-else class="min-w-0 flex-1 font-mono text-xs text-on-surface break-all">{{ lineFor(cand) }}</p>
           </li>
         </ul>
@@ -74,6 +74,7 @@ import NoticeBox from "./NoticeBox.vue";
 import { FIELD, FIELD_LABEL, AREA, CODE_BOX } from "../utils/field.ts";
 import { valueOf } from "../utils/dom.ts";
 import { text } from "../text/index.ts";
+import { ruleLine } from "../utils/rule-line.ts";
 import { useAiEditor } from "../composables/ai-editor.ts";
 const TJ = text.ai.judge;
 

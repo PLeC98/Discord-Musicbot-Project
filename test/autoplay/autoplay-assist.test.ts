@@ -4,6 +4,7 @@
 // 모델이 죽든, 느리든, 헛소리를 하든 자동재생이 멈추면 안 된다. 그 경계만 못 박는다.
 // (판정 품질 자체는 모델과 프롬프트의 몫이다.)
 
+import { plain, rule } from "../../src/rules/rule-problem.ts";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 
@@ -591,7 +592,6 @@ test("추가 파라미터: 값, JSON, 헤더, 빼기", () => {
   assert.deepEqual(got.body, { think: false, reasoning_effort: "low", top_p: 0.9, response_format: { type: "json_object" } });
   assert.deepEqual(got.headers, { "X-Title": "Discord Musicbot" });
   assert.deepEqual(got.drop, ["temperature"]);
-  assert.deepEqual(got.problems, ["이름이 없음: 이름없음"]);
 });
 
 // 점 표기가 없으면 추론 레벨을 여기로 우회할 수 없다. 키 이름이 통째로 들어가 조용히 무시된다.
@@ -616,14 +616,10 @@ test("추가 파라미터: 값의 형식", () => {
   assert.deepEqual(got.body.cfg, { a: true, b: null }, "파이썬 형식 키워드도 읽는다");
 });
 
-// 조용히 버리면 "왜 적용이 안 되지"가 된다. 못 읽은 줄은 돌려줘서 화면이 보여 준다.
-test("추가 파라미터: 못 읽은 줄을 알려 준다", () => {
+test("추가 파라미터: 못 읽은 줄은 건너뛰고 멀쩡한 줄은 살린다", () => {
   const got = assist.parseExtra(["cfg=json::{깨짐", "empty=", "ok=1"].join("\n"));
 
-  assert.deepEqual(got.body, { ok: 1 }, "멀쩡한 줄은 살린다");
-  assert.equal(got.problems.length, 2);
-  assert.match(got.problems.join(" "), /JSON으로 읽지 못함: cfg/);
-  assert.match(got.problems.join(" "), /값이 없음: empty/);
+  assert.deepEqual(got.body, { ok: 1 });
 });
 
 // {{none}}을 header:: 보다 먼저 봐야 한다. 반대로 보면 헤더에 "{{none}}"을 넣게 된다.
@@ -763,7 +759,6 @@ test("점 경로로 Object.prototype을 오염시킬 수 없다", () => {
   for (const name of ["__proto__.뚫림", "constructor.prototype.뚫림", "a.__proto__.뚫림"]) {
     const got = assist.parseExtra(`${name}=1`);
     assert.deepEqual(got.body, {}, name);
-    assert.match(got.problems.join(" "), /쓸 수 없는 이름/, `${name}: 조용히 버리지 않고 알려 준다`);
   }
   assert.equal(({} as { 뚫림?: unknown }).뚫림, undefined, "Object.prototype이 멀쩡해야 한다");
 });
@@ -772,7 +767,6 @@ test("점 경로로 Object.prototype을 오염시킬 수 없다", () => {
 test("평범한 점 경로는 막지 않는다", () => {
   const got = assist.parseExtra("generationConfig.topP=0.9");
   assert.deepEqual(got.body, { generationConfig: { topP: 0.9 } });
-  assert.deepEqual(got.problems, []);
 });
 
 // 온도도 모델이 받는 필드 하나라 프로필이 적어 둔 위치로 들어간다(제미니는 generationConfig 안).
@@ -910,11 +904,11 @@ test("확인 실패는 상태 코드와 본문을 그대로 전한다", async ()
 
   const got = await assist.listModels({ provider: "openai", baseUrl: "http://x/v1" });
   assert.equal(got.ok, false);
-  assert.match(String(got.reason), /429/);
+  assert.deepEqual(got.reason, plain("HTTP 429"));
   assert.match(String(got.response), /rate limit exceeded/);
 
-  assert.equal((await assist.listModels({ provider: "off" })).reason, "프로바이더가 설정되지 않았어요", "왜 안 도는지도 말한다");
-  assert.equal((await assist.listModels({ provider: "nope" })).reason, "모르는 프로바이더예요(nope)");
+  assert.deepEqual((await assist.listModels({ provider: "off" })).reason, rule("ai-no-provider"), "왜 안 도는지도 말한다");
+  assert.deepEqual((await assist.listModels({ provider: "nope" })).reason, rule("ai-unknown-provider", { provider: "nope" }));
 });
 
 // ── 무료 확인(모델 목록)과 유료 확인(짧은 생성) ───────────────────────────
@@ -1012,7 +1006,7 @@ test("모델 목록: 키가 없거나 저쪽이 거절하면 다운로드해 둔
   const keyless = await assist.listModels({ provider: "openai", hideModels: [preset[0]] });
   assert.deepEqual(calls, [], "키 없이는 묻지 않는다");
   assert.deepEqual([keyless.ok, keyless.preset, keyless.models?.length, keyless.hiddenCount], [false, true, preset.length - 1, 1]);
-  assert.match(String(keyless.reason), /키가 없어/);
+  assert.deepEqual(keyless.reason, rule("ai-key-not-asked"));
 
   useConfig(ON); // 키를 다시 넣는다
   const refused = await assist.listModels({ provider: "openai" });
@@ -1503,7 +1497,7 @@ test("버텍스 미리보기는 토큰을 받으러 나가지 않는다. 연결 
 
   const pinged = await assist.ping({ provider: "vertex", model: "gemini-3.7-flash", location: "global", project: "p" });
   assert.equal(pinged.ok, false);
-  assert.match(String(pinged.reason), /network down/);
+  assert.match(pinged.reason ? logRuleLine(pinged.reason) : "", /network down/);
 
   const judged = await assist.judgeTest({ provider: "vertex", model: "gemini-3.7-flash", location: "global", project: "p" }, []);
   assert.equal(judged.status, null);
@@ -1516,10 +1510,10 @@ test("판정 테스트 후보: 못 읽은 줄은 호출부가 고른 안내를 �
   t.after(() => useExec(null));
   const from = sink.buffer.length;
 
-  const [gone, other] = await assist.candidatesFromUrls([url, "https://example.com/노래"], { describe: (e) => `안내(${errorKind(e)})` });
+  const [gone, other] = await assist.candidatesFromUrls([url, "https://example.com/노래"], { describe: (e) => plain(`안내(${errorKind(e)})`) });
 
-  assert.deepEqual(gone, { url, error: "안내(unavailable-contents)" });
-  assert.deepEqual(other, { url: "https://example.com/노래", error: "유튜브 URL이 아니라 건너뛰었어요." });
+  assert.deepEqual(gone, { url, error: plain("안내(unavailable-contents)") });
+  assert.deepEqual(other, { url: "https://example.com/노래", error: rule("ai-cand-not-youtube") });
   const lines = sink.buffer
     .slice(from)
     .filter((e) => e.text.startsWith("AI 판정 테스트 후보"))
@@ -1530,8 +1524,8 @@ test("판정 테스트 후보: 못 읽은 줄은 호출부가 고른 안내를 �
 test("판정 테스트 후보: 정해 둔 시간을 넘기면 그만두고 그렇다고 보인다", async (t) => {
   useExec((() => new Promise((ok) => setTimeout(() => ok({ stdout: "{}", stderr: "" }), 200))) as unknown as Exec);
   t.after(() => useExec(null));
-  const [one] = await assist.candidatesFromUrls(["https://www.youtube.com/watch?v=yyyyyyyyyyy"], { describe: () => "부르면 안 된다", timeoutMs: 20 });
-  assert.deepEqual(one, { url: "https://www.youtube.com/watch?v=yyyyyyyyyyy", error: "시간 초과(0.02초)로 곡 정보를 불러오지 못했어요." });
+  const [one] = await assist.candidatesFromUrls(["https://www.youtube.com/watch?v=yyyyyyyyyyy"], { describe: () => plain("부르면 안 된다"), timeoutMs: 20 });
+  assert.deepEqual(one, { url: "https://www.youtube.com/watch?v=yyyyyyyyyyy", error: rule("ai-cand-timeout", { sec: 0.02 }) });
 });
 
 test("운영자 패널의 테스트(저장 전 초안)도 요청 시간 한도를 저장할 때와 같은 범위로 제한한다(본문 값을 그대로 쓰지 않는다)", async () => {

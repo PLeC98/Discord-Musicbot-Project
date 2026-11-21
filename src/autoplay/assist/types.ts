@@ -1,5 +1,6 @@
 // AI 보조의 모양. 판정, 확인, 미리보기가 돌려주는 것은 대시보드가 그대로 받으므로 Node를 부르지 않는 여기에 둔다
 
+import type { RuleProblem } from "../../rules/rule-problem.ts";
 import type { PromptSection } from "../../config/schema/ai-prompt.ts";
 
 /** 후보 목록 한 줄을 어떻게 적을지(AI 설정의 list) */
@@ -37,7 +38,7 @@ type AiDefaults = { timeoutMs: number; batchSize: number; skipConfident: boolean
 /** 판정할 후보. 길이 필드 이름은 후보(durationSec)와 트랙(duration)이 다르다 */
 type Judged = { title?: string | null; durationSec?: number | null; duration?: number | null };
 /** 판정 테스트용 후보. 못 읽었으면 error */
-type TestCandidate = Judged & { url?: string; thumbnail?: string | null; channel?: string | null; error?: string };
+type TestCandidate = Judged & { url?: string; thumbnail?: string | null; channel?: string | null; error?: RuleProblem };
 /** 저쪽에 보내는 메시지 하나 */
 type Wire = { role: string; content: string };
 /** 화면에 보이는 메시지. at은 원래 섹션 번호(라벨용, 저쪽에는 보내지 않는다) */
@@ -49,7 +50,7 @@ type Usage = { input: number; output: number | null; thoughts: number | null; ca
 type TokenCount = { total: number; body: number; each?: number[]; by: string; exact: boolean };
 
 /** 나갈 것을 만들어만 본 것. 헤더의 키 값은 가려져 있다 */
-type Preview = { url: string; headers: Record<string, string>; body: Body; messages: ShownMessage[]; tokens: TokenCount | null; problems: string[] };
+type Preview = { url: string; headers: Record<string, string>; body: Body; messages: ShownMessage[]; tokens: TokenCount | null };
 
 /** 판정 테스트의 답. 나간 것, 온 것, 곡별 판정 */
 type JudgeResult = Preview & {
@@ -61,12 +62,12 @@ type JudgeResult = Preview & {
 };
 
 /**
- * 모델 목록 확인(무료). 저쪽에 닿기 전에 막혔으면 reason만 있다.
+ * 모델 목록 확인(무료). 저쪽에 닿기 전에 막혔으면 reason만 있다. reason은 규칙 문제(HTTP 상태와 오류 메시지는 plain).
  * preset이면 저쪽 목록이 아니라 모델 프로필(config/ai-models)로 채운 목록이다(저쪽에 조회하지 못했다)
  */
-type ModelsCheck = { ok: boolean; reason?: string; url?: string; status?: number | null; models?: string[]; hiddenCount?: number; preset?: boolean; response?: string; tookMs?: number };
+type ModelsCheck = { ok: boolean; reason?: RuleProblem; url?: string; status?: number | null; models?: string[]; hiddenCount?: number; preset?: boolean; response?: string; tookMs?: number };
 
-/** 짧은 물음 하나로 확인(유료). 저쪽에 닿기 전에 막혔으면 reason만 있다 */
-type PingCheck = { ok: boolean; reason?: string; url?: string; headers?: Record<string, string>; body?: Body; status?: number | null; response?: string; answer?: string; tookMs?: number };
+/** 짧은 물음 하나로 확인(유료). 저쪽에 닿기 전에 막혔으면 reason만 있다. reason은 ModelsCheck와 같다 */
+type PingCheck = { ok: boolean; reason?: RuleProblem; url?: string; headers?: Record<string, string>; body?: Body; status?: number | null; response?: string; answer?: string; tookMs?: number };
 
 export type { ListFormat, AiSettings, AiDefaults, Judged, TestCandidate, Wire, ShownMessage, Body, Usage, TokenCount, Preview, JudgeResult, ModelsCheck, PingCheck };

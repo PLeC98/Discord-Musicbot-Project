@@ -2,7 +2,7 @@
 // 경로가 /api/admin인 것은 대시보드 운영자 패널의 주소일 뿐, 디스코드 서버 쪽 권한과는 무관하다.
 
 import { ruleTextFor } from "../../rules/text/index.ts";
-import type { RuleProblem } from "../../rules/rule-problem.ts";
+import { plain, rule, type RuleProblem } from "../../rules/rule-problem.ts";
 import express from "express";
 import * as sessionRequests from "../session-requests.ts";
 import { toDiscordText } from "../../rules/app-emoji-token.ts";
@@ -11,7 +11,7 @@ import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import { requireOwner } from "../middleware/require-owner.ts";
 import { signedIn } from "../middleware/require-auth.ts";
-import { codeOf, messageOf } from "../../rules/error-kind.ts";
+import { codeOf, errorProblem, messageOf } from "../../rules/error-kind.ts";
 import { sendProblem } from "../problem.ts";
 import logSink from "../../infra/log/sink.ts";
 import { getViewAs } from "../view-as.ts";
@@ -382,8 +382,8 @@ adminRouter.post("/ai/judge/lookup", async (req, res) => {
   if (!urls.length) return sendProblem(res, "urls-empty");
   if (urls.length > 20) return sendProblem(res, "too-many-items", { max: 20 });
 
-  // 못 읽은 줄의 안내는 그 오류 종류의 제목(디스코드 안내와 같은 글)
-  res.json({ candidates: await assist.candidatesFromUrls(urls, { describe: (error) => errorMessage(textFor(viewerLanguage({ userId: req.session.user?.id, acceptLanguage: req.get("accept-language") })), error).title }) } satisfies CandidatesReply);
+  // 못 읽은 줄의 안내는 해당 오류 종류의 제목(디스코드 안내와 같은 문구, 사용자 언어로 그린 plain)
+  res.json({ candidates: await assist.candidatesFromUrls(urls, { describe: (error) => plain(errorMessage(textFor(viewerLanguage({ userId: req.session.user?.id, acceptLanguage: req.get("accept-language") })), error).title) }) } satisfies CandidatesReply);
 });
 
 /** 그 후보들이 프롬프트에 어떻게 적히는지. 목록 형식, 장르를 고치는 대로 다시 그린다. */
@@ -408,7 +408,7 @@ adminRouter.put("/ai/keys", requireRecentLogin, (req, res) => {
   const problem = Object.entries(keys as Record<string, unknown>)
     .map(([provider, value]) => aiKeyProblem(provider, value, draft))
     .find(Boolean);
-  if (problem) return sendProblem(res, "config-invalid", {}, { detail: problem });
+  if (problem) return sendProblem(res, "config-invalid", {}, { errors: [{ code: "config-invalid", rule: problem }] });
   try {
     for (const [provider, value] of Object.entries(keys as Record<string, string>)) {
       if (!value.trim()) aiKeys.remove(provider);
@@ -423,24 +423,24 @@ adminRouter.put("/ai/keys", requireRecentLogin, (req, res) => {
 });
 
 // 입력할 수 없는 키면 원인. 키를 쓰는 프로바이더여야 하고, 묶을 주소가 있어야 하고, 서비스 계정은 JSON 내용이어야 한다
-function aiKeyProblem(provider: string, value: unknown, draft: Record<string, unknown>) {
+function aiKeyProblem(provider: string, value: unknown, draft: Record<string, unknown>): RuleProblem | null {
   const spec = assist.PROVIDER_SPECS[provider];
-  if (!spec?.key) return `${provider}: 키를 쓰지 않는 프로바이더`;
-  if (typeof value !== "string") return `${provider}: 키는 문자열이어야 함`;
+  if (!spec?.key) return rule("ai-key-unused", { provider });
+  if (typeof value !== "string") return rule("ai-key-not-text", { provider });
   if (!value.trim()) return null;
-  if (!/^https?:\/\//.test(assist.keyBinding({ ...draft, provider }))) return `${spec.label}: 키를 묶을 주소가 없음. 주소를 먼저 입력하세요`;
+  if (!/^https?:\/\//.test(assist.keyBinding({ ...draft, provider }))) return rule("ai-key-no-url", { label: spec.label });
   if (spec.serviceAccount) return accountProblem(spec.label, value);
   return null;
 }
 
 // 서비스 계정은 쓸 때 읽는 것(googleAuth.readAccount)과 같은 검사로 저장 전에 본다. 잘못 붙여넣은 것이 쓸 때야 드러나지 않게
-function accountProblem(label: string, value: string) {
-  if (!value.trim().startsWith("{")) return `${label}: 서비스 계정 JSON 내용을 붙여넣으세요(파일 경로는 받지 않음)`;
+function accountProblem(label: string, value: string): RuleProblem | null {
+  if (!value.trim().startsWith("{")) return rule("ai-key-paste-json", { label });
   try {
     googleAuth.readAccount(value);
     return null;
   } catch (error) {
-    return `${label}: ${messageOf(error)}`;
+    return rule("ai-key-account", { label }, errorProblem(error));
   }
 }
 

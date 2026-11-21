@@ -738,7 +738,7 @@ function modelList(s: State, io: Exchange, reads: ReturnType<typeof serverReads>
   function modelsTested(got: ModelsCheck): Tested {
     const hidden = got.hiddenCount ? T.hiddenCount(got.hiddenCount) : "";
     const extra = got.ok ? `${T.modelCount(models.value.length)}${hidden}` : got.preset ? `${T.presetModels(models.value.length)}${hidden}` : "";
-    return { kind: TT.free, ok: got.ok, status: got.status, tookMs: got.tookMs ?? 0, reason: got.reason, extra, body: got.ok ? "" : got.response, raw: got.response };
+    return { kind: TT.free, ok: got.ok, status: got.status, tookMs: got.tookMs ?? 0, reason: got.reason ? ruleLine(got.reason) : undefined, extra, body: got.ok ? "" : got.response, raw: got.response };
   }
   // 무료. 추론을 안 돌린다. 연결 확인이자 모델 목록 불러오기다(같은 한 번의 호출이다).
   // quiet: 프로바이더를 선택할 때 저절로 도는 것이라 실패를 빨갛게 표시하지 않는다.
@@ -824,7 +824,7 @@ function paidActions(s: State, io: Exchange, judge: Judge, serviceAccount: () =>
     showRaw.value = false;
     try {
       const got = (await axios.post<PingCheck>("/api/admin/ai/ping", { data: io.payload.value }, { timeout: LIMIT.none })).data;
-      tested.value = { kind: TT.paid, ok: got.ok, status: got.status, tookMs: got.tookMs ?? 0, reason: got.reason, asked: pingText.value, body: got.answer || got.response, raw: got.response };
+      tested.value = { kind: TT.paid, ok: got.ok, status: got.status, tookMs: got.tookMs ?? 0, reason: got.reason ? ruleLine(got.reason) : undefined, asked: pingText.value, body: got.answer || got.response, raw: got.response };
     } catch (error) {
       tested.value = { kind: TT.paid, ok: false, status: null, tookMs: 0, reason: problemText(error, T.failed.send) };
     } finally {

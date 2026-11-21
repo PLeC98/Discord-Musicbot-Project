@@ -8,6 +8,8 @@
 // 그래서 여기서 던지는 오류는 우리가 쓴 문구뿐이고, 저쪽 응답은 본문 앞부분만 싣는다.
 
 import crypto from "crypto";
+import { rule, type RuleCode } from "../../rules/rule-problem.ts";
+import { logRuleLine } from "../../rules/text/index.ts";
 
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const SCOPE = "https://www.googleapis.com/auth/cloud-platform";
@@ -24,20 +26,26 @@ const b64url = (input: string) => Buffer.from(input).toString("base64url");
  * 서비스 계정 JSON을 읽는다. 내용을 통째로 받는다(비밀 표에 암호화해 둔 것).
  * 파일 경로는 받지 않는다. 경로만 감추면 private_key가 디스크에 그대로 남는다
  */
+// 서비스 계정을 읽지 못한 이유. 메시지는 로그 언어 문장, problem은 화면이 사용자 언어로 그린다
+function accountError(code: RuleCode) {
+  const problem = rule(code);
+  return Object.assign(new Error(logRuleLine(problem)), { problem });
+}
+
 function readAccount(where: unknown): Account {
   const raw = String(where || "").trim();
-  if (!raw) throw new Error("서비스 계정이 설정되지 않음");
-  if (!raw.startsWith("{")) throw new Error("서비스 계정은 JSON 내용이어야 함(파일 경로는 받지 않음). 파일 내용을 붙여넣으세요");
+  if (!raw) throw accountError("ai-account-missing");
+  if (!raw.startsWith("{")) throw accountError("ai-account-not-json");
 
   let account: Partial<Account> | null;
   try {
     account = JSON.parse(raw);
   } catch {
-    throw new Error("서비스 계정 JSON 읽기 실패: 형식이 깨짐");
+    throw accountError("ai-account-broken");
   }
 
   const { client_email, private_key } = account ?? {};
-  if (!client_email || !private_key) throw new Error("서비스 계정 JSON에 client_email 또는 private_key가 없음");
+  if (!client_email || !private_key) throw accountError("ai-account-fields");
   return { ...account, client_email, private_key };
 }
 
