@@ -126,7 +126,7 @@ test("다른 봇 폴더에 풀어 덮어쓰면 다음 기동이 설정 DB를 교
   assert.equal(fs.readFileSync(path.join(bot, ".env"), "utf8"), "DISCORD_TOKEN=token-for-test\n");
 
   const database = path.join(bot, "database");
-  assert.match(snapshots.applyStaged(database) ?? "", /전체 백업 musicbot-full-/);
+  assert.match(snapshots.applyStaged(database) ?? "", /^musicbot-full-.+\.zip$/);
   assert.ok(!fs.existsSync(path.join(database, "settings.db-wal")), "남은 기록은 치운다(열어 보기 전에 본다. 열면 SQLite가 새로 만든다)");
   assert.deepEqual(statusIn(path.join(database, "settings.db")), { messages: ["옮길 것"] });
   const kept = snapshots.list(database).find((one) => one.kind === "before-restore");

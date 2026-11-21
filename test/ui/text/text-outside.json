@@ -1,7 +1,6 @@
 {
   "src/app/app-info.ts": 1,
   "src/app/command-loader.ts": 1,
-  "src/app/full-backup.ts": 1,
   "src/app/launcher.ts": 2,
   "src/app/login.ts": 1,
   "src/app/main.ts": 10,

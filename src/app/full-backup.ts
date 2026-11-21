@@ -211,7 +211,7 @@ async function makeFullBackup(paths: Partial<Paths> = {}, at = new Date(), { wit
     : null;
   const inputs: ZipInput[] = [
     { name: "database/settings.restore.db", file: copy.file },
-    { name: "database/settings.restore.db.json", data: Buffer.from(JSON.stringify({ from: `전체 백업 ${name}` })) },
+    { name: "database/settings.restore.db.json", data: Buffer.from(JSON.stringify({ from: name })) },
     ...(users ? [{ name: `database/${STAGED_USERS}`, file: users.file }] : []),
     ...(audio ? [{ name: `database/${archive.STAGED_AUDIO}`, file: audio.file }] : []),
     ...favicons.map((one) => ({ name: `database/dashboard/favicon/${one}`, file: path.join(faviconDir, one) })),
