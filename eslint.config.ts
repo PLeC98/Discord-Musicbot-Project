@@ -31,6 +31,8 @@ const config: Linter.Config[] = [
     ignores: ["dashboard/src/**", "locales/*/screen/**"],
     languageOptions: { globals: globals.nodeBuiltin },
   },
+  // 화면 스크립트보다 먼저 도는 브라우저 스크립트(public, 빌드하지 않고 그대로 내보낸다)
+  { files: ["dashboard/public/**/*.js"], languageOptions: { globals: globals.browser } },
   {
     files: ["**/*.ts", "**/*.vue"],
     rules: {
