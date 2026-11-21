@@ -99,6 +99,35 @@ test("대시보드 앱: 허용하지 않은 Host, 요청 대상, X-Forwarded-Hos
   }
 });
 
+test("차단 안내 쪽은 보낸 사람의 언어(Accept-Language, 없으면 봇 기본 언어)로 그리고 <html lang>을 적는다", async () => {
+  const saved = config.dashboard.url;
+  config.dashboard.url = "https://music.example.com";
+  try {
+    const app = createApp(fakeBot({ client: { user: null, isReady: () => false } }), { stream: createPlayerStream(), deployCommands: () => assert.fail("등록하지 않는다"), sessionMiddleware: (_r, _res, next) => next() });
+    const server = await listenForFetch(app, "127.0.0.1");
+    servers.push(server);
+    const port = (server.address() as net.AddressInfo).port;
+    const evil = (language = "") => raw(port, `GET / HTTP/1.1\r\nHost: evil.com${language && `\r\nAccept-Language: ${language}`}`);
+
+    const plain = await evil();
+    assert.match(plain.body, /<html lang="ko">/);
+    assert.match(plain.body, /[가-힣]/);
+    assert.match((await evil("qps-ploc")).body, /<html lang="ko">/, "테스트 언어를 끈 동안에는 봇 기본 언어");
+
+    config.i18n.testLanguage = true;
+    try {
+      const pseudo = await evil("qps-ploc, ko;q=0.5");
+      assert.match(pseudo.body, /<html lang="qps-ploc">/);
+      assert.doesNotMatch(pseudo.body, /[가-힣]/, "문구가 모두 그 언어로 나온다");
+      assert.match(pseudo.body, /evil\.com/);
+    } finally {
+      config.i18n.testLanguage = false;
+    }
+  } finally {
+    config.dashboard.url = saved;
+  }
+});
+
 test("신뢰하지 않는 홉의 X-Forwarded-Host는 보지 않는다(그 값으로 막지도 않는다)", () => {
   const req = fake<Request>({ app: { get: () => () => false }, url: "/", socket: { remoteAddress: "203.0.113.5" }, rawHeaders: ["Host", "music.example.com", "X-Forwarded-Host", "evil.com"], headers: { host: "music.example.com", "x-forwarded-host": "evil.com" } });
   let passed = false;

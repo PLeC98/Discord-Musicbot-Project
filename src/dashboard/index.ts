@@ -57,6 +57,7 @@ import { warnGate } from "./warn-gate.ts";
 import { browserSide, strictTransport } from "./browser-side.ts";
 import { hostCheck } from "./host-check.ts";
 import { checkPublicUrl, plaintextGate, siblingCookieNote } from "./plaintext.ts";
+import { htmlPage } from "./html-page.ts";
 import { bindLine, bindNotes, inContainer, planBind, reachableAddresses, scopeOf, widenedNote, type BindPlan } from "./bind-plan.ts";
 import { isLoopbackName } from "../rules/net-address.ts";
 import { checkTls, findTlsFiles, rotateTicketKeys, tlsOptions, watchExpiry, worldReadable, type TlsFiles } from "./tls-files.ts";
@@ -199,7 +200,7 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   app.use(express.static(clientDist, { setHeaders: cacheAssets }));
   app.get("/{*path}", (req, res, next) => {
     if (COUNTED_LATER.test(req.path)) return next();
-    if (!fs.existsSync(indexHtml)) return res.send("<h2>대시보드 화면이 빌드되지 않았어요.<br>봇 폴더에서 <code>pnpm run build:dashboard</code> 를 실행한 뒤 새로고침하세요.</h2>");
+    if (!fs.existsSync(indexHtml)) return res.type("html").send(htmlPage(req, (T) => T.pages.notBuilt));
     res.sendFile(indexHtml, { headers: { "Cache-Control": "no-cache" } });
   });
 

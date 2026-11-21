@@ -10,6 +10,7 @@ export * as info from "./info.ts";
 export * as invite from "./invite.ts";
 export * as language from "./language.ts";
 export * as notices from "./notices.ts";
+export * as pages from "./pages.ts";
 export * as queue from "./queue.ts";
 export * as search from "./search.ts";
 export * as settings from "./settings.ts";
