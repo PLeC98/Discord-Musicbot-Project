@@ -150,6 +150,7 @@ const judge = {
   looking: "조회 중…",
   send: "요청 전송",
   sending: "보내는 중…",
+  unread: "응답에서 판정 결과를 읽지 못했어요",
   stale: "작성한 주소를 아직 조회하지 않았어요. 이대로 전송하면 내장된 예시 곡을 사용해요.",
   listTitle: "모델에 보낼 목록",
   copyList: "목록 복사",

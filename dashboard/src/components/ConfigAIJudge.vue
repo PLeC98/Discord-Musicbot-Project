@@ -29,6 +29,9 @@
         ></NoticeBox
       >
       <NoticeBox v-if="judgeError" variant="note" tone="error" icon="cancel" class="mt-0!">{{ judgeError }}</NoticeBox>
+      <NoticeBox v-else-if="judgeOutcome" variant="note" :tone="judgeOutcome.ok ? 'info' : 'error'" :icon="judgeOutcome.ok ? 'check_circle' : 'cancel'" :fill="judgeOutcome.ok" class="mt-0!"
+        >{{ judgeOutcome.head }}<template v-if="judgeOutcome.why">{{ NL }}{{ judgeOutcome.why }}</template></NoticeBox
+      >
 
       <section v-if="judgeCands.length" class="flex flex-col gap-2">
         <div class="flex items-center gap-2">
@@ -78,5 +81,5 @@ import { ruleLine } from "../utils/rule-line.ts";
 import { useAiEditor } from "../composables/ai-editor.ts";
 const TJ = text.ai.judge;
 
-const { NL, judgeUrls, judgeGenre, judging, judgeError, judgeCands, judgeList, judgeVerdicts, judgeSent, showJudgeRaw, copy, SAMPLE_LINES, judgeStale, judgeBoxes, lineFor, verdictOk, verdictText, lookupJudge, askPaid } = useAiEditor();
+const { NL, judgeUrls, judgeGenre, judging, judgeError, judgeCands, judgeList, judgeVerdicts, judgeSent, judgeOutcome, showJudgeRaw, copy, SAMPLE_LINES, judgeStale, judgeBoxes, lineFor, verdictOk, verdictText, lookupJudge, askPaid } = useAiEditor();
 </script>

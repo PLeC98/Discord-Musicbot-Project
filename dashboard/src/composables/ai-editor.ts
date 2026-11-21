@@ -657,6 +657,14 @@ function judgeTest(s: State, io: Exchange) {
       { title: T.boxes.response, text: one.reason ? ruleLine(one.reason) : one.response || T.boxes.empty },
     ];
   });
+  // 결과 한 줄. 연결 테스트와 같은 형식이다. 판정 자리의 "?"만으로는 요청 실패인지 판정 JSON을 못 읽은 것인지 구분할 수 없다
+  const judgeOutcome = computed(() => {
+    const one = judgeSent.value;
+    if (!one) return null;
+    const answered = one.status !== null && one.status >= 200 && one.status < 300;
+    const why = one.reason ? ruleLine(one.reason) : answered && !one.verdicts ? TJ.unread : "";
+    return { ok: answered && !!one.verdicts && !one.reason, head: `${one.status ? `HTTP ${one.status}` : TT.notSent} · ${one.tookMs ?? 0}ms`, why };
+  });
   // 못 읽은 줄이 섞여 있어 후보 순서와 줄 순서가 어긋난다. 멀쩡한 것만 세어 맞춘다
   function lineFor(cand: TestCandidate) {
     const at = judgeCands.value.filter(rendered).indexOf(cand);
@@ -718,7 +726,7 @@ function judgeTest(s: State, io: Exchange) {
       judging.value = false;
     }
   }
-  return { judgeUrls, judging, judgeError, judgeCands, judgeList, judgeVerdicts, judgeSent, showJudgeRaw, judgeLookedUp, judgeStale, judgeUsable, judgeBoxes, lineFor, verdictOk, verdictText, copy, lookupJudge, drawLines, runJudge };
+  return { judgeUrls, judging, judgeError, judgeCands, judgeList, judgeVerdicts, judgeSent, judgeOutcome, showJudgeRaw, judgeLookedUp, judgeStale, judgeUsable, judgeBoxes, lineFor, verdictOk, verdictText, copy, lookupJudge, drawLines, runJudge };
 }
 type Judge = ReturnType<typeof judgeTest>;
 
