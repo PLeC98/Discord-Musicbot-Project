@@ -1,4 +1,4 @@
-// 외부 도구(yt-dlp, bgutil, ffmpeg 인코더, 서명 확인)의 다운로드, 설치, 실행 실패 이유
+// 외부 도구(yt-dlp, bgutil, ffmpeg 인코더, 서명 확인)와 IP 위치 DB의 다운로드, 설치, 실행 실패 이유
 
 import { josa } from "../../josa.ts";
 import type { RuleSentences } from "../../rule-problem.ts";
@@ -34,6 +34,7 @@ const tools = {
   "encoder-failed": (p, cause) => `${p.encoder}: ${cause}`,
   "encoder-exit": (p) => `끝난 코드 ${p.code ?? "없음"}`,
   "encoder-none": () => "쓸 수 있는 인코더가 없음",
+  "geoip-not-city": (p) => `도시 DB가 아님(${p.type})`,
   "run-timeout": (p) => `${p.sec}초 안에 끝나지 않아 중단`,
   "run-spawn-failed": (p) => `실행하지 못함(${p.code})`,
   "run-signal": (p) => `신호로 끝남(${p.signal})`,

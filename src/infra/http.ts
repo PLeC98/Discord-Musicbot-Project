@@ -3,12 +3,13 @@
 // 상태 코드만으로 판정할 수 없는 서비스는 read로 부르고 응답을 읽어 판정한다.
 // 부른 쪽이 직접 끊은 것(AbortError)은 서비스 쪽 문제가 아니라 남기지 않는다
 
+import type { RuleProblem } from "../rules/rule-problem.ts";
 import { record, type Service } from "./link-status.ts";
 
 type Fetch = typeof fetch;
 
 /** 응답을 읽어 판정한 결과. 실패면 error에 원인을 짧게(봇 상태 탭에 보임, 예: 'timeout', 'HTTP 503') */
-type Judged<T> = { value: T; error: string | null };
+type Judged<T> = { value: T; error: string | RuleProblem | null };
 
 /** 4xx 중 실패로 치는 것: 너무 많이 부름, 키가 틀림, 권한 없음 */
 const FAILED_STATUS = new Set([429, 401, 403]);

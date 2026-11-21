@@ -1,4 +1,6 @@
 import type { HelpEntry } from "../ui/help-lines.ts";
+import { rule, type RuleProblem } from "../rules/rule-problem.ts";
+import { logRuleLine } from "../rules/text/index.ts";
 import { REST, RESTJSONErrorCodes, Routes, type AutocompleteInteraction, type ChatInputCommandInteraction, type RESTPostAPIApplicationCommandsJSONBody, type RESTPutAPIApplicationCommandsResult } from "discord.js";
 import crypto from "crypto";
 import fs from "fs";
@@ -103,7 +105,7 @@ type GetCommands = (route: `/${string}`) => Promise<Array<{ name: string; id: st
 const putCommands: PutCommands = async (route, body) => (await new REST().setToken(config.discord.token).put(route, { body })) as RESTPutAPIApplicationCommandsResult;
 const getCommands: GetCommands = async (route) => (await new REST().setToken(config.discord.token).get(route)) as Array<{ name: string; id: string }>;
 
-type DeployResult = { ok: true; skipped: boolean; count: number; scope: string; guildId: string | null; names: string[] } | { ok: false; error: unknown; scope: string; guildId: string | null; hint: string | null };
+type DeployResult = { ok: true; skipped: boolean; count: number; scope: string; guildId: string | null; names: string[] } | { ok: false; error: unknown; scope: string; guildId: string | null; hint: RuleProblem | null };
 
 // 슬래시 명령을 디스코드에 등록한다. 기동은 정의가 그대로면(해시가 같으면) 건너뛰고, 대시보드의 다시 등록, 수동 스크립트는 force로 늘 등록한다.
 // 등록한 명령의 id는 명령 멘션 표(ui/command-mentions)에 둔다. 건너뛰었으면 등록된 목록을 한 번 읽어 온다(못 읽으면 멘션이 글자로 남을 뿐이다).
@@ -136,14 +138,14 @@ async function deployCommands({ force = false, hashPath = HASH_PATH, put = putCo
 
 // 배포 실패의 원인 안내. 디스코드 오류 코드와 범위로 원인이 하나로 좁혀지는 것만 붙인다(앱 ID는 토큰에서 읽어 틀릴 수 없다).
 // 서버 경로의 50001은 봇이 없는 서버와 존재하지 않는 서버 ID를 구분해 주지 않는다. 전역 50001, 50035, 401은 원인을 짐작할 근거가 없다
-function deployHint(scope: string, guildId: string | null, error: unknown): string | null {
-  if (scope === "guild" && codeOf(error) === RESTJSONErrorCodes.MissingAccess) return `GUILD_ID 서버(${guildId ?? "없음"})에 봇이 없음. .env의 GUILD_ID가 맞는지, 봇이 서버에서 나가지 않았는지 확인하세요`;
+function deployHint(scope: string, guildId: string | null, error: unknown): RuleProblem | null {
+  if (scope === "guild" && codeOf(error) === RESTJSONErrorCodes.MissingAccess) return rule("deploy-guild-missing", guildId ? { guildId } : undefined);
   return null;
 }
 
 /** 배포 실패를 로그, 터미널에 남길 줄. 원인 안내(hint)가 있으면 둘째 줄 */
-function deployErrorLines(result: { scope: string; error: unknown; hint: string | null }) {
-  return [`명령어 배포 실패(${result.scope}): ${messageOf(result.error)}`, ...(result.hint ? [result.hint] : [])];
+function deployErrorLines(result: { scope: string; error: unknown; hint: RuleProblem | null }) {
+  return [`명령어 배포 실패(${result.scope}): ${messageOf(result.error)}`, ...(result.hint ? [logRuleLine(result.hint)] : [])];
 }
 
 export { enabledCommands, followEnabledCommands, definitions, deployCommands, deployErrorLines };

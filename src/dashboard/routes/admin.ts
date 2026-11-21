@@ -1,7 +1,7 @@
 // 봇 운영자(OWNER_ID) 전용 라우터. 모든 엔드포인트가 requireOwner를 지난다.
 // 경로가 /api/admin인 것은 대시보드 운영자 패널의 주소일 뿐, 디스코드 서버 쪽 권한과는 무관하다.
 
-import { ruleTextFor } from "../../rules/text/index.ts";
+import { logRuleLine, ruleTextFor } from "../../rules/text/index.ts";
 import { plain, rule, type RuleProblem } from "../../rules/rule-problem.ts";
 import express from "express";
 import * as sessionRequests from "../session-requests.ts";
@@ -225,8 +225,8 @@ adminRouter.post("/redeploy-commands", async (req, res) => {
     return res.json({ success: true, count: r.count, scope: r.scope, guildId: r.guildId, names: r.names } satisfies RedeployReply);
   }
   // 원인 안내는 기동 로그, pnpm commands와 같은 문장이다(운영자용 원문 필드)
-  log.error({ sub: "admin" }, `대시보드 운영자 패널에서 슬래시 명령어 재등록 실패: ${messageOf(r.error)}${r.hint ? ` | ${r.hint}` : ""}`);
-  return sendProblem(res, "deploy-failed", {}, { detail: [messageOf(r.error), r.hint].filter(Boolean).join("\n"), discordCode: codeOf(r.error) ?? null });
+  log.error({ sub: "admin" }, `대시보드 운영자 패널에서 슬래시 명령어 재등록 실패: ${messageOf(r.error)}${r.hint ? ` | ${logRuleLine(r.hint)}` : ""}`);
+  return sendProblem(res, "deploy-failed", {}, { errors: [{ code: "deploy-failed", detail: messageOf(r.error) }, ...(r.hint ? [{ code: "deploy-failed" as const, rule: r.hint }] : [])], discordCode: codeOf(r.error) ?? null });
 });
 
 // ── 설정 문서(장르, 상태 문구, AI 설정, settings.db) ──

@@ -80,7 +80,7 @@ function judged(id: Service): Pick<LinkRow, "state" | "latencyMs" | "lastOkAt" |
   const last = status?.recent.at(-1);
   const lastOkAt = status?.lastOkAt ?? null;
   if (!status || !last || Date.now() - last.at > IDLE_MS) return { state: "idle", latencyMs: null, lastOkAt, error: null, note: noteOf(id) };
-  if (!last.ok) return { state: "fail", latencyMs: null, lastOkAt, error: last.error ? plain(last.error) : null, note: noteOf(id) };
+  if (!last.ok) return { state: "fail", latencyMs: null, lastOkAt, error: last.error, note: noteOf(id) };
   const fails = status.recent.filter((one) => !one.ok).length;
   const slow = last.ms > (SLOW_FOR[id] ?? SLOW_MS) || fails >= SHAKY_FAILS;
   return { state: slow ? "slow" : "ok", latencyMs: last.ms, lastOkAt, error: null, note: fails ? rule("link-recent-fails", { total: status.recent.length, fails }) : noteOf(id) };

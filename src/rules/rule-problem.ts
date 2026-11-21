@@ -178,6 +178,9 @@ const RULE_CODES = [
   "link-reconnecting",
   "link-pot-down",
   "link-lb-hint",
+  "link-not-segment-api",
+  // 슬래시 명령 배포 실패 원인 안내(app/command-loader). guildId: .env의 GUILD_ID(없으면 생략)
+  "deploy-guild-missing",
   // yt-dlp 다운로드와 설치(sources/ytdlp-release, sources/ytdlp-binary)
   "ytdlp-no-asset",
   "ytdlp-stable-only",
@@ -224,6 +227,8 @@ const RULE_CODES = [
   "ai-key-account",
   "ai-cand-not-youtube",
   "ai-cand-timeout",
+  // IP 위치 DB 다운로드(dashboard/geoip)
+  "geoip-not-city",
   // 외부 도구 실행 종료 상태(시간 초과, 실행 실패, 시그널, 종료 코드)
   "run-timeout",
   "run-spawn-failed",
@@ -248,8 +253,6 @@ const RULE_CODES = [
   "pgp-other-key",
   "pgp-value-too-big",
   "pgp-mismatch",
-  // 아직 코드로 옮기지 않은 문장(text). 어느 언어로 보든 글 그대로 보인다
-  "unmoved",
 ] as const;
 
 type RuleCode = (typeof RULE_CODES)[number];
@@ -265,9 +268,6 @@ const rule = (code: RuleCode, params?: RuleParams, cause?: RuleProblem): RulePro
 const CODES: ReadonlySet<string> = new Set(RULE_CODES);
 const isRuleCode = (value: unknown): value is RuleCode => typeof value === "string" && CODES.has(value);
 
-/** 아직 코드로 옮기지 않은 문장을 문제로 싣는다 */
-const unmoved = (text: string): RuleProblem => rule("unmoved", { text });
-
 /** 데이터 글을 그대로 싣는다(번역하지 않는다) */
 const plain = (text: string): RuleProblem => rule("plain", { text });
 
@@ -282,5 +282,5 @@ function ruleLine(sentences: RuleSentences, problem: RuleProblem, causeLine: (ca
   return sentences[problem.code](problem.params ?? {}, problem.cause ? causeLine(problem.cause) : "");
 }
 
-export { RULE_CODES, rule, isRuleCode, unmoved, plain, tuneProblem, tuneKeyOf, ruleLine };
+export { RULE_CODES, rule, isRuleCode, plain, tuneProblem, tuneKeyOf, ruleLine };
 export type { RuleCode, RuleParams, RuleProblem, RuleSentence, RuleSentences };

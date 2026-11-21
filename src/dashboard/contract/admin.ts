@@ -199,8 +199,8 @@ type IntentEnableReply = { result: "enabled" | "already" };
 /** 운영자 패널의 보기 설정(GET, PUT /api/admin/panel). advanced: 고급 설정 보기. 어느 기기로 열어도 같게 서버에 둔다 */
 type PanelPrefs = { advanced: boolean };
 
-/** IP 위치 DB(dashboard/geoip). version: 가진 버전(YYYY-MM), bytes: 그 파일 크기, job: 하는 일, received, total: 받는 중의 바이트(압축된 것), error: 마지막 실패 */
-type GeoipStatus = { enabled: boolean; autoUpdate: boolean; version: string | null; bytes: number | null; job: "idle" | "checking" | "downloading"; received: number | null; total: number | null; error: string | null };
+/** IP 위치 DB(dashboard/geoip). version: 가진 버전(YYYY-MM), bytes: 그 파일 크기, job: 하는 일, received, total: 받는 중의 바이트(압축된 것), error: 마지막 실패(규칙 문제) */
+type GeoipStatus = { enabled: boolean; autoUpdate: boolean; version: string | null; bytes: number | null; job: "idle" | "checking" | "downloading"; received: number | null; total: number | null; error: RuleProblem | null };
 /** 확인 결과. latest: 받을 수 있는 가장 새 버전(없으면 null), size: 그 버전의 다운로드 크기 */
 type GeoipCheck = { current: string | null; latest: string | null; size: number | null };
 

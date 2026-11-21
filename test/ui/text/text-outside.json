@@ -1,6 +1,6 @@
 {
   "src/app/app-info.ts": 1,
-  "src/app/command-loader.ts": 4,
+  "src/app/command-loader.ts": 1,
   "src/app/full-backup.ts": 1,
   "src/app/launcher.ts": 2,
   "src/app/login.ts": 1,
@@ -125,7 +125,7 @@
   "src/sources/embedded-art.ts": 2,
   "src/sources/file-tags.ts": 3,
   "src/sources/hls.ts": 5,
-  "src/sources/sponsor-block.ts": 3,
+  "src/sources/sponsor-block.ts": 2,
   "src/sources/spotify.ts": 8,
   "src/sources/youtube/auth.ts": 9,
   "src/sources/youtube/clients.ts": 2,

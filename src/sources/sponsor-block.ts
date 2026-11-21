@@ -8,6 +8,7 @@
 //
 // 세그먼트 데이터: https://sponsor.ajay.app (CC BY-NC-SA 4.0).
 
+import { rule } from "../rules/rule-problem.ts";
 import crypto from "crypto";
 import * as links from "../rules/links.ts";
 import config from "../config/index.ts";
@@ -119,7 +120,7 @@ async function judgeSegments(res: Response): Promise<Judged<Answer>> {
   const json = res.headers.get("content-type")?.includes("application/json") ?? false;
   if (res.status === 200 && Array.isArray(body) && body.every(isVideo)) return { value: { videos: body }, error: null };
   if (res.status === 404 && json && Array.isArray(body) && body.length === 0) return { value: { videos: [] }, error: null };
-  return { value: { failed: status, notApi: true }, error: "구간 API 응답이 아님" };
+  return { value: { failed: status, notApi: true }, error: rule("link-not-segment-api") };
 }
 
 /**

@@ -306,10 +306,10 @@ test("POST redeploy-commands: 거절되면 502, 운영자용 원문 필드에 �
   const rejected = fake<PutCommands>(async () => Promise.reject(Object.assign(new Error("Missing Access"), { code: 50001 })));
   adminApp.locals.deployCommands = (options) => withConfig({ discord: { guildId: "112233445566778899" } }, () => deployCommands({ ...options, hashPath: HASH_PATH, put: rejected, get: async () => [] }));
   try {
-    const r = await req<{ type: string; detail: string; discordCode: number }>("POST", "/api/admin/redeploy-commands");
+    const r = await req<ProblemReply & { discordCode: number }>("POST", "/api/admin/redeploy-commands");
     assert.equal(r.status, 502);
     assert.equal(r.json.discordCode, 50001);
-    const [message, hint] = r.json.detail.split("\n");
+    const [message, hint] = detailsOf(r.json).split("\n");
     assert.equal(message, "Missing Access");
     assert.match(hint, /^GUILD_ID 서버\(112233445566778899\)에 봇이 없음\. /);
   } finally {

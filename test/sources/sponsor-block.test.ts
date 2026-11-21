@@ -1,6 +1,7 @@
 // src/sources/sponsor-block.ts: 정규화/병합 순수 로직 + forTrack(기억, DB 캐시, 라이브, 뒤에서 다시 받기) + 응답 구분.
 // 네트워크는 가짜 fetch를 넘기고(useFetch), 캐시는 임시 SQLite로 실제 라운드트립 검증.
 
+import { logRuleLine } from "../../src/rules/text/index.ts";
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
@@ -281,7 +282,7 @@ test("오디오 캐시 초기화(forget) 뒤에 도착한 옛 응답은 기억, 
 
 // ── 응답 구분: 구간 없음이라는 응답, 구간 API가 아닌 응답, 실패 ─────────────────
 
-const outcomes = () => linkStatus("sponsorblock")?.recent.map((one) => [one.ok, one.error]) ?? [];
+const outcomes = () => linkStatus("sponsorblock")?.recent.map((one) => [one.ok, one.error && logRuleLine(one.error)]) ?? [];
 const notices = (from: number) =>
   sink.buffer
     .slice(from)

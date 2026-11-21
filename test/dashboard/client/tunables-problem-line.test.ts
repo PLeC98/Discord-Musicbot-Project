@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { tabsOf } from "../../../dashboard/src/composables/tunables.ts";
 import { ruleLine } from "../../../dashboard/src/utils/rule-line.ts";
 import { problemBody } from "../../../src/dashboard/contract/problem.ts";
-import { rule, tuneProblem, unmoved, type RuleProblem } from "../../../src/rules/rule-problem.ts";
+import { plain, rule, tuneProblem, type RuleProblem } from "../../../src/rules/rule-problem.ts";
 import { logRuleLine } from "../../../src/rules/text/index.ts";
 import { loadConfig } from "../../../src/config/index.ts";
 
@@ -23,10 +23,10 @@ test("기동 검사(loadConfig)가 내는 실제 문제", () => {
   assert.equal(ruleLine(tuneProblems[0]!), "그중 몇 번 실패하면 건너뛸지 [abc]: 정수만 쓸 수 있음");
 });
 
-test("모르는 이름은 이름 그대로, 옮기지 않은 문장은 글 그대로", () => {
+test("모르는 이름은 이름 그대로, plain은 글 그대로", () => {
   assert.equal(ruleLine(rule("tune-unknown-key", { key: "NOPE" })), "NOPE: 모르는 설정");
   assert.equal(ruleLine(tuneProblem("NOPE", "1", rule("bool"))), "NOPE [1]: true, false 중 하나여야 함");
-  assert.equal(ruleLine(unmoved("아무 글")), "아무 글");
+  assert.equal(ruleLine(plain("아무 글")), "아무 글");
 });
 
 test("저장 거절에서 틀린 값이 든 탭(저장 바가 옮겨 갈 곳). 이름을 모르는 실패면 빈 목록", () => {

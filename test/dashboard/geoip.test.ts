@@ -1,5 +1,6 @@
 // src/dashboard/geoip.ts: IP 위치 DB 다운로드, 확인, 자동 갱신, 읽기. 바깥(download.db-ip.com)에 닿지 않게 전송과 여는 것을 가짜로 넘긴다(작은 MMDB를 만들 도구가 없다).
 
+import { rule } from "../../src/rules/rule-problem.ts";
 import { test, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -82,7 +83,7 @@ test("받은 것이 도시 DB가 아니거나 받다 실패하면 쓰던 버전�
   published.set(thisMonth, "asn-wrong");
   await assert.rejects(geoip.update());
   assert.deepEqual(files(), [`dbip-city-lite-${lastMonth}.mmdb`], "임시 파일도 남지 않는다");
-  assert.match(geoip.status().error ?? "", /도시 DB가 아님/);
+  assert.deepEqual(geoip.status().error, rule("geoip-not-city", { type: "DBIP-ASN-Lite" }));
 });
 
 test("자동: 켜져 있고 가진 버전이 이번 달이 아니면 이번 달 버전을 받는다. 아직 없으면 받지 않고(내일 다시), 파일이 아예 없으면 지난달 버전이라도", async () => {

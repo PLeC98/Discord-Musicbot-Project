@@ -1,6 +1,7 @@
 // src/app/command-loader.ts: 커맨드 로드 + 배포(등록 요청은 가짜를 넘겨 실제로 배포하지 않는다).
 // 배포 해시는 임시 파일에 써서 운영 database/deployed-commands.json을 건드리지 않는다.
 
+import { rule } from "../../src/rules/rule-problem.ts";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -196,11 +197,11 @@ test("배포 실패의 원인 안내: 서버 배포의 50001은 GUILD_ID, 그 �
     assert.ok(!r.ok);
     return r.hint;
   };
-  assert.equal(await hintOf(50001, "112233445566778899"), "GUILD_ID 서버(112233445566778899)에 봇이 없음. .env의 GUILD_ID가 맞는지, 봇이 서버에서 나가지 않았는지 확인하세요");
+  assert.deepEqual(await hintOf(50001, "112233445566778899"), rule("deploy-guild-missing", { guildId: "112233445566778899" }));
   assert.equal(await hintOf(20012, null), null, "앱 ID는 토큰에서 읽어 틀릴 수 없다");
   assert.equal(await hintOf(50001, null), null, "전역 50001은 원인을 짐작할 근거가 없다");
   assert.equal(await hintOf(50035, "112233445566778899"), null, "형식 검사를 지난 뒤의 50035는 명령 정의 쪽이다");
 
-  assert.deepEqual(deployErrorLines({ scope: "guild", error: new Error("Missing Access"), hint: "안내" }), ["명령어 배포 실패(guild): Missing Access", "안내"]);
+  assert.deepEqual(deployErrorLines({ scope: "guild", error: new Error("Missing Access"), hint: rule("deploy-guild-missing", { guildId: "1" }) }), ["명령어 배포 실패(guild): Missing Access", "GUILD_ID 서버(1)에 봇이 없음. .env의 GUILD_ID가 맞는지, 봇이 서버에서 나가지 않았는지 확인하세요"]);
   assert.deepEqual(deployErrorLines({ scope: "global", error: new Error("boom"), hint: null }), ["명령어 배포 실패(global): boom"]);
 });

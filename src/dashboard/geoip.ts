@@ -18,7 +18,9 @@ import { httpFor } from "../infra/http.ts";
 import { PROJECT } from "../infra/project-paths.ts";
 import { onTunablesChanged } from "../config/tunables-changed.ts";
 import { repeatingFailure } from "../infra/repeating-failure.ts";
-import { codeOf, messageOf } from "../rules/error-kind.ts";
+import { codeOf, errorProblem, messageOf } from "../rules/error-kind.ts";
+import { rule, type RuleProblem } from "../rules/rule-problem.ts";
+import { logRuleLine } from "../rules/text/index.ts";
 import type { DevicePlace } from "./contract/identity.ts";
 import type { GeoipCheck, GeoipStatus } from "./contract/admin.ts";
 const log = logger.child({ category: "dashboard", sub: "geoip" });
@@ -43,7 +45,7 @@ let readerVersion: string | null = null;
 let idleTimer: NodeJS.Timeout | null = null;
 let job: GeoipStatus["job"] = "idle";
 let progress: { received: number; total: number | null } | null = null;
-let lastError: string | null = null;
+let lastError: RuleProblem | null = null;
 let busy: Promise<unknown> | null = null;
 const folderFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "GeoIP 폴더 읽기");
 const statFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "GeoIP 파일 정보 조회");
@@ -177,15 +179,18 @@ async function download(version: string) {
     await pipeline(body, createGunzip(), fs.createWriteStream(temp));
     // 읽히는지 본다(도시 DB 인지까지)
     const probe = await open(temp);
-    if (!/City/i.test(probe.metadata.databaseType)) throw new Error(`도시 DB가 아님(${probe.metadata.databaseType})`);
+    if (!/City/i.test(probe.metadata.databaseType)) {
+      const problem = rule("geoip-not-city", { type: probe.metadata.databaseType });
+      throw Object.assign(new Error(logRuleLine(problem)), { problem });
+    }
     unload();
     for (const old of versionsOnDisk()) fs.rmSync(fileOf(old), { force: true });
     fs.renameSync(temp, fileOf(version));
     lastError = null;
     log.info(`IP 위치 DB 다운로드 완료: ${version} (${Math.round(fs.statSync(fileOf(version)).size / 1e6)}MB)`);
   } catch (error) {
-    lastError = messageOf(error);
-    log.warn(`IP 위치 DB 다운로드 실패(기존 버전 유지): ${lastError}`);
+    lastError = errorProblem(error);
+    log.warn(`IP 위치 DB 다운로드 실패(기존 버전 유지): ${logRuleLine(lastError)}`);
     markLogged(error);
     throw error;
   } finally {
