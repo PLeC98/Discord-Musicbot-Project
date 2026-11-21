@@ -8,7 +8,7 @@ import { AUDIO_CACHE_PARTS, AUDIO_CACHE_PARTS_DEFAULT, isAudioCachePart, type Au
 
 /**
  * audio-cache: 오디오 캐시(확인 창에서 선택한 것), bot-settings: 봇 설정(운영 설정값, 장르, 상태 문구, AI 설정, 프롬프트를 기본값으로, 키, 쿠키를 삭제),
- * guild-settings: 모든 서버의 서버별 설정, user-data: 사람별 데이터(users.db, 설정 스냅샷과 무관해 스냅샷을 남기지 않는다), display: 파비콘, 로그인 배경(기록, 화면 값, 한도까지), all: 봇 전체(.env, vendor, 설정 스냅샷, 명령 전체 백업, 로그를 뺀 전부)
+ * guild-settings: 모든 서버의 서버별 설정, user-data: 사용자 데이터(users.db, 설정 스냅샷과 무관해 스냅샷을 남기지 않는다), display: 파비콘, 로그인 배경(기록, 화면 값, 한도까지), all: 봇 전체(.env, vendor, 설정 스냅샷, 명령 전체 백업, 로그를 뺀 전부)
  */
 const RESET_KINDS = ["audio-cache", "bot-settings", "guild-settings", "user-data", "display", "all"] as const;
 type ResetKind = (typeof RESET_KINDS)[number];

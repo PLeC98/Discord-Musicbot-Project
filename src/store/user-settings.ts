@@ -154,7 +154,7 @@ function userCount(): number {
   return conn().prepare("SELECT COUNT(*) FROM user_settings").pluck().get() as number;
 }
 
-/** 모든 사람의 설정을 지운다(사람별 데이터 초기화). 캐시도 비우고, 커밋 뒤 설정이 있던 사람마다 지운 필드를 알린다. 실패하면 예외를 던진다 */
+/** 모든 사람의 설정을 지운다(사용자 데이터 초기화). 캐시도 비우고, 커밋 뒤 설정이 있던 사람마다 지운 필드를 알린다. 실패하면 예외를 던진다 */
 function removeAll() {
   const removed = conn().transaction(() => {
     const rows = conn().prepare("SELECT user_id, data_json FROM user_settings").all() as Array<{ user_id: string; data_json: string }>;

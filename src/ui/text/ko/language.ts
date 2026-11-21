@@ -4,9 +4,9 @@
 const panel = () => ({
   title: "언어",
   mine: "내 언어",
-  mineAbout: "본인에게만 보이는 답과 대시보드에 써요.",
+  mineAbout: "본인에게만 보이는 응답과 대시보드에 사용해요.",
   server: "서버 언어",
-  serverAbout: "이 서버의 공개 메시지(재생 패널, 알림)에 써요.",
+  serverAbout: "이 서버의 공개 메시지(재생 패널, 알림)에 사용해요.",
   minePlaceholder: "내 언어를 골라 주세요",
   serverPlaceholder: "서버 언어를 골라 주세요",
 });

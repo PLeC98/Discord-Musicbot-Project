@@ -84,11 +84,11 @@ async function resetGuildSettings(by: string, go?: () => void) {
   return { snapshot, guilds };
 }
 
-/** 모든 사람의 사람별 데이터(개인 언어)를 삭제한다. 설정 스냅샷에 들지 않는 값이라 스냅샷을 남기지 않는다 */
+/** 모든 사람의 사용자 데이터(개인 언어)를 삭제한다. 설정 스냅샷에 들지 않는 값이라 스냅샷을 남기지 않는다 */
 function resetUserData(by: string) {
   const users = userSettings.userCount();
   userSettings.removeAll();
-  log.warn({ sub: "admin" }, `대시보드에서 사람별 데이터 초기화: ${users}명. 실행 ${by}`);
+  log.warn({ sub: "admin" }, `대시보드에서 사용자 데이터 초기화: ${users}명. 실행 ${by}`);
   return { users };
 }
 

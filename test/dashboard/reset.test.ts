@@ -71,7 +71,7 @@ test("서버별 설정: 모든 서버를 지우고 읽어 둔 것도 버리며, 
   assert.deepEqual(await guildSettings.getDjRoles("g2"), []);
 });
 
-test("사람별 데이터: 모든 사람의 설정을 지우고 개요의 수도 0. 설정 스냅샷과 무관해 스냅샷을 남기지 않는다", async () => {
+test("사용자 데이터: 모든 사람의 설정을 지우고 개요의 수도 0. 설정 스냅샷과 무관해 스냅샷을 남기지 않는다", async () => {
   const userSettings = await import("../../src/store/user-settings.ts");
   userSettings.setLanguage("u1", "ko");
   userSettings.setLanguage("u2", "auto");

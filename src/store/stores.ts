@@ -30,7 +30,7 @@ function open(dir = PROJECT.database) {
     close();
     throw error;
   }
-  log.info({ tags: ["startup"] }, "DB 준비 완료 (설정, 사람별 데이터, 실행 상태, 캐시, AI 리퀘스트 로그, 로그인 세션)");
+  log.info({ tags: ["startup"] }, "DB 준비 완료 (설정, 사용자 데이터, 실행 상태, 캐시, AI 리퀘스트 로그, 로그인 세션)");
 }
 
 // 못 열면 어느 파일인지 오류에 단다(dbFile: 그 파일의 라벨). 설정 DB면 기동이 복원하는 법을 알린다

@@ -1,4 +1,4 @@
-// 사람별 데이터 DB(users.db). 그 사람 본인이 정한 값(개인 언어)을 담는다. 설정 DB와 따로 두는 까닭은 되돌리기와 지우기다:
+// 사용자 데이터 DB(users.db). 그 사람 본인이 정한 값(개인 언어)을 담는다. 설정 DB와 따로 두는 까닭은 되돌리기와 지우기다:
 // 설정 스냅샷을 복원해도 사람들의 선택이 되돌아가면 안 되고, 지우기 요청은 스냅샷에 남지 않게 한 번에 지운다.
 // 구조 버전이 맞지 않으면 열지 않고 멈춘다(새로 만들어 사람들의 선택을 지우지 않는다).
 // 명령 전체 백업은 이 파일의 사본을 users.restore.db로 담고, 다음 기동이 열기 전에 교체한다(풀어서 users.db를 덮으면 남은 -wal이 새 파일에 얹혀 깨질 수 있다)
@@ -13,12 +13,12 @@ import type { Db } from "./sqlite.ts";
 const VERSION = 1;
 
 const usersDb = new DbFile({
-  label: "사람별 데이터 DB",
+  label: "사용자 데이터 DB",
   fileName: "users.db",
   version: VERSION,
   synchronous: "FULL",
   onMismatch: {
-    hint: (found, file) => `사람별 데이터 DB 구조가 이 봇과 맞지 않음(DB v${found}, 봇 v${VERSION}): ${file}. 사람들의 선택을 지우지 않도록 새로 만들지 않음. 이 DB를 만든 버전의 봇으로 실행하세요`,
+    hint: (found, file) => `사용자 데이터 DB 구조가 이 봇과 맞지 않음(DB v${found}, 봇 v${VERSION}): ${file}. 사람들의 선택을 지우지 않도록 새로 만들지 않음. 이 DB를 만든 버전의 봇으로 실행하세요`,
   },
   createTables,
 });
@@ -51,14 +51,14 @@ function applyStagedUsers(dir: string): boolean {
       db.close();
     }
   })();
-  if (found !== VERSION) throw Object.assign(codedError("RESTORE_FAILED", `풀어 둔 사람별 데이터 DB 교체 건너뜀: 구조가 이 봇과 맞지 않음(DB v${found}, 봇 v${VERSION}). 그 버전의 봇으로 시작하거나 database/${STAGED_USERS}를 삭제하세요`), { dbFile: "users.db" });
+  if (found !== VERSION) throw Object.assign(codedError("RESTORE_FAILED", `풀어 둔 사용자 데이터 DB 교체 건너뜀: 구조가 이 봇과 맞지 않음(DB v${found}, 봇 v${VERSION}). 그 버전의 봇으로 시작하거나 database/${STAGED_USERS}를 삭제하세요`), { dbFile: "users.db" });
   const current = path.join(dir, "users.db");
   try {
     for (const leftover of [current, `${current}-wal`, `${current}-shm`]) fs.rmSync(leftover, { force: true });
     fs.renameSync(staged, current);
     for (const leftover of [`${staged}-wal`, `${staged}-shm`]) fs.rmSync(leftover, { force: true });
   } catch (error) {
-    throw Object.assign(codedError("RESTORE_FAILED", `풀어 둔 사람별 데이터 DB 교체 실패: ${(error as Error).message}. users.db를 연 프로그램을 닫고 다시 시작하세요`, { cause: error }), { dbFile: "users.db" });
+    throw Object.assign(codedError("RESTORE_FAILED", `풀어 둔 사용자 데이터 DB 교체 실패: ${(error as Error).message}. users.db를 연 프로그램을 닫고 다시 시작하세요`, { cause: error }), { dbFile: "users.db" });
   }
   return true;
 }

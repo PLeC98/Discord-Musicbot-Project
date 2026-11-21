@@ -159,7 +159,7 @@ function openSettings({ potServer, logFile }: { potServer: PotServer; logFile: L
     // 대시보드에서 선택한 스냅샷, 풀어 둔 전체 백업이 예약되어 있으면 열기 전에 교체한다(지금 것은 backups에 남는다)
     restored = snapshots.applyStaged(PROJECT.database);
     if (restored) log.warn(`${restored}로 설정 DB 복원 완료(기존 DB는 database/backups에 백업)`);
-    if (applyStagedUsers(PROJECT.database)) log.warn("풀어 둔 전체 백업의 사람별 데이터 DB로 교체 완료");
+    if (applyStagedUsers(PROJECT.database)) log.warn("풀어 둔 전체 백업의 사용자 데이터 DB로 교체 완료");
     stores.open();
   } catch (error) {
     log.error(`기동 중단: ${messageOf(error)}`);

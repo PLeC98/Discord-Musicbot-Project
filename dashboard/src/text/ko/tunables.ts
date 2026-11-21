@@ -77,7 +77,7 @@ const fields: Record<string, { label: string; help: string; short?: string }> = 
   AI_LOG_ENABLED: { label: "리퀘스트 로그 기록", help: "끄면 새 요청을 기록하지 않아요. 사용량 통계도 함께 멈춰요." },
   AI_LOG_MAX_MB: { label: "로그 저장 용량(MB)", help: "넘으면 오래된 로그부터 지워요. 사용량 통계는 지우지 않아요." },
   TEST_LANGUAGE_ENABLED: { label: "테스트 언어", help: "한글을 영문자로 바꾼 가짜 언어를 언어 목록에 넣어요. 번역 없이 언어 선택 기능을 테스트할 때 써요." },
-  BOT_LANGUAGE: { label: "봇 기본 언어", help: "서버 언어를 정하지 않은 서버와, 디스코드 앱 언어가 지원 언어에 없는 사람에게 쓰는 언어예요." },
+  BOT_LANGUAGE: { label: "봇 기본 언어", help: "서버 언어를 정하지 않은 서버와, 디스코드 앱 언어가 지원 언어에 없는 사용자에게 보이는 언어예요." },
 };
 
 const title = "운영 설정값";

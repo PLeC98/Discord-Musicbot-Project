@@ -9,7 +9,7 @@ const rows = {
   "audio-cache": { title: "오디오 캐시 초기화", desc: "캐시 파일, 자동 검색 결과, 외부 서비스 데이터를 삭제해요." },
   "bot-settings": { title: "봇 설정 초기화", desc: "봇 설정을 기본값으로 되돌리고 API 키와 쿠키를 삭제해요." },
   "guild-settings": { title: "서버별 설정 초기화", desc: "모든 서버의 서버별 설정을 삭제해요." },
-  "user-data": { title: "사람별 데이터 초기화", desc: "사람마다 정한 값(내 언어)을 모두 삭제해요." },
+  "user-data": { title: "사용자 데이터 초기화", desc: "사용자들의 개인 데이터(언어 설정)를 모두 삭제해요." },
   display: { title: "디스플레이 설정 초기화", desc: "파비콘과 로그인 배경을 삭제해요." },
   all: { title: "봇 전체 초기화", desc: ".env, 설정 스냅샷, 전체 백업, 로그를 제외한 모든 데이터를 삭제해요." },
 } as const;
@@ -29,7 +29,7 @@ const confirm = {
   "audio-cache": { title: "오디오 캐시 초기화", button: "초기화" },
   "bot-settings": { title: "봇 설정을 초기화할까요?", body: (n: { changed: number; secrets: number }) => `변경한 설정 ${n.changed}개가 기본값으로 돌아가고 API 키와 쿠키 ${n.secrets}개가 삭제돼요.\n설정 스냅샷으로 복원할 수 있어요.`, button: "초기화" },
   "guild-settings": { title: "서버별 설정을 초기화할까요?", body: (n: number) => `서버 ${n}곳의 설정이 삭제돼요.\n설정 스냅샷으로 복원할 수 있어요.`, button: "초기화" },
-  "user-data": { title: "사람별 데이터를 초기화할까요?", body: (n: number) => `${n}명이 정한 값이 삭제돼요.\n설정 스냅샷으로 복원할 수 없어요.`, button: "초기화" },
+  "user-data": { title: "사용자 데이터를 초기화할까요?", body: (n: number) => `${n}명이 정한 값이 삭제돼요.\n설정 스냅샷으로 복원할 수 없어요.`, button: "초기화" },
   display: { title: "디스플레이 설정을 초기화할까요?", body: (n: { favicons: number; backgrounds: number }) => `파비콘 ${n.favicons}개와 로그인 배경 ${n.backgrounds}개가 삭제돼요.`, button: "초기화" },
   all: {
     title: "봇 전체를 초기화할까요?",

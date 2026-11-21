@@ -88,7 +88,7 @@ test("서버 언어: 봇 기본 언어와 같아도 남기고, null이면 봇 �
   assert.equal(guildSettings.resolveLanguage("g1"), null);
 });
 
-test("풀어 둔 전체 백업의 사람별 데이터 DB(users.restore.db)를 열기 전에 교체한다. 구조 버전이 다르면 교체하지 않고 멈춘다", async () => {
+test("풀어 둔 전체 백업의 사용자 데이터 DB(users.restore.db)를 열기 전에 교체한다. 구조 버전이 다르면 교체하지 않고 멈춘다", async () => {
   const fs = await import("node:fs");
   const { applyStagedUsers, STAGED_USERS } = await import("../../src/store/users-db.ts");
   userSettings.setLanguage("moved", "ko");
