@@ -145,6 +145,7 @@ const ICONS = {
   terminal: 0xeb8e,
   text_decrease: 0xeadd,
   timer: 0xe425,
+  translate: 0xe8e2,
   tune: 0xe429,
   undo: 0xe166,
   unfold_more: 0xe5d7,

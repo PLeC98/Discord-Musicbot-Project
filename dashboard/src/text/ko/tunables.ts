@@ -2,6 +2,7 @@
 
 /** 그룹마다 제목, 아이콘, 설명 */
 const groups = {
+  language: { title: "언어", icon: "translate", desc: "" },
   queue: { title: "대기열 및 나가기", icon: "queue_music", desc: "" },
   look: { title: "디스코드", icon: "forum", desc: "" },
   ytdlp: { title: "yt-dlp", icon: "download", desc: "" },
@@ -75,7 +76,8 @@ const fields: Record<string, { label: string; help: string; short?: string }> = 
   SSE_COALESCE_MS: { label: "알림 합치기 간격(ms)", help: "같은 서버의 변경 알림을 이 시간 안에서 하나로 합쳐요." },
   AI_LOG_ENABLED: { label: "리퀘스트 로그 기록", help: "끄면 새 요청을 기록하지 않아요. 사용량 통계도 함께 멈춰요." },
   AI_LOG_MAX_MB: { label: "로그 저장 용량(MB)", help: "넘으면 오래된 로그부터 지워요. 사용량 통계는 지우지 않아요." },
-  TEST_LANGUAGE_ENABLED: { label: "테스트 언어", help: "한글을 영문자로 바꾼 가짜 언어를 언어 목록에 넣어요. 번역 없이 언어 선택 기능을 테스트할 때 써요.\n켜면 .env의 GUILD_ID 서버(없으면 모든 서버)의 공개 메시지가 이 언어로 바뀌어요." },
+  TEST_LANGUAGE_ENABLED: { label: "테스트 언어", help: "한글을 영문자로 바꾼 가짜 언어를 언어 목록에 넣어요. 번역 없이 언어 선택 기능을 테스트할 때 써요." },
+  BOT_LANGUAGE: { label: "봇 기본 언어", help: "서버 언어를 정하지 않은 서버와, 디스코드 앱 언어가 지원 언어에 없는 사람에게 쓰는 언어예요." },
 };
 
 const title = "운영 설정값";

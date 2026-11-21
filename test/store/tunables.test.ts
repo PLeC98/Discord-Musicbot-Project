@@ -249,6 +249,7 @@ const CANDIDATES: Record<string, (def: string, min?: number, max?: number) => st
   cookies: () => ["file", "chrome"],
   categories: () => ["sponsor", "intro"],
   token: () => ["stable", "nightly", "master", "off", "auto", "2025.01.01", "1.0.0"],
+  language: () => ["qps-ploc"],
 };
 
 test("운영 설정값이 바꾸는 설정 필드는 모두 저장할 때 덮어쓰는 영역(TUNED_SECTIONS) 안에 있다", () => {

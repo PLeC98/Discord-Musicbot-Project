@@ -11,15 +11,15 @@
 // lockedBy: 그 이름의 값이 있는 동안 바꿀 수 없다(저장 바의 저장이 거절한다)
 
 /** 그룹(화면의 카드 순서) */
-const TUNABLE_GROUPS = ["queue", "look", "ytdlp", "bgutil", "youtube", "sponsorblock", "ageyoutube", "cache", "stream", "geoip", "dashboard", "ailog", "dev"] as const;
+const TUNABLE_GROUPS = ["language", "queue", "look", "ytdlp", "bgutil", "youtube", "sponsorblock", "ageyoutube", "cache", "stream", "geoip", "dashboard", "ailog", "dev"] as const;
 type TunableGroup = (typeof TUNABLE_GROUPS)[number];
 
 /**
  * 필드의 형식. int: 정수(min, max), bool: true, false, text: 문자열, color: #RRGGBB, url: http, https 주소,
  * list: 쉼표로 나눈 이름들, cookies: file 또는 브라우저 이름, categories: 쉼표로 이은 SponsorBlock 구간 id,
- * token: 앞뒤 공백을 제거한 문자열 하나(선택지 중 하나, 태그. 허용하는 값은 읽는 쪽이 검사한다)
+ * token: 앞뒤 공백을 제거한 문자열 하나(선택지 중 하나, 태그. 허용하는 값은 읽는 쪽이 검사한다), language: 언어 태그(rules/languages, 화면은 쓸 수 있는 언어 중에서 고른다)
  */
-type TunableKind = "int" | "bool" | "text" | "color" | "url" | "list" | "cookies" | "categories" | "token";
+type TunableKind = "int" | "bool" | "text" | "color" | "url" | "list" | "cookies" | "categories" | "token" | "language";
 
 /** 카드 안의 박스. recheck: 원본 다시 확인 간격(출처별) */
 type TunableBox = "recheck";
@@ -27,6 +27,8 @@ type TunableBox = "recheck";
 type Tunable = { key: string; group: TunableGroup; kind: TunableKind; def: string; min?: number; max?: number; restart?: boolean; advanced?: boolean; box?: TunableBox; card?: boolean; lockedBy?: string };
 
 const TUNABLES: readonly Tunable[] = [
+  // 봇 기본 언어: 서버 언어를 정하지 않은 서버, 앱 언어가 지원 언어에 없는 사람에게 쓴다(ui/language)
+  { key: "BOT_LANGUAGE", group: "language", kind: "language", def: "ko" },
   // 대기열, 나가기
   { key: "QUEUE_MAX_TRACKS", group: "queue", kind: "int", def: "250", min: 0 },
   { key: "LEAVE_DELAY_QUEUE_EMPTY_SECONDS", group: "queue", kind: "int", def: "600", min: 0, max: 86400 },
@@ -102,7 +104,7 @@ const TUNABLES: readonly Tunable[] = [
 
 /** 그룹을 둘 운영자 패널 탭(id): 표시는 디스플레이, 유튜브, SponsorBlock은 유튜브, 연령 제한 콘텐츠의 쿠키는 연령 제한, AI 리퀘스트 로그는 AI 보조, 테스트 언어는 개발자 옵션, 나머지는 설정. 화면은 탭마다 그 그룹만 그린다 */
 type TunableTab = "settings" | "appearance" | "youtube" | "age" | "update" | "ai" | "dev";
-const GROUP_TAB: Readonly<Record<TunableGroup, TunableTab>> = { queue: "settings", look: "appearance", ytdlp: "update", bgutil: "update", youtube: "youtube", sponsorblock: "youtube", ageyoutube: "age", cache: "settings", stream: "settings", geoip: "settings", dashboard: "settings", ailog: "ai", dev: "dev" };
+const GROUP_TAB: Readonly<Record<TunableGroup, TunableTab>> = { language: "settings", queue: "settings", look: "appearance", ytdlp: "update", bgutil: "update", youtube: "youtube", sponsorblock: "youtube", ageyoutube: "age", cache: "settings", stream: "settings", geoip: "settings", dashboard: "settings", ailog: "ai", dev: "dev" };
 const groupsIn = (tab: TunableTab) => TUNABLE_GROUPS.filter((group) => GROUP_TAB[group] === tab);
 
 const TUNABLE_KEYS: ReadonlySet<string> = new Set(TUNABLES.map((one) => one.key));

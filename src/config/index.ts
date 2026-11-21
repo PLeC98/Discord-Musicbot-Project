@@ -11,6 +11,7 @@ import { SECRETS_KEY_COMMAND, isSecretsKey } from "../rules/secrets-key.ts";
 import { GROUP_TAB, TUNABLE_KEYS, tunable, tuneProblemLine } from "../rules/tunables.ts";
 import { COOKIE_BROWSERS, cookieBrowserOf } from "../rules/cookie-browsers.ts";
 import { isYtdlpTag, YTDLP_CHANNELS } from "../rules/ytdlp-tag.ts";
+import { KNOWN_TAGS } from "../rules/languages.ts";
 import { josa } from "../rules/josa.ts";
 import { BGUTIL_COMMIT, BGUTIL_VERSION } from "./vendor-versions.ts";
 import { bgutilTarget } from "../rules/bgutil-install.ts";
@@ -142,7 +143,7 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     const v = env(key);
     if (v === null) return def;
     const lower = String(v).trim().toLowerCase();
-    return allowed.find((one) => one === lower) ?? invalid(key, v, `${allowed.join(", ")} 중 하나여야 함`, def);
+    return allowed.find((one) => one.toLowerCase() === lower) ?? invalid(key, v, `${allowed.join(", ")} 중 하나여야 함`, def);
   }
 
   // parseInt는 "120junk"를 120으로 삼킨다. 숫자만 있는지 먼저 보고, 범위와 안전 정수까지 확인한다.
@@ -407,7 +408,7 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {}, env
 }
 
 // 대시보드, 캐시, SponsorBlock, 음성 상태, 스트림, 로그
-function serviceConfig({ env, envInt, envEnum, envUrl, envOrigin, envAddress, envBool, tuneInt, tuneBool, tuneText }: ReturnType<typeof envReaders>, dashboardPort: number) {
+function serviceConfig({ env, envInt, envEnum, envUrl, envOrigin, envAddress, envBool, tuneInt, tuneBool, tuneText, tuneEnum }: ReturnType<typeof envReaders>, dashboardPort: number) {
   return {
     dashboard: {
       port: dashboardPort,
@@ -475,8 +476,9 @@ function serviceConfig({ env, envInt, envEnum, envUrl, envOrigin, envAddress, en
       enabled: tuneBool("AI_LOG_ENABLED"),
       maxBytes: tuneInt("AI_LOG_MAX_MB") * 1024 * 1024,
     },
-    // 언어. testLanguage: 테스트 언어를 언어 목록에 넣는가(ui/language)
+    // 언어. botLanguage: 봇 기본 언어(쓸 수 있는 언어가 아니면 ui/language가 기준 언어를 쓴다), testLanguage: 테스트 언어를 언어 목록에 넣는가(ui/language)
     i18n: {
+      botLanguage: tuneEnum("BOT_LANGUAGE", KNOWN_TAGS),
       testLanguage: tuneBool("TEST_LANGUAGE_ENABLED"),
     },
     // IP 위치 DB(dashboard/geoip). 로그인한 기기의 위치. 끄면 받지도 쓰지도 않는다(받은 파일은 둔다)

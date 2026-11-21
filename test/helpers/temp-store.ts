@@ -12,6 +12,7 @@ import * as stores from "../../src/store/stores.ts";
 import { cacheDb } from "../../src/store/cache-db.ts";
 import { settingsDb } from "../../src/store/settings-db.ts";
 import * as settings from "../../src/store/guild-settings.ts";
+import * as userSettings from "../../src/store/user-settings.ts";
 import { useModelInfo } from "./model-info.ts";
 
 function openTempStore(prefix = "store-") {
@@ -30,6 +31,8 @@ function openTempStore(prefix = "store-") {
     close() {
       audioCache.close();
       stores.close();
+      // 사람별 설정은 사람 ID로 담아 두어 다음 임시 DB로 넘어가지 않게 버린다
+      userSettings.forgetCache();
       fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
     },
   };

@@ -25,6 +25,11 @@ const LOG_LANGUAGE: TextLanguage = "ko";
 /** 쓸 수 있는 언어. testOn: 테스트 언어를 켰는가(운영 설정값. 이 모듈은 설정을 읽지 않는다) */
 const availableLanguages = (testOn: boolean): readonly LanguageInfo[] => (testOn ? [...LANGUAGES, TEST_INFO] : LANGUAGES);
 
+/** 저장할 수 있는 언어 태그 모두(테스트 언어 포함). 저장한 값을 읽을 때 검증에 쓴다. 지금 쓸 수 있는지는 availableLanguages로 본다 */
+const KNOWN_TAGS: readonly [Language, ...Language[]] = [TEST_LANGUAGE, ...LANGUAGES.map((one) => one.tag)];
+/** 쓸 수 있는 언어 목록에 든 태그인가 */
+const isAvailable = (tag: string, languages: readonly LanguageInfo[]): tag is Language => languages.some((one) => one.tag === tag);
+
 const infoOf = (tag: Language): LanguageInfo => (tag === TEST_LANGUAGE ? TEST_INFO : (LANGUAGES.find((one) => one.tag === tag) ?? LANGUAGES[0]));
 
 /**
@@ -66,5 +71,5 @@ function acceptedTags(header: string | null | undefined): string[] {
     .map((one) => one.tag);
 }
 
-export { LANGUAGES, TEST_LANGUAGE, BASE_LANGUAGE, LOG_LANGUAGE, availableLanguages, infoOf, matchLanguage, discordLanguage, acceptedTags };
+export { LANGUAGES, TEST_LANGUAGE, BASE_LANGUAGE, LOG_LANGUAGE, KNOWN_TAGS, availableLanguages, isAvailable, infoOf, matchLanguage, discordLanguage, acceptedTags };
 export type { LanguageInfo, Language, TextLanguage };
