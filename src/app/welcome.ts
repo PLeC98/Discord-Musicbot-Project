@@ -8,7 +8,7 @@ import * as guildSettings from "../store/guild-settings.ts";
 import { commandMention } from "../ui/command-mentions.ts";
 import { frame } from "../ui/frame.ts";
 import { dashboardButton } from "../ui/dashboard-link.ts";
-import { publicText } from "../ui/language.ts";
+import { languagesNow, publicText } from "../ui/language.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "core" });
 
@@ -48,7 +48,7 @@ function welcomeView(guild: Guild) {
   const fork = sourceRepo !== projectRepo;
   const labels = T.welcome.buttons(fork);
   const dashboard = dashboardButton(labels.dashboard);
-  const t = T.welcome.welcome({ server: escapeMarkdown(guild.name, { maskedLink: true }), play: mention("play"), setchannel: mention("setchannel"), help: mention("help"), dashboard: dashboard !== null, projectRepo, sourceRepo, fork, typed: readsMessageContent() });
+  const t = T.welcome.welcome({ server: escapeMarkdown(guild.name, { maskedLink: true }), play: mention("play"), setchannel: mention("setchannel"), help: mention("help"), language: languagesNow().length > 1 ? mention("language") : null, dashboard: dashboard !== null, projectRepo, sourceRepo, fork, typed: readsMessageContent() });
   const container = frame({ icon: "music", title: t.title, body: t.intro.join("\n"), thumbnail: guild.client.user.displayAvatarURL() })
     .addSeparatorComponents(divider())
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(t.usage.join("\n")))

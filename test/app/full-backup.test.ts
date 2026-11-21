@@ -66,12 +66,12 @@ const statusIn = (file: string) => {
   }
 };
 
-test("켜져 있는 봇에서 만들고(.env, 설정 DB를 교체할 이름으로, 파비콘), 한 번에 하나만 둔다", async () => {
+test("켜져 있는 봇에서 만들고(.env, 설정 DB와 사람별 데이터 DB를 교체할 이름으로, 파비콘), 한 번에 하나만 둔다", async () => {
   settingsDocs.write("status", { messages: ["옮길 것"] }, settingsDocs.read("status").revision);
   const first = await makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir }, new Date(2026, 9, 10, 9, 0));
   assert.deepEqual(
     unzip(fs.readFileSync(first.file)).map((one) => one.name),
-    ["database/settings.restore.db", "database/settings.restore.db.json", "database/audio-cache.restore.zip", "database/dashboard/favicon/index.json", "database/dashboard/favicon/lz0abc12ff.reserve.png", ".env"],
+    ["database/settings.restore.db", "database/settings.restore.db.json", "database/users.restore.db", "database/audio-cache.restore.zip", "database/dashboard/favicon/index.json", "database/dashboard/favicon/lz0abc12ff.reserve.png", ".env"],
   );
   const second = await makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir }, new Date(2026, 9, 11, 9, 0));
   assert.deepEqual(second.replaced, [path.basename(first.file)]);

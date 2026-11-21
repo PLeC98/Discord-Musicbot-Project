@@ -108,3 +108,9 @@ test("화면: 서버 이름의 마크다운(링크 포함)은 글자 그대로, 
   assert.ok(textOf(view).includes("**\\*\\*@everyone\\*\\* \\_방\\_ \\[링크](https://x.y)** 서버에 초대해"), textOf(view));
   assert.deepEqual(view.allowedMentions, { parse: [] });
 });
+
+test("화면: 쓸 수 있는 언어가 둘 이상이면 /language 줄을 넣는다", () => {
+  const text = (on: boolean) => withConfig({ i18n: { testLanguage: on } }, () => textOf(welcomeView(guild({ channels: [], name: "음악방" }))));
+  assert.ok(!text(false).includes("/language"), "언어가 하나뿐이면 없다");
+  assert.ok(text(true).includes("`/language`로 봇이 쓰는 언어를 바꿀 수 있어요."), text(true));
+});

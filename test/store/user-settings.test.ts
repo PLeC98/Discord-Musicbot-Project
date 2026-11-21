@@ -87,3 +87,28 @@ test("서버 언어: 봇 기본 언어와 같아도 남기고, null이면 봇 �
   assert.deepEqual(guildSettings.read("g1"), {});
   assert.equal(guildSettings.resolveLanguage("g1"), null);
 });
+
+test("풀어 둔 전체 백업의 사람별 데이터 DB(users.restore.db)를 열기 전에 교체한다. 구조 버전이 다르면 교체하지 않고 멈춘다", async () => {
+  const fs = await import("node:fs");
+  const { applyStagedUsers, STAGED_USERS } = await import("../../src/store/users-db.ts");
+  userSettings.setLanguage("moved", "ko");
+  const dir = path.join(store.dir, "moved");
+  fs.mkdirSync(dir);
+  assert.equal(applyStagedUsers(dir), false, "풀어 둔 것이 없으면 그대로");
+  await usersDb.get().backup(path.join(dir, STAGED_USERS));
+  fs.writeFileSync(path.join(dir, "users.db-wal"), "옛 기록");
+  assert.equal(applyStagedUsers(dir), true);
+  assert.deepEqual(fs.readdirSync(dir).sort(), ["users.db"], "남은 -wal을 지우고 교체한다");
+  const moved = new Database(path.join(dir, "users.db"), { readonly: true });
+  assert.equal(moved.prepare("SELECT data_json FROM user_settings WHERE user_id = 'moved'").pluck().get(), '{"language":"ko"}');
+  moved.close();
+
+  const old = new Database(path.join(dir, STAGED_USERS));
+  old.pragma("user_version = 99");
+  old.close();
+  assert.throws(
+    () => applyStagedUsers(dir),
+    (error: unknown) => codeOf(error) === "RESTORE_FAILED",
+  );
+  assert.ok(fs.existsSync(path.join(dir, "users.db")), "지금 것을 지우지 않는다");
+});

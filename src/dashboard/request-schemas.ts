@@ -211,6 +211,7 @@ const ResetBody = z.discriminatedUnion(
     z.object({ kind: z.literal("audio-cache", BAD_RESET), parts: z.array(z.enum(AUDIO_CACHE_PARTS, BAD_RESET), BAD_RESET).min(1, { error: "nothing-to-save" satisfies Code }) }, BAD_RESET),
     z.object({ kind: z.literal("bot-settings", BAD_RESET) }, BAD_RESET),
     z.object({ kind: z.literal("guild-settings", BAD_RESET) }, BAD_RESET),
+    z.object({ kind: z.literal("user-data", BAD_RESET) }, BAD_RESET),
     z.object({ kind: z.literal("display", BAD_RESET) }, BAD_RESET),
     z.object({ kind: z.literal("all", BAD_RESET), confirmName: z.string(BAD_RESET).max(200, BAD_RESET) }, BAD_RESET),
   ],

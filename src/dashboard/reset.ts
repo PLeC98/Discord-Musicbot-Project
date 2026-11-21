@@ -15,6 +15,7 @@ import * as secrets from "../store/secrets.ts";
 import * as tunables from "../store/tunables.ts";
 import * as serviceKeys from "../store/service-keys.ts";
 import * as guildSettings from "../store/guild-settings.ts";
+import * as userSettings from "../store/user-settings.ts";
 import * as snapshots from "../store/snapshots.ts";
 import * as documents from "../config/documents.ts";
 import * as appearance from "./appearance.ts";
@@ -83,6 +84,14 @@ async function resetGuildSettings(by: string, go?: () => void) {
   return { snapshot, guilds };
 }
 
+/** 모든 사람의 사람별 데이터(개인 언어)를 삭제한다. 설정 스냅샷에 들지 않는 값이라 스냅샷을 남기지 않는다 */
+function resetUserData(by: string) {
+  const users = userSettings.userCount();
+  userSettings.removeAll();
+  log.warn({ sub: "admin" }, `대시보드에서 사람별 데이터 초기화: ${users}명. 실행 ${by}`);
+  return { users };
+}
+
 /** 파비콘, 로그인 배경(기록, 화면 값, 한도까지)을 비운다. 로그인 배경은 백업 불러오기와 같은 길(도는 단계를 멈추고 기록을 통째로 바꾼다) */
 function resetDisplay(by: string) {
   const favicons = appearance.clearFavicons();
@@ -110,6 +119,7 @@ function overview(botName: string, launcher: boolean): ResetOverview {
     audioCache: { files, bytes, ledger: rows.track_lookup, checks: rows.source_checks, sponsorSegments: rows.sponsorblock_cache, ageRestricted: rows.age_restricted, pins: rows.pinned_sources },
     botSettings: { tunables: Object.keys(tunables.view().values).length, documents: settingsDocs.names().filter((name) => name !== "tunables").length, secrets: secrets.count() },
     guildSettings: { guilds: guildSettings.guildCount() },
+    userData: { users: userSettings.userCount() },
     display: { favicons: appearance.faviconCount(), backgrounds: backgroundStore.items().length },
     botName,
     launcher,
@@ -142,4 +152,4 @@ function cancelFullReset(by: string): boolean {
   return true;
 }
 
-export { resetAudioCache, resetBotSettings, resetGuildSettings, resetDisplay, overview, stageFullReset, cancelFullReset };
+export { resetAudioCache, resetBotSettings, resetGuildSettings, resetUserData, resetDisplay, overview, stageFullReset, cancelFullReset };

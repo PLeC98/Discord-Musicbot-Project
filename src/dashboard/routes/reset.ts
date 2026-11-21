@@ -44,6 +44,7 @@ resetRouter.post("/", requireRecentLogin, async (req, res) => {
       done = { kind: "audio-cache", removedFiles: result.removed, freedBytes: result.freedBytes, keptFiles: result.kept, cleared: result.cleared };
     } else if (request.kind === "bot-settings") done = { kind: "bot-settings", ...(await reset.resetBotSettings(by, go)) };
     else if (request.kind === "guild-settings") done = { kind: "guild-settings", ...(await reset.resetGuildSettings(by, go)) };
+    else if (request.kind === "user-data") done = { kind: "user-data", ...reset.resetUserData(by) };
     else if (request.kind === "display") done = { kind: "display", ...reset.resetDisplay(by) };
     else {
       const restart = req.app.locals.restart;
