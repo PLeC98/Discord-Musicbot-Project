@@ -31,6 +31,8 @@ import { httpFor } from "../../infra/http.ts";
 import { REDACTED, mask, safeHeaders } from "./mask.ts";
 import { sendLogged, type Call } from "./request-log.ts";
 import { sec } from "../../infra/log/seconds.ts";
+import { UNSAFE_KEYS, delPath, setPath } from "../../rules/dot-path.ts";
+import { readExtra, type Extra } from "../../rules/ai-extra.ts";
 
 // 바깥으로 나가는 요청은 공유 HTTP 클라이언트로(부른 결과가 남는다). 테스트는 useFetch로 가짜를 넘긴다(null이면 진짜 fetch)
 const http = httpFor("ai");
@@ -38,7 +40,6 @@ const send = http.fetch;
 const useFetch = http.useFetch;
 
 type Draft = Partial<AiSettings> | null | undefined;
-type Extra = { body: Body; headers: Record<string, string>; drop: string[]; dropHeaders: string[] };
 type Verdict = { song: boolean; fits: boolean };
 /**
  * 자동재생 선택 하나. 선택은 출처마다 후보를 몇 번 판정하는데, 그중 하나가 재시도 끝에 실패하면
@@ -233,153 +234,8 @@ function settings(): AiSettings | null {
   return { ...one, prompt: aiConfig.aiPrompt() };
 }
 
-// `__proto__` 한 마디면 Object.prototype이 통째로 오염된다. 점 경로는 설정 글뿐 아니라
-// 모델 레지스트리(외부에서 받아 오는 데이터)의 mapsTo.path로도 들어오므로 여기서 막는다.
-const UNSAFE_KEYS = new Set(["__proto__", "constructor", "prototype"]);
-const safeKeys = (path: string) => {
-  const keys = String(path).split(".");
-  return keys.some((one) => UNSAFE_KEYS.has(one)) ? null : keys;
-};
-
-function setPath(obj: Body, path: string, value: unknown): Body {
-  const keys = safeKeys(path);
-  if (!keys) return obj;
-  let at = obj;
-  for (let i = 0; i < keys.length - 1; i++) {
-    const k = keys[i];
-    // safeKeys가 이미 필터링했지만 여기서도 본다. 분석기가 알아보는 위치는 대입 바로 옆이다
-    if (k === "__proto__" || k === "constructor" || k === "prototype") return obj;
-    // 앞 줄이 같은 경로에 값을 넣어 뒀으면 덮어쓴다. 안쪽에 더 넣을 수 없는 모양이다
-    if (!at[k] || typeof at[k] !== "object" || Array.isArray(at[k])) at[k] = {};
-    at = at[k] as Body;
-  }
-  const last = keys[keys.length - 1];
-  if (last === "__proto__" || last === "constructor" || last === "prototype") return obj;
-  at[last] = value;
-  return obj;
-}
-
-/** 점 경로로 삭제한다. 없는 경로면 아무 일도 안 한다. */
-function delPath(obj: Body, path: string) {
-  const keys = safeKeys(path);
-  if (!keys) return;
-  let at: Body | undefined = obj;
-  for (let i = 0; i < keys.length - 1; i++) {
-    const k = keys[i];
-    if (k === "__proto__" || k === "constructor" || k === "prototype") return;
-    const next: unknown = at?.[k];
-    if (!next || typeof next !== "object") return;
-    at = next as Body;
-  }
-  const last = keys[keys.length - 1];
-  if (last === "__proto__" || last === "constructor" || last === "prototype") return;
-  delete at[last];
-}
-
-// 파이썬 형식 키워드를 JSON이 읽을 수 있게 바꾼다. 따옴표 안은 건드리지 않는다.
-const RELAXED: Array<[string, string]> = [
-  ["True", "true"],
-  ["False", "false"],
-  ["None", "null"],
-];
-function relaxJson(text: string) {
-  let out = "";
-  let quote: string | null = null;
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (quote) {
-      out += ch;
-      if (ch === "\\" && i + 1 < text.length) out += text[++i];
-      else if (ch === quote) quote = null;
-      continue;
-    }
-    if (ch === '"' || ch === "'") {
-      quote = ch;
-      out += ch;
-      continue;
-    }
-    // 단어 경계에서만 바꾼다. Nonetype 같은 것을 건드리면 안 된다
-    const edge = (c: string | undefined) => !c || !/[A-Za-z0-9_$]/.test(c);
-    const hit = RELAXED.find(([word]) => text.startsWith(word, i) && edge(text[i - 1]) && edge(text[i + word.length]));
-    if (hit) {
-      out += hit[1];
-      i += hit[0].length - 1;
-    } else out += ch;
-  }
-  return out;
-}
-
-function readJson(text: string): { ok: true; value: unknown } | { ok: false } {
-  try {
-    return { ok: true, value: JSON.parse(text) };
-  } catch {
-    /* 그대로는 JSON이 아니다. 흔한 흠을 고쳐 다시 본다 */
-  }
-  const relaxed = relaxJson(text);
-  if (relaxed !== text) {
-    try {
-      return { ok: true, value: JSON.parse(relaxed) };
-    } catch {
-      /* 고쳐도 JSON이 아니다 */
-    }
-  }
-  return { ok: false };
-}
-
-/**
- * 추가 파라미터. 한 줄에 하나씩. 서비스마다 이름도 위치도 달라 글로 받는다.
- *
- *   key=value            그대로 (true, false, null, 숫자는 알아서 바꾼다)
- *   key="value"          따옴표로 두르면 숫자처럼 보여도 글자다
- *   a.b.c=value          점으로 안쪽 필드에 넣는다 (thinking.budget_tokens처럼)
- *   key=json::{...}      JSON으로 읽어 넣는다 (객체, 배열)
- *   header::Name=value   본문이 아니라 요청 헤더에 넣는다
- *   key={{none}}         그 값을 아예 안 보낸다 (header::Name={{none}}이면 헤더를 뺀다)
- *   # 주석
- *
- * RisuAI와 같은 입력법이다. 못 읽은 줄은 건너뛴다.
- */
-function parseExtra(text: unknown): Extra {
-  const out: Extra = { body: {}, headers: {}, drop: [], dropHeaders: [] };
-  for (const raw of String(text || "").split(/\r?\n/)) {
-    const line = raw.trim();
-    if (line && !line.startsWith("#")) readExtraLine(line, out);
-  }
-  return out;
-}
-
-// 한 줄(이름=값)을 담는다. 이름이나 값이 없거나, 쓸 수 없는 이름이거나, JSON 파싱에 실패하면 건너뛴다
-function readExtraLine(line: string, out: Extra) {
-  const at = line.indexOf("=");
-  if (at < 1) return;
-  const name = line.slice(0, at).trim();
-  const value = line.slice(at + 1).trim();
-  const header = /^header::/i.test(name) ? name.slice(8).trim() : null;
-
-  // {{none}}을 header:: 보다 먼저 본다. 안 그러면 헤더에 "{{none}}"을 넣게 된다
-  if (value === "{{none}}") return header !== null ? out.dropHeaders.push(header) : out.drop.push(name);
-  if (header !== null) {
-    out.headers[header] = value;
-    return;
-  }
-  if (value === "" || !safeKeys(name)) return;
-
-  if (value.startsWith("json::")) {
-    const got = readJson(value.slice(6));
-    if (got.ok) setPath(out.body, name, got.value);
-    return;
-  }
-  setPath(out.body, name, scalarOf(value));
-}
-
-// 값 글 → 값. 따옴표로 싸면 글자, true, false, null, 수는 그 값, 나머지는 글자
-function scalarOf(value: string): unknown {
-  const quoted = (value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"));
-  if (quoted && value.length >= 2) return value.slice(1, -1);
-  if (value === "true" || value === "false") return value === "true";
-  if (value === "null") return null;
-  return Number.isNaN(Number(value)) ? value : Number(value);
-}
+/** 추가 파라미터를 요청에 넣을 형식으로 바꾼다(rules/ai-extra). 파싱에 실패한 줄은 뺀다 */
+const parseExtra = (text: unknown): Extra => readExtra(text).extra;
 
 /**
  * 후보 한 줄(config/schema의 검사, 대시보드 미리보기와 같은 해석기 rules/line-format). 길이 필드 이름은 후보(durationSec)와 트랙(duration)이 다르다. 둘 다 받는다.

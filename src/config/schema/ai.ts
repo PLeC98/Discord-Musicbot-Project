@@ -3,6 +3,7 @@
 import { PROVIDERS } from "./ai-providers.ts";
 import { VERTEX_LOCATION } from "../../rules/vertex-url.ts";
 import { setsSecretHeader } from "../../rules/secret-headers.ts";
+import { extraLineProblems } from "../../rules/ai-extra.ts";
 import { z, ALWAYS, coded, present, plain, problemsOf } from "./problems.ts";
 import { rule, type RuleProblem } from "../../rules/rule-problem.ts";
 import { LINE_NAMES, parseFormat, usesName, type Problem } from "../../rules/line-format.ts";
@@ -70,7 +71,7 @@ const aiFile = z.preprocess(
       retryDelayMs: between("retryDelayMs", 0, 60000),
       retryDelayMaxMs: between("retryDelayMaxMs", 0, 600000),
       retryStatus: present((v) => Array.isArray(v) && v.every((one) => Number.isInteger(one) && one >= 400 && one <= 599), "ai-retry-status"),
-      // 추가 파라미터는 한 줄에 하나씩 적는 글이다(assist/index의 parseExtra)
+      // 추가 파라미터는 한 줄에 하나씩 적는 문자열이다(rules/ai-extra). 파싱에 실패한 줄은 저장을 막지 않고 aiWarnings로 알린다
       // 비밀 헤더(Authorization 등)는 적지 못한다. 설정은 평문으로 남고 내보내기에도 실린다. 키는 키 입력란에(암호화해 둔다)
       extra: z
         .string({ error: "ai-extra-text" })
@@ -122,4 +123,9 @@ function aiProblems(data: unknown): RuleProblem[] {
   return problemsOf(aiFile, data, (path) => ({ model: path[0] === "params" && path[1] !== undefined ? String(path[1]) : undefined }));
 }
 
-export { aiProblems, aiSwitchedOff, AI_KEY_ORDER, AI_TIMEOUT_RANGE, lineFormatProblems };
+/**
+ * 막지 않는 경고: 추가 파라미터에서 파싱에 실패해 빠지는 줄. 저장과 켜기를 막지 않는다(그 줄만 빠지고 나머지 요청은 그대로 보낸다)
+ */
+const aiWarnings = (data: unknown): RuleProblem[] => (data && typeof data === "object" ? extraLineProblems((data as { extra?: unknown }).extra) : []);
+
+export { aiProblems, aiWarnings, aiSwitchedOff, AI_KEY_ORDER, AI_TIMEOUT_RANGE, lineFormatProblems };

@@ -141,6 +141,7 @@
           </p>
         </div>
         <textarea :value="extraText" rows="4" :placeholder="EXTRA_SAMPLE" :class="[AREA, 'font-mono text-xs']" @input="extraText = valueOf($event)"></textarea>
+        <p v-for="line in extraWarnings" :key="line" class="flex items-start gap-1 text-xs text-(--warn-ink)"><Icon name="warning" :size="14" class="mt-px shrink-0" />{{ line }}</p>
       </section>
     </div>
   </BaseCard>
@@ -203,6 +204,7 @@ const {
   staleCustomUrl,
   hideModels,
   extraText,
+  extraWarnings,
   modelName,
   hintOf,
   paramGroups,

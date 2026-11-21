@@ -19,6 +19,7 @@ import { vertexChatUrl } from "../../../src/rules/vertex-url.ts";
 import { AI_ROLES, hasListMark, promptProblems, type PromptSection } from "../../../src/config/schema/ai-prompt.ts";
 import { LINE_NAMES, formatDuration as lineDuration, parseFormat, renderNodes } from "../../../src/rules/line-format.ts";
 import { AI_KEY_ORDER, aiProblems, aiSwitchedOff, lineFormatProblems } from "../../../src/config/schema/ai.ts";
+import { extraLineProblems } from "../../../src/rules/ai-extra.ts";
 import { ruleLine } from "../utils/rule-line.ts";
 import type { ModelField, ModelGroup, RefreshResult } from "../../../src/config/ai-model-types.ts";
 import type { AiDefaults, ModelsCheck, PingCheck, Preview, JudgeResult, TestCandidate } from "../../../src/autoplay/assist/types.ts";
@@ -336,13 +337,15 @@ function advancedView(s: State) {
       draft.value.hideModels = v;
     },
   });
-  // 추가 파라미터는 한 줄에 하나씩 적는 글이다. 뜯어 읽는 것은 서버가 한다(autoplayAssist)
+  // 추가 파라미터는 한 줄에 하나씩 적는 문자열이다. 요청에 넣는 것은 서버가 한다(rules/ai-extra)
   const extraText = computed({
     get: () => draft.value.extra || "",
     set: (v: string) => {
       draft.value.extra = v;
     },
   });
+  // 파싱에 실패해 요청에서 빠질 줄(서버와 같은 파서). 저장을 막지 않는다
+  const extraWarnings = computed(() => extraLineProblems(draft.value.extra).map(ruleLine));
   const defaultOf = (key: keyof AiDefaults) => {
     const value = settingDefaults.value[key];
     return value == null ? "" : Array.isArray(value) ? value.join(", ") : String(value);
@@ -356,7 +359,7 @@ function advancedView(s: State) {
     const codes = values.map(Number).filter((n) => Number.isInteger(n));
     draft.value.retryStatus = codes.length ? codes : null;
   }
-  return { hideModels, extraText, timeoutSec: secondsOf(draft, "timeoutMs"), totalSec: secondsOf(draft, "totalTimeoutMs"), delaySec: secondsOf(draft, "retryDelayMs", false), delayMaxSec: secondsOf(draft, "retryDelayMaxMs", false), defaultOf, defaultSec, setRetryStatus };
+  return { hideModels, extraText, extraWarnings, timeoutSec: secondsOf(draft, "timeoutMs"), totalSec: secondsOf(draft, "totalTimeoutMs"), delaySec: secondsOf(draft, "retryDelayMs", false), delayMaxSec: secondsOf(draft, "retryDelayMaxMs", false), defaultOf, defaultSec, setRetryStatus };
 }
 
 // ── 프롬프트: 섹션, 줄 형식 안내, 요청 미리보기 ────────────────────────────
