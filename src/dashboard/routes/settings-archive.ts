@@ -1,6 +1,7 @@
 // 설정 내보내기, 불러오기(운영자 패널 백업 탭). /api/admin/settings-archive
 // 내보내기, 불러오기는 최근 로그인만(훔친 로그인 쿠키로 설정을 빼가거나 교체하지 못하게). 미리 보기는 아무것도 바꾸지 않아 운영자면 된다
 
+import type { RuleProblem } from "../../rules/rule-problem.ts";
 import crypto from "node:crypto";
 import express from "express";
 import logger from "../../infra/log/logger.ts";
@@ -134,7 +135,7 @@ settingsArchiveRouter.post("/import", requireRecentLogin, async (req, res) => {
   } catch (error) {
     if (sessionEnded(res, error)) return;
     if (unreadable(res, error)) return;
-    if (codeOf(error) === "CONFIG_INVALID") return sendProblem(res, "config-invalid", {}, { errors: ((error as { problems?: string[] }).problems ?? []).map((detail) => ({ code: "config-invalid", detail })) });
+    if (codeOf(error) === "CONFIG_INVALID") return sendProblem(res, "config-invalid", {}, { errors: ((error as { problems?: RuleProblem[] }).problems ?? []).map((rule) => ({ code: "config-invalid", rule })) });
     log.error({ sub: "admin" }, `설정 불러오기 실패: ${messageOf(error)}`);
     sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
   }

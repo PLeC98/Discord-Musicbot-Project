@@ -12,6 +12,7 @@ import path from "path";
 import { parseEnv } from "util";
 import { spawnSync } from "child_process";
 import { loadConfig } from "../src/config/index.ts";
+import { logRuleLine } from "../src/rules/text/index.ts";
 import { stopOnConfigProblems } from "../src/app/config-check.ts";
 
 const ROOT = path.join(import.meta.dirname, "..");
@@ -21,7 +22,7 @@ const KEY = Buffer.alloc(32, 7).toString("base64");
 /** 주어진 환경 변수(env)와 운영 설정값(tunables, settings.db의 문서)으로 설정을 계산한다 */
 function load(env: Record<string, string>, opts?: Parameters<typeof loadConfig>[1]) {
   const { config: c, problems, warnings, tuneProblems } = loadConfig({ DISCORD_TOKEN: "t", CLIENT_SECRET: "s", SECRETS_KEY: KEY, ...env }, opts);
-  return { problems, warnings, tuneProblems, cfg: { port: c.dashboard.port, apiMax: c.dashboard.rateLimit.apiMax, website: c.bot.website, queueMax: c.bot.maxQueueSize } };
+  return { problems, warnings, tuneProblems: tuneProblems.map(logRuleLine), cfg: { port: c.dashboard.port, apiMax: c.dashboard.rateLimit.apiMax, website: c.bot.website, queueMax: c.bot.maxQueueSize } };
 }
 /** 운영 설정값만 준다 */
 const tune = (tunables: Record<string, string>) => load({}, { tunables });

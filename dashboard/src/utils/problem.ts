@@ -4,6 +4,8 @@
 // 공유 문장의 꾸밈(굵게, 코드)은 지금 화면이 글자로만 보여서 뗀다.
 // 문장이 "봇 개발자에게 보고해 주세요"를 쓰면 보고할 곳(소스 저장소, /api/bot의 sourceRepo)을 reportUrl로 붙인다
 
+import type { RuleProblem } from "../../../src/rules/rule-problem.ts";
+import { ruleLine } from "./rule-line.ts";
 import { isCode, isWebCode, type Code } from "../../../src/rules/problems.ts";
 import type { Notice } from "../../../src/ui/text/notice.ts";
 import { paramsOf, type ProblemBody } from "../../../src/dashboard/contract/problem.ts";
@@ -81,8 +83,14 @@ export function problemText(error: unknown, fallback: string): string {
   return [title, body, detail, reportUrl && text.errors.reportAt(reportUrl), codeLine].filter(Boolean).join("\n");
 }
 
-/** 필드별 문제의 운영자용 원문 목록(설정 검사). 없으면 빈 목록 */
+/** 필드별 문제의 줄 목록(설정 검사). 규칙 문제(rule)는 화면 언어로 그리고, 없으면 운영자용 원문(detail). 없으면 빈 목록 */
 export function problemDetails(error: unknown): string[] {
   const errors = problemOf(error)?.errors;
-  return Array.isArray(errors) ? errors.map((one) => one.detail).filter((detail): detail is string => Boolean(detail)) : [];
+  return Array.isArray(errors) ? errors.map((one) => (one.rule ? ruleLine(one.rule) : one.detail)).filter((line): line is string => Boolean(line)) : [];
+}
+
+/** 필드별 문제의 규칙 문제(설정 검사). 없으면 빈 목록 */
+export function problemRules(error: unknown): RuleProblem[] {
+  const errors = problemOf(error)?.errors;
+  return Array.isArray(errors) ? errors.flatMap((one) => (one.rule ? [one.rule] : [])) : [];
 }

@@ -1,4 +1,4 @@
-// 화면 문구 번들(한국어): 화면 문구 모듈 전부와, 화면도 쓰는 봇 문구(bot: 같은 언어의 src/ui/text/ko/shared). 이 언어의 화면 문구는 여기서만 부른다(text/index가 받는다)
+// 화면 문구 번들(한국어): 화면 문구 모듈 전부와, 화면도 쓰는 봇 문구(bot: 같은 언어의 src/ui/text/ko/shared), 규칙 문구(rules: 같은 언어의 src/rules/text/ko). 이 언어의 화면 문구는 여기서만 부른다(text/index가 받는다)
 
 export * as admin from "./admin.ts";
 export * as ageContent from "./age-content.ts";
@@ -41,3 +41,4 @@ export * as status from "./status.ts";
 export * as tunables from "./tunables.ts";
 export * as ytdlp from "./ytdlp.ts";
 export * as bot from "../../../../src/ui/text/ko/shared.ts";
+export * as rules from "../../../../src/rules/text/ko/index.ts";

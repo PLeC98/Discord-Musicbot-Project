@@ -16,6 +16,8 @@ const { fake } = await import("../helpers/fake.ts");
 const { openTempStore } = await import("../helpers/temp-store.ts");
 const { useDefaultDocuments } = await import("../helpers/config-docs.ts");
 const { unzip } = await import("../../src/infra/zip.ts");
+const { logRuleLine } = await import("../../src/rules/text/index.ts");
+type RuleProblem = import("../../src/rules/rule-problem.ts").RuleProblem;
 const { zipped } = await import("../helpers/zip.ts");
 const config = (await import("../../src/config/index.ts")).default;
 const documents = await import("../../src/config/documents.ts");
@@ -68,7 +70,7 @@ after(() => {
   fs.rmSync(uploadDir, { recursive: true, force: true });
 });
 
-type Row = { item: string; inFile: boolean; same: boolean; problems: string[]; warnings: string[]; count: number | null };
+type Row = { item: string; inFile: boolean; same: boolean; problems: RuleProblem[]; warnings: RuleProblem[]; count: number | null };
 
 /** 내보낸 파일. 기본은 봇 설정만 */
 async function exported(kind: "settings" | "favicon" = "settings") {
@@ -91,7 +93,8 @@ async function send(route: string, file: Buffer) {
   const { json } = await preview(file);
   return fetch(`${base}/${route}${route.includes("?") ? "&" : "?"}token=${json.token}`, { method: "POST" });
 }
-const rowsOf = (json: { rows: Row[] }) => Object.fromEntries(json.rows.map((one) => [one.item, one]));
+// 행의 문제와 경고는 로그 언어로 그려 비교한다(화면은 그 사람의 언어로 그린다)
+const rowsOf = (json: { rows: Row[] }) => Object.fromEntries(json.rows.map((one) => [one.item, { ...one, problems: one.problems.map(logRuleLine), warnings: one.warnings.map(logRuleLine) }]));
 const settingsOf = (file: Buffer) =>
   JSON.parse(
     unzip(file)
@@ -208,10 +211,10 @@ test("선택한 항목 하나라도 검사에 걸리면 400으로 원인을 모�
   tunables.save({ QUEUE_MAX_TRACKS: "77" }, 0);
   const genresRevision = documents.revisionOf("genres");
   const res = await send("import?items=genres,status,tunables", file);
-  const json = (await res.json()) as { code: string; errors: { detail: string }[] };
+  const json = (await res.json()) as { code: string; errors: { rule: RuleProblem }[] };
   assert.deepEqual([res.status, json.code], [400, "config-invalid"]);
-  assert.ok(json.errors.some((one) => one.detail.startsWith("활동 문구:")));
-  assert.ok(json.errors.some((one) => one.detail.startsWith("운영 설정값:")));
+  const items = json.errors.map((one) => (one.rule.code === "archive-item" ? one.rule.params?.item : null));
+  assert.ok(items.includes("status") && items.includes("tunables"), "항목마다 감싼 문제");
   assert.equal(config.bot.maxQueueSize, 77);
   assert.equal(documents.revisionOf("genres"), genresRevision, "검사를 지난 항목도 쓰지 않는다");
 });

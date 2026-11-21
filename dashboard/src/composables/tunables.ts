@@ -8,8 +8,9 @@ import { computed, ref } from "vue";
 import axios from "axios";
 import { addSaveTarget } from "./save-targets.ts";
 import { notifyDone, notifyProblem } from "./toasts.ts";
-import { GROUP_TAB, RESTART_KEYS, TUNABLES, TUNABLE_KEYS, parseTuneProblem, tunable, tunableValue } from "../../../src/rules/tunables.ts";
-import { problemDetails } from "../utils/problem.ts";
+import { GROUP_TAB, RESTART_KEYS, TUNABLES, TUNABLE_KEYS, tunable, tunableValue } from "../../../src/rules/tunables.ts";
+import { tuneKeyOf } from "../../../src/rules/rule-problem.ts";
+import { problemRules } from "../utils/problem.ts";
 import type { TunablesView } from "../../../src/dashboard/contract/admin.ts";
 import { text } from "../text/index.ts";
 const T = text.tunables;
@@ -36,12 +37,6 @@ function apply(view: TunablesView, keys: readonly string[]) {
 export const labelOf = (key: string) => T.fields[key]?.label ?? key;
 export const namesOf = (keys: string[]) => keys.map(labelOf).join(", ");
 
-/** 저장 거절의 줄(틀린 설정값)을 "라벨 [넣은 값]: 원인"으로. 다른 모양은 그대로 */
-export function problemLine(line: string): string {
-  const found = parseTuneProblem(line);
-  return found ? T.problemLine(labelOf(found.key), found.value, found.reason) : line;
-}
-
 // 저장 바가 다루는 항목(도구 카드의 값은 뺀다)
 const ALL_KEYS = TUNABLES.filter((one) => !one.card).map((one) => one.key);
 const changedKey = (key: string) => tunableValue(key, draft.value[key] ?? "") !== (saved.value[key] ?? "");
@@ -49,11 +44,11 @@ const saving = ref(false);
 // 마지막 저장 거절에서 틀린 값이 든 탭. 이름을 모르는 실패(충돌, 연결)면 비어 있다
 let failedTabs: string[] = [];
 
-/** 저장 거절의 줄에서 틀린 값이 든 탭 */
+/** 저장 거절에서 틀린 값이 든 탭 */
 export const tabsOf = (error: unknown) => [
   ...new Set(
-    problemDetails(error).flatMap((line) => {
-      const key = parseTuneProblem(line)?.key;
+    problemRules(error).flatMap((problem) => {
+      const key = tuneKeyOf(problem);
       return key && TUNABLE_KEYS.has(key) ? [GROUP_TAB[tunable(key).group]] : [];
     }),
   ),
@@ -69,7 +64,7 @@ async function saveAllKeys(restarting: boolean): Promise<boolean> {
     return true;
   } catch (err) {
     failedTabs = tabsOf(err);
-    notifyProblem(err, T.saveFailed, problemLine);
+    notifyProblem(err, T.saveFailed);
     return false;
   } finally {
     saving.value = false;

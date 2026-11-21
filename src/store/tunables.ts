@@ -9,9 +9,10 @@ const log = logger.child({ category: "config" });
 // 설정 객체는 필드마다 덮어쓰므로 받은 이름으로만 읽는다(모듈 맨 위에서 꺼내 두지 않는다)
 import * as root from "../config/index.ts";
 import { codedError, messageOf } from "../rules/error-kind.ts";
-import { josa } from "../rules/josa.ts";
 import { tunablesChanged } from "../config/tunables-changed.ts";
-import { TUNABLES, TUNABLE_KEYS, RESTART_KEYS, CARD_KEYS, tunable, tunableValue, parseTuneProblem, tuneProblemLine, type TunablesView } from "../rules/tunables.ts";
+import { TUNABLES, TUNABLE_KEYS, RESTART_KEYS, CARD_KEYS, tunable, tunableValue, type TunablesView } from "../rules/tunables.ts";
+import { rule, tuneKeyOf, tuneProblem, type RuleProblem } from "../rules/rule-problem.ts";
+import { logRuleLine } from "../rules/text/index.ts";
 import * as docs from "./settings-docs.ts";
 
 const DOC = "tunables";
@@ -40,7 +41,7 @@ const TUNED_SECTIONS = ["bot", "ytdlp", "bgutil", "sponsorblock", "voiceStatus",
 type Section = Record<string, unknown>;
 const sectionOf = (root: object, path: string) => path.split(".").reduce<Section>((at, key) => at[key] as Section, root as Section);
 
-// 계산한 값을 설정 객체에 올린다. 값을 쓰는 곳이 쥔 객체가 바뀌지 않게 영역마다 필드를 덮어쓴다. 문제 줄을 돌려준다
+// 계산한 값을 설정 객체에 올린다. 값을 쓰는 곳이 쥔 객체가 바뀌지 않게 영역마다 필드를 덮어쓴다. 문제를 돌려준다
 function apply(values: Record<string, string>) {
   const config = root.default;
   const next = root.loadConfig(process.env, { tunables: values });
@@ -50,7 +51,7 @@ function apply(values: Record<string, string>) {
 
 // 기동 시 올린다. 틀린 필드는 기동을 멈추지 않고 그 필드만 기본값(DB를 외부에서 고쳤을 때 등. 고칠 화면이 떠야 한다)
 function boot(values: Record<string, string>) {
-  for (const line of apply(values)) log.warn(`운영 설정값 ${line}. 해당 값은 기본값으로 적용. 운영자 패널에서 수정하세요`);
+  for (const problem of apply(values)) log.warn(`운영 설정값 ${logRuleLine(problem)}. 해당 값은 기본값으로 적용. 운영자 패널에서 수정하세요`);
   booted = values;
 }
 
@@ -79,8 +80,11 @@ function effective(saved: Record<string, string>) {
 
 // 문서에서 도구 카드의 값만 추린다
 const cardPart = (values: Record<string, string>) => Object.fromEntries(Object.entries(values).filter(([key]) => CARD_KEYS.has(key)));
-// keys가 참을 돌려주는 이름의 문제 줄만 남긴다
-const about = (lines: string[], keys: (key: string) => boolean) => lines.filter((line) => keys(parseTuneProblem(line)?.key ?? ""));
+// keys가 참을 돌려주는 이름의 문제만 남긴다
+const about = (problems: RuleProblem[], keys: (key: string) => boolean) => problems.filter((problem) => keys(tuneKeyOf(problem) ?? ""));
+
+// 저장 거절의 예외. 메시지는 로그 언어로 그린 문제, problems는 화면이 그릴 문제
+const invalidError = (problems: RuleProblem[]) => Object.assign(codedError("CONFIG_INVALID", problems.map(logRuleLine).join("\n")), { problems });
 
 /**
  * 저장 바의 저장. values는 필드 전부(빈 필드는 기본값), revision은 화면이 읽은 번호. 도구 카드의 값은 values에서 읽지 않고 저장된 값을 이어 쓴다.
@@ -92,7 +96,7 @@ function save(values: Record<string, unknown>, revision: number): TunablesView {
   const before = shape(docs.read(DOC).data);
   const saved = { ...shape(general), ...cardPart(before) };
   const problems = [...shapeProblems(general), ...about(root.loadConfig(process.env, { tunables: saved }).tuneProblems, (key) => !CARD_KEYS.has(key)), ...lockedProblems(before, saved)];
-  if (problems.length) throw Object.assign(codedError("CONFIG_INVALID", problems.join("\n")), { problems });
+  if (problems.length) throw invalidError(problems);
   const next = docs.write(DOC, saved, revision);
   use(saved);
   return { values: saved, revision: next, pending: pendingOf(saved) };
@@ -112,26 +116,26 @@ function saveCard(changes: Record<string, string | null>, expect: Record<string,
   if (moved.length) throw codedError("CARD_CONFLICT", `그사이 바뀐 값: ${moved.map(([key]) => key).join(", ")}`);
   const saved = shape({ ...now, ...changes });
   const problems = about(root.loadConfig(process.env, { tunables: saved }).tuneProblems, (key) => key in changes);
-  if (problems.length) throw Object.assign(codedError("CONFIG_INVALID", problems.join("\n")), { problems });
+  if (problems.length) throw invalidError(problems);
   const next = docs.write(DOC, saved, doc.revision);
   use(saved);
   return { values: saved, revision: next, pending: pendingOf(saved) };
 }
 
 // 잠긴 값(lockedBy의 값이 있는 동안)을 바꾸려 했다
-function lockedProblems(before: Record<string, string>, after: Record<string, string>): string[] {
-  return TUNABLES.flatMap(({ key, lockedBy }) => (lockedBy && before[lockedBy] && (before[key] ?? "") !== (after[key] ?? "") ? [tuneProblemLine(key, after[key] ?? "", `${lockedBy}${josa(lockedBy, "이")} 있는 동안 바꿀 수 없음`)] : []));
+function lockedProblems(before: Record<string, string>, after: Record<string, string>): RuleProblem[] {
+  return TUNABLES.flatMap(({ key, lockedBy }) => (lockedBy && before[lockedBy] && (before[key] ?? "") !== (after[key] ?? "") ? [tuneProblem(key, after[key] ?? "", rule("tune-locked", { lockedBy }))] : []));
 }
 
 // 모르는 이름, 문자열이 아닌 값
-function shapeProblems(values: Record<string, unknown>): string[] {
+function shapeProblems(values: Record<string, unknown>): RuleProblem[] {
   const unknown = Object.keys(values).filter((key) => !TUNABLE_KEYS.has(key));
   const wrongType = Object.entries(values).filter(([, value]) => typeof value !== "string" && value !== null);
-  return [...unknown.map((key) => `${key}: 모르는 설정`), ...wrongType.map(([key]) => `${key}: 문자열이어야 함`)];
+  return [...unknown.map((key) => rule("tune-unknown-key", { key })), ...wrongType.map(([key]) => rule("tune-not-text", { key }))];
 }
 
-/** 문서 전체의 검사(불러오기: 모르는 이름, 문자열이 아닌 값, .env와 같은 값 검사). 문제 줄들 */
-function problemsOf(values: Record<string, unknown>): string[] {
+/** 문서 전체의 검사(불러오기: 모르는 이름, 문자열이 아닌 값, .env와 같은 값 검사) */
+function problemsOf(values: Record<string, unknown>): RuleProblem[] {
   return [...shapeProblems(values), ...root.loadConfig(process.env, { tunables: shape(values) }).tuneProblems];
 }
 

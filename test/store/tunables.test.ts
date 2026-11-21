@@ -189,7 +189,7 @@ test("카드의 저장은 그 값만 바꾸고 바로 적용된다. 보던 값�
 test("카드의 저장은 틀린 값을 거절하고, 카드 값이 아닌 이름은 받아들이지 않는다", () => {
   assert.throws(
     () => tunables.saveCard({ YTDLP_VERSION: "최신" }),
-    (error: { code?: string; problems?: string[] }) => error.code === "CONFIG_INVALID" && /YTDLP_VERSION/.test(error.problems?.[0] ?? ""),
+    (error: { code?: string; problems?: Array<{ params?: { key?: string } }> }) => error.code === "CONFIG_INVALID" && error.problems?.[0]?.params?.key === "YTDLP_VERSION",
   );
   assert.throws(() => tunables.saveCard({ YTDLP_UPDATE: "manual" }), /도구 카드의 값이 아님/);
   assert.throws(() => tunables.saveCard({ YTDLP_CHANNEL: "stable" }), /도구 카드의 값이 아님/, "고정과 함께가 아니면 채널은 저장 바에서");

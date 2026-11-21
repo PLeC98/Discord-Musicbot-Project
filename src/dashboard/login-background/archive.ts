@@ -4,6 +4,7 @@
 // 도는 단계를 멈춘 뒤 기록을 바꾸고 옛 배경을 삭제한다. 로그인 화면은 옛 배경의 파일을 못 받으면 배경 정보를 다시 읽는다.
 // 남이 준 파일일 수 있어 형식만 받는다: 기록은 다 만든 배경의 형식, 파일은 기록에 있는 배경의 내는 파일, 목록(.m3u8)은 그 폴더 안의 파일만 가리키고, 정지 그림은 적힌 폭의 WebP
 
+import { unmoved } from "../../rules/rule-problem.ts";
 import fs from "node:fs";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
@@ -291,7 +292,7 @@ async function check(file: string): Promise<{ row: ArchiveRow; plan: Plan | null
     if (!checked) return { row: { item: "login-background", inFile: false, same: false, problems: [], warnings: [], count: null }, plan: null };
     const count = checked.plan?.index.items.length ?? null;
     const same = checked.plan ? sameAsNow(checked.plan) : false;
-    return { row: { item: "login-background", inFile: true, same, problems: checked.problems, warnings: checked.plan ? warningsFor(checked.plan) : [], count }, plan: checked.plan };
+    return { row: { item: "login-background", inFile: true, same, problems: checked.problems.map(unmoved), warnings: checked.plan ? warningsFor(checked.plan).map(unmoved) : [], count }, plan: checked.plan };
   } finally {
     zipped.close();
   }

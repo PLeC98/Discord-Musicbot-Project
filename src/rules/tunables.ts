@@ -123,15 +123,6 @@ function tunableValue(key: string, raw: string): string {
   return TUNABLES.find((one) => one.key === key)?.kind === "text" ? raw : raw.trim();
 }
 
-/** 틀린 설정값 한 줄. 기동 로그와 저장 거절이 같이 쓰고, 화면은 parseTuneProblem으로 다시 나눠 라벨을 붙인다 */
-const tuneProblemLine = (key: string, value: string, reason: string) => `${key} 값이 잘못됨(${value}): ${reason}`;
-
-/** tuneProblemLine 줄을 이름(key), 값, 원인으로 나눔. 다른 형식이면 null. 원인에는 "): "가 없으므로 마지막 "): "에서 나눔 */
-function parseTuneProblem(line: string): { key: string; value: string; reason: string } | null {
-  const found = /^(\S+) 값이 잘못됨\((.*)\): (.*)$/s.exec(line);
-  return found ? { key: found[1]!, value: found[2]!, reason: found[3]! } : null;
-}
-
 /** 이름으로 찾는다. 모르는 이름이면 예외를 던진다(코드의 오타다) */
 function tunable(key: string): Tunable {
   const found = TUNABLES.find((one) => one.key === key);
@@ -142,5 +133,5 @@ function tunable(key: string): Tunable {
 /** 대시보드의 응답. values: 저장한 값(비운 필드는 없다 = 기본값), revision: 저장 번호, pending: 저장했지만 다시 시작해야 적용되는 이름 */
 type TunablesView = { values: Record<string, string>; revision: number; pending: string[] };
 
-export { TUNABLES, TUNABLE_GROUPS, GROUP_TAB, TUNABLE_KEYS, RESTART_KEYS, CARD_KEYS, OWN_CARD_GROUPS, groupsIn, tunable, tunableValue, tuneProblemLine, parseTuneProblem };
+export { TUNABLES, TUNABLE_GROUPS, GROUP_TAB, TUNABLE_KEYS, RESTART_KEYS, CARD_KEYS, OWN_CARD_GROUPS, groupsIn, tunable, tunableValue };
 export type { TunableBox, Tunable, TunableGroup, TunableKind, TunableTab, TunablesView };

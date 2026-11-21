@@ -33,13 +33,13 @@ function filesUnder(dir: string): string[] {
 // import, export ... from, import()의 경로(타입 import 포함)
 const specifiersOf = (source: string) => [...source.matchAll(/(?:^|\n)\s*(?:import|export)\b[^"';]*?from\s+"([^"]+)"|import\(\s*"([^"]+)"\s*\)/g)].map((m) => m[1] ?? m[2]);
 
-/** 그 파일이 부른 언어 폴더(src/ui/text/<언어>/) */
+/** 그 파일이 부른 언어 폴더(봇 문구 src/ui/text/<언어>/, 규칙 문구 src/rules/text/<언어>/) */
 function languageDirsCalled(file: string): string[] {
   const source = fs.readFileSync(path.join(ROOT, file), "utf8");
   return specifiersOf(source)
     .filter((spec) => spec.startsWith("."))
     .map((spec) => posix(path.join(path.dirname(file), spec)))
-    .filter((target) => LANGUAGE_DIRS.some((tag) => target.startsWith(`src/ui/text/${tag}/`)))
+    .filter((target) => LANGUAGE_DIRS.some((tag) => target.startsWith(`src/ui/text/${tag}/`) || target.startsWith(`src/rules/text/${tag}/`)))
     .map((target) => target.split("/").slice(0, 4).join("/"));
 }
 
@@ -47,11 +47,12 @@ function languageDirsCalled(file: string): string[] {
 function allowed(file: string, dir: string): boolean {
   const tag = dir.split("/")[3];
   if (file.startsWith(`${dir}/`)) return true;
-  if (["src/ui/text/index.ts", "src/ui/text/shared.ts", "src/ui/text/contract.ts"].includes(file)) return true;
-  // 화면의 같은 언어 번들(화면도 쓰는 봇 문구를 담는다)
+  if (["src/ui/text/index.ts", "src/ui/text/shared.ts", "src/ui/text/contract.ts", "src/rules/text/index.ts"].includes(file)) return true;
+  // 화면의 같은 언어 번들(화면도 쓰는 봇 문구와 규칙 문구를 담는다)
   if (file === `dashboard/src/text/${tag}/index.ts`) return true;
   // 그 언어의 문구표 테스트, 문구 번들 자체를 시험하는 테스트
   if (file.startsWith(`test/ui/text/${tag}/`) || /^test\/ui\/text\/[^/]+\.test\.ts$/.test(file)) return true;
+  if (file.startsWith(`test/rules/text/${tag}/`) || /^test\/rules\/text\/[^/]+\.test\.ts$/.test(file)) return true;
   return NOT_YET.has(file);
 }
 
@@ -103,7 +104,23 @@ test("재생, 유스케이스, 소스, 자동재생은 언어를 고르지 않�
     const strict = NO_TEXT.some((dir) => file.startsWith(`${dir}/`));
     // 로그 언어가 아닌 인자로 문구표를 꺼낸다
     const notLog = [...source.matchAll(/\b(?:textFor|sharedTextFor)\(([^)]*)\)/g)].some((m) => m[1].trim() !== "LOG_LANGUAGE");
-    return [picks && `${file}: ui/language`, text && (strict || notLog) && `${file}: 문구표`].filter((one): one is string => Boolean(one));
+    // 규칙 문구표(rules/text)는 이 층들도 부르지만 로그 언어로만
+    const ruleNotLog = [...source.matchAll(/\bruleTextFor\(([^)]*)\)/g)].some((m) => m[1].trim() !== "LOG_LANGUAGE");
+    return [picks && `${file}: ui/language`, text && (strict || notLog) && `${file}: 문구표`, ruleNotLog && `${file}: 규칙 문구표`].filter((one): one is string => Boolean(one));
   });
   assert.deepEqual(wrong, []);
+});
+
+test("화면이 닿는 모듈은 규칙 문구의 진입점(rules/text/index)을 부르지 않는다(모든 언어가 화면 번들에 실린다. 화면은 같은 언어의 폴더를 번들로 받는다)", () => {
+  const seen = new Set<string>();
+  const visit = (rel: string) => {
+    if (seen.has(rel) || !fs.existsSync(path.join(ROOT, rel))) return;
+    seen.add(rel);
+    for (const spec of specifiersOf(fs.readFileSync(path.join(ROOT, rel), "utf8"))) {
+      if (spec.startsWith(".") && /\.(ts|vue)$/.test(spec)) visit(posix(path.join(path.dirname(rel), spec)));
+    }
+  };
+  for (const file of filesUnder("dashboard/src")) visit(file);
+  assert.ok(seen.has("src/rules/rule-problem.ts"), "따라가기가 규칙 문제 모듈까지 닿는다");
+  assert.ok(!seen.has("src/rules/text/index.ts"));
 });

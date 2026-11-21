@@ -45,10 +45,10 @@
               </span>
             </label>
             <ul v-if="row.problems.length" class="ml-16 mb-1 text-label text-error list-disc pl-4">
-              <li v-for="line in row.problems" :key="line">{{ row.item === "tunables" ? problemLine(line) : line }}</li>
+              <li v-for="(problem, i) in row.problems" :key="i">{{ ruleLine(problem) }}</li>
             </ul>
             <ul v-if="(row.warnings.length || row.breakdown?.overLimit) && usable(row)" class="ml-16 mb-1 text-label text-(--warn-ink) list-disc pl-4">
-              <li v-for="line in row.warnings" :key="line">{{ line }}</li>
+              <li v-for="(warning, i) in row.warnings" :key="i">{{ ruleLine(warning) }}</li>
               <li v-if="row.breakdown?.overLimit">{{ T.breakdown.overLimit(row.breakdown.overLimit) }}</li>
             </ul>
           </li>
@@ -74,7 +74,7 @@ import { LIMIT } from "../utils/request.ts";
 import { uploadFile } from "../utils/chunk-upload.ts";
 import { formatDateTime } from "../utils/locale.ts";
 import { notify, notifyDone, notifyProblem } from "../composables/toasts.ts";
-import { problemLine } from "../composables/tunables.ts";
+import { ruleLine } from "../utils/rule-line.ts";
 import { askRestart } from "../composables/bot-restart.ts";
 import { ensureRecentLogin } from "../composables/session.ts";
 import { formatBytes } from "../../../src/ui/format.ts";
@@ -83,11 +83,6 @@ import { text } from "../text/index.ts";
 const T = text.archive;
 
 const BASE = "/api/admin/settings-archive";
-// 불러오기 거절 줄은 "항목 이름: 원인" 형식. 원인이 운영 설정값 줄(tuneProblemLine)이면 미리 보기처럼 라벨을 붙여 보임(problemLine)
-const importProblemLine = (line: string) => {
-  const at = line.indexOf(": ");
-  return at < 0 ? line : `${line.slice(0, at)}: ${problemLine(line.slice(at + 2))}`;
-};
 const fileEl = ref<HTMLInputElement | null>(null);
 const busy = ref(false);
 const applying = ref(false);
@@ -174,7 +169,7 @@ async function apply() {
     if (data.restart) askRestart();
     else if (!merging) setTimeout(() => location.reload(), 800);
   } catch (err) {
-    notifyProblem(err, T.importFailed, importProblemLine);
+    notifyProblem(err, T.importFailed);
     applying.value = false;
   }
 }

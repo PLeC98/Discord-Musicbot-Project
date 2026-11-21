@@ -1,5 +1,7 @@
 // bgutil(POToken 공급자) 설치의 판단: 어느 태그와 커밋을 설치할지, 태그가 가리키는 커밋, 잠금 파일에서 설치 스크립트를 돌릴 의존성. 설정 모듈과 설치 스크립트(scripts/install-bgutil)가 따른다
 
+import { rule, type RuleProblem } from "./rule-problem.ts";
+
 /** GitHub 저장소(owner/name) */
 const BGUTIL_REPO = "Brainicism/bgutil-ytdlp-pot-provider";
 
@@ -13,8 +15,8 @@ function isPlainTag(text: string) {
   return /^[0-9A-Za-z][0-9A-Za-z._-]*$/.test(text) && !text.includes("..");
 }
 
-/** 틀린 짝: 어느 이름의 어떤 값이 왜 틀렸나(설정값 문제 줄의 재료) */
-type BgutilTargetProblem = { key: "BGUTIL_VERSION" | "BGUTIL_COMMIT"; value: string; reason: string };
+/** 틀린 짝: 어느 이름의 어떤 값이 왜 틀렸나(설정값 문제의 재료) */
+type BgutilTargetProblem = { key: "BGUTIL_VERSION" | "BGUTIL_COMMIT"; value: string; reason: RuleProblem };
 
 /**
  * 설치할 태그와 그 태그가 가리켜야 할 커밋. version, commit은 업데이트 탭의 bgutil 카드가 고정한 값(비면 없음).
@@ -22,11 +24,11 @@ type BgutilTargetProblem = { key: "BGUTIL_VERSION" | "BGUTIL_COMMIT"; value: str
  */
 function bgutilTarget(version: string, commit: string, defaults: { version: string; commit: string }): { tag: string; commit: string } | BgutilTargetProblem {
   if (!version && !commit) return { tag: defaults.version, commit: defaults.commit };
-  if (!version) return { key: "BGUTIL_VERSION", value: "", reason: "커밋만 있고 태그가 없음" };
-  if (!isPlainTag(version)) return { key: "BGUTIL_VERSION", value: version, reason: "태그 이름이 아님" };
-  if (commit) return isCommitSha(commit) ? { tag: version, commit } : { key: "BGUTIL_COMMIT", value: commit, reason: "커밋 해시 40자(16진수 소문자)여야 함" };
+  if (!version) return { key: "BGUTIL_VERSION", value: "", reason: rule("bgutil-commit-only") };
+  if (!isPlainTag(version)) return { key: "BGUTIL_VERSION", value: version, reason: rule("bgutil-not-tag") };
+  if (commit) return isCommitSha(commit) ? { tag: version, commit } : { key: "BGUTIL_COMMIT", value: commit, reason: rule("bgutil-commit-hash") };
   if (version === defaults.version) return { tag: version, commit: defaults.commit };
-  return { key: "BGUTIL_COMMIT", value: "", reason: `기본값(${defaults.version})과 다른 태그에는 그 태그의 커밋이 함께 있어야 함` };
+  return { key: "BGUTIL_COMMIT", value: "", reason: rule("bgutil-needs-commit", { tag: defaults.version }) };
 }
 
 /**

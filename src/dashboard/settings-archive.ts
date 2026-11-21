@@ -10,6 +10,8 @@
 // 남이 준 파일일 수 있으니 바깥으로 나가는 값(AI 요청이 가는 곳, 봇 웹사이트 주소), PC에 매인 값(쿠키 출처, POToken)이 바뀌면 미리 보기가 표시해 준다.
 // 불러온 뒤 다시 시작해야 적용되는 값이 바뀌었거나 쿠키 출처가 바뀌었으면 응답이 알린다(화면이 다시 시작 창, 연령 제한 탭 안내를 연다).
 
+import { rule, unmoved } from "../rules/rule-problem.ts";
+import { logRuleLine } from "../rules/text/index.ts";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -163,7 +165,7 @@ function tunablesRow(json: Partial<ArchiveJson>): ArchiveRow {
   if (cookies !== (now[COOKIES_KEY] ?? "")) warnings.push(`쿠키 출처가 바뀌어요: ${cookiesName(now[COOKIES_KEY] ?? "")} → ${cookiesName(cookies)}`);
   if (textOf(value, POTOKEN_KEY) !== (now[POTOKEN_KEY] ?? "")) warnings.push("POToken 사용이 바뀌어요(다시 시작해야 적용돼요)");
   warnings.push(...pinWarnings(value, now));
-  return { item: "tunables", inFile: true, same: stable(value) === stable(now), problems: tunables.problemsOf(value), warnings, count: null };
+  return { item: "tunables", inFile: true, same: stable(value) === stable(now), problems: tunables.problemsOf(value), warnings: warnings.map(unmoved), count: null };
 }
 
 /** 문서 하나의 검사. 프롬프트는 AI를 켠 설정과 함께일 때만 {{list}}를 따진다 */
@@ -206,7 +208,7 @@ function docRow(item: DocItem, json: Partial<ArchiveJson>, aiDoc: unknown): Arch
   const docs = isTable(json.documents) ? json.documents : {};
   if (!(item in docs)) return absent(item);
   const value = docs[item];
-  return { item, inFile: true, same: stable(value) === stable(documents.get(item)), problems: docProblems(item, value, aiDoc), warnings: docWarnings(item, value), count: null };
+  return { item, inFile: true, same: stable(value) === stable(documents.get(item)), problems: docProblems(item, value, aiDoc).map(unmoved), warnings: docWarnings(item, value).map(unmoved), count: null };
 }
 
 // 파비콘 검사에 걸린 이유를 한 줄로
@@ -222,7 +224,7 @@ const hasFavicons = (parsed: Parsed) => Array.isArray(parsed.json.favicons) && p
 async function faviconRow(parsed: Parsed): Promise<ArchiveRow> {
   if (!hasFavicons(parsed)) return absent("favicon");
   const checked = await appearance.checkFavicons(parsed.favicons);
-  const problems = checked.ok ? [] : checked.faults.map((one) => FAVICON_WHY[one]);
+  const problems = checked.ok ? [] : checked.faults.map((one) => unmoved(FAVICON_WHY[one]));
   const now = appearance
     .faviconFiles()
     .map((one) => digest(one.data))
@@ -285,7 +287,7 @@ const ITEM_LABELS: Record<ArchiveItem, string> = {
   "audio-sponsorblock": "SponsorBlock 구간",
 };
 
-// 선택한 항목이 모두 파일에 있고 검사를 지나는지. 아니면 CONFIG_INVALID(problems: "항목: 원인"). 지나면 저장할 파비콘, 불러올 로그인 배경(선택하지 않았으면 null)
+// 선택한 항목이 모두 파일에 있고 검사를 지나는지. 아니면 CONFIG_INVALID(problems: 항목마다 감싼 문제, 메시지는 "항목: 원인" 줄). 지나면 저장할 파비콘, 불러올 로그인 배경(선택하지 않았으면 null)
 async function checkChosen(parsed: Parsed, items: ArchiveItem[]): Promise<{ favicons: appearance.Prepared | null; background: loginBackground.Plan | null }> {
   const aiDoc = aiDocFor(parsed.json, items.includes("ai"));
   const background = items.includes("login-background") ? await loginBackground.check(parsed.file) : null;
@@ -293,8 +295,11 @@ async function checkChosen(parsed: Parsed, items: ArchiveItem[]): Promise<{ favi
   const audioRows = items.some(audioArchive.isAudioItem) ? (kindOf(parsed.json) === "audio-cache" ? audioArchive.previewRows(audioArchive.readBundle(parsed.file)) : []) : [];
   const audioRow = (item: ArchiveItem) => audioRows.find((one) => one.item === item) ?? { item, inFile: false, same: false, problems: [], warnings: [], count: null };
   const rows = await Promise.all(items.map((item) => (item === "login-background" ? background!.row : audioArchive.isAudioItem(item) ? audioRow(item) : rowFor(item, parsed, aiDoc))));
-  const problems = rows.flatMap((row) => [...(row.inFile ? [] : ["파일에 없어요"]), ...row.problems].map((line) => `${ITEM_LABELS[row.item]}: ${line}`));
-  if (problems.length) throw Object.assign(codedError("CONFIG_INVALID", problems.join("\n")), { problems });
+  const causes = rows.flatMap((row) => [...(row.inFile ? [] : [rule("archive-missing")]), ...row.problems].map((cause) => ({ item: row.item, cause })));
+  if (causes.length) {
+    const problems = causes.map(({ item, cause }) => rule("archive-item", { item }, cause));
+    throw Object.assign(codedError("CONFIG_INVALID", causes.map(({ item, cause }) => `${ITEM_LABELS[item]}: ${logRuleLine(cause)}`).join("\n")), { problems });
+  }
   const checked = items.includes("favicon") ? await appearance.checkFavicons(parsed.favicons) : null;
   return { favicons: checked?.ok ? checked.prepared : null, background: background?.plan ?? null };
 }

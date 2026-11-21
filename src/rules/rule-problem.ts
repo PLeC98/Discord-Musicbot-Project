@@ -1,0 +1,65 @@
+// 아래층(rules, config, store)과 서버가 문장 대신 내는 문제: 코드와 값. 문장은 rules/text/<언어>/가 그린다(봇의 로그와 터미널은 LOG_LANGUAGE, 화면은 보는 사람의 언어).
+// 감싸는 문제(운영 설정값의 이름과 값, 불러오기 항목)는 이유를 cause에 담는다. 화면도 부르는 Node 없는 모듈
+
+const RULE_CODES = [
+  // 감싸는 문제. tune-value: 운영 설정값의 이름(key)과 넣은 값(value), archive-item: 불러오기 항목(item)
+  "tune-value",
+  "archive-item",
+  // 운영 설정값 저장 검사(store/tunables)
+  "tune-unknown-key",
+  "tune-not-text",
+  "tune-locked",
+  // 값 검사(config/index의 invalid)
+  "guild-id",
+  "bool",
+  "one-of",
+  "integer",
+  "safe-integer",
+  "at-least",
+  "at-most",
+  "url",
+  "url-scheme",
+  "origin-only",
+  "address",
+  "color",
+  "queue-max",
+  "ytdlp-tag",
+  "cookies",
+  "client-names",
+  // bgutil의 태그와 커밋(rules/bgutil-install)
+  "bgutil-commit-only",
+  "bgutil-not-tag",
+  "bgutil-commit-hash",
+  "bgutil-needs-commit",
+  // 불러오기
+  "archive-missing",
+  // 아직 코드로 옮기지 않은 문장(text). 어느 언어로 보든 글 그대로 보인다
+  "unmoved",
+] as const;
+
+type RuleCode = (typeof RULE_CODES)[number];
+type RuleParams = Readonly<Record<string, string | number>>;
+type RuleProblem = { code: RuleCode; params?: RuleParams; cause?: RuleProblem };
+/** 언어 모듈의 문장 하나. cause는 그려 둔 이유(없으면 빈 문자열) */
+type RuleSentence = (params: RuleParams, cause: string) => string;
+/** 언어 모듈이 코드마다 하나씩 적는 문장 */
+type RuleSentences = Readonly<Record<RuleCode, RuleSentence>>;
+
+const rule = (code: RuleCode, params?: RuleParams, cause?: RuleProblem): RuleProblem => ({ code, ...(params ? { params } : {}), ...(cause ? { cause } : {}) });
+
+/** 아직 코드로 옮기지 않은 문장을 문제로 싣는다 */
+const unmoved = (text: string): RuleProblem => rule("unmoved", { text });
+
+/** 운영 설정값 하나의 문제: 이름과 넣은 값, 이유 */
+const tuneProblem = (key: string, value: string, reason: RuleProblem): RuleProblem => rule("tune-value", { key, value }, reason);
+
+/** 운영 설정값 문제의 이름. 다른 문제면 null */
+const tuneKeyOf = (problem: RuleProblem): string | null => (problem.code === "tune-value" || problem.code === "tune-unknown-key" || problem.code === "tune-not-text" ? String(problem.params?.key ?? "") : null);
+
+/** 문제 하나를 그 언어의 문장으로. causeLine: 이유를 그리는 함수(화면은 이름 대신 라벨을 붙여 그린다) */
+function ruleLine(sentences: RuleSentences, problem: RuleProblem, causeLine: (cause: RuleProblem) => string = (cause) => ruleLine(sentences, cause)): string {
+  return sentences[problem.code](problem.params ?? {}, problem.cause ? causeLine(problem.cause) : "");
+}
+
+export { RULE_CODES, rule, unmoved, tuneProblem, tuneKeyOf, ruleLine };
+export type { RuleCode, RuleParams, RuleProblem, RuleSentence, RuleSentences };

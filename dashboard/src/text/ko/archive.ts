@@ -76,6 +76,8 @@ const notInFile = "백업에 없음";
 const same = "지금과 같음";
 const differs = "다름";
 const problem = "불러올 수 없음";
+/** 불러오기 거절의 한 줄: 항목 이름과 원인 */
+const itemProblem = (item: string, cause: string) => `${item}: ${cause}`;
 const cancel = "취소";
 const apply = (count: number) => (count ? `${count}개 불러오기` : "불러오기");
 const imported = "백업을 불러왔어요";
@@ -84,4 +86,4 @@ const importFailed = "백업을 불러오지 못했어요.";
 /** 불러온 뒤: 쿠키 출처가 바뀌었다(file: 쿠키 직접 입력, 그 밖은 브라우저) */
 const cookiesChanged = (source: string) => (source === "file" ? { title: "쿠키 출처가 '쿠키 직접 입력'으로 바뀌었어요", body: "쿠키는 백업에 없어요. 연령 제한 탭에서 입력해 주세요(일반 탭에서 연령 제한 콘텐츠를 켜면 생겨요)." } : { title: `쿠키 출처가 '${source}'(으)로 바뀌었어요`, body: "연령 제한 탭에서 확인해 주세요(일반 탭에서 연령 제한 콘텐츠를 켜면 생겨요)." });
 
-export { exportTitle, exportDescBefore, backupCommand, exportDescAfter, exports, withoutFiles, withoutFilesTip, importTitle, importDesc, importFullBackup, importButton, uploading, exported, exportFailed, previewFailed, dialogTitle, kinds, madeAt, dialogNote, dialogNoteMerge, items, counts, breakdown, room, notInFile, same, differs, problem, cancel, apply, imported, importedBody, importFailed, cookiesChanged, tips };
+export { exportTitle, exportDescBefore, backupCommand, exportDescAfter, exports, withoutFiles, withoutFilesTip, importTitle, importDesc, importFullBackup, importButton, uploading, exported, exportFailed, previewFailed, dialogTitle, kinds, madeAt, dialogNote, dialogNoteMerge, items, counts, breakdown, room, notInFile, same, differs, problem, itemProblem, cancel, apply, imported, importedBody, importFailed, cookiesChanged, tips };

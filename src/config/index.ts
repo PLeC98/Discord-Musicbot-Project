@@ -8,7 +8,9 @@ import { SKIP_CATEGORIES } from "../rules/sponsor-categories.ts";
 import { PROJECT } from "../infra/project-paths.ts";
 import { LEVEL_NAMES } from "../infra/log/levels.ts";
 import { SECRETS_KEY_COMMAND, isSecretsKey } from "../rules/secrets-key.ts";
-import { GROUP_TAB, TUNABLE_KEYS, tunable, tuneProblemLine } from "../rules/tunables.ts";
+import { GROUP_TAB, TUNABLE_KEYS, tunable } from "../rules/tunables.ts";
+import { rule, tuneProblem, type RuleProblem } from "../rules/rule-problem.ts";
+import { logRuleLine } from "../rules/text/index.ts";
 import { COOKIE_BROWSERS, cookieBrowserOf } from "../rules/cookie-browsers.ts";
 import { isYtdlpTag, YTDLP_CHANNELS } from "../rules/ytdlp-tag.ts";
 import { KNOWN_TAGS } from "../rules/languages.ts";
@@ -90,7 +92,7 @@ function ownerIdWarning(ownerId: string | null): string | null {
 }
 
 // .env, 설정값 읽는 도구. 잘못 적은 값은 문제 목록에 적고 기본값을 돌려준다(설정값은 tuneProblems에. 기동을 멈추지 않는다)
-function envReaders(source: EnvSource, problems: string[], tuneProblems: string[] = []) {
+function envReaders(source: EnvSource, problems: string[], tuneProblems: RuleProblem[] = []) {
   // 읽어 본 이름. .env 파일에 이것 밖의 이름이 있으면 경고한다(loadConfig)
   const asked = new Set<string>();
   // .env의 값. 키가 없거나 공백뿐이면 def
@@ -108,17 +110,17 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
    * 조용히 기본값으로 돌면 운영자는 설정이 왜 적용되지 않는지 모르고, 경고만 남기면 로그를 보지 않는
    * 사이 의도하지 않은 값으로 계속 돈다. 비워 두는 것은 "기본값을 쓰겠다"는 뜻이라 통과시킨다.
    */
-  function invalid<T>(key: string, value: unknown, reason: string, def: T): T {
-    if (TUNABLE_KEYS.has(key)) tuneProblems.push(tuneProblemLine(key, String(value), reason));
-    else problems.push(`.env의 ${key} 값이 잘못됨(${String(value)}): ${reason}. 고친 뒤 다시 실행하세요`);
+  function invalid<T>(key: string, value: unknown, reason: RuleProblem, def: T): T {
+    if (TUNABLE_KEYS.has(key)) tuneProblems.push(tuneProblem(key, String(value), reason));
+    else problems.push(`.env의 ${key} 값이 잘못됨(${String(value)}): ${logRuleLine(reason)}. 고친 뒤 다시 실행하세요`);
     return def;
   }
 
-  // 디스코드 ID(앱, 서버). 형식이 틀리면 문제다. 서버 ID를 빈 값으로 돌리면 테스트 서버에만 올리려던 명령이 전역으로 올라간다
-  function envDiscordId<T extends string | null>(key: string, what: string, def: T): string | T {
+  // 디스코드 서버 ID. 형식이 틀리면 문제다. 서버 ID를 빈 값으로 돌리면 테스트 서버에만 올리려던 명령이 전역으로 올라간다
+  function envGuildId<T extends string | null>(key: string, def: T): string | T {
     const v = env(key);
     if (v === null) return def;
-    return isSnowflake(v) ? v : invalid(key, v, `디스코드 ${what} ID 형식(17 ~ 20자리 숫자)이 아님`, def);
+    return isSnowflake(v) ? v : invalid(key, v, rule("guild-id"), def);
   }
 
   // 참, 거짓. true, false만 받는다
@@ -126,7 +128,7 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     const v = env(key);
     if (v === null) return def;
     const lower = v.trim().toLowerCase();
-    return lower === "true" ? true : lower === "false" ? false : invalid(key, v, "true, false 중 하나여야 함", def);
+    return lower === "true" ? true : lower === "false" ? false : invalid(key, v, rule("bool"), def);
   }
 
   // 설정값(rules/tunables)을 그 형식, 범위, 기본값으로 읽는다
@@ -143,7 +145,7 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     const v = env(key);
     if (v === null) return def;
     const lower = String(v).trim().toLowerCase();
-    return allowed.find((one) => one.toLowerCase() === lower) ?? invalid(key, v, `${allowed.join(", ")} 중 하나여야 함`, def);
+    return allowed.find((one) => one.toLowerCase() === lower) ?? invalid(key, v, rule("one-of", { allowed: allowed.join(", ") }), def);
   }
 
   // parseInt는 "120junk"를 120으로 삼킨다. 숫자만 있는지 먼저 보고, 범위와 안전 정수까지 확인한다.
@@ -152,12 +154,12 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     if (v === null) return def;
 
     const raw = String(v).trim();
-    if (!/^-?\d+$/.test(raw)) return invalid(key, v, "정수만 쓸 수 있음", def);
+    if (!/^-?\d+$/.test(raw)) return invalid(key, v, rule("integer"), def);
 
     const n = Number(raw);
-    if (!Number.isSafeInteger(n)) return invalid(key, v, "다룰 수 있는 범위를 넘는 수", def);
-    if (min !== undefined && n < min) return invalid(key, v, `${min} 이상이어야 함`, def);
-    if (max !== undefined && n > max) return invalid(key, v, `${max} 이하여야 함`, def);
+    if (!Number.isSafeInteger(n)) return invalid(key, v, rule("safe-integer"), def);
+    if (min !== undefined && n < min) return invalid(key, v, rule("at-least", { min }), def);
+    if (max !== undefined && n > max) return invalid(key, v, rule("at-most", { max }), def);
     return n;
   }
 
@@ -172,9 +174,9 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     try {
       parsed = new URL(v);
     } catch {
-      return invalid(key, v, "주소 형식이 아님(예: https://example.com)", def);
+      return invalid(key, v, rule("url"), def);
     }
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return invalid(key, v, "http, https 주소만 쓸 수 있음", def);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return invalid(key, v, rule("url-scheme"), def);
     return v;
   }
 
@@ -182,7 +184,7 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
   function envOrigin(key: string, def: string) {
     const v = envUrl(key, def);
     const parsed = new URL(v);
-    if (parsed.username || parsed.password || parsed.pathname !== "/" || /[?#]/.test(v)) return invalid(key, v, "경로, 사용자 정보, ?, # 없이 주소만 적으세요 (예: https://example.com, http://bot.example.com:33333)", def);
+    if (parsed.username || parsed.password || parsed.pathname !== "/" || /[?#]/.test(v)) return invalid(key, v, rule("origin-only"), def);
     return v;
   }
 
@@ -192,7 +194,7 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     if (v === null) return null;
     const text = v.trim();
     if (text === "localhost" || isIP(text)) return text;
-    return invalid(key, v, "IP 주소(0.0.0.0, :: 포함)나 localhost만 쓸 수 있음", null);
+    return invalid(key, v, rule("address"), null);
   }
 
   // 임베드 색. 틀린 값을 그대로 두면 임베드를 보낼 때마다 예외를 던진다
@@ -200,12 +202,12 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     const v = env(key);
     if (v === null) return def;
     const color = v.trim();
-    return isHexColor(color) ? color : invalid(key, v, "#RRGGBB 형식의 색이어야 함(예: #2743D2)", def);
+    return isHexColor(color) ? color : invalid(key, v, rule("color"), def);
   }
 
   function envQueueMax(key: string, def: number) {
     const n = envInt(key, def, { min: 0 });
-    if (n !== 0 && n < QUEUE_MAX_FLOOR) return invalid(key, n, `0(끔)이거나 ${QUEUE_MAX_FLOOR} 이상이어야 함`, def);
+    if (n !== 0 && n < QUEUE_MAX_FLOOR) return invalid(key, n, rule("queue-max", { floor: QUEUE_MAX_FLOOR }), def);
     return n;
   }
 
@@ -213,7 +215,7 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
   function envYtdlpVersion(key: string) {
     const v = env(key);
     if (v === null || !v.trim()) return null;
-    return isYtdlpTag(v.trim()) ? v.trim() : invalid(key, v, "yt-dlp 릴리스 태그(예: 2026.08.19)여야 함", null);
+    return isYtdlpTag(v.trim()) ? v.trim() : invalid(key, v, rule("ytdlp-tag"), null);
   }
 
   // bgutil의 태그와 커밋(rules/bgutil-install). 짝이 틀리면 둘 다 기본 짝으로 돈다. pinned: 카드에서 고정했다
@@ -231,16 +233,16 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
   function envCookies(key: string) {
     const v = String(env(key) || "").trim();
     if (!v || v.toLowerCase() === "file" || COOKIE_BROWSERS.some((one) => one === cookieBrowserOf(v))) return v;
-    return invalid(key, v, `file 또는 브라우저 이름(${COOKIE_BROWSERS.join(", ")})이어야 함`, "");
+    return invalid(key, v, rule("cookies", { browsers: COOKIE_BROWSERS.join(", ") }), "");
   }
 
   function envClients(key: string) {
     const list = parseClients(env(key));
     const bad = list.filter((name) => !CLIENT_NAME.test(name));
-    return bad.length ? invalid(key, bad.join(","), "클라이언트 이름은 영문 소문자, 숫자, _만 쓸 수 있음", []) : list;
+    return bad.length ? invalid(key, bad.join(","), rule("client-names"), []) : list;
   }
 
-  return { asked, env, envDiscordId, envEnum, envInt, envUrl, envOrigin, envAddress, envColor, envQueueMax, envCookies, envYtdlpVersion, envBgutilTarget, envBool, envClients, tuneInt, tuneBool, tuneText, tuneEnum };
+  return { asked, env, envGuildId, envEnum, envInt, envUrl, envOrigin, envAddress, envColor, envQueueMax, envCookies, envYtdlpVersion, envBgutilTarget, envBool, envClients, tuneInt, tuneBool, tuneText, tuneEnum };
 }
 
 function resolveFromRoot(p: string): string;
@@ -285,12 +287,12 @@ function envNameWarnings(source: EnvSource, envFileNames: string[], asked: Set<s
 function loadConfig(source: EnvSource, { envFileFound = true, tunables = {}, envFileNames = [] }: { envFileFound?: boolean; tunables?: Record<string, string>; envFileNames?: string[] } = {}) {
   const problems: string[] = [];
   const warnings: string[] = [];
-  const tuneProblems: string[] = [];
+  const tuneProblems: RuleProblem[] = [];
   if (!envFileFound) problems.push(".env 파일이 없음. 봇을 실행하면 .env.example로 만들고 비밀 키를 채움. 그 뒤 파일 안의 주석을 참고해 [필수] 값을 채우세요");
 
   const fromEnv = Object.fromEntries(Object.entries(source).filter(([key]) => !TUNABLE_KEYS.has(key)));
   const readers = envReaders({ ...fromEnv, ...tunables }, problems, tuneProblems);
-  const { env, envDiscordId, envInt, envUrl, envColor, envQueueMax, envYtdlpVersion, envBgutilTarget, envClients, tuneInt, tuneBool, tuneEnum } = readers;
+  const { env, envGuildId, envInt, envUrl, envColor, envQueueMax, envYtdlpVersion, envBgutilTarget, envClients, tuneInt, tuneBool, tuneEnum } = readers;
 
   // ── 자격증명 ──
   // 필수 자격증명이 없으면 기동을 멈춘다.
@@ -321,7 +323,7 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {}, env
     discord: {
       token: env("DISCORD_TOKEN", ""),
       clientSecret: env("CLIENT_SECRET"),
-      guildId: envDiscordId("GUILD_ID", "서버", null),
+      guildId: envGuildId("GUILD_ID", null),
     },
 
     // 비밀값 암호화 키(base64 32바이트). 응답, 로그에 내보내지 않는다

@@ -1,4 +1,4 @@
-// 봇 코드(src/)에서 언어 모듈(ui/text/<언어>/) 밖에 적힌 한글 문자열을 파일마다 센다. 로그와 예외 메시지는 번역하지 않으므로(로그 언어) 세지 않는다.
+// 봇 코드(src/)에서 언어 모듈(ui/text/<언어>/, rules/text/<언어>/) 밖에 적힌 한글 문자열을 파일마다 센다. 로그와 예외 메시지는 번역하지 않으므로(로그 언어) 세지 않는다.
 // 로그인지는 가장 가까운 호출로 가른다: 로거(log.warn 등), 로그 라벨을 받는 함수, Error를 만드는 곳, throw
 
 import fs from "node:fs";
@@ -23,7 +23,7 @@ function walk(dir: string): string[] {
 }
 
 // 언어 모듈 폴더는 문구표라 세지 않는다
-const isLanguageFolder = (rel: string) => LANGUAGES.some((one) => rel.startsWith(`src/ui/text/${one.tag}/`));
+const isLanguageFolder = (rel: string) => LANGUAGES.some((one) => rel.startsWith(`src/ui/text/${one.tag}/`) || rel.startsWith(`src/rules/text/${one.tag}/`));
 
 function isLogged(node: ts.Node): boolean {
   for (let at: ts.Node | undefined = node.parent; at; at = at.parent) {

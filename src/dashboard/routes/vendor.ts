@@ -3,6 +3,7 @@
 // 저장하면 새 설정대로 yt-dlp 버전을 맞추고(sources/ytdlp-binary), bgutil은 설치를 시작한다(sources/bgutil/auto-install).
 // 다운로드는 시작만 하고 지금 상태로 응답한다. 화면은 상태를 다시 읽어 진행을 본다
 
+import type { RuleProblem } from "../../rules/rule-problem.ts";
 import express, { type NextFunction, type Request, type Response } from "express";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
@@ -39,7 +40,7 @@ function saveCard(req: Request, res: Response, tool: string, changes: Record<str
     log.warn({ sub: "admin" }, `대시보드에서 ${tool} ${what}. 실행 ${ranBy(req)}`);
     return saved;
   } catch (error) {
-    if (codeOf(error) === "CONFIG_INVALID") sendProblem(res, "config-invalid", {}, { errors: ((error as { problems?: string[] }).problems ?? []).map((detail) => ({ code: "config-invalid", detail })) });
+    if (codeOf(error) === "CONFIG_INVALID") sendProblem(res, "config-invalid", {}, { errors: ((error as { problems?: RuleProblem[] }).problems ?? []).map((rule) => ({ code: "config-invalid", rule })) });
     else {
       log.error({ sub: "admin" }, `${tool} 설정 저장 실패: ${messageOf(error)}`);
       sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
