@@ -48,6 +48,8 @@ function allowed(file: string, dir: string): boolean {
   const tag = dir.split("/")[3];
   if (file.startsWith(`${dir}/`)) return true;
   if (["src/ui/text/index.ts", "src/ui/text/shared.ts", "src/ui/text/contract.ts"].includes(file)) return true;
+  // 화면의 같은 언어 번들(화면도 쓰는 봇 문구를 담는다)
+  if (file === `dashboard/src/text/${tag}/index.ts`) return true;
   // 그 언어의 문구표 테스트, 문구 번들 자체를 시험하는 테스트
   if (file.startsWith(`test/ui/text/${tag}/`) || /^test\/ui\/text\/[^/]+\.test\.ts$/.test(file)) return true;
   return NOT_YET.has(file);
@@ -67,8 +69,8 @@ test("허용 목록에 든 파일은 아직 언어 폴더를 부른다(옮겼으
   assert.deepEqual(stale, []);
 });
 
-// 화면의 봇 문구(text.bot)는 화면 문구 진입점이 한 번 정한다
-const TOP_ALLOWED: ReadonlySet<string> = new Set(["dashboard/src/text/index.ts"]);
+// 맨 위에서 문구표를 꺼내도 되는 파일(지금은 없다)
+const TOP_ALLOWED: ReadonlySet<string> = new Set<string>([]);
 
 test("모듈 맨 위에서 문구표를 꺼내 두지 않는다", () => {
   const TOP = /^(?:export\s+)?(?:const|let|var)\s+[^=]+=\s*(?:textFor|sharedTextFor|publicText|privateText|audienceText)\(/m;
