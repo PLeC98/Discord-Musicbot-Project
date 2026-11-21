@@ -28,7 +28,7 @@ test("테스트 인코딩: 되는 인코더, 없는 인코더", opts, async () =
   assert.deepEqual(await tryEncoder("rawvideo", []), { ok: true });
   const bad = await tryEncoder("no-such-encoder", []);
   assert.equal(bad.ok, false);
-  assert.match(bad.ok ? "" : bad.reason, /encoder not found/i);
+  assert.match(bad.ok ? "" : bad.output, /encoder not found/i);
 });
 
 test("움직이는 WebP는 ffmpeg 9.0 이상에서 읽힌다", opts, async () => {

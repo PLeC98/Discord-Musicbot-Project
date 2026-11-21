@@ -14,6 +14,8 @@ import { PROJECT } from "../../infra/project-paths.ts";
 import { cancelJob, startJob, type ScriptJobInfo, type ScriptJobSpec, type StartResult } from "../../infra/script-job.ts";
 import { stripScriptPrefix } from "../../infra/script-line.ts";
 import { toolEnv } from "../../config/tool-env.ts";
+import { rule, type RuleProblem } from "../../rules/rule-problem.ts";
+import { logRuleLine } from "../../rules/text/index.ts";
 import config from "../../config/index.ts";
 import * as tunables from "../../store/tunables.ts";
 import { readState } from "./state.ts";
@@ -82,7 +84,7 @@ class BgutilAutoInstall {
   queued = false;
   /** 운영자가 설치를 요청했는데 아직 시작하지 않았다(미뤘다) */
   wanted = false;
-  failure: { reason: string; at: number } | null = null;
+  failure: { reason: RuleProblem; at: number } | null = null;
   missing: BgutilNeed[] | null = null;
   /** 지난 판정 때의 저장된 켜기 값(꺼졌다 켜지면 시도 기록을 지운다) */
   wasEnabled: boolean | null = null;
@@ -139,7 +141,7 @@ class BgutilAutoInstall {
   _cannot(key: string, missing: BgutilNeed[], had: boolean) {
     this.attempted.add(key);
     this.wanted = false;
-    this.failure = { reason: `설치에 필요한 것이 없음: ${missing.join(", ")}`, at: this.deps.now() };
+    this.failure = { reason: rule("bgutil-needs-missing", { tools: missing.join(", ") }), at: this.deps.now() };
     log.error(`bgutil 설치 못 함(${had ? "지금 쓰는 bgutil 그대로" : "POToken 없이 진행"}): ${missing.map(needText).join(", ")}. 설치한 뒤 대시보드 업데이트 탭에서 재시도하거나 봇을 다시 시작하세요`);
   }
 
@@ -204,10 +206,10 @@ class BgutilAutoInstall {
     this.unreserve(info.reason === "cancelled" ? "설치 중단" : "설치 실패");
     this.attempted.add(key);
     const tail = info.output.slice(-TAIL_LINES).map(stripScriptPrefix).join(" | ");
-    const reason = info.reason === "cancelled" ? "중단" : `${info.reason ?? "?"}${info.exitCode !== null ? `, 종료 코드 ${info.exitCode}` : ""}${tail ? `: ${tail}` : ""}`;
+    const reason = info.reason === "cancelled" ? rule("bgutil-install-cancelled") : rule("bgutil-install-failed", { why: info.reason ?? "?", ...(info.exitCode !== null ? { code: info.exitCode } : {}), ...(tail ? { tail } : {}) });
     this.failure = { reason, at: this.deps.now() };
     if (info.reason === "cancelled") log.info("bgutil 설치 중단(POToken 서버 사용을 끔)");
-    else log.error(`bgutil 설치 실패(${had ? "지금 쓰는 bgutil 그대로" : "POToken 없이 진행"}): ${reason}. 대시보드 업데이트 탭에서 재시도하세요`);
+    else log.error(`bgutil 설치 실패(${had ? "지금 쓰는 bgutil 그대로" : "POToken 없이 진행"}): ${logRuleLine(reason)}. 대시보드 업데이트 탭에서 재시도하세요`);
   }
 
   /** 설치가 끝나면 restart를 부르도록 예약한다. 설치 작업이 돌거나 미뤄져 있지 않으면 예약하지 않는다 */

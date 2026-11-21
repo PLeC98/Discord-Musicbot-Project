@@ -6,6 +6,8 @@
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import { messageOf } from "../../rules/error-kind.ts";
+import { plain, rule, type RuleProblem } from "../../rules/rule-problem.ts";
+import { logRuleLine } from "../../rules/text/index.ts";
 import { readsAnimatedWebp, tryEncoder, tryFilter } from "../../media/ffmpeg/trial.ts";
 import { HDR_TO_SDR } from "./ladder.ts";
 import { LOGIN_BG_CODECS, type LoginBackgroundCodec, type LoginBackgroundEncoder } from "../contract/login-background.ts";
@@ -34,13 +36,13 @@ let running: Promise<void> | null = null;
 
 /** 코덱 하나: 후보를 순서대로 테스트해 처음 되는 것. 앞 후보가 장치가 있는데 실패했으면 그 원인을 남긴다 */
 async function pick(codec: LoginBackgroundCodec): Promise<LoginBackgroundEncoder> {
-  let why: string | null = null;
+  let why: RuleProblem | null = null;
   for (const candidate of CANDIDATES[codec]) {
     const result = await tryEncoder(candidate.encoder, candidate.options);
     if (result.ok) return { codec, encoder: candidate.encoder, hardware: candidate.hardware, why };
-    if (!ABSENT.test(result.reason)) why ??= `${candidate.encoder}: ${result.reason}`;
+    if (!ABSENT.test(result.output)) why ??= rule("encoder-failed", { encoder: candidate.encoder }, result.output ? plain(result.output) : rule("encoder-exit", result.code === null ? undefined : { code: result.code }));
   }
-  return { codec, encoder: null, hardware: false, why: why ?? "쓸 수 있는 인코더가 없음" };
+  return { codec, encoder: null, hardware: false, why: why ?? rule("encoder-none") };
 }
 
 async function check() {
@@ -50,7 +52,7 @@ async function check() {
   animatedWebp = await readsAnimatedWebp();
   hdrToSdr = await tryFilter(HDR_TO_SDR, HDR_TRIAL_SOURCE);
   log.info(`로그인 배경 인코더: ${picked.map((one) => `${one.codec} ${one.encoder ?? "없음"}`).join(", ")}${animatedWebp ? "" : ". 움직이는 WebP를 읽지 못함(ffmpeg 9.0 이상 필요)"}`);
-  for (const one of picked) if (one.why) log.warn(`로그인 배경 ${one.codec}: ${one.why}`);
+  for (const one of picked) if (one.why) log.warn(`로그인 배경 ${one.codec}: ${logRuleLine(one.why)}`);
   if (!hdrToSdr) log.warn("로그인 배경: ffmpeg에 HDR을 SDR로 바꾸는 필터(zscale)가 없어 HDR 영상은 쓸 수 없음(libzimg를 넣어 빌드한 ffmpeg 필요)");
 }
 

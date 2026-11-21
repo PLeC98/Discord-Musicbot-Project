@@ -4,6 +4,7 @@
 
 import { isCode, type Code } from "./problems.ts";
 import { codeOf, messageOf, timeoutError } from "../infra/error-text.ts";
+import { isRuleCode, plain, type RuleProblem } from "./rule-problem.ts";
 
 // 이름이 곧 종류인 것. 오류를 만든 곳이 붙인다
 const KINDS = new Set<Code>(["yt-age-cookies-invalid", "yt-age-no-cookies", "age-content-off", "age-channel-only", "yt-bot-check", "unavailable-contents", "sc-preview-only", "unavailable-playlist", "geo-blocked", "rate-limited", "sp-no-youtube-match", "direct-unavailable", "network-error", "stream-failed", "voice-failed", "encoder-unavailable"]);
@@ -18,6 +19,12 @@ const PERMISSION_CODES = new Set([50001, 50013]);
 /** 코드를 단 오류. 만든 곳이 무엇이 안 됐는지 안다 */
 function codedError(code: string, message: string, options?: { cause?: unknown }) {
   return Object.assign(new Error(message, options), { code });
+}
+
+/** 오류에 담긴 규칙 문제(problem 필드). 없으면 메시지를 plain으로 */
+function errorProblem(error: unknown): RuleProblem {
+  const problem: unknown = error && typeof error === "object" && "problem" in error ? error.problem : null;
+  return problem && typeof problem === "object" && "code" in problem && isRuleCode(problem.code) ? (problem as RuleProblem) : plain(messageOf(error));
 }
 
 /** 로그에 싣는 오류: 메시지와 코드(있으면) */
@@ -73,4 +80,4 @@ function errorKind(error: unknown): Code {
   return "unknown-error";
 }
 
-export { errorKind, codedError, codeOf, messageOf, timeoutError, describeError, chainOf, isNetworkCode };
+export { errorKind, errorProblem, codedError, codeOf, messageOf, timeoutError, describeError, chainOf, isNetworkCode };

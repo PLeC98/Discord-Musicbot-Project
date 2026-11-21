@@ -17,6 +17,8 @@ import { parseCidr } from "../src/rules/net-address.ts";
 import { auditCounts, newerFfmpegRelease, newerRelease, rewriteConstant, type AuditCounts } from "../src/rules/vendor-updates.ts";
 import { pinnedKey, verifyDetached } from "../src/infra/openpgp.ts";
 import { SIGNING_FINGERPRINT, signingKey } from "../src/sources/ytdlp-release.ts";
+import { errorProblem } from "../src/rules/error-kind.ts";
+import { logRuleLine } from "../src/rules/text/index.ts";
 
 const BGUTIL_REPO = "Brainicism/bgutil-ytdlp-pot-provider";
 const FFMPEG_REPO = "BtbN/FFmpeg-Builds";
@@ -89,7 +91,7 @@ async function ytdlpSigningKey() {
   try {
     pinnedKey(await res.text(), SIGNING_FINGERPRINT);
   } catch (error) {
-    problem = `yt-dlp 저장소의 public.key: ${(error as Error).message}`;
+    problem = `yt-dlp 저장소의 public.key: ${logRuleLine(errorProblem(error))}`;
   }
   const releases: { repo: string; tag: string; ok: boolean; reason: string | null }[] = [];
   for (const repo of YTDLP_REPOS) {
@@ -106,7 +108,7 @@ async function ytdlpSigningKey() {
       verifyDetached(list, signature, signingKey());
       releases.push({ repo, tag, ok: true, reason: null });
     } catch (error) {
-      releases.push({ repo, tag, ok: false, reason: (error as Error).message });
+      releases.push({ repo, tag, ok: false, reason: logRuleLine(errorProblem(error)) });
     }
   }
   return { same: !problem && releases.every((one) => one.ok), problem, releases };

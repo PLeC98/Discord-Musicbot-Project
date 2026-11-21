@@ -8,6 +8,8 @@ import os from "node:os";
 import path from "node:path";
 import config from "../../src/config/index.ts";
 import { YtdlpBinary, describe, updateText, lockFolder, type YtdlpBinaryIo, type YtdlpRan } from "../../src/sources/ytdlp-binary.ts";
+import { plain, rule } from "../../src/rules/rule-problem.ts";
+import { logRuleLine } from "../../src/rules/text/index.ts";
 
 const DAY = 24 * 60 * 60 * 1000;
 const HOUR = 60 * 60 * 1000;
@@ -315,7 +317,7 @@ test("다운로드해 둔 버전으로 되돌리면 다운로드하지 않고 �
 test("다운로드 실패는 지금 버전 그대로. 연결, 체크섬은 일시적, 에셋 없음과 서명은 오래 간다(하루 뒤)", async () => {
   const { w, bin, rel } = world();
   w.release = () => ({ error: { kind: "network", message: "SHA2-256SUMS 다운로드 실패: HTTP 503" } });
-  assert.deepEqual(await bin.check({ force: true }), { kind: "failed", current: "2026.08.19", target: "2026.09.27.232849", reason: "SHA2-256SUMS 다운로드 실패: HTTP 503", channel: "nightly", retry: "transient" });
+  assert.deepEqual(await bin.check({ force: true }), { kind: "failed", current: "2026.08.19", target: "2026.09.27.232849", reason: plain("SHA2-256SUMS 다운로드 실패: HTTP 503"), channel: "nightly", retry: "transient" });
   w.release = () => ({ error: { kind: "signature", message: "서명 확인 실패: 다른 키가 서명함(AB)" } });
   const signed = await bin.check({ force: true });
   assert.equal(signed?.kind === "failed" && signed.retry, "lasting");
@@ -329,7 +331,7 @@ test("다운로드 실패는 지금 버전 그대로. 연결, 체크섬은 일�
 test("받은 것이 실행됐지만 오류로 끝나면(이 환경에서 안 돈다) 버리고 그 태그를 적는다. 일일 확인은 다시 받지 않고, 강제 실행(force)하면 재시도한다", async () => {
   const { w, bin, rel } = world();
   w.ran = (file) => (file.includes(".staging") ? { kind: "exited", status: 255, stdout: "", stderr: "[PYI-1] Error loading Python lib: GLIBC_2.17 not found" } : { kind: "exited", status: 0, stdout: fs.readFileSync(file, "utf8"), stderr: "" });
-  assert.deepEqual(await bin.check(), { kind: "unusable", current: "2026.08.19", target: "2026.09.27.232849", reason: "[PYI-1] Error loading Python lib: GLIBC_2.17 not found", channel: "nightly" });
+  assert.deepEqual(await bin.check(), { kind: "unusable", current: "2026.08.19", target: "2026.09.27.232849", reason: plain("[PYI-1] Error loading Python lib: GLIBC_2.17 not found"), channel: "nightly" });
   assert.equal(rel(), "bin/yt-dlp/2026.08.19/yt-dlp.exe");
   w.clock += DAY;
   assert.equal(await bin.check(), null);
@@ -350,7 +352,7 @@ test("시간 초과, 띄우기 실패, 신호 종료, 다른 버전은 일시적
     w.release = () => ({ version });
     w.ran = ran ? (file) => (file.includes(".staging") ? ran : { kind: "exited", status: 0, stdout: fs.readFileSync(file, "utf8"), stderr: "" }) : null;
     const outcome = await bin.check();
-    assert.ok(outcome?.kind === "failed" && outcome.retry === "transient" && why.test(outcome.reason), JSON.stringify(outcome));
+    assert.ok(outcome?.kind === "failed" && outcome.retry === "transient" && why.test(logRuleLine(outcome.reason)), JSON.stringify(outcome));
     assert.equal(bin.state?.unusable, null);
     w.clock += DAY;
     await bin.check();
@@ -415,7 +417,7 @@ test("그 이름의 폴더에 이 판의 실행 파일이 없거나(옛 판) 다
   fs.writeFileSync(path.join(dirOf(), "2026.10.01", "yt-dlp.exe"), "2026.10.01");
   w.ran = (file) => (file.includes("2026.10.01") ? { kind: "timeout" } : { kind: "exited", status: 0, stdout: fs.readFileSync(file, "utf8"), stderr: "" });
   const outcome = await bin.check();
-  assert.ok(outcome?.kind === "failed" && /확인 실패/.test(outcome.reason), JSON.stringify(outcome));
+  assert.ok(outcome?.kind === "failed" && /확인 실패/.test(logRuleLine(outcome.reason)), JSON.stringify(outcome));
   assert.equal(fs.readFileSync(path.join(dirOf(), "2026.10.01", "yt-dlp.exe"), "utf8"), "2026.10.01");
 });
 
@@ -424,7 +426,7 @@ test("다른 프로세스가 폴더를 쥐고 있으면 설치는 일시적 실�
   fs.mkdirSync(path.join(dirOf(), "2026.01.01"));
   io.lock = async () => ({ holder: 777 });
   const outcome = await bin.check();
-  assert.ok(outcome?.kind === "failed" && outcome.retry === "transient" && /PID 777\)가 yt-dlp 폴더를 사용 중/.test(outcome.reason), JSON.stringify(outcome));
+  assert.ok(outcome?.kind === "failed" && outcome.retry === "transient" && /PID 777\)가 yt-dlp 폴더를 사용 중/.test(logRuleLine(outcome.reason)), JSON.stringify(outcome));
   await bin.cleanup();
   assert.ok(names().includes("2026.01.01"));
   assert.deepEqual(staged(), []);
@@ -500,7 +502,7 @@ test("기동: 처음 설치가 실패하면 설정과 상관없이 다시 해 �
   assert.equal(bin.path() !== null, true);
   assert.equal(bin.timer, null, "설치되면 off라 더 보지 않는다");
 
-  const none = new YtdlpBinary({ ...io, dir: path.join(root, "other"), asset: () => ({ missing: "이 OS, CPU 용 yt-dlp 판이 없음(freebsd-x64)" }) });
+  const none = new YtdlpBinary({ ...io, dir: path.join(root, "other"), asset: () => ({ missing: rule("ytdlp-no-asset", { where: "freebsd-x64" }) }) });
   t.after(() => none.stop());
   await none.start();
   assert.equal(none.nextAt, w.clock + DAY);
@@ -595,9 +597,9 @@ test("결과 한 줄", () => {
     describe({ kind: "installed", from: null, to: "b", channel: "nightly" }),
     describe({ kind: "reused", from: "b", to: "a" }),
     describe({ kind: "superseded", target: "b" }),
-    describe({ kind: "failed", current: "a", target: "b", reason: "연결 끊김", channel: "nightly", retry: "transient" }),
-    describe({ kind: "failed", current: null, target: "b", reason: "연결 끊김", channel: "nightly", retry: "transient" }),
-    describe({ kind: "unusable", current: "a", target: "c", reason: "GLIBC_2.17 not found", channel: "nightly" }),
+    describe({ kind: "failed", current: "a", target: "b", reason: plain("연결 끊김"), channel: "nightly", retry: "transient" }),
+    describe({ kind: "failed", current: null, target: "b", reason: plain("연결 끊김"), channel: "nightly", retry: "transient" }),
+    describe({ kind: "unusable", current: "a", target: "c", reason: plain("GLIBC_2.17 not found"), channel: "nightly" }),
   ];
   assert.deepEqual(lines, [
     { level: "info", line: "yt-dlp 버전이 목표와 같음(a)" },
@@ -621,7 +623,7 @@ test("설치된 버전이 있어도 새 버전을 다운로드하지 못했으�
   w.release = () => ({ error: { kind: "network", message: "연결 끊김" } });
   await bin.start();
   assert.equal(bin.nextAt, w.clock + HOUR);
-  assert.deepEqual(bin.failure, { target: "2026.09.27.232849", reason: "연결 끊김", lasting: false, at: w.clock });
+  assert.deepEqual(bin.failure, { target: "2026.09.27.232849", reason: plain("연결 끊김"), lasting: false, at: w.clock });
 
   Object.assign(config.ytdlp, { update: "manual", version: "2026.09.01" });
   w.release = () => ({ error: { kind: "signature", message: "서명이 맞지 않음" } });

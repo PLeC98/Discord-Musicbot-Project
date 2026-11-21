@@ -12,6 +12,7 @@ import { COUNTS_ONLY, statusParams, type AdminStatus, type BgutilRestartReply, t
 import type { BgutilCardStatus } from "../../../src/sources/bgutil/status-types.ts";
 import type { Job } from "../../../src/infra/process-job.ts";
 import { text } from "../text/index.ts";
+import { ruleLine } from "../utils/rule-line.ts";
 const T = text.restart;
 
 // 다시 뜨기를 기다리는 상한과 확인 간격. 기동은 보통 몇 초, POToken 서버가 늦으면 30초 남짓
@@ -103,7 +104,7 @@ async function followReserved(before: number) {
       return void (await waitFor(before));
     }
     if (now.restartReserved) continue;
-    if (now.job === null && now.failure) return notify({ title: T.bgutilFailedTitle, body: now.failure.reason });
+    if (now.job === null && now.failure) return notify({ title: T.bgutilFailedTitle, body: ruleLine(now.failure.reason) });
     // 예약이 풀렸는데 실패가 없다: 다시 시작이 시작됐거나 운영자가 취소했다. 취소면 봇이 그대로라 기다리지 않는다
     if (now.job === null) {
       try {

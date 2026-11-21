@@ -3,6 +3,7 @@
 // 파일은 봇이 사람이 건드리지 않는 저장 위치(database/dashboard/login-background)에 배경마다 따로 둔다. 원본은 단계를 다 인코딩하면 삭제한다
 
 import type { Code } from "../../rules/problems.ts";
+import type { RuleProblem } from "../../rules/rule-problem.ts";
 
 /** 정지 그림(이미지 배경, 영상의 썸네일)을 내는 폭(WebP). 원본(크롭)보다 큰 폭은 만들지 않고, 원본이 가장 작은 폭보다 작으면 원본 폭 하나 */
 const LOGIN_BG_WIDTHS = [1280, 1920, 2560, 3840] as const;
@@ -139,9 +140,9 @@ type LoginBackgroundStrip = { count: number; every: number; columns: number; wid
 type LoginBackgroundLimits = { history: number; maxBytes: number };
 /**
  * 코덱 하나로 인코딩하는 인코더(봇이 켜질 때 작은 테스트로 선택한다). encoder는 ffmpeg의 인코더 이름(없으면 null, 그 코덱으로는 인코딩하지 않는다), hardware는 GPU 인코더인가,
- * why는 더 나은 인코더(하드웨어)를 못 쓰는 원인, 코덱으로 인코딩하지 못하는 원인(ffmpeg가 낸 그대로, 없으면 null)
+ * why는 더 나은 인코더(하드웨어)를 못 쓰는 원인, 코덱으로 인코딩하지 못하는 원인(규칙 문제, ffmpeg 출력은 plain. 없으면 null)
  */
-type LoginBackgroundEncoder = { codec: LoginBackgroundCodec; encoder: string | null; hardware: boolean; why: string | null };
+type LoginBackgroundEncoder = { codec: LoginBackgroundCodec; encoder: string | null; hardware: boolean; why: RuleProblem | null };
 /**
  * 지금 도는 인코딩 하나(H.264, 인코딩 단계의 ffmpeg, 봇 전체에서 한 번에 하나). id는 배경, rungs는 함께 인코딩하는 단계(나눠 인코딩하면 여럿),
  * lp는 AV1의 병렬 단계(남은 메모리에 맞춰 선택한 것, AV1이 없으면 null), cores는 CPU 선호도로 지정한 코어 수(설정하지 못하는 환경이면 null), 논리 코어 수,

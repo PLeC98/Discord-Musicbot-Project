@@ -51,7 +51,7 @@
         <!-- 실패와 다시 시도하는 때는 줄을 나눈다. 아이콘은 글 첫 줄에, 다시 시도 버튼은 글 전체의 가운데에 맞추고(버튼 높이 32px를 글 20px에 겹친다), 버튼은 오른쪽 끝 -->
         <span class="flex-1 min-w-0 flex items-center gap-3 flex-wrap"
           ><span class="flex-1 min-w-0 wrap-break-word"
-            >{{ T.failed(state.failure.target, state.failure.reason) }}<span v-if="state.nextAt" class="block">{{ T.retryAt(formatDateTime(state.nextAt)) }}</span></span
+            >{{ T.failed(state.failure.target, ruleLine(state.failure.reason)) }}<span v-if="state.nextAt" class="block">{{ T.retryAt(formatDateTime(state.nextAt)) }}</span></span
           ><BaseButton v-if="state.pin" variant="secondary" size="sm" class="-my-1.5" :disabled="working" @click="setPin(state.pin)">{{ T.pinRetry }}</BaseButton></span
         >
       </NoticeBox>
@@ -83,6 +83,7 @@ import type { Option } from "../utils/options.ts";
 import type { VendorReply } from "../../../src/dashboard/contract/admin.ts";
 import type { YtdlpCardStatus, YtdlpChannel } from "../../../src/sources/ytdlp-status-types.ts";
 import { text } from "../text/index.ts";
+import { ruleLine } from "../utils/rule-line.ts";
 const T = text.ytdlp;
 
 const BASE = "/api/admin/vendor";
@@ -136,7 +137,7 @@ function show({ status, tunables }: VendorReply, started = false) {
   const now = status.ytdlp;
   state.value = now;
   if (tunables) applyCard(tunables);
-  if (awaiting && before && now.failure && now.failure.at !== before.failure?.at) notify({ title: T.downloadFailed, body: now.failure.reason });
+  if (awaiting && before && now.failure && now.failure.at !== before.failure?.at) notify({ title: T.downloadFailed, body: ruleLine(now.failure.reason) });
   else if (awaiting && before && now.version && now.version !== before.version) notifyDone(T.updated, now.version);
   if (!now.busy && !started) awaiting = false;
   clearTimeout(timer);

@@ -4,6 +4,7 @@ import { josa } from "../../josa.ts";
 import type { RuleSentences } from "../../rule-problem.ts";
 import { ai, format, genres, prompt, status } from "./settings.ts";
 import { archive } from "./archive.ts";
+import { tools } from "./tools.ts";
 
 const problems = {
   "tune-value": (p, cause) => `${p.key} 값이 잘못됨(${p.value}): ${cause}`,
@@ -45,6 +46,7 @@ const problems = {
   "link-reconnecting": (p) => `재연결 중(${p.attempt}번째)`,
   "link-pot-down": () => "서버가 떠 있지 않음",
   "link-lb-hint": (p) => `LB Radio · ${p.sec}초 넘으면 실패`,
+  ...tools,
   ...genres,
   ...status,
   ...ai,
