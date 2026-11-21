@@ -1,4 +1,4 @@
-// /help의 명령 줄. 명령 정의(이름, 한국어 설명)와 명령 모듈의 help(섹션, 권한)에서 만든다.
+// /help의 명령 줄. 명령 이름과 보는 사람의 언어로 된 설명(명령 문구표), 명령 모듈의 help(섹션, 권한)로 만든다.
 // 손으로 적은 목록을 두지 않는다. 명령을 더하거나 권한을 바꾸면 도움말이 같이 바뀐다
 
 import type { BotText } from "./text/index.ts";
@@ -11,7 +11,7 @@ type HelpTier = "everyone" | "dj" | "dj-or-requester" | "dj-outside-bot-channel"
 /** 명령 모듈이 적는 도움말 항목. null이면 도움말에 싣지 않는다(/help 자신) */
 type HelpEntry = { section: HelpSection; tier: HelpTier };
 
-/** 줄을 만드는 데 읽는 명령 정의(toJSON)의 필드. 옵션은 적지 않는다(입력할 때 디스코드 자동완성이 보인다) */
+/** 명령 줄을 만들 때 읽는 명령의 이름과 설명. 옵션은 적지 않는다(입력할 때 디스코드 자동완성이 보인다) */
 type Defined = { name: string; description?: string };
 
 const SECTIONS: readonly HelpSection[] = ["play", "queue", "mode", "explore", "channel", "info"];
