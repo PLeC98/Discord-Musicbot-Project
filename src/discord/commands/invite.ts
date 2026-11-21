@@ -23,7 +23,8 @@ function inviteView(T: BotText, { invite, website }: { invite: string; website: 
 const exported: GuildCommand = {
   help: { section: "info", tier: "everyone" },
   enabled: () => config.bot.inviteCommand,
-  data: new SlashCommandBuilder().setName("invite").setDescription("봇 초대 링크를 보여줘요"),
+  name: "invite",
+  data: (C) => new SlashCommandBuilder().setName("invite").setDescription(C.invite.description),
 
   async execute(interaction) {
     await toSelf(interaction, reply(inviteView(privateText(interaction), { invite: inviteUrl(appIdOf()), website: config.bot.website })), LIFETIME.screen);

@@ -8,7 +8,8 @@ import { privateText, publicText } from "../../ui/language.ts";
 
 const exported: GuildCommand = {
   help: { section: "channel", tier: "dj" },
-  data: new SlashCommandBuilder().setName("leave").setDescription("대기열을 저장하고 음성 채널에서 나가요"),
+  name: "leave",
+  data: (C) => new SlashCommandBuilder().setName("leave").setDescription(C.leave.description),
 
   async execute(interaction, bot) {
     const { guild, member } = interaction;

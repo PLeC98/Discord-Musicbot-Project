@@ -1,10 +1,9 @@
 // /help: 첫 화면(분류마다의 설명)과 분류 메뉴. 분류를 고르거나 /help 분류: 로 그 분류의 명령 줄을 보이고, 뒤로 버튼으로 첫 화면에 돌아온다(discord/interactions/help).
 // 본인에게만 보이는 화면이라 줄마다 보는 사람이 그 명령을 쓸 수 있는지 자물쇠로 표시한다
 
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, SlashCommandBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, type RESTPostAPIChatInputApplicationCommandsJSONBody } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, SlashCommandBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } from "discord.js";
 import type { GuildCommand, SlashCommand } from "../../app/command-loader.ts";
 import type { BotContext } from "../../app/bot-context.ts";
-import * as helpText from "../../ui/text/ko/help.ts";
 import { helpSections, SECTIONS, type HelpSection, type Open } from "../../ui/help-lines.ts";
 import { commandMention } from "../../ui/command-mentions.ts";
 import { frame, reply } from "../../ui/frame.ts";
@@ -21,13 +20,13 @@ type Shown = ReturnType<typeof helpSections>;
 
 const OPTION = "category";
 
-/** 슬래시 명령의 정의(이 봇의 명령은 모두 슬래시라 설명이 있다) */
-const definedOf = (command: SlashCommand) => command.data.toJSON() as RESTPostAPIChatInputApplicationCommandsJSONBody;
+/** 명령의 이름과 보는 사람의 언어로 된 설명 */
+const definedOf = (T: BotText, command: SlashCommand) => ({ name: command.name, description: (T.commands as Record<string, { description: string } | undefined>)[command.name]?.description });
 
 const sectionsOf = (T: BotText, commands: Commands, guildId: string | null, open?: Open) =>
   helpSections(
     T,
-    [...commands.values()].map((command) => ({ defined: definedOf(command), help: command.help })),
+    [...commands.values()].map((command) => ({ defined: definedOf(T, command), help: command.help })),
     guildId,
     open,
   );
@@ -70,21 +69,19 @@ function sectionView(T: BotText, commands: Commands, key: string, guildId: strin
   return container;
 }
 
-// 명령 정의는 불러올 때 기준 언어로 만든다(명령 문구의 지역화는 따로 한다)
-const controls = helpText.controls();
-
 const exported: GuildCommand = {
+  name: "help",
   help: null,
-  data: new SlashCommandBuilder()
-    .setName("help")
-    .setDescription("명령어 목록과 쓰는 법을 알려줘요")
-    .addStringOption((option) =>
-      option
-        .setName(OPTION)
-        .setNameLocalizations({ ko: controls.option })
-        .setDescription(controls.optionDescription)
-        .addChoices(SECTIONS.map((key) => ({ name: helpText.section(key).name, value: key }))),
-    ),
+  data: (C) =>
+    new SlashCommandBuilder()
+      .setName("help")
+      .setDescription(C.help.description)
+      .addStringOption((option) =>
+        option
+          .setName(OPTION)
+          .setDescription(C.help.options.category.description)
+          .addChoices(SECTIONS.map((key) => ({ name: C.help.options.category.choices[key], value: key }))),
+      ),
 
   async execute(interaction, bot) {
     const key = interaction.options.getString(OPTION);

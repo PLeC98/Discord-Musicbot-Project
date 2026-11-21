@@ -44,7 +44,8 @@ async function pingAgain(interaction: ButtonInteraction) {
 const exported: AnywhereCommand = {
   help: { section: "info", tier: "everyone" },
   anywhere: true,
-  data: new SlashCommandBuilder().setName("ping").setDescription("봇의 응답 시간을 측정해요"),
+  name: "ping",
+  data: (C) => new SlashCommandBuilder().setName("ping").setDescription(C.ping.description),
 
   async execute(interaction) {
     const startedAt = performance.now();

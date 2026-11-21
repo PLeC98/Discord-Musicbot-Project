@@ -9,20 +9,26 @@ import { onTunablesChanged } from "../config/tunables-changed.ts";
 import { COMMANDS } from "../discord/commands/index.ts";
 import { rememberCommandIds } from "../ui/command-mentions.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
+import { botLanguage } from "../ui/language.ts";
+import { textFor } from "../ui/text/index.ts";
+import { localizeCommand, type CommandsText } from "../ui/command-localizations.ts";
 import type { BotContext } from "./bot-context.ts";
 import { PROJECT } from "../infra/project-paths.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "core" });
 
-/** 명령 정의. 배포는 JSON으로, 등록은 이름으로 */
-type CommandData = { name: string; toJSON(): RESTPostAPIApplicationCommandsJSONBody };
+/** 명령 정의. 배포는 JSON으로 */
+type CommandData = { toJSON(): RESTPostAPIApplicationCommandsJSONBody };
+/** 명령 정의를 만드는 함수. C는 봇 기본 언어의 명령 문구표(ui/text/<언어>/commands). 다른 언어의 문구는 배포할 때 단다(ui/command-localizations) */
+type DefineCommand = (C: CommandsText) => CommandData;
 /**
- * 서버 안에서만 쓰는 명령. 호출부(이벤트)가 서버 상호작용인지 먼저 본다.
+ * 서버 안에서만 쓰는 명령. 호출부(이벤트)가 서버 상호작용인지 먼저 본다. name은 명령 이름(언어마다 같다, 등록과 실행 목록의 키).
  * enabled: 운영자 설정으로 기능을 껐으면 false. 등록에서 빠져 디스코드 명령 목록에 뜨지 않는다(기동 때, 그 설정을 저장할 때의 배포에서)
  * autocomplete: 자동완성을 켠 옵션의 선택지. 3초 안에 respond로 응답한다. 예외를 던지면 호출부(이벤트)가 빈 목록으로 응답한다
  */
 type GuildCommand = {
-  data: CommandData;
+  name: string;
+  data: DefineCommand;
   help: HelpEntry | null;
   anywhere?: false;
   enabled?: () => boolean;
@@ -30,7 +36,7 @@ type GuildCommand = {
   autocomplete?(interaction: AutocompleteInteraction<"cached">, bot: BotContext): Promise<unknown>;
 };
 /** 서버 밖(DM)에서도 쓰는 명령 */
-type AnywhereCommand = { data: CommandData; help: HelpEntry | null; anywhere: true; enabled?: () => boolean; execute(interaction: ChatInputCommandInteraction, bot: BotContext): unknown };
+type AnywhereCommand = { name: string; data: DefineCommand; help: HelpEntry | null; anywhere: true; enabled?: () => boolean; execute(interaction: ChatInputCommandInteraction, bot: BotContext): unknown };
 /** 슬래시 명령 모듈. 정의(data)와 실행(execute) */
 type SlashCommand = GuildCommand | AnywhereCommand;
 
@@ -42,25 +48,25 @@ function enabledCommands() {
   return COMMANDS.filter((command) => command.enabled?.() ?? true);
 }
 
-/** 켜진 명령이 바뀌면(운영 설정값을 저장해 기능을 켜거나 껐다) 실행 목록을 다시 만들고(load) 등록을 맞춘다(deploy). 떼는 함수를 돌려준다 */
-function followEnabledCommands(load: () => void, deploy: () => void) {
-  const namesOf = () =>
-    enabledCommands()
-      .map((command) => command.data.name)
-      .join(" ");
-  let names = namesOf();
+/** 배포용 JSON. 기본값은 봇 기본 언어(C), 다른 언어는 지역화 키로 */
+function definitions(C: CommandsText = textFor(botLanguage()).commands) {
+  return enabledCommands().map((command) => localizeCommand(command.data(C).toJSON()));
+}
+
+/**
+ * 배포할 정의가 바뀌면(운영 설정값을 저장해 기능을 켜거나 껐다, 봇 기본 언어를 바꿨다) 실행 목록을 다시 만들고(load) 등록을 맞춘다(deploy). 떼는 함수를 돌려준다.
+ * defined: 지금 배포할 정의(테스트가 넘기는 슬롯)
+ */
+function followEnabledCommands(load: () => void, deploy: () => void, defined: () => unknown = definitions) {
+  const shapeOf = () => JSON.stringify(defined());
+  let shape = shapeOf();
   return onTunablesChanged(() => {
-    const now = namesOf();
-    if (now === names) return;
-    names = now;
+    const now = shapeOf();
+    if (now === shape) return;
+    shape = now;
     load();
     deploy();
   });
-}
-
-/** 배포용 JSON */
-function definitions() {
-  return enabledCommands().map((command) => command.data.toJSON());
 }
 
 // 명령 정의 + 배포 대상(앱, 범위, 서버)의 해시. 어느 하나라도 바뀌면 재배포한다

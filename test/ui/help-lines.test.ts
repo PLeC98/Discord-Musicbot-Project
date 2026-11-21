@@ -15,7 +15,7 @@ const KO = textFor("ko");
 const sectionsNow = () =>
   helpSections(
     KO,
-    enabledCommands().map((command) => ({ defined: command.data.toJSON(), help: command.help })),
+    enabledCommands().map((command) => ({ defined: { name: command.name, description: (KO.commands as Record<string, { description: string }>)[command.name].description }, help: command.help })),
   );
 
 const EXPECTED = [
@@ -66,16 +66,16 @@ test("꺼진 명령은 도움말에도 없다", () => {
 test("help를 적은 명령은 도움말에 한 번씩, /help 자신은 싣지 않는다", () => {
   const lines = withConfig({ sponsorblock: { enabled: true } }, sectionsNow).flatMap((section) => section.lines);
   for (const command of COMMANDS) {
-    const count = lines.filter((line) => line.startsWith(`\`/${command.data.name}\``)).length;
-    assert.equal(count, command.help ? 1 : 0, command.data.name);
+    const count = lines.filter((line) => line.startsWith(`\`/${command.name}\``)).length;
+    assert.equal(count, command.help ? 1 : 0, command.name);
   }
-  assert.equal(COMMANDS.find((command) => command.data.name === "help")?.help, null);
+  assert.equal(COMMANDS.find((command) => command.name === "help")?.help, null);
 });
 
 test('"서버 관리 권한" 표시는 디스코드가 그 권한으로 막는 명령(default_member_permissions)과 같다', () => {
   for (const command of COMMANDS) {
-    const gated = Boolean(command.data.toJSON().default_member_permissions);
-    assert.equal(command.help?.tier === "server-manager", gated, command.data.name);
+    const gated = Boolean(command.data(KO.commands).toJSON().default_member_permissions);
+    assert.equal(command.help?.tier === "server-manager", gated, command.name);
   }
 });
 
@@ -104,9 +104,9 @@ test("앱 이모지와 19자리 명령 id를 실어도(줄마다 45자 안팎 �
   const { rememberCommandIds } = await import("../../src/ui/command-mentions.ts");
   useUploaded(new Map(iconEntries().map((entry, i) => [entry.name, { id: String(1514244801397260398n + BigInt(i)), animated: entry.spec.shape === "spin" }])));
   const commands = withConfig({ sponsorblock: { enabled: true } }, enabledCommands);
-  rememberCommandIds(commands.map((command, i) => ({ name: command.data.name, id: String(1514244801397260398n + BigInt(i)) })));
+  rememberCommandIds(commands.map((command, i) => ({ name: command.name, id: String(1514244801397260398n + BigInt(i)) })));
   try {
-    const running = new Map(commands.map((command) => [command.data.name, command]));
+    const running = new Map(commands.map((command) => [command.name, command]));
     const textsOf = (view: { toJSON(): unknown }) => {
       const texts: string[] = [];
       const walk = (node: unknown) => {

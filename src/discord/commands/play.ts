@@ -16,10 +16,9 @@ import type { BotContext } from "../../app/bot-context.ts";
 import { noticeMs, noticeSelf, replaceSelf, unlessGone } from "../../ui/delivery.ts";
 import { privateText } from "../../ui/language.ts";
 
-/** 곡을 찾아 넣는 명령. /play와 /playfirst는 이름, 설명, 권한, 넣을 위치만 다르다 */
+/** 곡을 찾아 넣는 명령. /play와 /playfirst는 이름(문구도 이름으로 찾는다), 권한, 넣을 위치만 다르다 */
 type PlayOptions = {
-  name: string;
-  description: string;
+  name: "play" | "playfirst";
   help: HelpEntry;
   /** 막으면 안내 문장 */
   permission: (member: GuildMember) => Promise<PermissionDenied | null> | PermissionDenied | null;
@@ -57,13 +56,15 @@ async function playOnReply(interaction: ChatInputCommandInteraction<"cached"> | 
   await interaction.deleteReply().catch(unlessGone(log, "자리표시자 삭제"));
 }
 
-function playCommand({ name, description, help, permission, insertFirst = false }: PlayOptions): GuildCommand {
+function playCommand({ name, help, permission, insertFirst = false }: PlayOptions): GuildCommand {
   return {
+    name,
     help,
-    data: new SlashCommandBuilder()
-      .setName(name)
-      .setDescription(description)
-      .addStringOption((option) => option.setName("query").setNameLocalizations({ ko: "곡" }).setDescription("지원하는 플랫폼이나 미디어 파일 링크, 유튜브 검색어").setRequired(true)),
+    data: (C) =>
+      new SlashCommandBuilder()
+        .setName(name)
+        .setDescription(C[name].description)
+        .addStringOption((option) => option.setName("query").setDescription(C[name].options.query.description).setRequired(true)),
 
     async execute(interaction, bot) {
       const query = interaction.options.getString("query", true);
@@ -78,7 +79,6 @@ function playCommand({ name, description, help, permission, insertFirst = false 
 const exported = playCommand({
   help: { section: "play", tier: "everyone" },
   name: "play",
-  description: "곡을 재생해요",
   permission: (member) => checkAdd(member) || checkSummon(member),
 });
 export default exported;

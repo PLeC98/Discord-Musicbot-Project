@@ -14,10 +14,7 @@ const posix = (p: string) => p.split(path.sep).join("/");
 const LANGUAGE_DIRS = LANGUAGES.map((one) => one.tag);
 
 /** 아직 언어를 받을 수 없어 기준 언어로 부르는 자리. 언어를 받게 되면 뺀다 */
-const NOT_YET: ReadonlySet<string> = new Set([
-  // 슬래시 명령 정의는 불러올 때 만들어 배포한다. 명령 문구를 언어마다 싣는 일과 함께 옮긴다
-  "src/discord/commands/help.ts",
-]);
+const NOT_YET: ReadonlySet<string> = new Set<string>([]);
 
 function filesUnder(dir: string): string[] {
   const out: string[] = [];

@@ -146,7 +146,7 @@ test("봇이 만드는 모달, 메뉴의 custom_id는 목록의 그 경로로 �
   sameRoute("select", jump?.toJSON().components[0].custom_id ?? "", "panel:jump:s1");
   const results = searchResultsView(KO, { query: "q", rows: [{ platform: "youtube", id: "aaaaaaaaaaa", title: "곡", duration: 60, pageUrl: "https://www.youtube.com/watch?v=aaaaaaaaaaa" }], gated: false, userId: "u1" });
   sameRoute("select", selectOf(results)?.custom_id ?? "", "search:pick:u1");
-  sameRoute("select", selectOf({ components: [homeView(KO, new Map(COMMANDS.map((command) => [command.data.name, command])))] })?.custom_id ?? "", "help:section");
+  sameRoute("select", selectOf({ components: [homeView(KO, new Map(COMMANDS.map((command) => [command.name, command])))] })?.custom_id ?? "", "help:section");
 });
 
 test("볼륨 모달의 자리표시는 지금 볼륨", () => {

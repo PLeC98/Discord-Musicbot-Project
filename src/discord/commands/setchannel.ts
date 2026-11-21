@@ -26,12 +26,14 @@ const movePanel = (interaction: ChatInputCommandInteraction<"cached">, { panels 
 
 const exported: GuildCommand = {
   help: { section: "channel", tier: "server-manager" },
-  data: new SlashCommandBuilder()
-    .setName("setchannel")
-    .setDescription("제 전용 채널을 설정해요 (곡 요청 및 공지에 사용돼요)")
-    .addChannelOption((option) => option.setName("channel").setNameLocalizations({ ko: "채널" }).setDescription("설정할 채널 (비우면 명령어를 입력한 채널)").addChannelTypes(ChannelType.GuildText).setRequired(false))
-    .addStringOption((option) => option.setName("action").setNameLocalizations({ ko: "동작" }).setDescription("설정 또는 해제").addChoices({ name: "설정", value: "set" }, { name: "해제", value: "remove" }).setRequired(false))
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+  name: "setchannel",
+  data: (C) =>
+    new SlashCommandBuilder()
+      .setName("setchannel")
+      .setDescription(C.setchannel.description)
+      .addChannelOption((option) => option.setName("channel").setDescription(C.setchannel.options.channel.description).addChannelTypes(ChannelType.GuildText).setRequired(false))
+      .addStringOption((option) => option.setName("action").setDescription(C.setchannel.options.action.description).addChoices({ name: C.setchannel.options.action.choices.set, value: "set" }, { name: C.setchannel.options.action.choices.remove, value: "remove" }).setRequired(false))
+      .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
   async execute(interaction, bot) {
     const guildId = interaction.guild.id;

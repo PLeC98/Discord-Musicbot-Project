@@ -58,10 +58,12 @@ async function openQueue(interaction: RepliableInteraction<"cached">, player: Pl
 
 const exported: GuildCommand = {
   help: { section: "queue", tier: "everyone" },
-  data: new SlashCommandBuilder()
-    .setName("queue")
-    .setDescription("대기열을 보여줘요")
-    .addIntegerOption((option) => option.setName("page").setNameLocalizations({ ko: "페이지" }).setDescription("페이지 번호 (기본값: 1)").setRequired(false).setMinValue(1)),
+  name: "queue",
+  data: (C) =>
+    new SlashCommandBuilder()
+      .setName("queue")
+      .setDescription(C.queue.description)
+      .addIntegerOption((option) => option.setName("page").setDescription(C.queue.options.page.description).setRequired(false).setMinValue(1)),
 
   async execute(interaction, bot) {
     const player = bot.players.get(interaction.guild.id);

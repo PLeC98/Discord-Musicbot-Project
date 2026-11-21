@@ -4,7 +4,8 @@ import type { GuildCommand } from "../../app/command-loader.ts";
 
 const exported: GuildCommand = {
   help: { section: "play", tier: "dj" },
-  data: new SlashCommandBuilder().setName("pause").setDescription("일시정지 상태를 전환해요"),
+  name: "pause",
+  data: (C) => new SlashCommandBuilder().setName("pause").setDescription(C.pause.description),
 
   async execute(interaction, bot) {
     await answerPause(interaction, bot.players.get(interaction.guild.id));

@@ -88,7 +88,8 @@ async function systemScreen(bot: Bot, language: Language) {
 
 const exported: GuildCommand = {
   help: { section: "info", tier: "owner" },
-  data: new SlashCommandBuilder().setName("system").setDescription("봇의 시스템 정보를 보여줘요"),
+  name: "system",
+  data: (C) => new SlashCommandBuilder().setName("system").setDescription(C.system.description),
 
   async execute(interaction, bot) {
     // 호스트 CPU, 메모리 정보가 나간다

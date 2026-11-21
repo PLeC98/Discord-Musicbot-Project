@@ -74,7 +74,7 @@ function world({ botVoice = "v1", userVoice = "v1", player = true, handle = asyn
       updatePlaying: async () => seen.push("update"),
     },
     // 실행 목록. 도움말 새로고침이 이것으로 명령 줄을 만든다
-    commands: new Map(COMMANDS.map((command) => [command.data.name, command])),
+    commands: new Map(COMMANDS.map((command) => [command.name, command])),
   });
   // 곡 추가는 받은 곡의 제목만 적는다
   fakeAdder(bot, async (_bot, _guildId, trackData) => {

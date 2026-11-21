@@ -16,7 +16,8 @@ const PERMISSION_CODES = new Set<unknown>([RESTJSONErrorCodes.MissingAccess, RES
 
 const exported: GuildCommand = {
   help: { section: "channel", tier: "dj-outside-bot-channel" },
-  data: new SlashCommandBuilder().setName("dashboard").setDescription("재생 패널을 이 채널의 맨 아래에 다시 표시해요"),
+  name: "dashboard",
+  data: (C) => new SlashCommandBuilder().setName("dashboard").setDescription(C.dashboard.description),
 
   async execute(interaction, bot) {
     const { guild, member, channel } = interaction;

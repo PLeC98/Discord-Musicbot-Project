@@ -44,7 +44,7 @@ test("봇 전체에서 SponsorBlock을 껐으면 /highlight를 등록하지도 �
   const { withConfig } = await import("../helpers/config.ts");
   const names = () => definitions().map((c) => c.name);
   assert.deepEqual(
-    withConfig({ sponsorblock: { enabled: false } }, () => enabledCommands().map((c) => c.data.name)),
+    withConfig({ sponsorblock: { enabled: false } }, () => enabledCommands().map((c) => c.name)),
     withConfig({ sponsorblock: { enabled: false } }, names),
     "배포하는 것과 실행 목록이 같은 집합",
   );
@@ -77,6 +77,25 @@ test("운영 설정값을 저장해 켜진 명령이 바뀌면 실행 목록을 
   }
 });
 
+test("이름이 같아도 배포할 정의의 문구가 바뀌면(봇 기본 언어를 바꿨을 때) 다시 등록한다", () => {
+  const calls: string[] = [];
+  let text = "한 언어";
+  const off = followEnabledCommands(
+    () => calls.push("load"),
+    () => calls.push("deploy"),
+    () => [{ name: "play", description: text }],
+  );
+  try {
+    tunablesChanged();
+    assert.deepEqual(calls, []);
+    text = "다른 언어";
+    tunablesChanged();
+    assert.deepEqual(calls, ["load", "deploy"]);
+  } finally {
+    off();
+  }
+});
+
 test("명령 목록의 명령 전부가 유효한 정의(name/description)다", () => {
   assert.ok(commands.length > 0);
   for (const c of commands) {
@@ -86,27 +105,10 @@ test("명령 목록의 명령 전부가 유효한 정의(name/description)다", 
   }
 });
 
-// 설명, 선택지 이름은 한국어 하나만 둔다(영어 기본값을 따로 두면 고칠 때 한쪽만 고친다). 명령, 옵션 이름은 코드가 쓰는 식별자라 영어에 한국어 이름을 붙인다
-test("명령, 옵션 설명과 선택지 이름은 한국어이고(설명은 디스코드 상한 100자 안), 옵션 이름에는 한국어 이름이 있다", () => {
-  type Node = { name: string; description?: string; name_localizations?: Record<string, string> | null; options?: Node[]; choices?: Node[] };
-  const HANGUL = /[가-힣]/;
-  const missing: string[] = [];
-  const visit = (n: Node, at: string) => {
-    if (!HANGUL.test(n.description ?? "") || (n.description ?? "").length > 100) missing.push(`${at} 설명`);
-    for (const o of n.options ?? []) {
-      if (!o.name_localizations?.ko) missing.push(`${at} ${o.name} 이름`);
-      visit(o, `${at} ${o.name}`);
-    }
-    for (const c of n.choices ?? []) if (!HANGUL.test(c.name)) missing.push(`${at}=${c.name}`);
-  };
-  for (const c of commands) visit(fake<Node>(c), `/${c.name}`);
-  assert.deepEqual(missing, []);
-});
-
 test("등록용 목록과 배포용 정의가 같은 집합이다", () => {
   assert.deepEqual(
     commands.map((c) => c.name),
-    COMMANDS.map((c) => c.data.name),
+    COMMANDS.map((c) => c.name),
   );
 });
 

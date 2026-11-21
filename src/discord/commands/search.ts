@@ -171,11 +171,13 @@ const exported: GuildCommand & {
   autocomplete(interaction: AutocompleteInteraction<"cached">, bot: BotContext, deps?: SearchDeps): Promise<unknown>;
 } = {
   help: { section: "explore", tier: "everyone" },
-  data: new SlashCommandBuilder()
-    .setName("search")
-    .setDescription("곡을 검색해요")
-    // 자동완성 맨 위 줄의 값이 입력한 글자다. 선택지 값은 100자까지라 넘치면 그 줄을 만들 수 없다
-    .addStringOption((option) => option.setName("query").setNameLocalizations({ ko: "검색어" }).setDescription("검색할 키워드").setRequired(true).setMaxLength(SEARCH_MAX_LEN).setAutocomplete(true)),
+  name: "search",
+  data: (C) =>
+    new SlashCommandBuilder()
+      .setName("search")
+      .setDescription(C.search.description)
+      // 자동완성 맨 위 줄의 값이 입력한 글자다. 선택지 값은 100자까지라 넘치면 그 줄을 만들 수 없다
+      .addStringOption((option) => option.setName("query").setDescription(C.search.options.query.description).setRequired(true).setMaxLength(SEARCH_MAX_LEN).setAutocomplete(true)),
 
   async autocomplete(interaction, _bot, deps: SearchDeps = {}) {
     const all = depsOf(deps);

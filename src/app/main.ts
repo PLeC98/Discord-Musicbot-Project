@@ -483,7 +483,7 @@ function stopIfThrows(check: () => unknown, hint: string | null = null) {
 function loadCommands(commands: Map<string, SlashCommand>) {
   const enabled = commandLoader.enabledCommands();
   commands.clear();
-  for (const command of enabled) commands.set(command.data.name, command);
+  for (const command of enabled) commands.set(command.name, command);
   log.info({ tags: ["startup"] }, `슬래시 명령어 ${enabled.length}개 준비 완료`);
 }
 

@@ -10,10 +10,12 @@ import { privateText, publicText } from "../../ui/language.ts";
 // 볼륨 정규화: 서버의 설정이라 봇이 음성 채널에 없어도 바꿀 수 있다. 동작을 비우면 지금 상태를 본인에게만 보여 준다(누구나)
 const exported: GuildCommand = {
   help: { section: "mode", tier: "dj" },
-  data: new SlashCommandBuilder()
-    .setName("normalize")
-    .setDescription("볼륨 정규화를 켜거나 꺼요")
-    .addStringOption((option) => option.setName("action").setNameLocalizations({ ko: "동작" }).setDescription("켜기 또는 끄기 (비우면 지금 상태 표시)").addChoices({ name: "켜기", value: "on" }, { name: "끄기", value: "off" }).setRequired(false)),
+  name: "normalize",
+  data: (C) =>
+    new SlashCommandBuilder()
+      .setName("normalize")
+      .setDescription(C.normalize.description)
+      .addStringOption((option) => option.setName("action").setDescription(C.normalize.options.action.description).addChoices({ name: C.normalize.options.action.choices.on, value: "on" }, { name: C.normalize.options.action.choices.off, value: "off" }).setRequired(false)),
 
   async execute(interaction) {
     const { guild, member } = interaction;

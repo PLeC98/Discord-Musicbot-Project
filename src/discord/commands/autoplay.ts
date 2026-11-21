@@ -7,7 +7,8 @@ import type { GuildCommand } from "../../app/command-loader.ts";
 
 const exported: GuildCommand = {
   help: { section: "mode", tier: "dj" },
-  data: new SlashCommandBuilder().setName("autoplay").setDescription("자동재생을 켜거나 꺼요"),
+  name: "autoplay",
+  data: (C) => new SlashCommandBuilder().setName("autoplay").setDescription(C.autoplay.description),
 
   execute(interaction, bot) {
     return answerAutoplay(interaction, bot.players.get(interaction.guild.id), bot.appEmojis);

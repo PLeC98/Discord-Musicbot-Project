@@ -3,6 +3,7 @@
 export * from "./shared.ts";
 export * as audit from "./audit.ts";
 export * as autoplay from "./autoplay.ts";
+export { commands } from "./commands.ts";
 export * as controls from "./controls.ts";
 export * as help from "./help.ts";
 export * as info from "./info.ts";

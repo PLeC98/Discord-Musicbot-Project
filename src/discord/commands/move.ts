@@ -8,11 +8,13 @@ import { privateText, publicText } from "../../ui/language.ts";
 
 const exported: GuildCommand = {
   help: { section: "queue", tier: "dj" },
-  data: new SlashCommandBuilder()
-    .setName("move")
-    .setDescription("대기열에서 곡의 순번을 옮겨요")
-    .addIntegerOption((option) => option.setName("from").setNameLocalizations({ ko: "옮길곡" }).setDescription("순서를 옮기고 싶은 곡").setRequired(true).setMinValue(1))
-    .addIntegerOption((option) => option.setName("to").setNameLocalizations({ ko: "옮길위치" }).setDescription("그 곡을 옮겨 넣을 위치").setRequired(true).setMinValue(1)),
+  name: "move",
+  data: (C) =>
+    new SlashCommandBuilder()
+      .setName("move")
+      .setDescription(C.move.description)
+      .addIntegerOption((option) => option.setName("from").setDescription(C.move.options.from.description).setRequired(true).setMinValue(1))
+      .addIntegerOption((option) => option.setName("to").setDescription(C.move.options.to.description).setRequired(true).setMinValue(1)),
 
   async execute(interaction, bot) {
     const { guild, member } = interaction;

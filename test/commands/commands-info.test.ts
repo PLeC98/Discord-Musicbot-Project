@@ -83,7 +83,7 @@ function interaction({ player = null, options = {}, userId = "u1", guildRoles = 
     players: new Map<string, Player>(player ? [["g1", fakePlayer(player)]] : []),
     panels: { onBotChannelChanged: async () => seen.push("movePanel") },
     // 실행 목록. /help가 이것으로 명령 줄을 만든다
-    commands: new Map(COMMAND_LIST.map((command) => [command.data.name, command])),
+    commands: new Map(COMMAND_LIST.map((command) => [command.name, command])),
   });
   const it = {
     guild: { id: "g1", roles: { cache: new Map(guildRoles.map((r) => [r, { id: r }])) } },
@@ -429,7 +429,7 @@ test("/invite: 초대 버튼, 웹사이트가 있으면 웹사이트 버튼. 끄
   const urls = (view: { toJSON(): unknown }) => [...JSON.stringify(view.toJSON()).matchAll(/"url":"([^"]+)"/g)].map((m) => m[1]);
   assert.deepEqual(urls(inviteView(KO, { invite: "https://discord.com/oauth2/authorize?client_id=1", website: null })), ["https://discord.com/oauth2/authorize?client_id=1"]);
   assert.deepEqual(urls(inviteView(KO, { invite: "https://i", website: "https://site.example" })), ["https://i", "https://site.example"]);
-  const names = (on: boolean) => withConfig({ bot: { inviteCommand: on } }, () => enabledCommands().map((c) => c.data.name));
+  const names = (on: boolean) => withConfig({ bot: { inviteCommand: on } }, () => enabledCommands().map((c) => c.name));
   assert.ok(names(true).includes("invite"));
   assert.ok(!names(false).includes("invite"));
 });
@@ -531,7 +531,7 @@ test("/license: 라이선스 및 운영 소스 코드 링크 (본인만 볼 수 
 });
 
 test("/ping: 누구나 쓸 수 있으므로(응답 시간은 실행한 사람에게만 보인다) 기본 권한을 걸지 않는다", async () => {
-  const json = (await command("ping")).data.toJSON();
+  const json = (await command("ping")).data(textFor("ko").commands).toJSON();
   assert.equal(json.default_member_permissions ?? null, null);
 });
 

@@ -8,7 +8,8 @@ import { privateText } from "../../ui/language.ts";
 
 const exported: GuildCommand = {
   help: { section: "explore", tier: "everyone" },
-  data: new SlashCommandBuilder().setName("nowplaying").setDescription("재생 중인 곡의 정보를 보여줘요"),
+  name: "nowplaying",
+  data: (C) => new SlashCommandBuilder().setName("nowplaying").setDescription(C.nowplaying.description),
 
   async execute(interaction, bot) {
     const player = bot.players.get(interaction.guild.id);

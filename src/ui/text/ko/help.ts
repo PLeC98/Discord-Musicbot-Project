@@ -50,6 +50,6 @@ const home = ({ play, help, sections }: { play: string; help: string; sections: 
 });
 
 /** /help의 분류 칸, 메뉴와 버튼 */
-const controls = () => ({ option: "분류", optionDescription: "바로 볼 명령어 분류", placeholder: "명령어 분류를 골라 주세요", back: "뒤로", dashboard: "웹 대시보드" });
+const controls = () => ({ placeholder: "명령어 분류를 골라 주세요", back: "뒤로", dashboard: "웹 대시보드" });
 
 export { section, tierMark, lockMark, legend, home, controls };
