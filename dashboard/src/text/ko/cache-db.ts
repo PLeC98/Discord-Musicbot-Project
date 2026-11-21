@@ -56,20 +56,20 @@ const tools = {
 };
 
 const filterPlaceholder = "필터";
-/** 필터 입력란 오른쪽 클릭 */
-const filterMenu = [
-  { label: "포함", hint: "abc", insert: "" },
-  { label: "같음", hint: "=abc", insert: "=" },
-  { label: "같지 않음", hint: "<>abc", insert: "<>" },
-  { label: "보다 큼", hint: ">10", insert: ">" },
-  { label: "보다 작음", hint: "<10", insert: "<" },
-  { label: "이상", hint: ">=10", insert: ">=" },
-  { label: "이하", hint: "<=10", insert: "<=" },
-  { label: "범위", hint: "10~20", insert: "~" },
-  { label: "정규식", hint: "/abc/", insert: "//" },
-  { label: "비어 있음", hint: "=''", insert: "=''" },
-  { label: "비어 있지 않음", hint: "<>''", insert: "<>''" },
-] as const;
+/** 필터 입력란 오른쪽 클릭의 항목 이름(차례, 넣는 글, 보기는 components/CacheDb의 FILTER_OPS) */
+const filterMenu = {
+  contains: "포함",
+  equal: "같음",
+  notEqual: "같지 않음",
+  greater: "보다 큼",
+  less: "보다 작음",
+  atLeast: "이상",
+  atMost: "이하",
+  range: "범위",
+  regex: "정규식",
+  empty: "비어 있음",
+  notEmpty: "비어 있지 않음",
+};
 const filterHelp = "필터 문법은 DB Browser for SQLite와 같아요. 크기는 10MB, 날짜는 2026-10-17, 길이는 3:30처럼 적어요. 여러 열에 필터를 걸면 모두 맞는 행만 남아요.";
 
 const headerMenu = { hide: "열 숨기기", showAll: "모든 열 표시", freeze: "여기까지 열 고정", unfreeze: "열 고정 해제", copyName: "열 이름 복사" };

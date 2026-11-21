@@ -48,7 +48,7 @@
                   <!-- 달력: 요일 줄은 그대로, 날짜는 이전, 지금, 다음 달 세 장을 나란히 두고 함께 움직인다(드래그하는 동안 옆 달이 바로 붙어 보인다). 옆 달은 로그가 있는 가장 가까운 달 -->
                   <div v-else key="days" class="absolute inset-0 flex flex-col touch-pan-y" @pointerdown="swipeDown" @pointermove="swipeMove" @pointerup="swipeUp" @pointercancel="swipeUp">
                     <div class="grid grid-cols-7 text-center">
-                      <span v-for="(w, i) in T.weekdays" :key="w" class="h-6 flex items-center justify-center text-2xs font-medium" :class="i === 0 ? 'text-(--log-error)' : 'text-on-surface-variant'">{{ w }}</span>
+                      <span v-for="day in WEEK" :key="day" class="h-6 flex items-center justify-center text-2xs font-medium" :class="day === 0 ? 'text-(--log-error)' : 'text-on-surface-variant'">{{ T.weekdays[day] }}</span>
                     </div>
                     <div class="flex-1 overflow-hidden">
                       <div class="flex w-[300%] h-full" :style="trackStyle">
@@ -124,6 +124,8 @@ const props = withDefaults(defineProps<{ modelValue: number | null; ranges?: Arr
 const emit = defineEmits<{ "update:modelValue": [value: number | null]; go: [value: number | null] }>();
 
 const T = text.fields.datePicker;
+// 달력 머리의 요일 차례(Date.getDay, 일요일부터). 날짜 칸도 일요일부터 놓는다. 일요일은 빨간 글자
+const WEEK = [0, 1, 2, 3, 4, 5, 6];
 
 const boxCls = "w-full h-10 pl-4 pr-3 text-sm flex items-center justify-between gap-2 bg-surface-container-highest border border-transparent rounded-(--r-inner) text-on-surface text-left cursor-pointer outline-none transition-[border-color] effects-fast focus-visible:border-primary";
 // 펼친 창: 입력란 아래에 붙일 때(드롭다운 모양), 가운데 팝업일 때(M3 대화상자). 높이가 모자라면 줄이지 않고 스크롤한다

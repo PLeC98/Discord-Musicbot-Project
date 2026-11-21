@@ -59,8 +59,8 @@ test("화면 코드의 맨 위에서 문구의 값을 꺼내 두지 않는다(�
         continue;
       }
       const names = [...aliases.keys()].join("|");
-      // 화살표 함수가 돌려주는 참조(() => text.x)는 부를 때 읽는다
-      const body = statement.replace(new RegExp(String.raw`=>\s*\(?\s*(?:${names})(?:\.\w+)+(?:\([^)]*\))?`, "g"), "=> _");
+      // 화살표 함수가 돌려주는 참조(() => text.x)는 부를 때 읽는다. 타입 자리(typeof T.x)는 값을 꺼내지 않는다
+      const body = statement.replace(new RegExp(String.raw`=>\s*\(?\s*(?:${names})(?:\.\w+)+(?:\([^)]*\))?`, "g"), "=> _").replace(new RegExp(String.raw`\btypeof\s+(?:${names})(?:\.\w+)+`, "g"), "typeof _");
       if (!new RegExp(String.raw`\b(?:${names})(?:\.\w+|\[)`).test(body)) continue;
       if (READS_LATER.has(`${rel} ${/^(?:export )?const (\w+)/.exec(statement)?.[1]}`)) continue;
       // 읽을 때 꺼내는 것: 함수 정의, computed 같은 반응형 값

@@ -21,11 +21,11 @@ const installThenRestart = "설치 후 다시 시작";
 const retry = "재시도";
 const failed = (reason: string) => `설치하지 못했어요: ${reason}`;
 const missingTitle = "설치에 필요한 프로그램이 없어요.";
-/** 없는 것마다 한 줄. 프로그램은 설치 주소를 함께 보인다 */
-const needs: Record<BgutilNeed, { label: string; url?: string }> = {
-  git: { label: "git", url: "https://git-scm.com/downloads" },
-  npm: { label: "npm", url: "https://docs.npmjs.com/downloading-and-installing-node-js-and-npm" },
-  folder: { label: "vendor/bgutil 폴더에 쓸 수 없어요. 폴더 권한을 확인해 주세요." },
+/** 없는 것마다 한 줄. 프로그램은 설치 주소를 함께 보여 준다(주소는 components/BgutilNeeds) */
+const needs: Record<BgutilNeed, string> = {
+  git: "git",
+  npm: "npm",
+  folder: "vendor/bgutil 폴더에 쓸 수 없어요. 폴더 권한을 확인해 주세요.",
 };
 const missingAfter = "설치한 뒤 재시도해 주세요.";
 /** 버전 고정과 업데이트 확인. 고정하지 않았으면 입력란에 기본 버전을 보인다 */

@@ -58,7 +58,6 @@ const slotDialog = {
   fromFileHint: "png, webp, jpg, svg",
   fromLink: "링크로 추가",
   linkLabel: "이미지 주소",
-  linkPlaceholder: "https://…",
   linkFetch: "가져오기",
   linkBad: "http나 https로 시작하는 주소를 입력해 주세요.",
   linkFailed: "링크에서 이미지를 가져오지 못했어요.",

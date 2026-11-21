@@ -141,7 +141,8 @@ const prompt = {
 const judge = {
   title: "판정 테스트",
   urls: "유튜브 주소",
-  urlsPlaceholder: "https://www.youtube.com/watch?v=... (한 줄에 하나)",
+  /** example은 예시 주소 */
+  urlsPlaceholder: (example: string) => `${example} (한 줄에 하나)`,
   genre: "장르 식별자",
   genrePlaceholder: "rock",
   lookup: "링크 조회",

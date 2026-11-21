@@ -1,26 +1,23 @@
 // 운영자 패널: API 키 탭의 바깥 서비스 키(Spotify, Last.fm, ListenBrainz)
 
-/** 서비스마다: 제목, 무엇에 쓰나, 툴팁, 키 발급 주소, 입력란 이름 */
+/** 서비스마다: 제목, 용도, 툴팁, 입력란 이름(키 발급 주소는 components/ConfigServiceKeys) */
 const services = {
   spotify: {
     title: "Spotify",
     purpose: "스포티파이 링크를 공식 API로 열 때 써요. 넣지 않아도 링크는 열려요.",
     tip: "넣으면 트랙, 앨범, 아티스트를 공식 API로 먼저 열고, 실패하면 키 없이 쓰는 웹 플레이어 경로로 열어요. 재생목록은 늘 웹 플레이어 경로예요.\nSpotify for Developers의 Dashboard에서 앱을 만들면 발급돼요.",
-    link: "https://developer.spotify.com/dashboard",
     fields: { clientId: "Client ID", clientSecret: "Client Secret" },
   },
   lastfm: {
     title: "Last.fm",
     purpose: "자동재생 장르의 Last.fm 출처에서 써요.",
     tip: "API 계정을 만들면 키와 시크릿이 발급되는데, 키만 입력하면 돼요.",
-    link: "https://www.last.fm/api/account/create",
     fields: { apiKey: "API 키" },
   },
   listenbrainz: {
     title: "ListenBrainz",
     purpose: "자동재생 장르의 ListenBrainz 출처에서 써요.",
     tip: "ListenBrainz 설정 페이지에 있는 사용자 토큰이에요.",
-    link: "https://listenbrainz.org/settings/",
     fields: { token: "사용자 토큰" },
   },
 };

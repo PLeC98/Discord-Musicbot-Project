@@ -108,7 +108,6 @@ const source = {
   fileHintTip: "투명한 부분은 지원하지 않아요.",
   fromLink: "링크로 추가",
   linkLabel: "주소",
-  linkPlaceholder: "https://…",
   linkFetch: "가져오기",
   linkBad: "http나 https로 시작하는 주소를 입력해 주세요.",
   uploading: "업로드 중",

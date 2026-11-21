@@ -21,3 +21,6 @@ export const CODE_BOX = "m-0 rounded-(--r-inner) bg-surface-container-highest p-
 export const CHIP_PANEL = "pane-menu bg-surface-container-low! rounded-lg p-1 overflow-auto";
 export const CHIP_PANEL_ROW = `${SELECT_ROW} rounded-xs`;
 export const CHIP_PANEL_NOTE = "pane-menu bg-surface-container-low! rounded-lg px-4 py-3 text-xs text-on-surface-variant";
+
+// 주소 입력란의 자리표시(언어와 상관없는 값이라 문구표에 두지 않는다)
+export const URL_PLACEHOLDER = "https://…";

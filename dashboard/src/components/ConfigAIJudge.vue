@@ -9,7 +9,7 @@
       <div class="flex flex-col @xl/card:flex-row gap-3 items-start">
         <label class="block flex-1 min-w-0 w-full">
           <span :class="FIELD_LABEL">{{ TJ.urls }}</span>
-          <textarea :value="judgeUrls" rows="3" wrap="off" :placeholder="TJ.urlsPlaceholder" :class="[AREA, 'font-mono text-xs']" @input="judgeUrls = valueOf($event)"></textarea>
+          <textarea :value="judgeUrls" rows="3" wrap="off" :placeholder="TJ.urlsPlaceholder('https://www.youtube.com/watch?v=...')" :class="[AREA, 'font-mono text-xs']" @input="judgeUrls = valueOf($event)"></textarea>
         </label>
         <div class="w-full @xl/card:w-60 @3xl/card:w-72 shrink-0 flex flex-col gap-3">
           <label class="block">

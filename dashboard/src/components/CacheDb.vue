@@ -212,6 +212,21 @@ import { cellText, changeCount, editable, emptyChanges, keyOf, opsOf, rawText, s
 import { GRID_HEIGHT, KEY_STEP, PANE_WIDTH, gridHeight, paneWidth } from "../cache-db/split.ts";
 import { text } from "../text/index.ts";
 const T = text.cacheDb;
+
+// 필터 입력란 오른쪽 클릭: 차례, 보기, 넣는 글(필터 문법은 DB Browser for SQLite와 같다). 항목 이름은 문구표에 둔다
+const FILTER_OPS: ReadonlyArray<{ id: keyof typeof T.filterMenu; hint: string; insert: string }> = [
+  { id: "contains", hint: "abc", insert: "" },
+  { id: "equal", hint: "=abc", insert: "=" },
+  { id: "notEqual", hint: "<>abc", insert: "<>" },
+  { id: "greater", hint: ">10", insert: ">" },
+  { id: "less", hint: "<10", insert: "<" },
+  { id: "atLeast", hint: ">=10", insert: ">=" },
+  { id: "atMost", hint: "<=10", insert: "<=" },
+  { id: "range", hint: "10~20", insert: "~" },
+  { id: "regex", hint: "/abc/", insert: "//" },
+  { id: "empty", hint: "=''", insert: "=''" },
+  { id: "notEmpty", hint: "<>''", insert: "<>''" },
+];
 const tableOptions = computed(() => TRACK_CACHE_TABLES.map((one) => ({ value: one, label: T.tables[one] })));
 
 const API = "/api/admin/track-cache";
@@ -1100,7 +1115,7 @@ function openHeaderMenu(event: MouseEvent, c: string, i: number) {
 function openFilterMenu(event: MouseEvent, c: string) {
   const now = () => filters[table.value][c] ?? "";
   const bare = () => now().replace(/^(<>|>=|<=|=|>|<)/, "");
-  place(event, [...T.filterMenu.map((one): Item => ({ label: one.label, hint: one.hint, run: () => setFilter(c, one.insert === "~" ? `${now()}~` : one.insert === "//" ? `/${now()}/` : `${one.insert}${bare()}`) })), "-", { label: T.filterHelp }], false);
+  place(event, [...FILTER_OPS.map((one): Item => ({ label: T.filterMenu[one.id], hint: one.hint, run: () => setFilter(c, one.insert === "~" ? `${now()}~` : one.insert === "//" ? `/${now()}/` : `${one.insert}${bare()}`) })), "-", { label: T.filterHelp }], false);
 }
 function openCellMenu(event: MouseEvent, r: number, i: number) {
   if (!isSelected(r, i)) {

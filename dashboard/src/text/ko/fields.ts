@@ -69,6 +69,7 @@ const datePicker = {
   year: (year: number) => `${year}년`,
   pickYear: "연도",
   monthName: (month: number) => `${month}월`,
+  /** 요일 이름. Date.getDay의 차례(0이 일요일). 달력이 놓는 차례는 components/DateTimePicker가 정한다 */
   weekdays: ["일", "월", "화", "수", "목", "금", "토"],
   prevMonth: "이전 달",
   nextMonth: "다음 달",
