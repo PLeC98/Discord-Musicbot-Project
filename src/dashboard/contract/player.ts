@@ -38,6 +38,8 @@ type SponsorSegmentView = { start: number; end: number; categories: string[] };
 /** 지금 곡. currentTime은 초 */
 type PlayingView = Pick<TrackInfo, "title" | "artist" | "duration" | "thumbnail" | "platform"> & {
   entry: number | null;
+  /** 진행 막대의 분모(지금 트는 음원의 길이, 초). 글자로 보이는 길이는 duration. 모르면 null(막대도 duration) */
+  length: number | null;
   url: string;
   isLive: boolean;
   currentTime: number;

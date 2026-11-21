@@ -4,6 +4,7 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import config from "../config/index.ts";
 import { progressBar, emptyProgressBar } from "./progress-bar.ts";
+import { playingLengthSec } from "../player/current-playback.ts";
 
 /** 담은 안내를 그리는 함수. 문구표는 알리는 매체가 자기 자리의 독자에 맞게 넣는다(채널에 보이는 안내라 서버 언어) */
 type DrawAdded = (T: BotText) => ContainerBuilder;
@@ -421,7 +422,7 @@ class NowPlayingPanel {
     const currentMs = player.getCurrentTime ? player.getCurrentTime() : 0;
     const currentSec = Math.floor(currentMs / 1000);
     const totalSec = track.duration || 0;
-    const bar = progressBar(currentSec, totalSec, { live: Boolean(player.isLive ?? track.isLive) });
+    const bar = progressBar(currentSec, totalSec, { live: Boolean(player.isLive ?? track.isLive), lengthSec: playingLengthSec(player, track) });
 
     const artistValue = track.artist || "-";
     const platformValue = T.labels.platform(track.platform);

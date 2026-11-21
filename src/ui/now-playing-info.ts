@@ -11,6 +11,7 @@ import { knownTotal } from "../rules/duration-shown.ts";
 import { escapeMd, linkLabel } from "./mentions.ts";
 import { playbackStatus } from "./player-status.ts";
 import { progressBar } from "./progress-bar.ts";
+import { playingLengthSec } from "../player/current-playback.ts";
 import type { BotText } from "./text/index.ts";
 import type { Player } from "../player/player.ts";
 import type { QueuedTrack } from "../player/track.ts";
@@ -71,7 +72,7 @@ function nowPlayingView(T: BotText, player: Player, track: QueuedTrack, art?: Di
 
   // 길이를 모르는 곡(라이브 아님)은 진행을 뺀다
   const live = Boolean(player.isLive ?? track.isLive);
-  if (live || track.duration > 0) container.addTextDisplayComponents(new TextDisplayBuilder().setContent(progressBar(Math.floor(player.getCurrentTime() / 1000), track.duration || 0, { live })));
+  if (live || track.duration > 0) container.addTextDisplayComponents(new TextDisplayBuilder().setContent(progressBar(Math.floor(player.getCurrentTime() / 1000), track.duration || 0, { live, lengthSec: playingLengthSec(player, track) })));
 
   container.addSeparatorComponents(divider()).addTextDisplayComponents(new TextDisplayBuilder().setContent(aboutTrack(T, player, track).join("\n")));
   container.addSeparatorComponents(divider()).addTextDisplayComponents(new TextDisplayBuilder().setContent(whatsNext(T, player).join("\n")));

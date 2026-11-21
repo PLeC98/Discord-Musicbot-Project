@@ -51,4 +51,13 @@ class CurrentPlayback {
   }
 }
 
-export { CurrentPlayback };
+/**
+ * 진행 막대의 분모: 그 곡을 지금 트는 음원의 길이(초, 소수). 표시 길이(track.duration)는 처음 보인 값을 지켜 실제 음원과 몇 초 다를 수 있다(rules/duration-shown).
+ * 그 곡을 트는 중이 아니거나, 길이를 모르거나, 라이브면 null(막대는 표시 길이를 쓴다)
+ */
+function playingLengthSec(player: { playback: CurrentPlayback | null; isLive: boolean }, track: QueuedTrack): number | null {
+  const pb = player.playback;
+  return pb && pb.track === track && pb.lengthMs && !player.isLive ? pb.lengthMs / 1000 : null;
+}
+
+export { CurrentPlayback, playingLengthSec };

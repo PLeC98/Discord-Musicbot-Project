@@ -692,11 +692,13 @@ async function moveQueue(from: number, insertAt: number) {
 const isLive = computed(() => !!player.value.currentTrack?.isLive);
 // 길이를 알아야 위치를 옮길 수 있다. 라이브에는 실시간밖에 없어 옮길 위치가 없다.
 const seekable = computed(() => (player.value.currentTrack?.duration ?? 0) > 0 && !isLive.value);
+// 진행 막대(위치, 구간, 하이라이트, 위치 이동)의 분모. 글자로 보이는 길이(duration)는 실제 음원과 몇 초 다를 수 있어 아는 동안은 음원 길이로 그린다
+const barLength = computed(() => player.value.currentTrack?.length || player.value.currentTrack?.duration || 0);
 
 // 탐색 막대(composables/seek-bar). 놓은 위치를 먼저 보이고 보낸다. 거절되면 다시 읽어 핸들이 서버 위치로 돌아간다
 const seekBar = useSeekBar({
   el: progressBarRef,
-  duration: () => player.value.currentTrack?.duration ?? 0,
+  duration: () => barLength.value,
   enabled: () => seekable.value && Boolean(player.value.canControl),
   entry: () => player.value.currentTrack?.entry ?? null,
   send: (sec, entry) => {
@@ -712,12 +714,8 @@ function grabSeek(e: PointerEvent) {
 const displayTime = computed(() => (isScrubbing.value ? seekBar.value.value : positionAt(clock.value, now.value)));
 
 // 재생 중일 때 진행 막대가 1초에 나아가는 %(막대가 그 사이를 자동으로 채운다)
-const progressRate = computed(() => (clock.value.running && seekable.value && !isScrubbing.value ? 100 / (player.value.currentTrack?.duration || 1) : 0));
-const progressPct = computed(() => {
-  const t = player.value.currentTrack;
-  if (!t?.duration) return 0;
-  return Math.min((displayTime.value / t.duration) * 100, 100);
-});
+const progressRate = computed(() => (clock.value.running && seekable.value && !isScrubbing.value ? 100 / (barLength.value || 1) : 0));
+const progressPct = computed(() => (barLength.value ? Math.min((displayTime.value / barLength.value) * 100, 100) : 0));
 
 // 카테고리 → SponsorBlock 공식 색상 CSS 변수명 매핑
 const SB_COLOR_VAR: Record<SkipCategory, string> = {
@@ -735,7 +733,7 @@ const SB_COLOR_VAR: Record<SkipCategory, string> = {
 // SponsorBlock 자동 스킵 구간 → 진행바 상 위치(%) + 카테고리별 공식 색상. 하이라이트 지점도 %로.
 const sponsorMarkers = computed(() => {
   const t = player.value.currentTrack;
-  const dur = t?.duration || 0;
+  const dur = barLength.value;
   if (!dur || !Array.isArray(t?.sponsorSegments)) return [];
   return t.sponsorSegments.map((s) => {
     const left = Math.max(0, Math.min(100, (s.start / dur) * 100));
@@ -748,7 +746,7 @@ const sponsorMarkers = computed(() => {
 });
 const highlightMarker = computed(() => {
   const t = player.value.currentTrack;
-  const dur = t?.duration || 0;
+  const dur = barLength.value;
   const h = t?.highlightAt;
   if (!dur || h === null || h === undefined) return null;
   return Math.max(0, Math.min(100, (h / dur) * 100));
