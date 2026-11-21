@@ -123,6 +123,20 @@ const RULE_CODES = [
   "format-renamed",
   "format-unknown-name",
   "format-no-arg",
+  // 데이터 글 그대로(text): 모델 이름, 주소, 바깥 서비스의 오류 글
+  "plain",
+  // 봇 상태 탭의 연결(dashboard/status/links)
+  "link-off",
+  "link-no-key",
+  "link-no-token",
+  "link-genres-broken",
+  "link-unused",
+  "link-anon-token",
+  "link-recent-fails",
+  "link-reconnects",
+  "link-reconnecting",
+  "link-pot-down",
+  "link-lb-hint",
   // 아직 코드로 옮기지 않은 문장(text). 어느 언어로 보든 글 그대로 보인다
   "unmoved",
 ] as const;
@@ -143,6 +157,9 @@ const isRuleCode = (value: unknown): value is RuleCode => typeof value === "stri
 /** 아직 코드로 옮기지 않은 문장을 문제로 싣는다 */
 const unmoved = (text: string): RuleProblem => rule("unmoved", { text });
 
+/** 데이터 글을 그대로 싣는다(번역하지 않는다) */
+const plain = (text: string): RuleProblem => rule("plain", { text });
+
 /** 운영 설정값 하나의 문제: 이름과 넣은 값, 이유 */
 const tuneProblem = (key: string, value: string, reason: RuleProblem): RuleProblem => rule("tune-value", { key, value }, reason);
 
@@ -154,5 +171,5 @@ function ruleLine(sentences: RuleSentences, problem: RuleProblem, causeLine: (ca
   return sentences[problem.code](problem.params ?? {}, problem.cause ? causeLine(problem.cause) : "");
 }
 
-export { RULE_CODES, rule, isRuleCode, unmoved, tuneProblem, tuneKeyOf, ruleLine };
+export { RULE_CODES, rule, isRuleCode, unmoved, plain, tuneProblem, tuneKeyOf, ruleLine };
 export type { RuleCode, RuleParams, RuleProblem, RuleSentence, RuleSentences };

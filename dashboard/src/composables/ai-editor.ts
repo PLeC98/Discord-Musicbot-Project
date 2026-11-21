@@ -167,14 +167,16 @@ function providerView(s: State) {
     return state === "moved" || state === "again" ? state : null;
   });
   const spec = computed(() => providers.value.find((one) => one.value === draft.value.provider) || null);
+  // 이름은 화면 언어로(이름을 따로 두는 것만. 나머지는 상표 이름)
+  const named = computed(() => providers.value.map((one) => ({ ...one, label: T.providerNames[one.value] ?? one.label })));
   // 로컬, 클라우드, 게이트웨이로 묶어 보여 준다. 그룹 없는 것("사용하지 않음")은 맨 위에.
-  const ungrouped = computed(() => providers.value.filter((one) => !one.group));
+  const ungrouped = computed(() => named.value.filter((one) => !one.group));
   const grouped = computed(() => {
-    const out: Array<{ name: string; items: AiState["providers"] }> = [];
-    for (const one of providers.value.filter((x) => x.group)) {
-      const found = out.find((g) => g.name === one.group);
+    const out: Array<{ id: string; name: string; items: AiState["providers"] }> = [];
+    for (const one of named.value.filter((x) => x.group)) {
+      const found = out.find((g) => g.id === one.group);
       if (found) found.items.push(one);
-      else out.push({ name: one.group, items: [one] });
+      else if (one.group) out.push({ id: one.group, name: T.providerGroups[one.group], items: [one] });
     }
     return out;
   });

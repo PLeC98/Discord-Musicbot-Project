@@ -79,6 +79,23 @@ const response = "응답";
 const groups = { play: "재생", youtube: "유튜브", autoplay: "자동재생" };
 const linkWords = { ok: "정상", slow: "느림", fail: "실패", idle: "대기 중", off: "비활성" };
 const failed = "실패";
+/** 연결 이름(연결 id로). 없는 id는 id 그대로 */
+const linkNames: Partial<Record<string, string>> = {
+  discord: "디스코드 API",
+  spotify: "Spotify",
+  soundcloud: "SoundCloud",
+  sponsorblock: "SponsorBlock",
+  potoken: "POToken",
+  youtube: "YouTube 검색",
+  ai: "AI 보조",
+  lastfm: "Last.fm",
+  listenbrainz: "ListenBrainz",
+  animethemes: "AnimeThemes",
+  anisongdb: "AnisongDB",
+  vocadb: "VocaDB",
+  utaitedb: "UtaiteDB",
+  touhoudb: "TouhouDB",
+};
 const unused = "현재 사용되지 않는 출처";
 const retrying = (attempt: number) => `연결 재시도 중 (${attempt}회차)`;
 const reconnected = (count: number) => `재연결 ${count}회`;
@@ -156,6 +173,7 @@ const db = { file: "DB 파일", lookups: "오디오 링크 데이터", pins: "�
 const cleanup = (when: string, files: number, size: string) => `${when} · ${formatNumber(files)}개 · ${size}`;
 
 export {
+  linkNames,
   minutesAgo,
   now,
   chartSummary,

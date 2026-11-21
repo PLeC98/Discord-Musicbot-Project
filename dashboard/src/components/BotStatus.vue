@@ -352,6 +352,7 @@ import type { IconName } from "../icons.ts";
 import { formatClock, formatNumber } from "../utils/locale.ts";
 import { axisMax, bitRate, byteRate, count, fixed, time, type Scale } from "../utils/units.ts";
 import { text } from "../text/index.ts";
+import { ruleLine } from "../utils/rule-line.ts";
 const T = text.status;
 
 const props = defineProps<{ status: AdminStatus; updatedAt: number | null; stale: boolean }>();
@@ -709,9 +710,11 @@ function sinceText(at: number): { short: string; full: string | null } {
   const short = T.ago(say(units.slice(top, top + 2)));
   return cut ? { short: T.about(short), full: T.ago(say(units)) } : { short, full: null };
 }
+// 연결 이름(그 언어). 모르는 id는 id 그대로
+const linkName = (id: string) => T.linkNames[id] ?? id;
 // 마지막 성공, 응답 셀이 비면 화면이 "-"를 넣는다(설명 셀은 비워 둔다)
 function toLinkLine(c: LinkRow): LinkLine {
-  if (c.state === "off") return { name: c.name, state: c.state, detail: T.unused, when: "", value: "" };
+  if (c.state === "off") return { name: linkName(c.id), state: c.state, detail: T.unused, when: "", value: "" };
   if (c.id === "discord") return { ...measuredLinkLine(c), detail: discordDetail() };
   return measuredLinkLine(c);
 }
@@ -722,9 +725,9 @@ function discordDetail() {
   return reconnects > 0 ? T.reconnected(reconnects) : "";
 }
 function measuredLinkLine(c: LinkRow): LinkLine {
-  const value = c.state === "fail" ? (c.error ?? T.failed) : c.latencyMs === null ? "" : timeText(c.latencyMs);
+  const value = c.state === "fail" ? (c.error ? ruleLine(c.error) : T.failed) : c.latencyMs === null ? "" : timeText(c.latencyMs);
   const when = c.lastOkAt ? sinceText(c.lastOkAt) : null;
-  return { name: c.name, state: c.state, detail: c.note ?? "", when: when?.short ?? "", whenFull: when?.full, value, hint: c.hint };
+  return { name: linkName(c.id), state: c.state, detail: c.note ? ruleLine(c.note) : "", when: when?.short ?? "", whenFull: when?.full, value, hint: c.hint ? ruleLine(c.hint) : null };
 }
 const linkGroups = computed(() => {
   const { links, youtube } = props.status;
@@ -904,7 +907,7 @@ function chipOf(a: Attention): { name: string; word: string; at: string } {
     case "metric":
       return { ...METRIC_CHIP.value[a.metric], at: METRIC_CHIP.value[a.metric].name };
     case "link":
-      return { name: a.name, word: LINK_WORD[a.state], at: "links" };
+      return { name: linkName(a.id), word: LINK_WORD[a.state], at: "links" };
     case "client":
       return { name: T.youtubeClient(a.name), word: a.excluded ? T.attention.skipped : T.attention.failingOften, at: "links" };
     case "disk":

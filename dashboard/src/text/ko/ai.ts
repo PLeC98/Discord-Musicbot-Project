@@ -1,5 +1,6 @@
 // 운영자 패널: AI 보조 탭(모델, 파라미터, 연결 테스트, 프롬프트, 판정 테스트, 고급 설정)
 
+import type { ProviderGroup } from "../../../../src/config/schema/ai-providers.ts";
 import { formatNumber } from "../../utils/locale.ts";
 import { josa } from "../../../../src/rules/josa.ts";
 
@@ -319,6 +320,10 @@ const preview = {
 // 목록 행 이름
 const items = { model: "모델", prompt: "프롬프트", advanced: "고급 설정", log: "리퀘스트 로그", usage: "사용량 통계" };
 /** 프로바이더를 선택하지 않은 값 */
+/** 프로바이더 이름 중 그 언어의 이름을 따로 두는 것(나머지는 상표 이름 그대로) */
+const providerNames: Partial<Record<string, string>> = { off: "사용하지 않음", vertex: "Vertex AI (Gemini 네이티브)", custom: "OpenAI 호환 (직접 입력)" };
+/** 프로바이더 묶음 이름 */
+const providerGroups: Record<ProviderGroup, string> = { local: "로컬", cloud: "클라우드", gateway: "게이트웨이", direct: "직접" };
 const providerOff = "사용하지 않음";
 /** 버텍스 주소를 보일 때 아직 모르는 칸 */
 const endpointProject = "[프로젝트 ID]";
@@ -359,4 +364,4 @@ const failed = {
   send: "보내지 못했어요.",
 };
 
-export { title, enable, desc, descTip, listMarkMissing, model, params, test, list, prompt, judge, log, usage, advanced, paid, preview, items, providerOff, endpointProject, endpointModel, keyPlaceholder, keySaved, keyCleared, keySaveFailed, keyClearFailed, markHints, modelsRefreshed, modelCount, modelsRefreshFailed, atLeast, atMost, contextTokens, outputTokens, savedNote, boxes, verdicts, hiddenCount, presetModels, failed };
+export { title, enable, desc, descTip, listMarkMissing, model, params, test, list, prompt, judge, log, usage, advanced, paid, preview, items, providerOff, providerNames, providerGroups, endpointProject, endpointModel, keyPlaceholder, keySaved, keyCleared, keySaveFailed, keyClearFailed, markHints, modelsRefreshed, modelCount, modelsRefreshFailed, atLeast, atMost, contextTokens, outputTokens, savedNote, boxes, verdicts, hiddenCount, presetModels, failed };
