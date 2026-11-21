@@ -10,7 +10,7 @@
 // 남이 준 파일일 수 있으니 바깥으로 나가는 값(AI 요청이 가는 곳, 봇 웹사이트 주소), PC에 매인 값(쿠키 출처, POToken)이 바뀌면 미리 보기가 표시해 준다.
 // 불러온 뒤 다시 시작해야 적용되는 값이 바뀌었거나 쿠키 출처가 바뀌었으면 응답이 알린다(화면이 다시 시작 창, 연령 제한 탭 안내를 연다).
 
-import { rule, unmoved } from "../rules/rule-problem.ts";
+import { rule, unmoved, type RuleProblem } from "../rules/rule-problem.ts";
 import { logRuleLine } from "../rules/text/index.ts";
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -169,9 +169,9 @@ function tunablesRow(json: Partial<ArchiveJson>): ArchiveRow {
 }
 
 /** 문서 하나의 검사. 프롬프트는 AI를 켠 설정과 함께일 때만 {{list}}를 따진다 */
-function docProblems(item: DocItem, data: unknown, aiDoc: unknown): string[] {
-  if (item === "ai-prompt") return Array.isArray(data) ? promptProblems(data, !aiSwitchedOff(aiDoc)) : ["프롬프트가 섹션 목록이 아니에요"];
-  if (!isTable(data)) return ["객체 형식이 아니에요"];
+function docProblems(item: DocItem, data: unknown, aiDoc: unknown): RuleProblem[] {
+  if (item === "ai-prompt") return Array.isArray(data) ? promptProblems(data, !aiSwitchedOff(aiDoc)) : [unmoved("프롬프트가 섹션 목록이 아니에요")];
+  if (!isTable(data)) return [unmoved("객체 형식이 아니에요")];
   return { genres: genreProblems, status: statusProblems, ai: aiProblems }[item](data);
 }
 
@@ -208,7 +208,7 @@ function docRow(item: DocItem, json: Partial<ArchiveJson>, aiDoc: unknown): Arch
   const docs = isTable(json.documents) ? json.documents : {};
   if (!(item in docs)) return absent(item);
   const value = docs[item];
-  return { item, inFile: true, same: stable(value) === stable(documents.get(item)), problems: docProblems(item, value, aiDoc).map(unmoved), warnings: docWarnings(item, value).map(unmoved), count: null };
+  return { item, inFile: true, same: stable(value) === stable(documents.get(item)), problems: docProblems(item, value, aiDoc), warnings: docWarnings(item, value).map(unmoved), count: null };
 }
 
 // 파비콘 검사에 걸린 이유를 한 줄로

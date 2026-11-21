@@ -1,5 +1,6 @@
 // src/rules/vertex-url.ts: 버텍스 AI 주소. 리전, 프로젝트, 모델 필드가 요청을 다른 호스트로 보내지 못하는지
 
+import { logRuleLine } from "../../src/rules/text/index.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { vertexChatUrl, vertexHost } from "../../src/rules/vertex-url.ts";
@@ -30,12 +31,12 @@ test("리전, 프로젝트, 모델에 주소를 바꾸는 글자가 있어도 �
 test("설정 검사는 리전 이름이 아닌 값을 받지 않는다", () => {
   const base = { enabled: true, provider: "vertex", model: "gemini-3.8-flash" };
   assert.deepEqual(
-    aiProblems({ ...base, location: "us-central1" }).filter((one) => /location/.test(one)),
+    aiProblems({ ...base, location: "us-central1" }).filter((one) => /location/.test(logRuleLine(one))),
     [],
   );
   assert.deepEqual(
-    aiProblems({ ...base, location: "" }).filter((one) => /location/.test(one)),
+    aiProblems({ ...base, location: "" }).filter((one) => /location/.test(logRuleLine(one))),
     [],
   );
-  assert.equal(aiProblems({ ...base, location: "evil.example#" }).filter((one) => /location/.test(one)).length, 1);
+  assert.equal(aiProblems({ ...base, location: "evil.example#" }).filter((one) => /location/.test(logRuleLine(one))).length, 1);
 });

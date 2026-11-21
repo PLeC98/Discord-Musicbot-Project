@@ -1,8 +1,9 @@
-// 장르 설정("genres" 문서)의 스키마. 문구는 운영자에게 그대로 보이므로 무엇을 고칠지까지 적는다.
+// 장르 설정("genres" 문서)의 스키마. 문제는 규칙 코드로 내고 문장은 rules/text가 그린다(무엇을 고칠지까지 적는다).
 
 import { SPEC, TYPES } from "./genre-sources.ts";
 import { ONE_TOKEN } from "../../rules/app-emoji-token.ts";
-import { z, ALWAYS, present, keyed, plain, problemsOf } from "./problems.ts";
+import { z, ALWAYS, coded, present, keyed, plain, problemsOf } from "./problems.ts";
+import type { RuleProblem } from "../../rules/rule-problem.ts";
 import { SELECT_MAX } from "../../rules/limits.ts";
 import { sourceUrl } from "../../rules/source-url.ts";
 
@@ -19,54 +20,53 @@ const filled = (v: unknown) => (Array.isArray(v) ? v.some((x) => String(x || "")
 // 소스 한 줄. 종류마다 SPEC이 필요한 필드와 쓸 수 있는 값을 정한다
 function sourceOf(type: string) {
   const spec = SPEC[type];
-  const at = `{where}(${spec.label})`;
   return z
     .looseObject({
       type: z.literal(type),
-      weight: present((v) => Number(v) >= 1, "{where}: weight는 1 이상이어야 해요"),
-      minScore: present((v) => Number(v) >= 0, "{where}: minScore는 0 이상이어야 해요"),
+      weight: present((v) => Number(v) >= 1, "genre-source-weight"),
+      minScore: present((v) => Number(v) >= 0, "genre-source-min-score"),
     })
     .superRefine((source, ctx) => {
       // 안쪽 배열은 "이 중 하나는 있어야 한다"
       for (const group of spec.need) {
-        if (!group.some((key) => filled(source[key]))) ctx.addIssue({ code: "custom", message: `${at}: ${group.join(" 또는 ")} 중 하나를 적어야 해요` });
+        if (!group.some((key) => filled(source[key]))) ctx.addIssue({ code: "custom", message: coded("genre-source-need", { label: spec.label, fields: group.join(",") }) });
       }
       // 값이 정해져 있는 필드의 오타. 여기서 안 잡으면 저쪽이 422를 주고 그 소스가 조용히 빈손이 된다
       for (const [key, allowed] of Object.entries(spec.enums || {})) {
         if (source[key] == null) continue;
         for (const one of Array.isArray(source[key]) ? source[key] : [source[key]]) {
-          if (!allowed.includes(one as string)) ctx.addIssue({ code: "custom", message: `${at}: ${key}에 "${String(one)}" 값은 쓸 수 없어요. 쓸 수 있는 것: ${allowed.join(", ")}` });
+          if (!allowed.includes(one as string)) ctx.addIssue({ code: "custom", message: coded("genre-source-enum", { label: spec.label, key, value: String(one), allowed: allowed.join(", ") }) });
         }
       }
-      if (source.yearFrom != null && source.yearTo != null && Number(source.yearFrom) > Number(source.yearTo)) ctx.addIssue({ code: "custom", message: "{where}: yearFrom이 yearTo보다 커요" });
-      if (source.minLength != null && source.maxLength != null && Number(source.minLength) > Number(source.maxLength)) ctx.addIssue({ code: "custom", message: "{where}: minLength가 maxLength보다 커요" });
+      if (source.yearFrom != null && source.yearTo != null && Number(source.yearFrom) > Number(source.yearTo)) ctx.addIssue({ code: "custom", message: "genre-source-years" });
+      if (source.minLength != null && source.maxLength != null && Number(source.minLength) > Number(source.maxLength)) ctx.addIssue({ code: "custom", message: "genre-source-lengths" });
     }, ALWAYS);
 }
 
 const [firstSource, ...restSources] = TYPES.map((type) => sourceOf(type));
 const source = z.discriminatedUnion("type", [firstSource, ...restSources], {
-  error: (issue) => (!issue.input || typeof issue.input !== "object" ? "{where}: type과 값을 적어야 해요" : `{where}: 모르는 종류예요(${String((issue.input as { type?: unknown }).type)}). 쓸 수 있는 것: ${TYPES.join(", ")}`),
+  error: (issue) => (!issue.input || typeof issue.input !== "object" ? "genre-source-missing" : coded("genre-source-type", { type: String((issue.input as { type?: unknown }).type), types: TYPES.join(", ") })),
 });
 
 const genre = z.preprocess(
   plain,
   z.object({
     // 보여 줄 이름(디스코드 메뉴, 화면). 없으면 식별자를 그대로 보인다. 디스코드 선택지 이름은 100자까지
-    label: present((v) => typeof v === "string" && v.trim() !== "" && v.length <= 100, "{id}: label은 비울 수 없고 100자까지 쓸 수 있어요"),
-    emoji: present((v) => v === "" || ONE_EMOJI.test(String(v)) || ONE_TOKEN.test(String(v)), "{id}: emoji는 이모지 한 글자나 봇의 앱 이모지(<:이름:id>) 하나여야 해요"),
+    label: present((v) => typeof v === "string" && v.trim() !== "" && v.length <= 100, "genre-label"),
+    emoji: present((v) => v === "" || ONE_EMOJI.test(String(v)) || ONE_TOKEN.test(String(v)), "genre-emoji"),
     // 맨 위 keywords: 는 읽지 않고 sources로 옮기라고 알린다(두 형식을 함께 받지 않는다)
     keywords: z
       .unknown()
-      .refine((v) => v === undefined, { error: "{id}: 맨 위 keywords:는 더 이상 쓰지 않아요. sources:로 옮겨 주세요. sources: [{ type: keyword, keywords: [...] }]" })
+      .refine((v) => v === undefined, { error: "genre-old-keywords" })
       .optional(),
-    sources: z.array(source, { error: "{id}: 소스(sources)가 하나는 있어야 해요" }).min(1, { error: "{id}: 소스(sources)가 하나는 있어야 해요" }),
+    sources: z.array(source, { error: "genre-no-sources" }).min(1, { error: "genre-no-sources" }),
     // 기본값의 길이는 장르마다 덮어쓸 수 있다. 실제 범위는 기본값 위에 얹어 아래 genresFile이 본다(제외 키워드는 키워드 출처 필드가 덮어쓴다)
-    minDurationSec: present((v) => Number(v) >= 0, "{id}: minDurationSec은 0 이상이어야 해요"),
-    maxDurationSec: present((v) => Number(v) > 0, "{id}: maxDurationSec은 비우거나 0보다 커야 해요"),
+    minDurationSec: present((v) => Number(v) >= 0, "genre-min-duration"),
+    maxDurationSec: present((v) => Number(v) > 0, "genre-max-duration"),
     // 미리 준비해 둘 곡 수는 기본값에만 둔다. 재생도 장르와 상관없이 기본값만 본다
     prefetchCount: z
       .unknown()
-      .refine((v) => v === undefined, { error: "{id}: prefetchCount는 장르마다 둘 수 없어요. defaults에만 적어 주세요" })
+      .refine((v) => v === undefined, { error: "genre-prefetch" })
       .optional(),
   }),
 );
@@ -75,15 +75,15 @@ const genres = z.preprocess(
   keyed,
   z.record(z.string(), genre).superRefine((all, ctx) => {
     const ids = Object.keys(all);
-    if (ids.length === 0) ctx.addIssue({ code: "custom", message: "장르가 하나도 없어요" });
+    if (ids.length === 0) ctx.addIssue({ code: "custom", message: "genres-empty" });
     // 장르 선택은 디스코드 선택 메뉴 하나다
-    if (ids.length > SELECT_MAX) ctx.addIssue({ code: "custom", message: `장르가 ${ids.length}개예요. 디스코드 선택 메뉴는 ${SELECT_MAX}개까지만 보여 줘요` });
+    if (ids.length > SELECT_MAX) ctx.addIssue({ code: "custom", message: coded("genres-too-many", { count: ids.length, max: SELECT_MAX }) });
     for (const id of ids) {
       // 키가 식별자다(주소, 버튼 id, AI의 {{genre}}). 화면처럼 앞뒤 공백을 뺀 이름으로 본다
-      if (!id.trim()) ctx.addIssue({ code: "custom", message: "장르 식별자가 비어 있어요" });
-      if (NUMERIC_NAME.test(id)) ctx.addIssue({ code: "custom", message: `"${id}": 숫자만으로 된 식별자는 순서가 어긋나요. "${id}s"처럼 글자를 붙여 주세요` });
+      if (!id.trim()) ctx.addIssue({ code: "custom", message: "genre-id-empty" });
+      if (NUMERIC_NAME.test(id)) ctx.addIssue({ code: "custom", message: coded("genre-id-numeric", { id }) });
       // 디스코드 선택지 값(식별자)은 100자까지
-      if (id.length > 100) ctx.addIssue({ code: "custom", message: `"${id.slice(0, 20)}…": 식별자는 100자까지 쓸 수 있어요` });
+      if (id.length > 100) ctx.addIssue({ code: "custom", message: coded("genre-id-long", { head: id.slice(0, 20) }) });
     }
   }, ALWAYS),
 );
@@ -95,17 +95,17 @@ const defaults = z.preprocess(
   plain,
   z
     .object({
-      prefetchCount: present((v) => Number(v) >= 1, "prefetchCount는 1 이상이어야 해요"),
-      minDurationSec: present((v) => Number(v) >= 0, "minDurationSec은 0 이상이어야 해요"),
-      maxDurationSec: present((v) => Number(v) > 0, "maxDurationSec은 비우거나 0보다 커야 해요"),
+      prefetchCount: present((v) => Number(v) >= 1, "defaults-prefetch"),
+      minDurationSec: present((v) => Number(v) >= 0, "defaults-min-duration"),
+      maxDurationSec: present((v) => Number(v) > 0, "defaults-max-duration"),
       // 제외 키워드. 키워드 출처의 후보(유튜브 검색 결과)에만 건다. 다른 출처는 곡 이름이 확실해 오탐만 낸다
-      blockedKeywords: present(Array.isArray, "blockedKeywords는 목록으로 적어야 해요"),
+      blockedKeywords: present(Array.isArray, "defaults-blocked"),
     })
     .superRefine((d, ctx) => {
       if (d.maxDurationSec == null) return;
       const min = d.minDurationSec ?? GENRE_DEFAULTS.minDurationSec;
       if (Number(min) <= Number(d.maxDurationSec)) return;
-      const message = d.minDurationSec == null ? `maxDurationSec(${String(d.maxDurationSec)})이 minDurationSec의 기본값(${String(min)})보다 작아요` : "minDurationSec이 maxDurationSec보다 커요";
+      const message = d.minDurationSec == null ? coded("defaults-max-below-default", { max: String(d.maxDurationSec), min: String(min) }) : "defaults-durations";
       ctx.addIssue({ code: "custom", message });
     }, ALWAYS),
 );
@@ -120,14 +120,14 @@ const genresFile = z.preprocess(
       if (own.minDurationSec == null && own.maxDurationSec == null) continue;
       const min = own.minDurationSec ?? base.minDurationSec ?? GENRE_DEFAULTS.minDurationSec;
       const max = own.maxDurationSec ?? base.maxDurationSec;
-      if (min != null && max != null && Number(min) > Number(max)) ctx.addIssue({ code: "custom", message: `${id}: 이 장르의 minDurationSec(${String(min)})이 maxDurationSec(${String(max)})보다 커요` });
+      if (min != null && max != null && Number(min) > Number(max)) ctx.addIssue({ code: "custom", message: coded("genre-durations", { id, min: String(min), max: String(max) }) });
     }
   }, ALWAYS),
 );
 
-/** 장르 설정의 문제 목록. 없으면 빈 배열 */
-function genreProblems(data: unknown): string[] {
-  return problemsOf(genresFile, data, ([, id, , index]) => ({ id, where: `${String(id)}의 ${Number(index) + 1}번째 소스` }));
+/** 장르 설정의 문제 목록. 없으면 빈 배열. 위치 값은 장르 식별자(id)와 몇 번째 소스(source) */
+function genreProblems(data: unknown): RuleProblem[] {
+  return problemsOf(genresFile, data, ([, id, , index]) => ({ id: id === undefined ? undefined : String(id), source: index === undefined ? undefined : Number(index) + 1 }));
 }
 
 /** 저장할 모양으로 다듬은 사본. 출처 주소에서 목록을 가리키지 않는 쿼리를 버린다(rules/source-url). 모양이 다른 곳은 손대지 않는다 */

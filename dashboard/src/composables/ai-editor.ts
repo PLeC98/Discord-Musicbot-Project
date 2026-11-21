@@ -19,6 +19,7 @@ import { vertexChatUrl } from "../../../src/rules/vertex-url.ts";
 import { AI_ROLES, hasListMark, promptProblems, type PromptSection } from "../../../src/config/schema/ai-prompt.ts";
 import { LINE_NAMES, formatDuration as lineDuration, parseFormat, renderNodes } from "../../../src/rules/line-format.ts";
 import { AI_KEY_ORDER, aiProblems, aiSwitchedOff, lineFormatProblems } from "../../../src/config/schema/ai.ts";
+import { ruleLine } from "../utils/rule-line.ts";
 import type { ModelField, ModelGroup, RefreshResult } from "../../../src/config/ai-model-types.ts";
 import type { AiDefaults, ModelsCheck, PingCheck, Preview, JudgeResult, TestCandidate } from "../../../src/autoplay/assist/types.ts";
 import type { AiFields, AiKeyState, AiSaved, AiState, CandidatesReply, ConfigFile, KeysReply, LinesReply, PromptReply, TokensReply } from "../../../src/dashboard/contract/admin.ts";
@@ -388,7 +389,7 @@ function promptView(s: State) {
     return lineFormatProblems(format).map((one) => {
       const from = Math.max(0, one.at - AROUND);
       const to = Math.min(format.length, one.end + AROUND);
-      return { ...one, before: `${from > 0 ? "…" : ""}${format.slice(from, one.at)}`, part: format.slice(one.at, one.end), after: `${format.slice(one.end, to)}${to < format.length ? "…" : ""}` };
+      return { ...one, message: ruleLine(one.rule), before: `${from > 0 ? "…" : ""}${format.slice(from, one.at)}`, part: format.slice(one.at, one.end), after: `${format.slice(one.end, to)}${to < format.length ? "…" : ""}` };
     });
   });
   // 봇과 같은 해석기로 그린 미리보기. 장르는 판정 테스트에 적은 것
@@ -554,7 +555,7 @@ function exchange(s: State, cleanParams: Ref<Record<string, Record<string, unkno
   // 저장할 때 서버가 보는 검사 그대로(schema/ai, schema/ai-prompt). 꺼 두면(enabled: false) 나머지 필드, 프롬프트를 따지지 않는다. 불러오기 전에는 문제가 없다
   const problems = computed(() => {
     if (!file.loaded.value) return [];
-    return aiSwitchedOff(payload.value) ? [...file.serverProblems.value] : [...aiProblems(payload.value), ...promptProblems(promptPayload.value, true), ...file.serverProblems.value];
+    return aiSwitchedOff(payload.value) ? [...file.serverProblems.value] : [...aiProblems(payload.value).map(ruleLine), ...promptProblems(promptPayload.value, true).map(ruleLine), ...file.serverProblems.value];
   });
   // 운영자 패널의 저장 바에 올린다(검사에 걸린 값이 있으면 저장 바가 저장을 막는다)
   useSaveTarget({ tab: "ai", dirty: file.dirty, saving: file.saving, blocked: computed(() => problems.value.length > 0), save: () => file.save(), revert: file.revert });

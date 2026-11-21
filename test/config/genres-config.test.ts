@@ -1,5 +1,6 @@
 // src/config/genres.ts: 장르 설정을 읽을 때 필터링하는 이름, 이모지와 저장 전 검사.
 
+import { logRuleLine } from "../../src/rules/text/index.ts";
 import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 
@@ -30,8 +31,11 @@ function complaint(fn: () => unknown = () => genreConfig.genres()) {
 }
 
 // 설정은 JSON 문서라 true, false, null도 그냥 글자다. 화면처럼 앞뒤 공백을 뺀 이름이 비었을 때만 거절한다
+// 검사는 규칙 문제를 낸다. 여기서는 로그 언어로 그려 문장으로 확인한다
+const validateGenres = (data: unknown) => genreConfig.validateGenres(data).map(logRuleLine);
+
 test("true, false, null도 장르 식별자로 쓸 수 있고, 비었거나 공백뿐인 식별자는 거절한다", () => {
-  const one = (id: string) => genreConfig.validateGenres({ genres: { [id]: { sources: [{ type: "keyword", keywords: ["a"] }] } } });
+  const one = (id: string) => validateGenres({ genres: { [id]: { sources: [{ type: "keyword", keywords: ["a"] }] } } });
   for (const id of ["true", "false", "null"]) assert.deepEqual(one(id), [], id);
   for (const id of ["", "  "]) assert.deepEqual(one(id), ["장르 식별자가 비어 있어요"], JSON.stringify(id));
 });
@@ -44,8 +48,8 @@ test("숫자만으로 된 장르 이름은 쓸 수 없다", () => {
   assert.equal(err.code, "CONFIG_INVALID");
   assert.match(err.message, /순서가 어긋나요/);
 
-  assert.match(genreConfig.validateGenres({ genres: { 80: { sources: [{ type: "keyword", keywords: ["a"] }] } } }).join(" "), /순서가 어긋나요/);
-  assert.deepEqual(genreConfig.validateGenres({ genres: { "80년대": { sources: [{ type: "keyword", keywords: ["a"] }] } } }), [], "글자가 붙으면 괜찮다");
+  assert.match(validateGenres({ genres: { 80: { sources: [{ type: "keyword", keywords: ["a"] }] } } }).join(" "), /순서가 어긋나요/);
+  assert.deepEqual(validateGenres({ genres: { "80년대": { sources: [{ type: "keyword", keywords: ["a"] }] } } }), [], "글자가 붙으면 괜찮다");
 });
 
 test("emoji 필드에 이모지가 아닌 값이 있으면 읽을 때 걸린다", () => {
@@ -74,20 +78,20 @@ test("defaults와 genres를 함께 돌려준다", () => {
 // ── 저장 전 검사 ──────────────────────────────────────────────────────────
 
 test("검사: 쓸 만하면 아무 말이 없다", () => {
-  assert.deepEqual(genreConfig.validateGenres({ defaults: { prefetchCount: 1 }, genres: { 팝: { sources: [{ type: "keyword", keywords: ["a"] }] } } }), []);
+  assert.deepEqual(validateGenres({ defaults: { prefetchCount: 1 }, genres: { 팝: { sources: [{ type: "keyword", keywords: ["a"] }] } } }), []);
 });
 
 test("검사: 장르가 없거나 25개를 넘으면 걸린다", () => {
-  assert.match(genreConfig.validateGenres({ genres: {} }).join(" "), /하나도 없어요/);
+  assert.match(validateGenres({ genres: {} }).join(" "), /하나도 없어요/);
 
   const many: Record<string, unknown> = {};
   for (let i = 0; i < 26; i++) many["장르" + i] = { sources: [{ type: "keyword", keywords: ["a"] }] };
-  assert.match(genreConfig.validateGenres({ genres: many }).join(" "), /25개까지/);
+  assert.match(validateGenres({ genres: many }).join(" "), /25개까지/);
 });
 
 test("검사: 소스에 필요한 값이 비면 걸린다", () => {
   // keyword는 검색어가, lastfm은 태그가, 유튜브 재생목록은 주소가 있어야 한다
-  const of = (genre: unknown) => genreConfig.validateGenres({ genres: { 팝: genre } }).join(" ");
+  const of = (genre: unknown) => validateGenres({ genres: { 팝: genre } }).join(" ");
   assert.match(of({ sources: [{ type: "keyword", keywords: [] }] }), /keywords/);
   assert.match(of({ sources: [{ type: "keyword", keywords: ["  "] }] }), /keywords/, "공백뿐인 것도 빈 것이다");
   assert.match(of({ sources: [{ type: "lastfm" }] }), /tags/);
@@ -96,19 +100,19 @@ test("검사: 소스에 필요한 값이 비면 걸린다", () => {
 });
 
 test("검사: 모르는 소스 종류는 걸린다", () => {
-  assert.match(genreConfig.validateGenres({ genres: { 팝: { sources: [{ type: "없는것", keywords: ["a"] }] } } }).join(" "), /모르는 종류/);
+  assert.match(validateGenres({ genres: { 팝: { sources: [{ type: "없는것", keywords: ["a"] }] } } }).join(" "), /모르는 종류/);
 });
 
 // 맨 위 keywords:는 옛 형식이다. 조용히 읽어 주면 두 형식을 영원히 들고 가게 된다.
 test("검사: 맨 위 keywords: 는 옮기라고 알려 준다", () => {
-  const problems = genreConfig.validateGenres({ genres: { 팝: { keywords: ["a"], sources: [{ type: "keyword", keywords: ["a"] }] } } }).join(" ");
+  const problems = validateGenres({ genres: { 팝: { keywords: ["a"], sources: [{ type: "keyword", keywords: ["a"] }] } } }).join(" ");
   assert.match(problems, /sources:로 옮겨/);
 });
 
 // 값이 정해져 있는 필드는 오타를 여기서 잡는다. 안 잡으면 저쪽이 422를 주고 그 소스가 조용히
 // 빈손이 되어, 설정은 멀쩡해 보이는데 그 소스만 안 쓰이는 상황이 된다.
 test("검사: 정해진 값이 아닌 것은 무엇을 쓸 수 있는지 알려 준다", () => {
-  const of = (source: unknown) => genreConfig.validateGenres({ genres: { 팝: { sources: [source] } } }).join(" ");
+  const of = (source: unknown) => validateGenres({ genres: { 팝: { sources: [source] } } }).join(" ");
 
   assert.match(of({ type: "animethemes", mediaFormat: ["TVShort"] }), /TV Short/, "띄어쓰기를 빠뜨린 것을 잡아야 한다");
   assert.match(of({ type: "animethemes", themeType: "OP1" }), /themeType/);
@@ -122,7 +126,7 @@ test("검사: 정해진 값이 아닌 것은 무엇을 쓸 수 있는지 알려 
 });
 
 test("검사: weight와 연도 범위도 본다", () => {
-  const of = (source: unknown) => genreConfig.validateGenres({ genres: { 팝: { sources: [source] } } }).join(" ");
+  const of = (source: unknown) => validateGenres({ genres: { 팝: { sources: [source] } } }).join(" ");
   assert.match(of({ type: "animethemes", weight: 0 }), /weight/);
   assert.match(of({ type: "animethemes", yearFrom: 2020, yearTo: 2010 }), /yearFrom/);
   assert.match(of({ type: "vocadb", minScore: -1 }), /minScore/);
@@ -131,7 +135,7 @@ test("검사: weight와 연도 범위도 본다", () => {
 test("검사: 이모지 필드에 이모지가 아닌 값이 있으면 걸린다", () => {
   // 대시보드는 선택기로만 입력하지만 DB는 바깥에서도 고칠 수 있다. 여기서 막지 않으면
   // 디스코드 선택 메뉴가 원인에서 한참 떨어진 위치에서 거부한다.
-  const of = (emoji: string | undefined) => genreConfig.validateGenres({ genres: { 팝: { emoji, sources: [{ type: "keyword", keywords: ["a"] }] } } });
+  const of = (emoji: string | undefined) => validateGenres({ genres: { 팝: { emoji, sources: [{ type: "keyword", keywords: ["a"] }] } } });
 
   assert.deepEqual(of("🇰🇷"), [], "국기처럼 코드포인트가 여럿인 것도 한 글자다");
   assert.deepEqual(of("1️⃣"), [], "키캡도 한 글자다");
@@ -142,21 +146,21 @@ test("검사: 이모지 필드에 이모지가 아닌 값이 있으면 걸린다
 });
 
 test("검사: 길이 범위가 뒤집혀 있으면 걸린다", () => {
-  const problems = genreConfig.validateGenres({ defaults: { minDurationSec: 600, maxDurationSec: 60 }, genres: { 팝: { sources: [{ type: "keyword", keywords: ["a"] }] } } });
+  const problems = validateGenres({ defaults: { minDurationSec: 600, maxDurationSec: 60 }, genres: { 팝: { sources: [{ type: "keyword", keywords: ["a"] }] } } });
   assert.match(problems.join(" "), /minDurationSec이 maxDurationSec보다/);
 });
 
 // 장르마다 기본값의 길이를 덮어쓸 수 있다(기본 문서, 재생이 쓴다). 틀린 값이 조용히 지나가지 않게 본다. 제외 키워드는 전역과 키워드 출처 필드에만
 test("검사: 장르별 덮어쓰기(길이)도 본다", () => {
-  const of = (extra: object) => genreConfig.validateGenres({ genres: { 팝: { ...extra, sources: [{ type: "keyword", keywords: ["a"] }] } } }).join(" ");
+  const of = (extra: object) => validateGenres({ genres: { 팝: { ...extra, sources: [{ type: "keyword", keywords: ["a"] }] } } }).join(" ");
   assert.equal(of({ minDurationSec: 30, maxDurationSec: 1800 }), "");
   assert.match(of({ minDurationSec: -1 }), /팝: minDurationSec/);
   assert.match(of({ maxDurationSec: 0 }), /팝: maxDurationSec/);
-  assert.match(genreConfig.validateGenres({ defaults: { blockedKeywords: "live" }, genres: { 팝: { sources: [{ type: "keyword", keywords: ["a"] }] } } }).join(" "), /blockedKeywords/);
+  assert.match(validateGenres({ defaults: { blockedKeywords: "live" }, genres: { 팝: { sources: [{ type: "keyword", keywords: ["a"] }] } } }).join(" "), /blockedKeywords/);
 });
 
 test("검사: 장르의 실제 길이 범위(기본값 위에 얹은 것)가 뒤집혀 있으면 걸린다", () => {
-  const of = (genre: object) => genreConfig.validateGenres({ defaults: { minDurationSec: 60, maxDurationSec: 600 }, genres: { 팝: { ...genre, sources: [{ type: "keyword", keywords: ["a"] }] } } }).join(" ");
+  const of = (genre: object) => validateGenres({ defaults: { minDurationSec: 60, maxDurationSec: 600 }, genres: { 팝: { ...genre, sources: [{ type: "keyword", keywords: ["a"] }] } } }).join(" ");
   assert.match(of({ minDurationSec: 900 }), /팝: .*minDurationSec.*900.*maxDurationSec.*600/);
   assert.match(of({ maxDurationSec: 30 }), /팝: .*minDurationSec.*60.*maxDurationSec.*30/);
   assert.equal(of({ minDurationSec: 300 }), "");
@@ -164,7 +168,7 @@ test("검사: 장르의 실제 길이 범위(기본값 위에 얹은 것)가 뒤
 
 // 비운 최소 길이는 기본값(GENRE_DEFAULTS)으로 돈다. 그 값보다 짧은 상한이면 아무 곡도 지나가지 못한다
 test("검사: 최소 길이를 비우면 기본값과 상한을 비교한다", () => {
-  const of = (defaults: object, genre: object = {}) => genreConfig.validateGenres({ defaults, genres: { 팝: { ...genre, sources: [{ type: "keyword", keywords: ["a"] }] } } }).join(" ");
+  const of = (defaults: object, genre: object = {}) => validateGenres({ defaults, genres: { 팝: { ...genre, sources: [{ type: "keyword", keywords: ["a"] }] } } }).join(" ");
   const min = GENRE_DEFAULTS.minDurationSec;
   assert.ok(of({ maxDurationSec: 30 }).includes(`maxDurationSec(30)이 minDurationSec의 기본값(${min})보다 작아요`));
   assert.ok(of({}, { maxDurationSec: 30 }).includes(`팝: 이 장르의 minDurationSec(${min})이 maxDurationSec(30)보다 커요`));
@@ -178,7 +182,7 @@ test("기본값은 기본 문서의 defaults와 같다(상한은 비우면 없�
 });
 
 test("검사: 미리 선택해 둘 곡 수는 장르마다 둘 수 없다(기본값에만)", () => {
-  const problems = genreConfig.validateGenres({ genres: { 팝: { prefetchCount: 2, sources: [{ type: "keyword", keywords: ["a"] }] } } }).join(" ");
+  const problems = validateGenres({ genres: { 팝: { prefetchCount: 2, sources: [{ type: "keyword", keywords: ["a"] }] } } }).join(" ");
   assert.match(problems, /팝: prefetchCount.*defaults/);
 });
 

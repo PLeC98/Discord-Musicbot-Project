@@ -144,6 +144,7 @@ import { toRows, toMap, newRow, shownName, type GenreData, type GenreRow } from 
 import { genreFile, parseGenreFile, importedRows } from "../utils/genre-file.ts";
 import { notify, notifyDone } from "../composables/toasts.ts";
 import { genreProblems, GENRE_DEFAULTS } from "../../../src/config/schema/genres.ts";
+import { ruleLine } from "../utils/rule-line.ts";
 import { SELECT_MAX } from "../../../src/rules/limits.ts";
 import { TYPES, type SourceTypeView } from "../../../src/config/schema/genre-sources.ts";
 import type { SourceTypes, Suggestions } from "../../../src/dashboard/contract/admin.ts";
@@ -174,7 +175,7 @@ function apply(data: Record<string, unknown>) {
 const { loaded, dirty, saving, loadError, serverProblems, fetch, save, revert, loadDefault } = useConfigFile({ tab: "autoplay", savedNote: () => T.savedNote, payload: () => payload.value, apply, ...configFileIo("genres") });
 
 // 저장할 때 서버가 보는 검사 그대로(schema/genres). 저장 버튼을 누르기 전에 알려 준다
-const problems = computed(() => (loaded.value ? [...genreProblems(payload.value), ...serverProblems.value] : []));
+const problems = computed(() => (loaded.value ? [...genreProblems(payload.value).map(ruleLine), ...serverProblems.value] : []));
 // 운영자 패널의 저장 바에 올린다(검사에 걸린 값이 있으면 저장 바가 저장을 막는다)
 useSaveTarget({ tab: "autoplay", dirty, saving, blocked: computed(() => problems.value.length > 0), save: () => save(), revert });
 
@@ -198,13 +199,13 @@ function rowProblems(row: GenreRow) {
   const out: string[] = [];
   if (!name) out.push(T.problems.noName);
   else if (rows.value.filter((r) => r.name.trim() === name).length > 1) out.push(T.problems.duplicate);
-  out.push(...genreProblems({ defaults: {}, genres: toMap([{ ...row, name: name || T.problems.unnamed }]) }));
+  out.push(...genreProblems({ defaults: {}, genres: toMap([{ ...row, name: name || T.problems.unnamed }]) }).map(ruleLine));
   return out;
 }
 const rowProblem = (row: GenreRow) => rowProblems(row).join("\n");
 // 전역 설정의 문제: 멀쩡한 장르 하나를 붙여 전역 값만 본다
 const SOUND_GENRE = { sources: [{ type: "keyword", keywords: ["-"] }] };
-const globalProblems = computed(() => (loaded.value ? genreProblems({ defaults: draft.value.defaults, genres: { "-": SOUND_GENRE } }) : []));
+const globalProblems = computed(() => (loaded.value ? genreProblems({ defaults: draft.value.defaults, genres: { "-": SOUND_GENRE } }).map(ruleLine) : []));
 // 어느 항목의 것도 아닌 문제: 장르가 없음, 저장할 때 서버가 가리킨 것
 const listProblems = computed(() => [...(loaded.value && !rows.value.length ? [T.problems.noGenres] : []), ...serverProblems.value]);
 

@@ -1,7 +1,8 @@
-// 규칙 문제(rules/rule-problem)의 문장. 기동 로그, 터미널, 화면이 같은 문장을 쓴다. 이름, 값은 코드가 넘긴 그대로(화면은 이름 대신 라벨을 붙여 그린다)
+// 규칙 문제(rules/rule-problem)의 문장. 기동 로그, 터미널, 화면이 같은 문장을 쓴다. 설정 문서 검사의 문장은 settings. 이름, 값은 코드가 넘긴 그대로(화면은 이름 대신 라벨을 붙여 그린다)
 
 import { josa } from "../../josa.ts";
 import type { RuleSentences } from "../../rule-problem.ts";
+import { ai, format, genres, prompt, status } from "./settings.ts";
 
 const problems = {
   "tune-value": (p, cause) => `${p.key} 값이 잘못됨(${p.value}): ${cause}`,
@@ -31,6 +32,11 @@ const problems = {
   "bgutil-needs-commit": (p) => `기본값(${p.tag})과 다른 태그에는 그 태그의 커밋이 함께 있어야 함`,
   "archive-missing": () => "파일에 없어요",
   unmoved: (p) => String(p.text),
+  ...genres,
+  ...status,
+  ...ai,
+  ...prompt,
+  ...format,
 } satisfies RuleSentences;
 
 export { problems };

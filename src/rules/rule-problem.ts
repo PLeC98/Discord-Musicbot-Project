@@ -33,6 +33,96 @@ const RULE_CODES = [
   "bgutil-needs-commit",
   // 불러오기
   "archive-missing",
+  // 장르 설정 검사(config/schema/genres)
+  "genre-source-weight",
+  "genre-source-min-score",
+  "genre-source-need",
+  "genre-source-enum",
+  "genre-source-years",
+  "genre-source-lengths",
+  "genre-source-missing",
+  "genre-source-type",
+  "genre-label",
+  "genre-emoji",
+  "genre-old-keywords",
+  "genre-no-sources",
+  "genre-min-duration",
+  "genre-max-duration",
+  "genre-prefetch",
+  "genre-durations",
+  "genres-empty",
+  "genres-too-many",
+  "genre-id-empty",
+  "genre-id-numeric",
+  "genre-id-long",
+  "defaults-prefetch",
+  "defaults-min-duration",
+  "defaults-max-duration",
+  "defaults-blocked",
+  "defaults-max-below-default",
+  "defaults-durations",
+  // 활동 문구 설정 검사(config/schema/status)
+  "status-range",
+  "range-not-text",
+  "range-split",
+  "range-part",
+  "status-empty-text",
+  "status-long-text",
+  "status-type",
+  "status-message-shape",
+  "status-no-messages",
+  "status-entry-empty",
+  "status-entry-no-when",
+  "status-special-shape",
+  "status-name-empty",
+  "status-name-numeric",
+  "status-interval",
+  // AI 설정 검사(config/schema/ai)
+  "ai-secret-header",
+  "ai-between",
+  "ai-line-format-text",
+  "ai-line-format",
+  "ai-list-shape",
+  "ai-provider",
+  "ai-enabled",
+  "ai-temperature",
+  "ai-skip-confident",
+  "ai-total-timeout",
+  "ai-retry-timeouts",
+  "ai-retry-status",
+  "ai-extra-text",
+  "ai-prompt-field",
+  "ai-project",
+  "ai-location-text",
+  "ai-location",
+  "ai-params-model",
+  "ai-params-shape",
+  "ai-hide-models",
+  "ai-prompt-names",
+  "ai-needs-provider",
+  "ai-needs-base-url",
+  "ai-base-url",
+  "ai-needs-model",
+  "format-needs-title",
+  // AI 프롬프트 검사(config/schema/ai-prompt)
+  "prompt-shape",
+  "prompt-section-shape",
+  "prompt-role",
+  "prompt-text",
+  "prompt-format",
+  "prompt-chatml",
+  "prompt-needs-list",
+  // 줄 형식 검사(rules/line-format)
+  "format-unclosed",
+  "format-block-unclosed",
+  "format-stray-close",
+  "format-unknown-block",
+  "format-block-test",
+  "format-stray-else",
+  "format-double-else",
+  "format-renamed",
+  "format-unknown-name",
+  "format-no-arg",
   // 아직 코드로 옮기지 않은 문장(text). 어느 언어로 보든 글 그대로 보인다
   "unmoved",
 ] as const;
@@ -46,6 +136,9 @@ type RuleSentence = (params: RuleParams, cause: string) => string;
 type RuleSentences = Readonly<Record<RuleCode, RuleSentence>>;
 
 const rule = (code: RuleCode, params?: RuleParams, cause?: RuleProblem): RuleProblem => ({ code, ...(params ? { params } : {}), ...(cause ? { cause } : {}) });
+
+const CODES: ReadonlySet<string> = new Set(RULE_CODES);
+const isRuleCode = (value: unknown): value is RuleCode => typeof value === "string" && CODES.has(value);
 
 /** 아직 코드로 옮기지 않은 문장을 문제로 싣는다 */
 const unmoved = (text: string): RuleProblem => rule("unmoved", { text });
@@ -61,5 +154,5 @@ function ruleLine(sentences: RuleSentences, problem: RuleProblem, causeLine: (ca
   return sentences[problem.code](problem.params ?? {}, problem.cause ? causeLine(problem.cause) : "");
 }
 
-export { RULE_CODES, rule, unmoved, tuneProblem, tuneKeyOf, ruleLine };
+export { RULE_CODES, rule, isRuleCode, unmoved, tuneProblem, tuneKeyOf, ruleLine };
 export type { RuleCode, RuleParams, RuleProblem, RuleSentence, RuleSentences };

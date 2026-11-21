@@ -8,6 +8,7 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 
 import * as aiConfig from "../../src/config/ai.ts";
+import { logRuleLine } from "../../src/rules/text/index.ts";
 import { useDocument, useDefaultDocuments } from "../helpers/config-docs.ts";
 import * as aiKeys from "../../src/store/ai-keys.ts";
 import * as secrets from "../../src/store/secrets.ts";
@@ -991,7 +992,7 @@ test("키는 입력할 때의 주소에 묶인다: 주소를 바꿔 저장해도
 });
 
 test("추가 인자에 비밀 헤더는 입력하지 못한다(평문 설정, 내보내기에 남는다). 빼는 줄은 된다", () => {
-  const of = (extra: string) => aiConfig.validateAi({ provider: "openai", extra }).filter((one) => one.includes("extra"));
+  const of = (extra: string) => aiConfig.validateAi({ provider: "openai", extra }).filter((one) => logRuleLine(one).includes("extra"));
   assert.equal(of("header::Authorization=Bearer sk-몰래").length, 1);
   assert.equal(of("top_p=0.5\nheader::X-Api-Key=abc").length, 1, "대소문자를 가리지 않는다");
   assert.equal(of("header::Cookie=SID=1").length, 1);

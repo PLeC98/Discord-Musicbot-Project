@@ -1,5 +1,6 @@
 // AI 보조 설정과 프롬프트(settings.db의 "ai", "ai-prompt" 문서, config/documents). 키는 비밀 표에 있다(store/ai-keys).
 
+import { logRuleLine } from "../rules/text/index.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "config" });
 import * as documents from "./documents.ts";
@@ -27,7 +28,7 @@ function ai(): ConfigData {
   const raw = documents.get("ai");
   const data = (raw && typeof raw === "object" ? raw : {}) as ConfigData;
 
-  const problems = validateAi(data);
+  const problems = validateAi(data).map(logRuleLine);
   const key = problems.join("|");
   if (problems.length && key !== aiWarned) log.warn(`AI 보조 설정: ${problems.join(" / ")}`);
   aiWarned = key;

@@ -1,5 +1,6 @@
 // 자동재생 장르 설정(settings.db의 "genres" 문서, config/documents). 읽을 때 모양과 소스 키를 본다.
 
+import { logRuleLine } from "../rules/text/index.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "config" });
 // 설정 검증과 실제 실행이 같은 표를 봐야 한다. 어긋나면 저장은 되는데 재생이 안 된다
@@ -102,7 +103,7 @@ function checkedGenres(): GenresConfig {
   // 이름, 숫자 이름, 이모지도 같은 검사가 본다(대시보드 저장 전 검사와 같은 문구). 문제를 한 번에 다 알린다
   const shape = validateGenres(loaded);
   if (shape.length) {
-    throw Object.assign(new Error(["자동재생 장르 설정 읽기 실패:", ...shape.map((p) => `   ${p}`)].join("\n")), { code: "CONFIG_INVALID" });
+    throw Object.assign(new Error(["자동재생 장르 설정 읽기 실패:", ...shape.map((p) => `   ${logRuleLine(p)}`)].join("\n")), { code: "CONFIG_INVALID" });
   }
   const data = loaded as Partial<GenresConfig>; // 검사를 지났다
 

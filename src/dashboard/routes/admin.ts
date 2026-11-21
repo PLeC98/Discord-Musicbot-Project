@@ -1,6 +1,7 @@
 // 봇 운영자(OWNER_ID) 전용 라우터. 모든 엔드포인트가 requireOwner를 지난다.
 // 경로가 /api/admin인 것은 대시보드 운영자 패널의 주소일 뿐, 디스코드 서버 쪽 권한과는 무관하다.
 
+import type { RuleProblem } from "../../rules/rule-problem.ts";
 import express from "express";
 import * as sessionRequests from "../session-requests.ts";
 import { toDiscordText } from "../../rules/app-emoji-token.ts";
@@ -232,7 +233,7 @@ adminRouter.post("/redeploy-commands", async (req, res) => {
 // 사람이 손으로 고치는 파일이 아니라 대시보드가 고치는 문서다(config/documents). 저장 번호로 두 탭이 서로 덮지 않게 한다.
 
 // 검사기가 있는 것만 고칠 수 있다. 새 설정을 열면서 검사를 빠뜨리는 일이 없게 한 벌로 묶는다
-const VALIDATORS: Record<string, (data: unknown) => string[]> = { genres: genreConfig.validateGenres, status: statusConfig.validateStatus, ai: aiConfig.validateAi };
+const VALIDATORS: Record<string, (data: unknown) => RuleProblem[]> = { genres: genreConfig.validateGenres, status: statusConfig.validateStatus, ai: aiConfig.validateAi };
 const CONFIG_NAMES = Object.keys(VALIDATORS);
 // 저장할 모양으로 다듬기. 검사 전에 한 번(다듬은 값을 검사하고 저장한다). 응답이 저장한 문서를 돌려주므로 편집기에도 다듬은 값이 보인다
 const TIDIERS: Partial<Record<string, (data: unknown) => unknown>> = { genres: genreConfig.tidyGenres };
@@ -466,7 +467,7 @@ adminRouter.put("/ai/settings", (req, res) => {
   // 꺼 두면(enabled: false) 나머지 필드는 따지지 않고, 프롬프트는 모양이 깨지지 않을 만큼만 본다
   const on = !aiSwitchedOff(data);
   const problems = [...VALIDATORS.ai(data), ...promptProblems(sections, on)];
-  if (problems.length) return sendProblem(res, "config-invalid", {}, { errors: problems.map((detail) => ({ code: "config-invalid", detail })) });
+  if (problems.length) return sendProblem(res, "config-invalid", {}, { errors: problems.map((rule) => ({ code: "config-invalid", rule })) });
 
   try {
     // 한 트랜잭션. 프롬프트 쓰기가 실패하면 설정도 쓰이지 않는다
@@ -600,7 +601,7 @@ adminRouter.put("/config/:name", (req, res) => {
 
   // 저장 전에 본다. 깨진 값을 남기느니 거절한다. 봇이 그 설정으로 돌기 때문이다.
   const problems = VALIDATORS[name](data);
-  if (problems.length) return sendProblem(res, "config-invalid", {}, { errors: problems.map((detail) => ({ code: "config-invalid", detail })) });
+  if (problems.length) return sendProblem(res, "config-invalid", {}, { errors: problems.map((rule) => ({ code: "config-invalid", rule })) });
 
   try {
     const next = documents.put(name, data, revision as number);
