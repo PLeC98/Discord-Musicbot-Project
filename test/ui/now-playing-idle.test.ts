@@ -514,3 +514,29 @@ test("하이라이트 버튼: 봇 전체에서 SponsorBlock을 껐으면 두지 
   assert.deepEqual(await withConfig({ sponsorblock: { enabled: true } }, ids), ["previous", "pause", "skip", "stop", "volume", "highlight", "shuffle", "loop", "queue", "autoplay"]);
   assert.deepEqual(await withConfig({ sponsorblock: { enabled: false } }, ids), ["previous", "pause", "skip", "stop", "volume", "shuffle", "loop", "queue", "autoplay"]);
 });
+
+test("서버 언어를 바꾸면: 끝난 패널은 그 자리에서 새 언어로 고치고, 재생 중이면 지금 곡 패널을 다시 그린다. 고른 서버만", async () => {
+  const guildSettings = await import("../../src/store/guild-settings.ts");
+  const config = (await import("../../src/config/index.ts")).default;
+  config.i18n.testLanguage = true;
+  try {
+    const { panels, calls, players, guild, text } = setup({ record: { channelId: BOT, messageId: "900" } });
+    guildSettings.setLanguage("g1", "qps-ploc");
+    await panels.redrawLanguage(["other"]);
+    assert.equal(calls.edited.length, 0, "다른 서버");
+    await panels.redrawLanguage(["g1"]);
+    assert.equal(calls.edited.length, 1);
+    assert.doesNotMatch(textOf(calls.edited[0].payload), /[가-힣]/, "새 언어로 그 자리에서 고친다");
+
+    const playing: Player[] = [];
+    panels.updatePlaying = async (player) => void playing.push(player);
+    const player = makePlayer(guild, text(BOT), { nowPlayingMessage: { id: "901" } });
+    players.set("g1", player);
+    await panels.redrawLanguage();
+    assert.deepEqual(playing, [player], "재생 중이면 지금 곡 패널을 다시 그린다");
+    assert.equal(calls.edited.length, 1);
+  } finally {
+    guildSettings.setLanguage("g1", null);
+    config.i18n.testLanguage = false;
+  }
+});

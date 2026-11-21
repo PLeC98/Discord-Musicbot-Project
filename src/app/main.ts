@@ -74,7 +74,7 @@ import * as staySeats from "../store/stay-seats.ts";
 import { createStayKeeper } from "./stay-keeper.ts";
 import { loadAppInfo } from "../dashboard/invite.ts";
 import * as playerEvents from "../player/events.ts";
-import { publicText } from "../ui/language.ts";
+import { botLanguage, languagesNow, publicText } from "../ui/language.ts";
 import { sendNotice } from "../ui/player-notices.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { choosePrivilegedIntents, onRefusedWhileRunning, refusedAtLogin } from "./privileged-intents.ts";
@@ -263,6 +263,7 @@ function startBot({ potServer, logFile, shutdown, skipRestore, intents }: { potS
   });
   startDashboard(bot, { stream, deployCommands: commandLoader.deployCommands, restart });
   listenToPlayers(panels, stream, players);
+  followLanguages(panels);
   playerEvents.on("disposed", (player, _reason, end) => stay.onDisposed(player, end));
   // 캐시 파일의 볼륨을 측정했으면 그 곡을 트는 모든 서버가 새 고정 게인으로 램프한다(같은 곡을 여러 서버가 틀 수 있다)
   measureQueue.onMeasured((audioKey) => {
@@ -330,6 +331,21 @@ function listenToLibrary(client: Client) {
   // 거절된 요청(401, 403, 429)이 10분에 1만 번을 넘으면 디스코드가 IP를 한동안 막는다
   client.rest.on(RESTEvents.InvalidRequestWarning, ({ count, remainingTime }) => dlog.warn(`거절된 디스코드 요청 누적 ${count}회(10분 윈도우 남은 시간 ${Math.round(remainingTime / 1000)}초). 1만 회를 넘으면 디스코드에서 이 IP를 일시 차단함`));
   client.rest.on(RESTEvents.Debug, (message) => dlog.trace(message));
+}
+
+// 서버 언어가 바뀌면 재생 패널을 다시 그린다. 서버가 고른 언어는 그 서버만, 봇 기본 언어나 쓸 수 있는 언어(테스트 언어 스위치)가 바뀌면 모든 서버
+function followLanguages(panels: NowPlayingPanel) {
+  guildSettings.onChanged((guildId, fields) => {
+    if (fields.includes("language")) void bestEffort(log, panels.redrawLanguage([guildId]), "서버 언어를 바꾼 뒤 재생 패널 다시 그리기", "warn");
+  });
+  const shapeOf = () => `${botLanguage()}|${languagesNow().length}`;
+  let shape = shapeOf();
+  onTunablesChanged(() => {
+    const now = shapeOf();
+    if (now === shape) return;
+    shape = now;
+    void bestEffort(log, panels.redrawLanguage(), "봇 기본 언어를 바꾼 뒤 재생 패널 다시 그리기", "warn");
+  });
 }
 
 // 플레이어의 알림을 화면과 대시보드에 잇는다. 감사 로그 사유는 그 서버의 언어로. 직접 링크 곡의 파일 태그를 찾으면 그 곡을 가진 플레이어마다 반영한다

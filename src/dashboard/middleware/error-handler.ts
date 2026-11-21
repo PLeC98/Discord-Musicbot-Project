@@ -67,6 +67,9 @@ function cutShort(err: unknown) {
   return type === "request.aborted" || code === "ECONNABORTED";
 }
 
+/** 오류 화면을 보는 사람의 언어. 세션 앞에서 난 오류는 세션이 없다 */
+const viewerOf = (req: Request) => viewerLanguage({ userId: req.session?.user?.id, acceptLanguage: req.get("accept-language") });
+
 function errorHandler(err: unknown, req: Request, res: Response, next: NextFunction) {
   // 요청 처리 중 세션이 끝나 중단됐다(상태 변경 직전의 세션 확인, 봇이 끊은 업로드의 본문 수신 실패). 해당 사용자의 세션 문제라 봇에는 영향이 없다.
   // 그 밖의 오류는 끝난 요청이어도 아래로 간다(봇 버그를 숨기지 않는다)
@@ -96,7 +99,7 @@ function errorHandler(err: unknown, req: Request, res: Response, next: NextFunct
   res
     .status(status)
     .type("html")
-    .send(`<!doctype html><meta charset="utf-8"><title>${status}</title><h1>${status}</h1><p>${textFor(viewerLanguage({ acceptLanguage: req.get("accept-language") })).errors.noticeFor(code).title}</p><p>오류 ID: ${errorId}</p>`);
+    .send(`<!doctype html><meta charset="utf-8"><title>${status}</title><h1>${status}</h1><p>${textFor(viewerOf(req)).errors.noticeFor(code).title}</p><p>오류 ID: ${errorId}</p>`);
 }
 
 export { errorHandler, notFoundJson };

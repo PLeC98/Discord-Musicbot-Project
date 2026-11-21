@@ -726,14 +726,36 @@ class NowPlayingPanel {
     for (const guild of this.client.guilds?.cache?.values() ?? []) {
       try {
         if (this.players.get(guild.id)?.nowPlayingMessage) continue;
-        const record = await this.location.store.getPanel(guild.id);
-        if (!record) continue;
-        const view = this._idleView(guild);
-        const dedicated = record.channelId === (await guildSettings.getBotChannel(guild.id));
-        const payload: Payload = { ...(await this.createIdleContainer(publicText(guild.id), { ...view, dedicated })), flags: MessageFlags.IsComponentsV2 };
-        await this.location.edit(guild, payload);
+        await this._redrawIdle(guild);
       } catch (error) {
         log.warn(`종료된 재생 패널 갱신 실패 (${guild.name ?? guild.id}): ${messageOf(error)}`);
+      }
+    }
+  }
+
+  // 기록된 끝난 패널을 같은 모양으로 그 자리에서 고친다(새로 올리지 않는다). 기록이 없으면 그대로
+  async _redrawIdle(guild: Guild) {
+    const record = await this.location.store.getPanel(guild.id);
+    if (!record) return;
+    const dedicated = record.channelId === (await guildSettings.getBotChannel(guild.id));
+    const payload: Payload = { ...(await this.createIdleContainer(publicText(guild.id), { ...this._idleView(guild), dedicated })), flags: MessageFlags.IsComponentsV2 };
+    await this.location.edit(guild, payload);
+  }
+
+  /**
+   * 서버 언어가 바뀌었을 때(서버 언어, 봇 기본 언어, 쓸 수 있는 언어). guildIds를 주지 않으면 모든 서버.
+   * 재생 중이면 지금 곡 패널을 다시 그리고(멈춘 패널은 5초 갱신을 하지 않는다), 끝난 패널은 그 자리에서 고친다. 이미 보낸 다른 메시지는 고치지 않는다
+   */
+  async redrawLanguage(guildIds?: Iterable<string>) {
+    const wanted = guildIds ? new Set(guildIds) : null;
+    for (const guild of this.client.guilds?.cache?.values() ?? []) {
+      if (wanted && !wanted.has(guild.id)) continue;
+      try {
+        const player = this.players.get(guild.id);
+        if (player?.nowPlayingMessage) await this.updatePlaying(player);
+        else await this._redrawIdle(guild);
+      } catch (error) {
+        log.warn(`언어를 바꾼 뒤 재생 패널 다시 그리기 실패 (${guild.name ?? guild.id}): ${messageOf(error)}`);
       }
     }
   }

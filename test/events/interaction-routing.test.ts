@@ -23,6 +23,7 @@ import { routes as settingsPanelHandler } from "../../src/discord/interactions/s
 import { routes as searchPick } from "../../src/discord/interactions/search-pick.ts";
 import { routes as help } from "../../src/discord/interactions/help.ts";
 import { routes as queueHandler } from "../../src/discord/interactions/queue-handler.ts";
+import { routes as languageHandler } from "../../src/discord/interactions/language-handler.ts";
 import { pageModal } from "../../src/ui/queue-view.ts";
 import { homeView } from "../../src/discord/commands/help.ts";
 import { COMMANDS } from "../../src/discord/commands/index.ts";
@@ -38,9 +39,10 @@ after(() => store.close());
 const ROOT = path.join(import.meta.dirname, "..", "..");
 // 봇은 쉬고 있다(플레이어 없음). 명령은 테스트용 하나
 const BOT = fakeBot({ commands: new Map([["probe", { data: { name: "probe" }, execute: (i: { reply(p: object): unknown }) => i.reply({ content: "ok" }) }]]) });
-const OWNERS = { autoplay, buttonHandler, panelInputs, playlistMoreHandler, settingsPanelHandler, searchPick, help, queueHandler };
+const OWNERS = { autoplay, buttonHandler, panelInputs, playlistMoreHandler, settingsPanelHandler, searchPick, help, queueHandler, languageHandler };
 
-type Kind = "button" | "select" | "roleSelect" | "modal" | "command";
+// dmSelect: DM의 문자열 메뉴(서버 밖)
+type Kind = "button" | "select" | "roleSelect" | "modal" | "command" | "dmSelect";
 const RESPONSES = ["reply", "deferReply", "deferUpdate", "update", "showModal", "followUp", "editReply"] as const;
 
 // 상호작용 하나. 응답한 방법을 적는다. 권한이 없는 평범한 사용자이고, 봇은 쉬고 있다(플레이어 없음)
@@ -50,7 +52,7 @@ function interaction(kind: Kind, customId: string, answered: string[]) {
     type: kind,
     customId,
     commandName: customId,
-    guildId: "g1",
+    guildId: kind === "dmSelect" ? null : "g1",
     guild,
     user: { id: "u1", username: "u1", bot: false },
     member: { id: "u1", guild, user: { id: "u1" }, voice: { channel: null }, roles: { cache: new Map() }, permissions: { has: () => false } },
@@ -64,15 +66,15 @@ function interaction(kind: Kind, customId: string, answered: string[]) {
     deferred: false,
     client: { user: { id: "bot", tag: "bot#0", username: "bot", displayAvatarURL: () => "https://example.invalid/a.png" }, guilds: { cache: new Collection([["g1", guild]]) } },
     isButton: () => kind === "button",
-    isStringSelectMenu: () => kind === "select",
+    isStringSelectMenu: () => kind === "select" || kind === "dmSelect",
     isRoleSelectMenu: () => kind === "roleSelect",
     isModalSubmit: () => kind === "modal",
     isChatInputCommand: () => kind === "command",
     isAutocomplete: () => false,
     isRepliable: () => true,
     isFromMessage: () => true,
-    inCachedGuild: () => true,
-    inGuild: () => true,
+    inGuild: () => kind !== "dmSelect",
+    inCachedGuild: () => kind !== "dmSelect",
   };
   for (const name of RESPONSES) {
     it[name] = async () => {
@@ -121,6 +123,9 @@ const CASES: [Kind, string, string][] = [
   ["select", "plm:ytp:PL1:10:a1:b:u1", "playlistMoreHandler"],
   ["select", "search:pick:u1", "searchPick"],
   ["select", "help:section", "help"],
+  ["select", "language:me", "languageHandler"],
+  ["select", "language:guild", "languageHandler"],
+  ["dmSelect", "language:me", "languageHandler"],
   ["button", "help:home", "help"],
   ["roleSelect", "setting:dj", "settingsPanelHandler"],
   ["modal", "panel:volume", "panelInputs"],

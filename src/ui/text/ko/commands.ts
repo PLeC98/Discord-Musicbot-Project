@@ -32,6 +32,7 @@ const commands = {
   nowplaying: { description: "재생 중인 곡의 정보를 보여줘요" },
   join: { description: "봇을 음성 채널에 참가시켜요" },
   leave: { description: "대기열을 저장하고 음성 채널에서 나가요" },
+  language: { description: "내 언어와 서버 언어를 정해요" },
   "247": { description: "상주 모드를 켜거나 꺼요. 켜면 음성 채널에서 나가지 않고 계속 머물러요" },
   setchannel: { description: "제 전용 채널을 설정해요 (곡 요청 및 공지에 사용돼요)", options: { channel: { name: "채널", description: "설정할 채널 (비우면 명령어를 입력한 채널)" }, action: { name: "동작", description: "설정 또는 해제", choices: { set: "설정", remove: "해제" } } } },
   setting: { description: "서버 설정을 열어요" },

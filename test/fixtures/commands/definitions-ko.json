@@ -289,6 +289,12 @@
     "type": 1
   },
   {
+    "options": [],
+    "name": "language",
+    "description": "내 언어와 서버 언어를 정해요",
+    "type": 1
+  },
+  {
     "options": [
       {
         "channel_types": [0],

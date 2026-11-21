@@ -51,7 +51,7 @@ test("봇 전체에서 SponsorBlock을 껐으면 /highlight를 등록하지도 �
   assert.ok(withConfig({ sponsorblock: { enabled: true } }, names).includes("highlight"));
   const off = withConfig({ sponsorblock: { enabled: false } }, names);
   assert.ok(!off.includes("highlight") && off.includes("setting"));
-  assert.equal(off.length, COMMANDS.length - 1, "다른 명령은 그대로");
+  assert.equal(off.length, withConfig({ sponsorblock: { enabled: true } }, names).length - 1, "다른 명령은 그대로");
 });
 
 test("운영 설정값을 저장해 켜진 명령이 바뀌면 실행 목록을 다시 만들고 등록을 맞춘다. 바뀌지 않은 저장에는 아무것도 하지 않는다", async () => {
@@ -105,11 +105,12 @@ test("명령 목록의 명령 전부가 유효한 정의(name/description)다", 
   }
 });
 
-test("등록용 목록과 배포용 정의가 같은 집합이다", () => {
+test("배포용 정의는 켜진 명령이다(언어가 하나뿐이면 /language는 꺼진다)", () => {
   assert.deepEqual(
     commands.map((c) => c.name),
-    COMMANDS.map((c) => c.name),
+    COMMANDS.filter((c) => c.enabled?.() ?? true).map((c) => c.name),
   );
+  assert.ok(!commands.some((c) => c.name === "language"));
 });
 
 test("커맨드 이름 중복 없음 (중복은 Discord 등록 시 덮어씀)", () => {

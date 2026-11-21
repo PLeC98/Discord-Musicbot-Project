@@ -25,6 +25,7 @@ function interaction({ name = "play", chat = true, commands = {} as Record<strin
     deferred,
     isChatInputCommand: () => chat,
     isAutocomplete: () => false,
+    inGuild: () => guild,
     inCachedGuild: () => guild,
     isButton: () => false,
     isStringSelectMenu: () => false,
@@ -184,6 +185,7 @@ function press({ customId = "x:1", replied = false, deferred = false, dead = fal
     deferred,
     isChatInputCommand: () => false,
     isAutocomplete: () => false,
+    inGuild: () => true,
     inCachedGuild: () => true,
     isButton: () => true,
     reply: async (p: unknown) => {
@@ -243,6 +245,7 @@ function suggest({ name = "search", guild = true, commands = {} as Record<string
     responded: false,
     isChatInputCommand: () => false,
     isAutocomplete: () => true,
+    inGuild: () => guild,
     inCachedGuild: () => guild,
     respond: async (choices: unknown) => {
       answered.push(choices);

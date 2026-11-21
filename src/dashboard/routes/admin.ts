@@ -380,7 +380,7 @@ adminRouter.post("/ai/judge/lookup", async (req, res) => {
   if (urls.length > 20) return sendProblem(res, "too-many-items", { max: 20 });
 
   // 못 읽은 줄의 안내는 그 오류 종류의 제목(디스코드 안내와 같은 글)
-  res.json({ candidates: await assist.candidatesFromUrls(urls, { describe: (error) => errorMessage(textFor(viewerLanguage({ acceptLanguage: req.get("accept-language") })), error).title }) } satisfies CandidatesReply);
+  res.json({ candidates: await assist.candidatesFromUrls(urls, { describe: (error) => errorMessage(textFor(viewerLanguage({ userId: req.session.user?.id, acceptLanguage: req.get("accept-language") })), error).title }) } satisfies CandidatesReply);
 });
 
 /** 그 후보들이 프롬프트에 어떻게 적히는지. 목록 형식, 장르를 고치는 대로 다시 그린다. */

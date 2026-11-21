@@ -8,6 +8,7 @@ export * as controls from "./controls.ts";
 export * as help from "./help.ts";
 export * as info from "./info.ts";
 export * as invite from "./invite.ts";
+export * as language from "./language.ts";
 export * as notices from "./notices.ts";
 export * as queue from "./queue.ts";
 export * as search from "./search.ts";

@@ -96,7 +96,12 @@ for (const language of LANGUAGES) {
   });
 }
 
-test("테스트 언어를 켜도 배포할 정의가 같다(받는 디스코드 로케일이 없다. 켜고 끌 때마다 다시 등록하지 않게)", () => {
-  const shape = (on: boolean) => withConfig({ i18n: { testLanguage: on } }, () => JSON.stringify(definitions()));
-  assert.equal(shape(true), shape(false));
+test("테스트 언어를 켜면 /language만 더해진다(언어가 둘이 된다). 다른 명령의 정의는 같다(테스트 언어는 디스코드 로케일이 없다)", () => {
+  const names = (on: boolean) => withConfig({ i18n: { testLanguage: on } }, () => definitions()).map((one) => one.name);
+  const others = (on: boolean) => withConfig({ i18n: { testLanguage: on } }, () => JSON.stringify(definitions().filter((one) => one.name !== "language")));
+  assert.deepEqual(
+    names(true).filter((name) => !names(false).includes(name)),
+    ["language"],
+  );
+  assert.equal(others(true), others(false));
 });

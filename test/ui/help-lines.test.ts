@@ -63,9 +63,9 @@ test("꺼진 명령은 도움말에도 없다", () => {
   assert.ok(lines.some((line) => line.startsWith("`/play`")));
 });
 
-test("help를 적은 명령은 도움말에 한 번씩, /help 자신은 싣지 않는다", () => {
+test("help를 적은 켜진 명령은 도움말에 한 번씩, /help 자신은 싣지 않는다", () => {
   const lines = withConfig({ sponsorblock: { enabled: true } }, sectionsNow).flatMap((section) => section.lines);
-  for (const command of COMMANDS) {
+  for (const command of withConfig({ sponsorblock: { enabled: true } }, enabledCommands)) {
     const count = lines.filter((line) => line.startsWith(`\`/${command.name}\``)).length;
     assert.equal(count, command.help ? 1 : 0, command.name);
   }
