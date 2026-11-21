@@ -38,8 +38,8 @@ function topStatements(script: string) {
   return out;
 }
 
-// 맨 위에서 만들지만 문구는 콜백 안에서 읽는 것(확인한 것만): 실패했을 때 알림 문구를 그때 읽는다
-const READS_LATER: ReadonlySet<string> = new Set(["views/ServerSettingsView.vue saver", "views/ServerView.vue seekBar"]);
+// 맨 위에서 만들지만 문구는 나중에 읽는 것(확인한 것만): 실패했을 때의 알림 문구를 콜백에서 읽는 것과 스토어의 getter
+const READS_LATER: ReadonlySet<string> = new Set(["views/ServerSettingsView.vue saver", "views/ServerView.vue seekBar", "stores/user.ts useUserStore"]);
 
 const isPlain = (value: unknown) => value !== null && typeof value === "object" && !Array.isArray(value);
 const valueAt = (keys: string[]) => keys.reduce<unknown>((at, key) => (at as Record<string, unknown> | undefined)?.[key], text);
@@ -61,7 +61,7 @@ test("화면 코드의 맨 위에서 문구의 값을 꺼내 두지 않는다(�
       const names = [...aliases.keys()].join("|");
       // 화살표 함수가 돌려주는 참조(() => text.x)는 부를 때 읽는다
       const body = statement.replace(new RegExp(String.raw`=>\s*\(?\s*(?:${names})(?:\.\w+)+(?:\([^)]*\))?`, "g"), "=> _");
-      if (!new RegExp(String.raw`\b(?:${names})\.\w+`).test(body)) continue;
+      if (!new RegExp(String.raw`\b(?:${names})(?:\.\w+|\[)`).test(body)) continue;
       if (READS_LATER.has(`${rel} ${/^(?:export )?const (\w+)/.exec(statement)?.[1]}`)) continue;
       // 읽을 때 꺼내는 것: 함수 정의, computed 같은 반응형 값
       if (/^(?:export )?const \w+(?:: [^=]+)? = (?:async )?(?:\([^)]*\)|\w+)(?:: [^=]+)? =>/.test(statement)) continue;

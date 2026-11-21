@@ -8,7 +8,7 @@ import { text } from "../text/index.ts";
 // 권한 수준 오버라이드 계층의 라벨. 계층과 순서는 서버의 것(contract/identity의 TIERS)
 const TIER_TEXT: Record<Tier, { label: string; desc: string }> = text.admin.tiers;
 // null(해제)은 목록에 넣지 않는다. 선택지가 아니라 "오버라이드 없음"(운영자 그대로) 상태다
-export const VIEW_AS_TIERS = TIERS.map((id) => ({ id, ...TIER_TEXT[id] }));
+export const viewAsTiers = () => TIERS.map((id) => ({ id, ...TIER_TEXT[id] }));
 
 export const useUserStore = defineStore("user", {
   state: () => ({

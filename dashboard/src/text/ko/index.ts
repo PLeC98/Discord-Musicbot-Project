@@ -18,6 +18,7 @@ export * as fields from "./fields.ts";
 export * as genres from "./genres.ts";
 export * as geoip from "./geoip.ts";
 export * as invite from "./invite.ts";
+export * as language from "./language.ts";
 export * as licenses from "./licenses.ts";
 export * as login from "./login.ts";
 export * as loginBackground from "./login-background.ts";

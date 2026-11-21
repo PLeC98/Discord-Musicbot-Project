@@ -6,7 +6,7 @@ import axios, { type AxiosResponse, type InternalAxiosRequestConfig } from "../.
 import { followBotInfo } from "../../../dashboard/src/composables/bot-info.ts";
 import type { BotInfo } from "../../../src/dashboard/contract/identity.ts";
 
-const info = (name: string | null): BotInfo => ({ name, avatarUrl: name ? "https://cdn.example/a.webp" : null, sourceRepo: "r", projectRepo: "p", brandColor: "#000000", faviconVersion: 1 });
+const info = (name: string | null): BotInfo => ({ name, avatarUrl: name ? "https://cdn.example/a.webp" : null, sourceRepo: "r", projectRepo: "p", brandColor: "#000000", faviconVersion: 1, languages: [{ tag: "ko", name: "한국어" }], botLanguage: "ko" });
 /** 부를 때마다 replies의 다음 것을 준다. Error면 실패 */
 function serve(replies: Array<BotInfo | Error>) {
   let i = 0;

@@ -20,3 +20,12 @@ export function writeStored(key: string, value: string, session = false): void {
     // 기억하지 못할 뿐 화면은 그대로 돈다
   }
 }
+
+/** 지운다. 못 지우면 그대로 둔다. session: 이 탭에서만(탭을 닫으면 빈다) */
+export function removeStored(key: string, session = false): void {
+  try {
+    area(session).removeItem(key);
+  } catch {
+    // 지우지 못할 뿐 화면은 그대로 돈다
+  }
+}

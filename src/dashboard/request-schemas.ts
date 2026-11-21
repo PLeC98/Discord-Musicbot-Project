@@ -3,6 +3,7 @@
 // 서버에 그 역할, 채널이 있나처럼 서버를 봐야 아는 것은 경로가 본다.
 
 import { AGE_PLACES } from "../rules/age-place.ts";
+import { KNOWN_TAGS } from "../rules/languages.ts";
 import { z } from "zod";
 import { MAX_COUNT } from "../rules/more-choices.ts";
 import { QUEUE_WINDOW_MAX } from "./contract/player.ts";
@@ -130,6 +131,9 @@ function settingsPatch({ min, max }: { min: number; max: number }) {
 }
 
 /** 바로 켜고 끄는 카드(상주 모드, 볼륨 정규화)의 본문 { on }. 참, 거짓이 아니면 거절한다(끄기로 읽지 않는다) */
+/** 개인 언어 저장(PUT /api/me/language)의 본문 { language }. 언어 태그이거나 "auto". 쓸 수 있는 언어인지는 라우트에서 검사한다 */
+const MyLanguageBody = z.object({ language: z.union([z.literal("auto"), z.enum(KNOWN_TAGS)], { error: "bad-request" satisfies Code }) }, { error: "bad-request" satisfies Code });
+
 const ToggleBody = z.object({ on: z.boolean({ error: "bad-request" satisfies Code }) }, { error: "bad-request" satisfies Code });
 
 /** 서버 설정 저장(PATCH)의 본문(화면이 보내는 모양) */
@@ -246,6 +250,7 @@ export {
   TrackCacheInspectBody,
   TrackCacheProbeBody,
   ResetBody,
+  MyLanguageBody,
   QUERY_MAX_LEN,
   SearchQuery,
 };
