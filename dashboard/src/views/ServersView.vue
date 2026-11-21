@@ -77,7 +77,7 @@ import GuildAvatar from "../components/GuildAvatar.vue";
 import TrackArt from "../components/TrackArt.vue";
 import { text } from "../text/index.ts";
 import { openLoginWindow } from "../composables/session.ts";
-const songTitle = text.bot.labels.songTitle;
+const songTitle = (title: string | null | undefined) => text.bot.labels.songTitle(title);
 const T = text.servers;
 
 // 목록 데이터, SSE, 폴링은 막대와 공유하는 guilds 스토어가 담당 (구독 카운팅으로 연결 단일화)

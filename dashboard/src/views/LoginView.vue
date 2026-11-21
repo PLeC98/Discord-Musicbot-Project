@@ -149,11 +149,11 @@ const clock = computed(() => `${two(now.value.getHours())}:${two(now.value.getMi
 const short = useMediaQuery(SHORT_QUERY);
 
 // 위 막대 왼쪽의 밝기 알약(작업 공간 순서처럼)
-const MODE_PILLS: Array<{ mode: Mode; label: string; icon: IconName }> = [
+const MODE_PILLS = computed<Array<{ mode: Mode; label: string; icon: IconName }>>(() => [
   { mode: "dark", label: T.modeDark, icon: "dark_mode" },
   { mode: "light", label: T.modeLight, icon: "light_mode" },
   { mode: "system", label: T.modeSystem, icon: "contrast" },
-];
+]);
 
 // 위 막대 오른쪽의 짧은 날짜("Fri 10/09"). 날짜는 여기에만 둔다. 잠금 화면 스타일이라 영어로 적는다(utils/locale의 예외)
 const shortDate = computed(() => `${now.value.toLocaleDateString("en-US", { weekday: "short" })} ${two(now.value.getMonth() + 1)}/${two(now.value.getDate())}`);

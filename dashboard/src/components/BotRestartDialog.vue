@@ -65,9 +65,9 @@ function confirm() {
   else void restartNow(showAnnounce.value && announce.value);
 }
 // 봇 상태 탭의 작업 이름을 그대로 쓴다
-const INSTALL_NAMES: Partial<Record<Job, string>> = { "ffmpeg-install": text.status.jobs.ffmpegInstall, "bgutil-install": text.status.jobs.bgutilInstall };
+const INSTALL_NAMES = computed<Partial<Record<Job, string>>>(() => ({ "ffmpeg-install": text.status.jobs.ffmpegInstall, "bgutil-install": text.status.jobs.bgutilInstall }));
 const installName = computed(() => {
   const job = restartCounts.value?.installJob;
-  return job ? (INSTALL_NAMES[job] ?? job) : null;
+  return job ? (INSTALL_NAMES.value[job] ?? job) : null;
 });
 </script>

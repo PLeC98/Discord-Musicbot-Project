@@ -366,7 +366,7 @@ import { isSkipCategory, type SkipCategory } from "../../../src/rules/sponsor-ca
 import { QUEUE_PAGE, QUEUE_WINDOW_MAX, modeOf, type AutoplayGenres, type PlayerRead, type PlayerState, type QueuePage, type QueueTrackView } from "../../../src/dashboard/contract/player.ts";
 import type { IconName } from "../icons.ts";
 import { text } from "../text/index.ts";
-const songTitle = text.bot.labels.songTitle;
+const songTitle = (title: string | null | undefined) => text.bot.labels.songTitle(title);
 const P = text.player;
 const T = text.server;
 

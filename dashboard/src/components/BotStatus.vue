@@ -217,7 +217,7 @@
             <li v-for="{ key, row: player } in playerSlots" :key="key">
               <div v-if="!player" class="flex items-center gap-3 h-12 px-2" aria-hidden="true"><span class="size-8 shrink-0 rounded-full bg-on-surface/8" /><span class="h-3 w-1/2 rounded-sm bg-on-surface/8" /></div>
               <!-- 참가한 서버만 그 서버 화면으로 잇는다(참가하지 않은 서버는 운영자도 열지 않는다) -->
-              <component v-else :is="player.member ? RouterLink : 'div'" :to="player.member ? `/servers/${player.guildId}` : undefined" class="flex items-center gap-3 h-12 px-2 rounded-(--r-row) no-underline text-on-surface" :class="player.member && 'state-layer'" v-tooltip="player.member ? null : NOT_MEMBER_TIP">
+              <component v-else :is="player.member ? RouterLink : 'div'" :to="player.member ? `/servers/${player.guildId}` : undefined" class="flex items-center gap-3 h-12 px-2 rounded-(--r-row) no-underline text-on-surface" :class="player.member && 'state-layer'" v-tooltip="player.member ? null : T.notMemberTip">
                 <GuildAvatar :guild="{ name: player.name, icon: player.icon, hasPlayer: true }" :status="false" size-class="size-8" class="shrink-0" />
                 <div class="min-w-0 flex-1">
                   <div class="text-sm font-semibold truncate">{{ player.name }}</div>
@@ -265,7 +265,7 @@
                   <span class="hidden @md/card:block font-mono text-xs nums">{{ p.pid }}</span>
                   <span class="font-mono text-xs" :class="p.label === 'yt-dlp' && 'text-tertiary'">{{ p.label }}</span>
                   <!-- 길면 옆으로 흐르고(마퀴) 툴팁으로 전체를(잔류 프로세스는 이유 툴팁) -->
-                  <span class="min-w-0 flex items-center gap-1" :class="p.stray && LEVEL_TEXT.warn" v-tooltip="p.stray ? ORPHAN_TIP : null"><Icon v-if="p.stray" :name="LEVEL_ICON.warn" :size="14" fill class="shrink-0" /><MarqueeText class="min-w-0 flex-1" :text="processJob(p)" :tip="!p.stray" /></span>
+                  <span class="min-w-0 flex items-center gap-1" :class="p.stray && LEVEL_TEXT.warn" v-tooltip="p.stray ? T.strayTip : null"><Icon v-if="p.stray" :name="LEVEL_ICON.warn" :size="14" fill class="shrink-0" /><MarqueeText class="min-w-0 flex-1" :text="processJob(p)" :tip="!p.stray" /></span>
                   <span class="hidden @md/card:block text-xs nums text-right" :class="p.stray && LEVEL_TEXT.warn">{{ formatDuration(p.ageMs / 1000, "0:00") }}</span>
                   <!-- 메모리는 서버가 15초마다 잰다. 막 뜬 프로세스는 아직 없다 -->
                   <span class="text-xs nums text-right">{{ p.memMb === null ? "—" : `${p.memMb} MB` }}</span>
@@ -788,12 +788,10 @@ function togglePlayerState(k: PlayerState) {
   filterPlayers({ states: PLAYER_STATES.filter((s) => next.has(s)) });
 }
 const playerFilters = computed(() => PLAYER_STATES.map((k) => ({ key: k, label: PLAYER_STATE_WORD[k], count: props.status.players.counts[k], on: query.value.states.includes(k), toggle: () => togglePlayerState(k) })));
-const NOT_MEMBER_TIP = T.notMemberTip;
-const ORPHAN_TIP = T.strayTip;
 // 작업: 봇 헬퍼는 이름, 서버의 작업은 서버 이름(다음 곡, 곡 찾기는 덧붙인다). 서버를 나갔으면 이름이 없다
-const HELPER_JOB: Partial<Record<NonNullable<ProcessRow["job"]>, string>> = { "pot-server": T.jobs.potServer, "ytdlp-update": T.jobs.ytdlpUpdate, "ffmpeg-install": T.jobs.ffmpegInstall, "bgutil-install": T.jobs.bgutilInstall, "dashboard-build": T.jobs.dashboardBuild, "login-background": T.jobs.loginBackground, "net-stats": T.jobs.netStats, loudness: T.jobs.loudness };
+const HELPER_JOB = computed<Partial<Record<NonNullable<ProcessRow["job"]>, string>>>(() => ({ "pot-server": T.jobs.potServer, "ytdlp-update": T.jobs.ytdlpUpdate, "ffmpeg-install": T.jobs.ffmpegInstall, "bgutil-install": T.jobs.bgutilInstall, "dashboard-build": T.jobs.dashboardBuild, "login-background": T.jobs.loginBackground, "net-stats": T.jobs.netStats, loudness: T.jobs.loudness }));
 function processJob(p: ProcessRow) {
-  const helper = p.job && HELPER_JOB[p.job];
+  const helper = p.job && HELPER_JOB.value[p.job];
   if (helper) return helper;
   const guild = p.guildName ?? (p.guildId ? T.jobs.leftServer : null);
   const task = p.job === "prefetch" ? T.jobs.prefetch : p.job === "lookup" ? T.jobs.lookup : null;
@@ -802,17 +800,17 @@ function processJob(p: ProcessRow) {
 // 열 헤더와 행이 따로라 열 폭을 고정한다: PID 5자리, 프로그램(yt-dlp), 작업, 실행 시간(2:58:33), 메모리(52 MB)
 const PROCESS_GRID = "grid grid-cols-[4rem_minmax(0,1fr)_3.5rem] @md/card:grid-cols-[3rem_4rem_minmax(0,1fr)_4rem_3.5rem] items-center gap-x-3";
 // 정렬(서버가 한다): 처음은 실행 시간이 긴 순서. 다른 열을 처음 누르면 수는 큰 것부터, 글은 가나다 순서
-const PROCESS_COLUMNS: Array<{ key: ProcessSort; label: string; right?: boolean; numeric?: boolean }> = [
+const PROCESS_COLUMNS = computed<Array<{ key: ProcessSort; label: string; right?: boolean; numeric?: boolean }>>(() => [
   { key: "pid", label: T.columns.pid, numeric: true },
   { key: "label", label: T.columns.label },
   { key: "job", label: T.columns.job },
   { key: "age", label: T.columns.age, right: true, numeric: true },
   { key: "mem", label: T.columns.mem, right: true, numeric: true },
-];
+]);
 const processSort = computed(() => ({ key: query.value.sort, desc: query.value.desc }));
 function sortProcessesBy(key: ProcessSort) {
   const { key: now, desc } = processSort.value;
-  const next = key === now ? !desc : Boolean(PROCESS_COLUMNS.find((c) => c.key === key)?.numeric);
+  const next = key === now ? !desc : Boolean(PROCESS_COLUMNS.value.find((c) => c.key === key)?.numeric);
   query.value = { ...query.value, sort: key, desc: next, procs: { ...query.value.procs, from: 0 } };
   processToTop();
 }
@@ -894,17 +892,17 @@ const dbRows = computed<Array<[string, string]>>(() => {
 });
 
 // ── ① 요약: 주의, 문제 단계인 항목(판정은 rules/status-levels, 여기서는 이름과 누르면 갈 자리 at). 가장 심각한 단계가 전체 상태 ──
-const METRIC_CHIP: Record<LevelMetric, { name: string; word: string }> = {
+const METRIC_CHIP = computed<Record<LevelMetric, { name: string; word: string }>>(() => ({
   ping: { name: T.metrics.ping, word: T.attention.high },
   loop: { name: T.metrics.loop, word: T.attention.lagging },
   encoding: { name: T.metrics.encoding, word: T.attention.high },
   cpu: { name: T.metrics.cpu, word: T.attention.high },
   heap: { name: T.metrics.heap, word: T.attention.high },
-};
+}));
 function chipOf(a: Attention): { name: string; word: string; at: string } {
   switch (a.kind) {
     case "metric":
-      return { ...METRIC_CHIP[a.metric], at: METRIC_CHIP[a.metric].name };
+      return { ...METRIC_CHIP.value[a.metric], at: METRIC_CHIP.value[a.metric].name };
     case "link":
       return { name: a.name, word: LINK_WORD[a.state], at: "links" };
     case "client":

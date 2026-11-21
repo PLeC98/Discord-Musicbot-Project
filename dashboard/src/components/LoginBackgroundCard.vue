@@ -198,10 +198,10 @@ const OPACITY_MIN = 100 - LOGIN_BG_COVER_MAX;
 /** 미리보기 화면의 높이(rem). 넓은 비율은 영역 폭에 맞춰 줄인다 */
 const PANE_REM = 20;
 /** 보일 위치 슬라이더 */
-const AXES = [
+const AXES = computed(() => [
   { key: "x" as const, label: C.positionX },
   { key: "y" as const, label: C.positionY },
-];
+]);
 /** 화면 비율(그 비율의 기기 이름은 문구표). vw, vh는 그 기기의 대표 CSS 크기(로그인 화면 실루엣에 쓴다), mouse는 마우스 기기 */
 const RATIOS = [
   { label: "16:9", w: 16, h: 9, vw: 1920, vh: 1080, mouse: true },

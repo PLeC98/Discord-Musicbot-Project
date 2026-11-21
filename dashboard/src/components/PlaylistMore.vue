@@ -49,7 +49,7 @@ import { MAX_COUNT, moreChoices } from "../../../src/rules/more-choices.ts";
 import { roomWith } from "../../../src/rules/queue-room.ts";
 import { text } from "../text/index.ts";
 const moreText = text.bot.more;
-const collection = text.bot.labels.collection;
+const collection = (kind: string | null | undefined) => text.bot.labels.collection(kind);
 const T = text.more;
 
 // 재생목록 이어 넣기. 디스코드 메뉴와 기능은 같지만 모양은 웹에 맞춘다:

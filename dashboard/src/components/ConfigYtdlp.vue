@@ -89,7 +89,7 @@ const BASE = "/api/admin/vendor";
 // 채널마다 릴리스를 내는 저장소의 태그 목록(고정할 버전을 고른다)
 const RELEASES: Record<YtdlpChannel, string> = { stable: "https://github.com/yt-dlp/yt-dlp/tags", nightly: "https://github.com/yt-dlp/yt-dlp-nightly-builds/tags", master: "https://github.com/yt-dlp/yt-dlp-master-builds/tags" };
 const CHANNELS: Option[] = (["stable", "nightly", "master"] as const).map((value) => ({ value, label: value }));
-const MODES: Option[] = (["auto", "notify", "manual"] as const).map((value) => ({ value, label: T.modes[value] }));
+const MODES = computed<Option[]>(() => (["auto", "notify", "manual"] as const).map((value) => ({ value, label: T.modes[value] })));
 // 다운로드하는 동안 상태를 다시 읽는 간격(ms)
 const POLL_MS = 1500;
 // 고정한 버전이 나온 지 이만큼 지났으면 며칠 됐는지 표시한다(일)

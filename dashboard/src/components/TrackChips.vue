@@ -14,7 +14,7 @@ import { platformColor } from "../utils/platform-color.ts";
 import { text } from "../text/index.ts";
 import { ICONS } from "../../../src/ui/icons.ts";
 import type { Hold } from "../../../src/rules/holds.ts";
-const pausedLabel = text.bot.panel.pausedLabel;
+const pausedLabel = (held: Parameters<typeof text.bot.panel.pausedLabel>[0]) => text.bot.panel.pausedLabel(held);
 const T = text.player;
 
 const CHIP = "h-6 px-3 rounded-full bg-surface-container-high text-xs font-semibold text-on-surface-variant inline-flex items-center gap-1 shrink-0";

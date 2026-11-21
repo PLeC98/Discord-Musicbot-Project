@@ -168,7 +168,7 @@
 import { live, blocked } from "../composables/session.ts";
 import { checkSession, withUid } from "../stores/user.ts";
 import { notifyProblem } from "../composables/toasts.ts";
-import { ref, shallowRef, computed, watch, nextTick, onMounted, onUnmounted, defineAsyncComponent } from "vue";
+import { ref, shallowRef, computed, watch, watchEffect, nextTick, onMounted, onUnmounted, defineAsyncComponent } from "vue";
 import { eventLink } from "../utils/event-link.ts";
 import { unsaved, unsavedIn } from "../composables/unsaved.ts";
 import { useScrollFade } from "../composables/scroll-fade.ts";
@@ -236,7 +236,7 @@ type Tab = { id: string; label: string; icon: IconName; group: "status" | "confi
 // ── 탭 ────────────────────────────────────────────────────────────────────────
 // 선택은 새로고침을 넘겨 유지한다. 권한 수준을 바꾸면 페이지가 다시 로드되는데 그때마다
 // 첫 탭으로 튕기면 쓰기 나쁘다.
-const ALL_TABS: Tab[] = [
+const ALL_TABS = computed<Tab[]>(() => [
   { id: "status", label: T.tabs.status, icon: "smart_toy", group: "status" },
   { id: "settings", label: T.tabs.settings, icon: "tune", group: "config" },
   { id: "youtube", label: T.tabs.youtube, icon: "smart_display", group: "config" },
@@ -255,9 +255,9 @@ const ALL_TABS: Tab[] = [
   { id: "update", label: T.tabs.update, icon: "system_update_alt", group: "dev" },
   { id: "info", label: T.tabs.info, icon: "info", group: "dev" },
   { id: "dev", label: T.tabs.dev, icon: "build", group: "dev" },
-];
+]);
 // 보이는 탭. 연령 제한 탭은 연령 제한 콘텐츠를 켰을 때만 있다
-const TABS = computed(() => ALL_TABS.filter((t) => t.id !== "age" || ageContent.value.enabled));
+const TABS = computed(() => ALL_TABS.value.filter((t) => t.id !== "age" || ageContent.value.enabled));
 // ── 저장 바 ─────────────────────────────────────────────────────────────────
 // 고친 편집기를 탭 순서대로 저장한다. 하나가 실패하면 멈추고 그 탭으로 옮긴다(검사 문제는 그 편집기 안에 그려진다).
 // 지금 탭에 문제가 있으면 그대로 둔다(setTab은 지금 탭을 받으면 상세를 닫는다)
@@ -266,14 +266,14 @@ const savingAll = ref(false);
 const dockDirty = computed(() => targets.value.some((one) => one.dirty.value));
 const dockSaving = computed(() => savingAll.value || targets.value.some((one) => one.saving.value));
 // 검사에 걸린 값이 있는 탭(고친 편집기만). 하나라도 있으면 저장 바가 저장을 막는다(일부만 저장하지 않는다)
-const blockedTabs = computed(() => [...new Set(targets.value.filter((one) => one.dirty.value && one.blocked?.value).map((one) => ALL_TABS.find((t) => t.id === one.tab)?.label ?? one.tab))]);
+const blockedTabs = computed(() => [...new Set(targets.value.filter((one) => one.dirty.value && one.blocked?.value).map((one) => ALL_TABS.value.find((t) => t.id === one.tab)?.label ?? one.tab))]);
 const dockRestart = computed(() => (status.value?.env.launcher ?? false) && targets.value.some((one) => one.dirty.value && one.restart?.value));
 
 async function saveEverything(restarting = false) {
   savingAll.value = true;
   try {
     const failed = await saveAll(
-      ALL_TABS.map((t) => t.id),
+      ALL_TABS.value.map((t) => t.id),
       restarting,
     );
     const to = failed && tabAfterFailure(failed, tab.value);
@@ -330,16 +330,17 @@ const tab = computed<string | null>(() => {
 });
 // 설정 편집기는 처음 연 때 만들고 그 뒤로는 숨기기만 한다. 탭을 옮겨도 저장하지 않은 편집이 남는다
 const opened = ref(new Set(tab.value ? [tab.value] : []));
-// 휴대폰 위 막대 제목 뒤에 지금 탭
+// 열어 둔 탭, 기억한 탭. 휴대폰 위 막대 제목 뒤에는 지금 탭(아래 watchEffect)
 watch(
   tab,
   (id) => {
     if (id && !opened.value.has(id)) opened.value = new Set(opened.value).add(id);
     if (id) writeStored(TAB_KEY, id);
-    shell.subtitle = ALL_TABS.find((t) => t.id === id)?.label ?? "";
   },
   { immediate: true },
 );
+// 언어를 바꾸면 탭 이름도 바뀐다
+watchEffect(() => (shell.subtitle = ALL_TABS.value.find((t) => t.id === tab.value)?.label ?? ""));
 onUnmounted(() => (shell.subtitle = ""));
 
 // 탭을 옮기면 내용이 레일 순서 방향으로 미끄러져 들어온다(아래 탭이면 아래에서 위로). 숨겨 둔 탭이 다시 보일 때 애니메이션이 새로 돈다
@@ -390,7 +391,7 @@ function closeDetail() {
 // 탭이 바뀌면(누르기, 뒤로가기) 레일 순서 방향으로 미끄러져 들어온다
 watch(tab, (now, before) => {
   if (!now || !before || now === before) return;
-  const list = ALL_TABS.map((t) => t.id);
+  const list = ALL_TABS.value.map((t) => t.id);
   pageDir.value = list.indexOf(now) < list.indexOf(before) ? "up" : "down";
   slide();
 });

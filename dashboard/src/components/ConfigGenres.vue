@@ -171,7 +171,7 @@ function apply(data: Record<string, unknown>) {
   rows.value = toRows(genres, rows.value);
 }
 
-const { loaded, dirty, saving, loadError, serverProblems, fetch, save, revert, loadDefault } = useConfigFile({ tab: "autoplay", savedNote: T.savedNote, payload: () => payload.value, apply, ...configFileIo("genres") });
+const { loaded, dirty, saving, loadError, serverProblems, fetch, save, revert, loadDefault } = useConfigFile({ tab: "autoplay", savedNote: () => T.savedNote, payload: () => payload.value, apply, ...configFileIo("genres") });
 
 // 저장할 때 서버가 보는 검사 그대로(schema/genres). 저장 버튼을 누르기 전에 알려 준다
 const problems = computed(() => (loaded.value ? [...genreProblems(payload.value), ...serverProblems.value] : []));

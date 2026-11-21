@@ -27,7 +27,7 @@ type Options = {
   /** 기본값 읽기(새로 설치했을 때의 값). 없으면 기본값으로 되돌릴 수 없다 */
   readDefault?: () => Promise<Data>;
   /** 저장했다는 알림의 둘째 줄(언제부터 반영되는지) */
-  savedNote: string;
+  savedNote: () => string;
 };
 
 /**
@@ -93,7 +93,7 @@ export function useConfigFile({ tab, alsoUnsaved, payload, apply, read, write, r
     serverProblems.value = [];
     try {
       load(await write(payload()));
-      notifyDone(text.editor.saved, savedNote);
+      notifyDone(text.editor.saved, savedNote());
       return true;
     } catch (error) {
       // 서버가 필드마다 가리킨 문제는 편집기의 문제 목록에, 그 밖의 실패는 알림으로

@@ -67,7 +67,7 @@ const NONE_MARK = "{{none}}";
 const EXTRA_SAMPLE = `think=false\nreasoning_effort=low\nresponse_format=json::{"type":"json_object"}\nheader::X-Title=Discord Musicbot\nmax_tokens=${NONE_MARK}`;
 const ROLES = AI_ROLES;
 // 줄 형식의 이름(봇과 같이 쓰는 rules/line-format)
-const MARKS = Object.keys(LINE_NAMES).map((name) => ({ mark: `{{${name}}}`, hint: T.markHints[name] }));
+const MARKS = computed(() => Object.keys(LINE_NAMES).map((name) => ({ mark: `{{${name}}}`, hint: T.markHints[name] })));
 // 길이가 있을 때만 적는 구간(넣기 칩)
 const BLOCK_MARK = "{{#if-exist {{duration}}}}{{duration}} {{/}}";
 // 조회 안 한 주소를 그대로 보내면 쓰이는 보기 곡(제목, 길이)
@@ -360,10 +360,10 @@ function advancedView(s: State) {
 // 줄 형식 문제를 보여 줄 때 앞뒤로 붙이는 글자 수
 const AROUND = 12;
 // 줄 형식 미리보기의 보기 후보 둘: 길이를 아는 것, 모르는 것
-const PREVIEW_CANDS = [
+const PREVIEW_CANDS = computed(() => [
   { label: TL.previewKnown, title: "System Of A Down - Toxicity (Official HD Video)", seconds: 223 },
   { label: TL.previewUnknown, title: "Pop Hits 2021 - Ariana Grande, Maroon 5, Taylor Swift", seconds: null },
-];
+]);
 function promptView(s: State) {
   const { sections, listCfg, defaults, shown, judgeGenre, inner } = s;
   const listMarked = computed(() => hasListMark(sections.value));
@@ -394,7 +394,7 @@ function promptView(s: State) {
   // 봇과 같은 해석기로 그린 미리보기. 장르는 판정 테스트에 적은 것
   const linePreview = computed(() => {
     const nodes = parseFormat(listCfg.value.lineFormat || defaults.value.line, LINE_NAMES).nodes;
-    return PREVIEW_CANDS.map((cand, i) => ({
+    return PREVIEW_CANDS.value.map((cand, i) => ({
       label: cand.label,
       line: renderNodes(nodes, { index: () => String(i + 1), genre: () => judgeGenre.value || TJ.genrePlaceholder, title: () => cand.title, duration: (arg) => lineDuration(cand.seconds, arg) }).trim(),
     }));
@@ -531,7 +531,7 @@ function exchange(s: State, cleanParams: Ref<Record<string, Record<string, unkno
   let aiRevision = 0;
   const file = useConfigFile({
     tab: "ai",
-    savedNote: T.savedNote,
+    savedNote: () => T.savedNote,
     // 입력해 두고 저장하지 않은 키도 떠날 때 묻는다
     alsoUnsaved: () => Boolean(keyInput.value.trim()),
     payload: () => ({ data: payload.value, sections: promptPayload.value }),

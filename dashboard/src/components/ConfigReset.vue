@@ -41,7 +41,7 @@
           <input v-model="typed" type="text" :class="[FIELD, 'w-full']" :placeholder="view.botName" />
         </label>
         <div class="flex gap-2 justify-end">
-          <BaseButton variant="ghost" :disabled="busy" @click="close">{{ CANCEL }}</BaseButton>
+          <BaseButton variant="ghost" :disabled="busy" @click="close">{{ text.common.cancel }}</BaseButton>
           <BaseButton variant="danger" :disabled="!canRun" @click="run">{{ T.confirm[asking].button }}</BaseButton>
         </div>
       </template>
@@ -69,7 +69,6 @@ import { AUDIO_CACHE_PARTS, AUDIO_CACHE_PARTS_DEFAULT, RESET_KINDS, type AudioCa
 const T = text.reset;
 
 const API = "/api/admin/reset";
-const CANCEL = text.common.cancel;
 // 행 하나: 이름, 설명, 오른쪽에 버튼. 좁으면 버튼이 아래로
 const actionRow = "flex flex-wrap items-center gap-x-4 gap-y-2 py-3 first:pt-0 last:pb-0";
 

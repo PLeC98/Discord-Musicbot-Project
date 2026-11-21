@@ -58,7 +58,7 @@ import { computed, ref, watch } from "vue";
 import axios from "axios";
 import BaseDialog from "./BaseDialog.vue";
 import Icon from "./BaseIcon.vue";
-import { DATA_FILES, FONTS_AND_ART, LIBRARIES, isModifiedSource } from "../utils/licenses.ts";
+import { LIBRARIES, dataFiles, fontsAndArt, isModifiedSource } from "../utils/licenses.ts";
 import type { BotInfo } from "../../../src/dashboard/contract/identity.ts";
 import { text } from "../text/index.ts";
 const T = text.licenses;
@@ -66,11 +66,11 @@ const T = text.licenses;
 const open = defineModel<boolean>({ required: true });
 const close = () => (open.value = false);
 
-const GROUPS = [
-  { title: T.groupFontsArt, items: FONTS_AND_ART },
+const GROUPS = computed(() => [
+  { title: T.groupFontsArt, items: fontsAndArt() },
   { title: T.groupLibraries, items: LIBRARIES },
-  { title: T.groupData, items: DATA_FILES },
-];
+  { title: T.groupData, items: dataFiles() },
+]);
 
 // 봇 이름, 소스 저장소(AGPL의 소스 제공. 서버의 SOURCE_REPO_URL, 없으면 원본 프로젝트)는 열 때 읽는다
 const botName = ref("");

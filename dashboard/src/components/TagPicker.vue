@@ -19,7 +19,7 @@
         ref="field"
         :value="term"
         @input="term = valueOf($event)"
-        :placeholder="picked.length ? '' : placeholder"
+        :placeholder="picked.length ? '' : (placeholder ?? text.fields.typeForSuggestions)"
         class="flex-1 min-w-32 h-8 px-2 bg-transparent border-0 text-on-surface text-sm outline-none font-[inherit] placeholder:text-on-surface-variant"
         @focus="open = true"
         @keydown.down="composing($event) || ($event.preventDefault(), move(1))"
@@ -61,7 +61,6 @@ import { text } from "../text/index.ts";
 const props = withDefaults(defineProps<{ modelValue?: OptionValue[] | null; options?: Option[]; placeholder?: string; limit?: number }>(), {
   modelValue: () => [],
   options: () => [],
-  placeholder: text.fields.typeForSuggestions,
   limit: 8,
 });
 const emit = defineEmits<{ "update:modelValue": [value: OptionValue[]] }>();

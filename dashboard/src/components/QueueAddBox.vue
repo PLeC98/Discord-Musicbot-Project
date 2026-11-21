@@ -156,10 +156,10 @@ import type { AddedTracks } from "../../../src/ui/text/shared.ts";
 import { SEARCH_MAX_LEN, SEARCH_MIN_LEN } from "../../../src/rules/limits.ts";
 import type { AddReply, AddedSummary, MoreReply, MoreView, PlayerRead, PlayerState, SearchReply, SearchTrack } from "../../../src/dashboard/contract/player.ts";
 const labels = text.bot.labels;
-const addedParts = text.bot.addedParts.addedParts;
+const addedParts = (addition: Parameters<typeof text.bot.addedParts.addedParts>[0]) => text.bot.addedParts.addedParts(addition);
 const T = text.server;
 const P = text.player;
-const songTitle = labels.songTitle;
+const songTitle = (title: string | null | undefined) => labels.songTitle(title);
 
 /** queueWindow: 대기열을 펼쳐 둔 만큼(응답도 그만큼 싣는다. 안 그러면 목록이 접힌다) */
 const props = defineProps<{ guildId: string; player: PlayerSeen; queueWindow: number }>();

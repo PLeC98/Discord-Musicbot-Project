@@ -1,6 +1,7 @@
 // 화면 문구표. 언어마다 같은 형태의 번들(text/<언어>/index.ts)을 두고, 고른 언어의 번들로 같은 문구표 객체(text) 안의 값을 갈아 끼운다(새로고침하지 않고 그 자리에서 글자가 바뀐다).
 // 기준 언어 번들은 늘 싣는다(처음 그리는 글자이고, 다른 언어에서 빠진 문구를 채운다). 다른 언어는 고를 때 받는다. 테스트 언어는 기준 언어를 바꿔 만든다(rules/pseudo-text).
-// 모듈마다 같은 그릇을 지킨다: `const T = text.shell`처럼 모듈을 가리켜 둔 곳은 그대로 바뀌고, 모듈 안의 값을 꺼내 둔 곳은 바뀌지 않는다(읽을 때 꺼낸다).
+// 모듈과 그 안의 객체마다 같은 그릇을 지킨다: `const T = text.shell`, `const D = text.settings.devices`처럼 객체를 가리켜 둔 곳은 함께 바뀌고,
+// 문자열, 함수, 배열을 꺼내 둔 곳은 바뀌지 않는다(읽을 때 꺼낸다. test/dashboard/client/text-copies로 검사한다).
 // 말투는 해요체, 버튼, 제목은 명사형, 툴팁은 짧게, 화면 읽기 이름(aria-label)은 무엇인지 드러나게.
 // 봇과 같은 뜻의 문장(거절, 오류, 라벨)은 여기 두지 않고 봇 문구표에서 부른다(text.bot, 봇의 src/ui/text/<언어>/shared)
 
@@ -26,24 +27,32 @@ function build(source: ScreenSource): Built {
   return { ...value, bot: withErrors(value.bot) } as unknown as Built;
 }
 
-type Modules = Omit<Built, "bot">;
+// 그릇을 두는 객체: 모듈(네임스페이스)과 일반 객체. 배열, 함수, 문자열은 값이라 통째로 바꾼다
+const isPlain = (value: unknown): value is Record<string, unknown> => {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+};
 
-// 모듈별 그릇. 같은 그릇을 지키고 값만 갈아 끼운다
-const holder = <T extends object>(module: T): T => shallowReactive({ ...module }) as T;
-const first = build(base);
-const text = {
-  ...(Object.fromEntries(Object.entries(first).map(([key, module]) => [key, key === "bot" ? null : holder(module as object)])) as Modules),
-  bot: Object.fromEntries(Object.entries(first.bot).map(([key, module]) => [key, holder(module as object)])) as Built["bot"],
-} as Built;
+/** 객체마다 반응형 그릇을 만든다(안쪽 객체도 그릇) */
+function holder<T>(value: T): T {
+  if (!isPlain(value)) return value;
+  return shallowReactive(Object.fromEntries(Object.entries(value).map(([key, one]) => [key, holder(one)]))) as T;
+}
+
+/** 그릇에 새 값을 넣는다. 둘 다 객체면 안쪽 그릇을 지키고 채운다 */
+function fillInto(target: Record<string, unknown>, next: Record<string, unknown>) {
+  for (const [key, one] of Object.entries(next)) {
+    const now = target[key];
+    if (isPlain(one) && isPlain(now)) fillInto(now, one);
+    else target[key] = holder(one);
+  }
+}
+
+const text = holder(build(base));
 
 /** 지금 화면 문구의 언어 */
 const textLanguage = ref<Language>(BASE_LANGUAGE);
-
-// 그릇마다 새 값을 넣는다
-function apply(next: Built) {
-  for (const [key, module] of Object.entries(next)) if (key !== "bot") Object.assign((text as Record<string, object>)[key], module);
-  for (const [key, module] of Object.entries(next.bot)) Object.assign((text.bot as Record<string, object>)[key], module);
-}
 
 /** 화면 문구를 그 언어로 바꾼다. 번들을 받는 동안에는 지금 글자를 그대로 둔다 */
 async function useTextLanguage(language: Language) {
@@ -51,7 +60,7 @@ async function useTextLanguage(language: Language) {
   const load = language === TEST_LANGUAGE ? async () => pseudoText(base as ScreenSource) : language === BASE_LANGUAGE ? async () => base as ScreenSource : LOADERS[language];
   // 번들이 없는 언어(목록과 번들이 어긋남)는 바꾸지 않는다
   if (!load) return;
-  apply(build(await load()));
+  fillInto(text as unknown as Record<string, unknown>, build(await load()) as unknown as Record<string, unknown>);
   textLanguage.value = language;
 }
 

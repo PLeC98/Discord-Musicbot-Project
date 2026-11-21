@@ -92,11 +92,11 @@ const settingsOpen = ref(false);
 const licenseOpen = ref(false);
 const MENU_WIDTH_REM = 17.5; // w-70
 
-const MODE_ITEMS: Array<{ mode: Mode; label: string; icon: IconName }> = [
+const MODE_ITEMS = computed<Array<{ mode: Mode; label: string; icon: IconName }>>(() => [
   { mode: "dark", label: T.modeDark, icon: "dark_mode" },
   { mode: "light", label: T.modeLight, icon: "light_mode" },
   { mode: "system", label: T.modeSystem, icon: "contrast" },
-];
+]);
 
 const initial = computed(() => user.displayName[0] || "?");
 const handle = computed(() => (user.data?.username !== user.displayName ? user.data?.username : null));

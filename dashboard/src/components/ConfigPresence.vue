@@ -78,8 +78,8 @@
               </div>
               <div class="grid grid-cols-1 @lg/card:grid-cols-3 gap-3">
                 <div v-for="cond in CONDITIONS" :key="cond.key">
-                  <span :class="FIELD_LABEL">{{ cond.label }}</span>
-                  <ConditionRangeField v-model="selected[cond.key]" :kind="cond.key" :label="cond.label" />
+                  <span :class="FIELD_LABEL">{{ cond.label() }}</span>
+                  <ConditionRangeField v-model="selected[cond.key]" :kind="cond.key" :label="cond.label()" />
                 </div>
               </div>
             </section>
@@ -131,7 +131,7 @@ function apply(data: Record<string, unknown>) {
   special.value = toSpecial(data.special as Record<string, SpecialData> | undefined, special.value);
 }
 
-const { loaded, dirty, saving, loadError, serverProblems, fetch, save, revert } = useConfigFile({ tab: "presence", savedNote: T.savedNote, payload: () => payload.value, apply, ...configFileIo("status") });
+const { loaded, dirty, saving, loadError, serverProblems, fetch, save, revert } = useConfigFile({ tab: "presence", savedNote: () => T.savedNote, payload: () => payload.value, apply, ...configFileIo("status") });
 
 // 저장할 때 서버가 보는 검사 그대로(schema/status). 저장 버튼을 누르기 전에 알려 준다
 const problems = computed(() => (loaded.value ? [...statusProblems(payload.value), ...serverProblems.value] : []));
@@ -158,7 +158,7 @@ const conditionText = (entry: SpecialRow) =>
   CONDITIONS.filter((c) => entry[c.key].trim())
     .map((c) => {
       const range = parseRange(c.key, entry[c.key]);
-      return `${c.label} ${range ? rangeText(c.key, range) : entry[c.key].trim()}`;
+      return `${c.label()} ${range ? rangeText(c.key, range) : entry[c.key].trim()}`;
     })
     .join("\n");
 

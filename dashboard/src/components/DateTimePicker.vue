@@ -6,7 +6,7 @@
     <button ref="anchor" type="button" :class="boxCls" :aria-expanded="open" @click="toggle">
       <span class="min-w-0 flex items-center gap-2" :class="modelValue == null ? 'text-on-surface-variant' : 'text-on-surface'">
         <Icon name="calendar_month" :size="18" class="shrink-0 text-on-surface-variant" />
-        <span class="truncate">{{ modelValue == null ? placeholder : summary(modelValue) }}</span>
+        <span class="truncate">{{ modelValue == null ? (placeholder ?? text.fields.datePicker.placeholder) : summary(modelValue) }}</span>
       </span>
       <svg class="shrink-0 text-on-surface-variant transition-transform spring-fast" :class="open && 'rotate-180'" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
     </button>
@@ -88,7 +88,7 @@
               <!-- 초기화(선택한 시각을 지우고 파일 끝으로), 적용 -->
               <div class="flex items-center justify-between gap-2" :class="side && 'absolute bottom-0 left-4 right-0'">
                 <BaseButton variant="ghost" size="sm" @click="latest">{{ T.reset }}</BaseButton>
-                <BaseButton variant="primary" size="sm" :disabled="!picked" @click="go">{{ confirmLabel }}</BaseButton>
+                <BaseButton variant="primary" size="sm" :disabled="!picked" @click="go">{{ confirmLabel ?? text.fields.datePicker.apply }}</BaseButton>
               </div>
             </div>
           </div>
@@ -120,7 +120,7 @@ const GAP = 4;
  * modelValue: 선택한 시각(ms, 선택하지 않았으면 null). ranges: 로그가 있는 기간들([처음, 끝], 파일마다). 그 밖의 날, 월은 막고 연도는 빼며, 달 넘기기는 건너뛴다.
  * 없으면 막지 않는다. confirmLabel: 확인 버튼 글
  */
-const props = withDefaults(defineProps<{ modelValue: number | null; ranges?: Array<[number, number]>; placeholder?: string; confirmLabel?: string }>(), { ranges: () => [], placeholder: text.fields.datePicker.placeholder, confirmLabel: text.fields.datePicker.apply });
+const props = withDefaults(defineProps<{ modelValue: number | null; ranges?: Array<[number, number]>; placeholder?: string; confirmLabel?: string }>(), { ranges: () => [] });
 const emit = defineEmits<{ "update:modelValue": [value: number | null]; go: [value: number | null] }>();
 
 const T = text.fields.datePicker;

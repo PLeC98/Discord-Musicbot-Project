@@ -31,7 +31,7 @@ const props = withDefaults(
     /** 작은 버튼(도구 줄) */
     small?: boolean;
   }>(),
-  { modelValue: "", options: () => [], placeholder: text.fields.pick, emptyLabel: "", searchFrom: 12, disabled: false, small: false },
+  { modelValue: "", options: () => [], emptyLabel: "", searchFrom: 12, disabled: false, small: false },
 );
 const emit = defineEmits<{ "update:modelValue": [value: OptionValue] }>();
 
@@ -47,7 +47,7 @@ const shown = computed(() => filterOptions(props.options, term.value));
 
 const pickedColor = computed(() => (picked.value ? props.options.find((one) => one.value === props.modelValue)?.color : undefined));
 const summary = computed(() => {
-  if (!picked.value) return props.emptyLabel || props.placeholder;
+  if (!picked.value) return props.emptyLabel || (props.placeholder ?? text.fields.pick);
   return props.options.find((one) => one.value === props.modelValue)?.label || String(props.modelValue);
 });
 

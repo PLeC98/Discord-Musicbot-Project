@@ -24,6 +24,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from "vue";
 import SingleSelect from "./SingleSelect.vue";
 import { segmentShape } from "../utils/segment.ts";
 import { SEAM_KINDS, SEAM_SECONDS, type LoginBackgroundOptions, type SeamKind } from "../../../src/dashboard/contract/login-background.ts";
@@ -31,7 +32,7 @@ import { text } from "../text/index.ts";
 const C = text.loginBackground.card;
 
 const seam = defineModel<LoginBackgroundOptions["seam"]>({ required: true });
-const SEAM_OPTIONS = SEAM_KINDS.map((kind) => ({ value: kind, label: C.seamKinds[kind] }));
+const SEAM_OPTIONS = computed(() => SEAM_KINDS.map((kind) => ({ value: kind, label: C.seamKinds[kind] })));
 
 function pickKind(value: string | number) {
   const kind = SEAM_KINDS.find((one): one is SeamKind => one === value);

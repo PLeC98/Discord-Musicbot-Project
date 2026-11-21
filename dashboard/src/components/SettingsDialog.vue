@@ -32,6 +32,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from "vue";
 import { ICON_BTN } from "../utils/icon-button.ts";
 import { segmentShape } from "../utils/segment.ts";
 import BaseDialog from "./BaseDialog.vue";
@@ -46,14 +47,14 @@ const T = text.settings;
 const open = defineModel<boolean>({ required: true });
 const close = () => (open.value = false);
 
-const MODE_ITEMS: Array<{ mode: Mode; label: string; icon: IconName }> = [
+const MODE_ITEMS = computed<Array<{ mode: Mode; label: string; icon: IconName }>>(() => [
   { mode: "dark", label: text.shell.modeDark, icon: "dark_mode" },
   { mode: "light", label: text.shell.modeLight, icon: "light_mode" },
   { mode: "system", label: text.shell.modeSystem, icon: "contrast" },
-];
+]);
 
 type Row = { key: keyof Prefs; label: string; desc: string; icon: IconName };
-const GROUPS: Array<{ title: string; rows: Row[] }> = [
+const GROUPS = computed<Array<{ title: string; rows: Row[] }>>(() => [
   {
     title: T.groupTheme,
     rows: [
@@ -62,5 +63,5 @@ const GROUPS: Array<{ title: string; rows: Row[] }> = [
     ],
   },
   { title: T.groupScreen, rows: [{ key: "clock", ...T.clock, icon: "schedule" }] },
-];
+]);
 </script>

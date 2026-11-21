@@ -19,14 +19,14 @@ export const setReportUrl = (url: unknown) => (reportTo = typeof url === "string
 /** 요청 오류의 안내. codeLine은 웹 쪽 오류와 응답 없는 실패만, reportUrl은 문장이 봇 개발자를 불렀을 때만 */
 export type ProblemNotice = { title: string; body: string; detail: string; codeLine: string; severity: Notice["severity"]; reportUrl: string };
 
-// 응답 없이 실패한 요청. 키는 request의 failureKind
-const UNANSWERED: Partial<Record<FailureKind, { code: string; severity: Notice["severity"]; title: string; body: string }>> = {
-  timeout: { code: "request-timeout", severity: "warning", ...text.errors.timeout },
-  offline: { code: "no-connection", severity: "error", ...text.errors.offline },
+// 응답 없이 실패한 요청. 키는 request의 failureKind. 제목과 본문은 알릴 때 문구표에서 읽는다
+const UNANSWERED: Partial<Record<FailureKind, { code: string; severity: Notice["severity"]; words: () => { title: string; body: string } }>> = {
+  timeout: { code: "request-timeout", severity: "warning", words: () => text.errors.timeout },
+  offline: { code: "no-connection", severity: "error", words: () => text.errors.offline },
 };
 
 /** 끝 줄: 오류 코드(와 HTTP 상태) */
-export const codeLineOf = text.errors.codeLine;
+export const codeLineOf = (...args: Parameters<typeof text.errors.codeLine>) => text.errors.codeLine(...args);
 
 /** 봇과 같은 안내의 제목 줄, 본문(꾸밈을 뗀 글). 요청 없이 화면이 먼저 알릴 때(조작이 막힌 이유 등) */
 export function noticeText(code: Code): { title: string; body: string } {
@@ -38,12 +38,12 @@ export function noticeText(code: Code): { title: string; body: string } {
 export const unansweredCode = (kind: FailureKind) => UNANSWERED[kind]?.code;
 
 /** 응답 없이 실패한 요청의 제목 줄 */
-export const unansweredTitle = (kind: FailureKind) => UNANSWERED[kind]?.title ?? "";
+export const unansweredTitle = (kind: FailureKind) => UNANSWERED[kind]?.words().title ?? "";
 
 /** 응답 없이 실패한 요청의 알림 전체(알림에 표시하는 형태) */
 export function unansweredNotice(kind: "timeout" | "offline"): ProblemNotice {
-  const { code, ...rest } = UNANSWERED[kind]!;
-  return { ...rest, detail: "", codeLine: codeLineOf(code), reportUrl: "" };
+  const { code, severity, words } = UNANSWERED[kind]!;
+  return { ...words(), severity, detail: "", codeLine: codeLineOf(code), reportUrl: "" };
 }
 
 /** 요청 오류의 문제 응답 본문. 문제 응답이 아니면 undefined */

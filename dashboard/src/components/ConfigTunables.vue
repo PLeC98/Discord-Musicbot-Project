@@ -98,7 +98,7 @@ const props = defineProps<{ groups: readonly TunableGroup[]; tab: string; canRes
 
 const loadError = ref("");
 // 카드 헤더의 설명서 버튼(저장소의 설명서)
-const GROUP_DOCS: Partial<Record<TunableGroup, { file: string; label: string }>> = { youtube: { file: "docs/youtube.md", label: T.youtubeDoc } };
+const GROUP_DOCS = computed<Partial<Record<TunableGroup, { file: string; label: string }>>>(() => ({ youtube: { file: "docs/youtube.md", label: T.youtubeDoc } }));
 
 // 도구 카드가 버튼으로 고치는 값, 자기 카드가 그리는 그룹은 여기서 그리지 않는다
 const mine = computed(() => TUNABLES.filter((one) => !one.card && !OWN_CARD_GROUPS.has(one.group) && props.groups.includes(one.group)));
@@ -122,7 +122,7 @@ const dirty = computed(() => mine.value.some(changed));
 // 쿠키 출처 선택. 선택 목록에 없는 값(chrome:Profile 1 같은 형식)이 들어 있거나 "기타"를 선택한 동안은 "기타"와 입력란
 // 선택 목록 안에서만 쓰는 표식(값으로 저장하지 않는다. 브라우저 이름은 괄호로 시작하지 않는다)
 const COOKIE_OTHER = "(other)";
-const COOKIE_OPTIONS: Option[] = [{ value: "file", label: T.cookies.file }, ...COOKIE_BROWSERS.map((id) => ({ value: id, label: COOKIE_BROWSER_NAMES[id], group: T.cookies.browsers })), { value: COOKIE_OTHER, label: T.cookies.other, group: T.cookies.otherGroup }];
+const COOKIE_OPTIONS = computed<Option[]>(() => [{ value: "file", label: T.cookies.file }, ...COOKIE_BROWSERS.map((id) => ({ value: id, label: COOKIE_BROWSER_NAMES[id], group: T.cookies.browsers })), { value: COOKIE_OTHER, label: T.cookies.other, group: T.cookies.otherGroup }]);
 const cookieOther = ref(false);
 // 저장하거나 되돌려 저장된 값으로 돌아오면 선택 목록으로 돌아간다
 watch(
@@ -133,7 +133,7 @@ function cookieChoice(one: Tunable) {
   const value = (draft.value[one.key] ?? "").trim();
   if (cookieOther.value) return COOKIE_OTHER;
   if (!value) return "";
-  return COOKIE_OPTIONS.some((option) => option.value === value.toLowerCase()) ? value.toLowerCase() : COOKIE_OTHER;
+  return COOKIE_OPTIONS.value.some((option) => option.value === value.toLowerCase()) ? value.toLowerCase() : COOKIE_OTHER;
 }
 // "기타"로 바꿀 때는 지금 값을 그대로 둔다(chrome을 chrome:Profile 1로 고쳐 입력하기 쉽게)
 function pickCookie(one: Tunable, value: string) {

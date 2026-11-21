@@ -82,7 +82,7 @@ import { loopEnabled, previousEnabled, shuffleEnabled, skipEnabled } from "../ut
 import { loopTip } from "../utils/loop-tip.ts";
 import { formatDuration } from "../../../src/ui/format.ts";
 import { text } from "../text/index.ts";
-const songTitle = text.bot.labels.songTitle;
+const songTitle = (title: string | null | undefined) => text.bot.labels.songTitle(title);
 const T = text.player;
 
 const np = useNowPlayingStore();

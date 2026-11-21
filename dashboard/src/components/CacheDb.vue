@@ -212,7 +212,7 @@ import { cellText, changeCount, editable, emptyChanges, keyOf, opsOf, rawText, s
 import { GRID_HEIGHT, KEY_STEP, PANE_WIDTH, gridHeight, paneWidth } from "../cache-db/split.ts";
 import { text } from "../text/index.ts";
 const T = text.cacheDb;
-const tableOptions = TRACK_CACHE_TABLES.map((one) => ({ value: one, label: T.tables[one] }));
+const tableOptions = computed(() => TRACK_CACHE_TABLES.map((one) => ({ value: one, label: T.tables[one] })));
 
 const API = "/api/admin/track-cache";
 const ROW_H = 28;
@@ -482,12 +482,12 @@ function jumpTo(r: number) {
   scroller.value?.focus({ preventScroll: true });
 }
 const pageRows = () => Math.max(1, Math.floor(viewHeight.value / ROW_H) - 3);
-const PAGER: Array<{ icon: IconName; label: string; go: () => void }> = [
+const PAGER = computed<Array<{ icon: IconName; label: string; go: () => void }>>(() => [
   { icon: "skip_previous", label: T.pager.first, go: () => scrollToRow(0) },
   { icon: "arrow_back", label: T.pager.prev, go: () => scrollToRow(Math.floor(scrollTop.value / ROW_H) - pageRows()) },
   { icon: "arrow_forward", label: T.pager.next, go: () => scrollToRow(Math.floor(scrollTop.value / ROW_H) + pageRows()) },
   { icon: "skip_next", label: T.pager.last, go: () => scrollToRow(matched.value - 1) },
-];
+]);
 
 // 상태 줄의 안내(잠깐)
 const hint = ref("");
