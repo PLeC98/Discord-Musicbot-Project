@@ -3,7 +3,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import * as ko from "../../../src/ui/text/ko/index.ts";
+import * as ko from "../../../locales/ko/bot/index.ts";
 import type { BotSource } from "../../../src/ui/text/index.ts";
 import { fillFrom } from "../../../src/rules/text-fill.ts";
 import { WHOLE_MODULES } from "../../../src/ui/text/bundle.ts";

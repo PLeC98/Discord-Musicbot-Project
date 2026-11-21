@@ -1,4 +1,4 @@
-// 소스 종류의 글(rules/text/<언어>/sources): 규격(config/schema/genre-sources)의 모든 종류, 입력란, 이름 묶음을 쓰는 선택지에 글이 있다
+// 소스 종류의 글(locales/<언어>/rules/sources): 규격(config/schema/genre-sources)의 모든 종류, 입력란, 이름 묶음을 쓰는 선택지에 글이 있다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

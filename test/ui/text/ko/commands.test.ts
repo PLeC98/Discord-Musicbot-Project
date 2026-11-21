@@ -1,4 +1,4 @@
-// src/ui/text/ko/commands.ts, src/ui/command-localizations.ts: 어떤 언어에서 빠진 명령 문구는 그 언어의 로케일 키로 싣지 않는다.
+// locales/ko/bot/commands.ts, src/ui/command-localizations.ts: 어떤 언어에서 빠진 명령 문구는 그 언어의 로케일 키로 싣지 않는다.
 // 한국어 문구표에서 일부를 뺀 사본을 다른 언어로 보고 확인한다
 
 import { test } from "node:test";
@@ -8,7 +8,7 @@ import { localizeCommand, type LocaleText } from "../../../../src/ui/command-loc
 import { fillFrom } from "../../../../src/rules/text-fill.ts";
 import { WHOLE_MODULES } from "../../../../src/ui/text/bundle.ts";
 import { textFor } from "../../../../src/ui/text/index.ts";
-import * as ko from "../../../../src/ui/text/ko/index.ts";
+import * as ko from "../../../../locales/ko/bot/index.ts";
 
 const KO = textFor("ko").commands;
 type Entry = { description: string; options?: Record<string, { name: string; description: string; choices?: Record<string, string> }> };

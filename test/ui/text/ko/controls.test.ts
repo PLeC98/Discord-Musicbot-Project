@@ -1,8 +1,8 @@
-// src/ui/text/ko/controls.ts: 조작 응답 문장을 모두 적어 둔다. 문장을 고치면 여기도 같이 고친다
+// locales/ko/bot/controls.ts: 조작 응답 문장을 모두 적어 둔다. 문장을 고치면 여기도 같이 고친다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import * as controls from "../../../../src/ui/text/ko/controls.ts";
+import * as controls from "../../../../locales/ko/bot/controls.ts";
 
 test("곡 링크: 제목이 라벨을 닫지 못한다(라벨 안이라 역슬래시는 넣지 않는다)", () => {
   assert.equal(controls.skipped({ title: "x](https://evil.example) [y", pageUrl: "https://example.com/v" }).body, "**[x]\u200b(https://evil.example) [y](https://example.com/v)**를 건너뛰었어요.");

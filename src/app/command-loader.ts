@@ -21,7 +21,7 @@ const log = logger.child({ category: "core" });
 
 /** 명령 정의. 배포는 JSON으로 */
 type CommandData = { toJSON(): RESTPostAPIApplicationCommandsJSONBody };
-/** 명령 정의를 만드는 함수. C는 봇 기본 언어의 명령 문구표(ui/text/<언어>/commands). 다른 언어의 문구는 배포할 때 단다(ui/command-localizations) */
+/** 명령 정의를 만드는 함수. C는 봇 기본 언어의 명령 문구표(locales/<언어>/bot/commands). 다른 언어의 문구는 배포할 때 단다(ui/command-localizations) */
 type DefineCommand = (C: CommandsText) => CommandData;
 /**
  * 서버 안에서만 쓰는 명령. 호출부(이벤트)가 서버 상호작용인지 먼저 본다. name은 명령 이름(언어마다 같다, 등록과 실행 목록의 키).

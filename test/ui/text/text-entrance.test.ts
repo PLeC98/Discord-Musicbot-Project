@@ -1,4 +1,4 @@
-// src/ui/text/: 봇 문구는 진입점(ui/text/index, ui/text/shared)으로만 부른다. 언어 폴더(ui/text/<언어>/)를 밖에서 직접 부르면 언어 선택을 건너뛴다.
+// 언어 폴더(locales/<언어>/): 봇 문구는 진입점(ui/text/index, ui/text/shared)으로만 부른다. 언어 폴더를 밖에서 직접 부르면 언어 선택을 건너뛴다.
 // 모듈 맨 위에서 문구표를 꺼내 두는 것도 같은 까닭으로 막는다(글자는 같아도 그 자리는 늘 한 언어가 된다)
 // 층 지킴: 재생, 유스케이스, 소스, 자동재생은 누가 보는지 모르므로 문구표와 언어 고르기를 부르지 않고 코드와 값만 낸다(로그 언어로 그리는 로그는 된다).
 // 규칙, 설정, 저장소도 부르지 않는다
@@ -33,25 +33,29 @@ function filesUnder(dir: string): string[] {
 // import, export ... from, import()의 경로(타입 import 포함)
 const specifiersOf = (source: string) => [...source.matchAll(/(?:^|\n)\s*(?:import|export)\b[^"';]*?from\s+"([^"]+)"|import\(\s*"([^"]+)"\s*\)/g)].map((m) => m[1] ?? m[2]);
 
-/** 그 파일이 부른 언어 폴더(봇 문구 src/ui/text/<언어>/, 규칙 문구 src/rules/text/<언어>/) */
+/** 그 파일이 부른 언어 폴더(봇 문구 locales/<언어>/bot, 규칙 문구 locales/<언어>/rules, 화면 문구 locales/<언어>/screen) */
 function languageDirsCalled(file: string): string[] {
   const source = fs.readFileSync(path.join(ROOT, file), "utf8");
   return specifiersOf(source)
     .filter((spec) => spec.startsWith("."))
     .map((spec) => posix(path.join(path.dirname(file), spec)))
-    .filter((target) => LANGUAGE_DIRS.some((tag) => target.startsWith(`src/ui/text/${tag}/`) || target.startsWith(`src/rules/text/${tag}/`)))
-    .map((target) => target.split("/").slice(0, 4).join("/"));
+    .filter((target) => LANGUAGE_DIRS.some((tag) => ["bot", "rules", "screen"].some((part) => target.startsWith(`locales/${tag}/${part}/`))))
+    .map((target) => target.split("/").slice(0, 3).join("/"));
 }
 
 /** 언어 폴더를 불러도 되는 파일: 같은 언어 폴더, 진입점, 그 언어의 문구표 테스트 */
 function allowed(file: string, dir: string): boolean {
-  const tag = dir.split("/")[3];
+  const [, tag, part] = dir.split("/");
   if (file.startsWith(`${dir}/`)) return true;
-  if (["src/ui/text/index.ts", "src/ui/text/shared.ts", "src/ui/text/contract.ts", "src/rules/text/index.ts"].includes(file)) return true;
+  if (part !== "screen" && ["src/ui/text/index.ts", "src/ui/text/shared.ts", "src/ui/text/contract.ts", "src/rules/text/index.ts"].includes(file)) return true;
+  // 화면의 진입점과 이모지 목록의 진입점
+  if (part === "screen" && ["dashboard/src/text/index.ts", "dashboard/src/emoji-list/index.ts"].includes(file)) return true;
   // 화면의 같은 언어 번들(화면도 쓰는 봇 문구와 규칙 문구를 담는다)
-  if (file === `dashboard/src/text/${tag}/index.ts`) return true;
+  if (part !== "screen" && file === `locales/${tag}/screen/index.ts`) return true;
   // 같은 언어의 봇 문구가 규칙 문구(소스 이름 등)를 쓴다
-  if (dir === `src/rules/text/${tag}` && file.startsWith(`src/ui/text/${tag}/`)) return true;
+  if (part === "rules" && file.startsWith(`locales/${tag}/bot/`)) return true;
+  // 이모지 목록 검증 테스트
+  if (part === "screen" && ["test/dashboard/emoji-list.test.ts", "test/dashboard/twemoji-font.test.ts"].includes(file)) return true;
   // 그 언어의 문구표 테스트, 문구 번들 자체를 시험하는 테스트
   if (file.startsWith(`test/ui/text/${tag}/`) || /^test\/ui\/text\/[^/]+\.test\.ts$/.test(file)) return true;
   if (file.startsWith(`test/rules/text/${tag}/`) || /^test\/rules\/text\/[^/]+\.test\.ts$/.test(file)) return true;
@@ -59,7 +63,7 @@ function allowed(file: string, dir: string): boolean {
 }
 
 test("언어 폴더는 진입점, 같은 언어 폴더, 그 언어의 문구표 테스트에서만 부른다", () => {
-  const wrong = [...filesUnder("src"), ...filesUnder("dashboard/src"), ...filesUnder("test"), ...filesUnder("scripts")].flatMap((file) =>
+  const wrong = [...filesUnder("src"), ...filesUnder("locales"), ...filesUnder("dashboard/src"), ...filesUnder("test"), ...filesUnder("scripts")].flatMap((file) =>
     languageDirsCalled(file)
       .filter((dir) => !allowed(file, dir))
       .map((dir) => `${file} → ${dir}`),

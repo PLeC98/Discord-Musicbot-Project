@@ -1,5 +1,5 @@
 // 장르 설정의 소스 줄 규격. 종류마다 필드, 값 목록, 필요한 키. 설정 검증과 대시보드 편집기와 자동재생이 같이 본다.
-// 이름, 설명, 선택지 이름은 규칙 문구(rules/text/<언어>/sources)에 있다. 여기는 구조만 둔다
+// 이름, 설명, 선택지 이름은 규칙 문구(locales/<언어>/rules/sources)에 있다. 여기는 구조만 둔다
 
 import type { Window } from "../../rules/window-depth.ts";
 import type { OptionGroup, RuleSource } from "../../rules/text/shape.ts";

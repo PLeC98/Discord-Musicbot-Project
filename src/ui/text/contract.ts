@@ -4,7 +4,7 @@
 import type { IconKey } from "../icons.ts";
 import type { Code } from "../../rules/problems.ts";
 import type { Notice, Topic } from "./notice.ts";
-import type * as koShared from "./ko/shared.ts";
+import type * as koShared from "../../../locales/ko/bot/shared.ts";
 
 /** 넓히지 않는 값. 언어별로 바뀌면 안 되는 유니온을 여기에 더한다(빠뜨리면 그 값이 string으로 넓어진다) */
 type Semantic = IconKey | Topic | Notice["severity"] | Code;
@@ -14,7 +14,7 @@ type Semantic = IconKey | Topic | Notice["severity"] | Code;
  */
 type TextShape<T> = T extends Semantic ? T : T extends string ? string : T extends (...args: infer A) => infer R ? ([TextShape<R>] extends [R] ? T : (...args: A) => TextShape<R>) : T extends object ? { [K in keyof T]: TextShape<T[K]> } : T;
 
-/** 화면과 그리기 워커도 쓰는 봇 문구(ui/text/<언어>/shared)의 모양 */
+/** 화면과 그리기 워커도 쓰는 봇 문구(locales/<언어>/bot/shared)의 모양 */
 type SharedSource = TextShape<typeof koShared>;
 
 export type { TextShape, SharedSource };

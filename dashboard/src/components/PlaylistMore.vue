@@ -72,7 +72,7 @@ const props = withDefaults(
 );
 defineEmits<{ add: [count: number]; close: [] }>();
 
-// 선택지, 남은 공간, 라벨은 디스코드 더 넣기 메뉴와 같은 규칙, 문장(rules/more-choices, rules/queue-room, ui/text/ko/more)
+// 선택지, 남은 공간, 라벨은 디스코드 더 넣기 메뉴와 같은 규칙, 문장(rules/more-choices, rules/queue-room, locales/ko/bot/more)
 const chip = "tap state-layer h-10 px-4 rounded-xl text-body font-semibold nums cursor-pointer bg-surface-highest/80 text-on-surface motion-button active:not-disabled:rounded-md active:not-disabled:scale-97 disabled:opacity-38 disabled:cursor-not-allowed";
 
 const batch = computed(() => props.more.batch);

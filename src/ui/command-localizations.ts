@@ -7,7 +7,7 @@ import type { RESTPostAPIApplicationCommandsJSONBody } from "discord.js";
 import { LANGUAGES, type TextLanguage } from "../rules/languages.ts";
 import { missingText, textFor, type BotText } from "./text/index.ts";
 
-/** 명령 문구표(ui/text/<언어>/commands) */
+/** 명령 문구표(locales/<언어>/bot/commands) */
 type CommandsText = BotText["commands"];
 /** 한 언어: 문구표, 그 언어로 받는 디스코드 로케일, 빠진(기준 언어로 채운) 문구의 경로 */
 type LocaleText = { commands: CommandsText; locales: readonly string[]; missing: readonly string[] };

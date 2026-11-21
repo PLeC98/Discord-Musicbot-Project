@@ -5,7 +5,7 @@
 // 그대로 옮겨 적은 파일이라, 선택하는 사람이 디스코드에서 보던 위치에서 찾을 수 있다.
 // 여기서는 거기에 두 가지를 붙인다.
 // - 단축명(:shushing_face:) → 이모지. 디스코드에서 복사하면 이 형식으로 붙는다.
-// - 해당 언어의 이름과 검색어. emojibase에서 해당 언어 데이터를 가져온다. 언어별 파일 하나(dashboard/src/emoji-list/<언어>.ts)
+// - 해당 언어의 이름과 검색어. emojibase에서 해당 언어 데이터를 가져온다. 언어별 파일 하나(언어 폴더의 locales/<언어>/screen/emoji.ts)
 //
 // 그리고 Twemoji에 이미지 파일이 실제로 있는지 대조한다. 없는 것을 목록에 넣으면 그 셀만 깨져 보인다.
 // 실행에는 인터넷이 필요하다. 결과물은 저장소에 넣는다.
@@ -25,7 +25,8 @@ import type { EmojiGroupId } from "../dashboard/src/emoji-list/index.ts";
 const TWEMOJI = twemojiPackage.version;
 const GIST = "https://gist.githubusercontent.com/rigwild/1b509bf69e2a2391f44aa5de3f05b006/raw/discord_emojis.min.json";
 const PICKER = path.join(import.meta.dirname, "data", "discord-emoji-picker.md");
-const OUT_DIR = path.join(PROJECT.root, "dashboard", "src", "emoji-list");
+// 언어별 출력 파일(언어 폴더의 화면 문구 옆)
+const outFile = (language: TextLanguage) => path.join(PROJECT.root, "locales", language, "screen", "emoji.ts");
 // 원본의 분류 제목(디스코드 한국어 선택기) → 분류 id. 분류 이름은 화면 문구표에 있다
 const GROUP_IDS: Record<string, EmojiGroupId> = { 사람: "people", 자연: "nature", 음식: "food", 활동: "activities", 여행: "travel", 사물: "objects", 기호: "symbols", 국기: "flags" };
 // 언어별 emojibase 로케일
@@ -151,7 +152,8 @@ async function writeList(language: TextLanguage, picker: ReturnType<typeof readP
   }
 
   const total = groups.reduce((sum, [, rows]) => sum + rows.length, 0);
-  const out = path.join(OUT_DIR, `${language}.ts`);
+  const out = outFile(language);
+  fs.mkdirSync(path.dirname(out), { recursive: true });
 
   // 저장소의 서식 검사를 지나도록 prettier 설정대로 맞춰 쓴다
   const source = [
@@ -162,7 +164,7 @@ async function writeList(language: TextLanguage, picker: ReturnType<typeof readP
     "//",
     "// 한 분류를 한 줄짜리 문자열로 담는다. 항목마다 객체로 두면 파일이 몇 배로 불어난다.",
     "// 줄은 줄바꿈으로, 필드는 |로 나뉜다: 이모지|이름|검색어",
-    'import type { EmojiGroup, EmojiGroupId } from "./index.ts";',
+    'import type { EmojiGroup, EmojiGroupId } from "../../../dashboard/src/emoji-list/index.ts";',
     "",
     `export const TWEMOJI_VERSION = ${JSON.stringify(TWEMOJI)};`,
     "",
@@ -195,7 +197,6 @@ async function main() {
   const [assets, gist, compact, sets] = await Promise.all([readAssets(), json(GIST, Gist), base(`${LOCALES[LANGUAGES[0].tag]}/compact.json`, Compact), Promise.all(["en/shortcodes/joypixels.json", "en/shortcodes/github.json", "en/shortcodes/emojibase.json", "en/shortcodes/emojibase-legacy.json", "en/shortcodes/cldr.json"].map((file) => base(file, Shortcodes)))]);
   const charOfCode = shortcodes(compact, sets, gist);
 
-  fs.mkdirSync(OUT_DIR, { recursive: true });
   for (const { tag } of LANGUAGES) await writeList(tag, picker, charOfCode, assets);
 }
 

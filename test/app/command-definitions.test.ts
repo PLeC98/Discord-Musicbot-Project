@@ -1,4 +1,4 @@
-// src/discord/commands, src/ui/command-localizations.ts: 슬래시 명령 정의(배포하는 JSON)와 언어마다의 명령 문구(ui/text/<언어>/commands).
+// src/discord/commands, src/ui/command-localizations.ts: 슬래시 명령 정의(배포하는 JSON)와 언어마다의 명령 문구(locales/<언어>/bot/commands).
 // 기본값(설명, 이름, 선택지)은 고정한 정의(fixtures/commands/definitions-ko.json)와 같고, 언어마다의 문구는 그 언어가 받는 디스코드 로케일 키로 실린다
 
 import { test } from "node:test";

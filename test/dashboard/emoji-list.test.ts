@@ -1,4 +1,4 @@
-// dashboard/src/emoji-list/: 이모지 선택 목록(언어별 목록 파일)이 지켜야 할 규칙.
+// 이모지 선택 목록(dashboard/src/emoji-list, 언어별 목록 파일 locales/<언어>/screen/emoji.ts)이 지켜야 할 규칙.
 //
 // 목록은 scripts/data/discord-emoji-picker.md를 원본으로 scripts/build-emoji-list.ts가 만든다.
 // 그 스크립트는 인터넷을 쓰므로 여기서는 만들어진 결과물만 본다.
@@ -10,7 +10,7 @@ import path from "path";
 import { EMOJI_GROUP_IDS, loadEmojiList } from "../../dashboard/src/emoji-list/index.ts";
 import { LANGUAGES } from "../../src/rules/languages.ts";
 
-const list = () => import("../../dashboard/src/emoji-list/ko.ts");
+const list = () => import("../../locales/ko/screen/emoji.ts");
 const groups = () => list().then((m) => m.EMOJI_GROUPS);
 const all = async () => (await groups()).flatMap((g) => g.emoji.map((e) => [g.id, e.char, e] as const));
 

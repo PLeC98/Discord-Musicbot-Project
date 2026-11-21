@@ -5,9 +5,9 @@ import assert from "node:assert/strict";
 import { missingText, textFor } from "../../../src/ui/text/index.ts";
 import { missingSharedText, sharedTextFor } from "../../../src/ui/text/shared.ts";
 import { TEST_LANGUAGE } from "../../../src/rules/languages.ts";
-import * as koErrors from "../../../src/ui/text/ko/errors.ts";
+import * as koErrors from "../../../locales/ko/bot/errors.ts";
 import { bindErrors } from "../../../src/ui/text/notice.ts";
-import * as koLabels from "../../../src/ui/text/ko/labels.ts";
+import * as koLabels from "../../../locales/ko/bot/labels.ts";
 
 test("한국어 번들은 언어 모듈과 같은 글을 내고, 빠진 문구가 없다", () => {
   const T = textFor("ko");

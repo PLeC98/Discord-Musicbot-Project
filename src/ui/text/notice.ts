@@ -16,7 +16,7 @@ const noticeOf = (severity: Notice["severity"], topic: Topic, title: string, bod
  */
 type LinkLook = { channel: (id: string) => string; developer: () => string };
 
-/** 오류, 거절 안내의 문장표. 언어 모듈(ui/text/<언어>/errors)이 코드마다 하나씩 둔다 */
+/** 오류, 거절 안내의 문장표. 언어 모듈(locales/<언어>/bot/errors)이 코드마다 하나씩 둔다 */
 type ErrorTable = { [C in Code]: (p: ParamsOf<C>, look: LinkLook) => Notice };
 
 /** 언어의 문장표(table)와 꾸밈 없는 형식(plain, 대시보드)으로 안내를 찾는 함수들. 찾는 법은 언어와 상관없다 */

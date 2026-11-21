@@ -1,4 +1,4 @@
-// SponsorBlock에서 건너뛸 수 있는 구간 종류. 설정 검사(src/config/index.ts), 조회(sources/sponsor-block), 설정 화면이 같이 본다. 이름과 설명은 문구표(ui/text/<언어>/sponsor)에 있다.
+// SponsorBlock에서 건너뛸 수 있는 구간 종류. 설정 검사(src/config/index.ts), 조회(sources/sponsor-block), 설정 화면이 같이 본다. 이름과 설명은 문구표(locales/<언어>/bot/sponsor)에 있다.
 
 const CATEGORIES = ["sponsor", "selfpromo", "interaction", "intro", "outro", "preview", "hook", "filler", "music_offtopic"] as const;
 type SkipCategory = (typeof CATEGORIES)[number];

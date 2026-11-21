@@ -1,4 +1,4 @@
-// src/: 사용자에게 보이는 문구는 언어 모듈(ui/text/<언어>/)에 둔다. 그 밖의 한글 문자열을 파일마다 세어(로그와 예외 메시지는 빼고, test/helpers/text-outside)
+// src/: 사용자에게 보이는 문구는 언어 폴더(locales/<언어>/)에 둔다. 그 밖의 한글 문자열을 파일마다 세어(로그와 예외 메시지는 빼고, test/helpers/text-outside)
 // 기준표(text-outside.json)와 비교한다. 늘면 문구표로 옮기거나 로그 호출 안에서 만든다. 옮겨서 줄면 기준표도 줄인다(다시 늘지 않게)
 
 import { test } from "node:test";

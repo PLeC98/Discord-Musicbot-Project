@@ -42,6 +42,9 @@ const isRootConfig = (rel: string) => rel === "src/config/index.ts";
 const ENV_BOOTSTRAP = "src/app/env-bootstrap.ts";
 
 function layerOf(rel: string) {
+  // 언어 폴더(locales/<언어>/)는 자신을 부르는 진입점의 층을 따른다
+  const locale = /^locales\/[^/]+\/(bot|rules)\//.exec(rel);
+  if (locale) return locale[1] === "bot" ? "ui" : "rules";
   if (isRootIndex(rel)) return "app";
   if (isRootConfig(rel)) return "config";
   if (/^src\/(discord|dashboard)\//.test(rel)) return "진입점";
@@ -274,7 +277,7 @@ function cycleEdges(graph: Map<string, Set<string>>) {
 }
 
 function scan() {
-  const sources = walk("src").map(scanSource);
+  const sources = [...walk("src"), ...walk("locales").filter((rel) => layerOf(rel) !== null)].map(scanSource);
   const tests = walk("test").map(scanTest);
 
   const direction: string[] = [];

@@ -1,8 +1,8 @@
-// src/ui/text/ko/notices.ts: 플레이어 알림을 모두 적어 둔다(안내는 경고 수준, 이모지, 헤더 줄, 본문은 다음 줄). 문장을 고치면 여기도 같이 고친다
+// locales/ko/bot/notices.ts: 플레이어 알림을 모두 적어 둔다(안내는 경고 수준, 이모지, 헤더 줄, 본문은 다음 줄). 문장을 고치면 여기도 같이 고친다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import * as notices from "../../../../src/ui/text/ko/notices.ts";
+import * as notices from "../../../../locales/ko/bot/notices.ts";
 import { shown } from "../../../helpers/notice.ts";
 
 test("모든 문장", () => {

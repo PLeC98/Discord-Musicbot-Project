@@ -1,9 +1,9 @@
-// src/ui/text/ko/queue.ts, added-parts.ts: 추가 안내와 대기열 화면의 글자를 모두 적어 둔다. 문장을 고치면 여기도 같이 고친다
+// locales/ko/bot/queue.ts, added-parts.ts: 추가 안내와 대기열 화면의 글자를 모두 적어 둔다. 문장을 고치면 여기도 같이 고친다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import * as queue from "../../../../src/ui/text/ko/queue.ts";
-import { addedParts, shortfallNotice } from "../../../../src/ui/text/ko/added-parts.ts";
+import * as queue from "../../../../locales/ko/bot/queue.ts";
+import { addedParts, shortfallNotice } from "../../../../locales/ko/bot/added-parts.ts";
 
 test("모든 문장", () => {
   assert.deepEqual(

@@ -1,9 +1,9 @@
-// src/ui/text/ko/sponsor.ts, audit.ts: SponsorBlock 구간 이름과 설명, 감사 로그 사유를 모두 적어 둔다. 고치면 여기도 같이 고친다
+// locales/ko/bot/sponsor.ts, audit.ts: SponsorBlock 구간 이름과 설명, 감사 로그 사유를 모두 적어 둔다. 고치면 여기도 같이 고친다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import * as sponsor from "../../../../src/ui/text/ko/sponsor.ts";
-import * as audit from "../../../../src/ui/text/ko/audit.ts";
+import * as sponsor from "../../../../locales/ko/bot/sponsor.ts";
+import * as audit from "../../../../locales/ko/bot/audit.ts";
 import { SKIP_CATEGORIES } from "../../../../src/rules/sponsor-categories.ts";
 
 test("구간 이름과 설명. 모르는 id는 이름이 그대로, 설명은 빈 글", () => {

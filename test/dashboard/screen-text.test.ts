@@ -1,4 +1,4 @@
-// dashboard/src: 화면 문구는 문구표(text/) 한곳에 둔다. 다국어를 추가할 때 그곳만 옮기면 되게.
+// dashboard/src: 화면 문구는 언어 폴더(locales/<언어>/screen) 한곳에 둔다. 다국어를 추가할 때 그곳만 옮기면 되게.
 // 화면 파일의 글(템플릿의 글, 속성 값, 식, 스크립트의 문자열)에 한글이 있으면 걸린다. 주석은 보지 않는다
 
 import { test } from "node:test";
@@ -10,9 +10,6 @@ import { parse } from "@vue/compiler-sfc";
 
 const SRC = path.join(import.meta.dirname, "..", "..", "dashboard", "src");
 const HANGUL = /[가-힣ㄱ-ㆎ]/;
-
-// 문구가 아니라 언어별 데이터(이모지 이름, emoji-list/<언어>.ts)
-const NOT_TEXT = /^emoji-list\/(?!index\.ts$)[^/]+\.ts$/;
 
 const walk = (dir: string): string[] => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(dir, e.name)) : /\.(vue|ts)$/.test(e.name) ? [path.join(dir, e.name)] : []));
 
@@ -49,12 +46,11 @@ function stringsOf(file: string): string[] {
   return [...(descriptor.template ? templateStrings(descriptor.template.ast as unknown as TemplateNode) : []), ...scriptStrings(descriptor.scriptSetup?.content ?? ""), ...scriptStrings(descriptor.script?.content ?? "")];
 }
 
-test("화면 파일에 한글 문구가 없다(문구는 text/ 에)", () => {
+test("화면 파일에 한글 문구가 없다(문구는 언어 폴더에)", () => {
   const found: string[] = [];
   for (const file of walk(SRC)) {
     const rel = path.relative(SRC, file).split(path.sep).join("/");
-    if (rel.startsWith("text/") || NOT_TEXT.test(rel)) continue;
     for (const s of stringsOf(file)) found.push(`${rel}: ${s.slice(0, 60)}`);
   }
-  assert.deepEqual(found, [], "문구표(text/)로 옮긴다");
+  assert.deepEqual(found, [], "언어 폴더(locales/<언어>/screen)로 옮긴다");
 });

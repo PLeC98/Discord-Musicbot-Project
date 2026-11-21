@@ -34,7 +34,8 @@ test("주제마다 아이콘 하나. 앱 이모지를 맞추기 전에는 유니
 });
 
 test("주제의 아이콘은 안내를 만드는 곳이 쓰는 경고 수준의 색만 그려 둔다(빠지면 다른 색 타일로 내려가고, 남으면 쓰지 않는 앱 이모지를 올린다)", () => {
-  const dir = path.join(import.meta.dirname, "../../src");
+  // 안내를 만드는 곳: 봇 코드와 언어 폴더의 봇 문구
+  const dirs = [path.join(import.meta.dirname, "../../src"), path.join(import.meta.dirname, "../../locales")];
   const pairs = new Set<string>();
   const scan = (at: string) => {
     for (const name of fs.readdirSync(at)) {
@@ -43,7 +44,7 @@ test("주제의 아이콘은 안내를 만드는 곳이 쓰는 경고 수준의 
       else if (file.endsWith(".ts")) for (const m of fs.readFileSync(file, "utf8").matchAll(/\b(?:noticeOf\(\s*"(error|warning)",\s*|(error|warning)\()"(\w+)"/g)) pairs.add(`${m[1] ?? m[2]} ${m[3]}`);
     }
   };
-  scan(dir);
+  dirs.forEach(scan);
   assert.ok(pairs.size > 10, `찾은 짝이 너무 적다: ${[...pairs].join(", ")}`);
   const used = new Map<string, Set<string>>();
   for (const pair of pairs) {

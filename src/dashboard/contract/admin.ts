@@ -159,7 +159,7 @@ const ANNOUNCE_KINDS = ["maintenance", "update", "alert", "info"] as const;
 type AnnounceKind = (typeof ANNOUNCE_KINDS)[number];
 const isAnnounceKind = (v: unknown): v is AnnounceKind => ANNOUNCE_KINDS.some((kind) => kind === v);
 /**
- * 공지 종류의 모양: 디스코드 임베드의 아이콘(ui/icons의 키), 왼쪽 색 띠. 봇이 보낼 때와 화면의 미리보기가 같이 쓴다. 제목은 봇 문구표(ui/text/ko/announce).
+ * 공지 종류의 모양: 디스코드 임베드의 아이콘(ui/icons의 키), 왼쪽 색 띠. 봇이 보낼 때와 화면의 미리보기가 같이 쓴다. 제목은 봇 문구표(locales/ko/bot/announce).
  * 색은 경고 수준의 뜻(점검 = 경고, 업데이트 = 완료, 긴급 = 오류, 공지사항 = 공지). 아이콘 타일도 그 색으로 그려 둔다
  */
 const ANNOUNCE_STYLE = {

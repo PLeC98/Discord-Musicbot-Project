@@ -1,8 +1,8 @@
-// src/ui/text/ko/help.ts: /help 화면의 글자(첫 화면, 섹션 이름과 설명, 권한 표시와 그 뜻, 메뉴와 버튼)를 모두 적어 둔다. 문장을 고치면 여기도 같이 고친다
+// locales/ko/bot/help.ts: /help 화면의 글자(첫 화면, 섹션 이름과 설명, 권한 표시와 그 뜻, 메뉴와 버튼)를 모두 적어 둔다. 문장을 고치면 여기도 같이 고친다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import * as help from "../../../../src/ui/text/ko/help.ts";
+import * as help from "../../../../locales/ko/bot/help.ts";
 
 test("모든 문장", () => {
   assert.deepEqual(
