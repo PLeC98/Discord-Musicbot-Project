@@ -17,6 +17,8 @@ const assist = {
   "ai-key-no-url": (p) => `${p.label}: 키를 묶을 주소가 없음. 주소를 먼저 입력하세요`,
   "ai-key-paste-json": (p) => `${p.label}: 서비스 계정 JSON 내용을 붙여넣으세요(파일 경로는 받지 않음)`,
   "ai-key-account": (p, cause) => `${p.label}: ${cause}`,
+  "ai-verdict-unreadable": () => "판정을 읽지 못함",
+  "ai-verdict-not-json": () => "판정을 읽지 못함(JSON이 아닌 응답)",
   "ai-cand-not-youtube": () => "유튜브 URL이 아니라 건너뛰었어요.",
   "ai-cand-timeout": (p) => `시간 초과(${p.sec}초)로 곡 정보를 불러오지 못했어요.`,
 } satisfies Partial<RuleSentences>;

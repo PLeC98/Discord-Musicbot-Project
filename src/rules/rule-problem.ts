@@ -225,6 +225,8 @@ const RULE_CODES = [
   "ai-key-no-url",
   "ai-key-paste-json",
   "ai-key-account",
+  "ai-verdict-unreadable",
+  "ai-verdict-not-json",
   "ai-cand-not-youtube",
   "ai-cand-timeout",
   // IP 위치 DB 다운로드(dashboard/geoip)

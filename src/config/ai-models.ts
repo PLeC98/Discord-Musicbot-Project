@@ -5,6 +5,7 @@
  * 실행 위치(`database/ai-models.json`)에 둔다. 저장소에는 싣지 않는다. 받은 것이 없으면 빈 프로필로 돈다(필드를 모르는 모델과 같다).
  * 받는 때는 config/ai-model-info가 정한다.
  */
+import { nameFor, type Language } from "../rules/languages.ts";
 import fs from "fs";
 import path from "path";
 import { PROJECT } from "../infra/project-paths.ts";
@@ -28,7 +29,7 @@ const ours = (bodyPath: string) => OURS.has(bodyPath.split(".")[0] ?? "");
 // 레지스트리의 모양. 여기서 읽는 필드만
 type SchemaField = { key: string; type?: string; label?: string; mapsTo?: { target?: string; path?: string }; enum?: unknown[]; min?: number; max?: number; step?: number; default?: unknown };
 type UiField = { key: string; widget?: string; group?: string; visibility?: string; showIf?: ShowIf; order?: number };
-type UiGroup = { id: string; label?: string; labelI18n?: { ko?: string }; order?: number };
+type UiGroup = { id: string; label?: string; labelI18n?: Partial<Record<string, string>>; order?: number };
 type UiSchema = { fields?: UiField[]; groups?: UiGroup[] };
 type BaseProvider = { requestSchema?: SchemaField[]; uiSchema?: UiSchema; defaultBody?: Record<string, unknown> };
 type Profile = {
@@ -155,14 +156,14 @@ function fieldsOf(registry: string, modelId: string, snapshot: Snapshot = load()
     .sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
 }
 
-/** 필드를 담는 그룹. 이름과 순서를 프로필이 정한다. 필드 이름은 영어뿐이고 그룹에만 한국어가 있다. */
-function groupsOf(registry: string, modelId: string, snapshot: Snapshot = load()): ModelGroup[] {
+/** 필드를 담는 그룹. 이름과 순서를 프로필이 정한다. 필드 이름은 영어뿐이고 그룹에만 언어별 이름(labelI18n)이 있다. 해당 언어 이름이 없으면 label */
+function groupsOf(registry: string, modelId: string, language: Language, snapshot: Snapshot = load()): ModelGroup[] {
   const found = profileOf(registry, modelId, snapshot);
   if (!found) return [];
   const base = baseOf(snapshot, found.profile);
   const by = new Map<string, ModelGroup>();
   for (const g of [...(base?.uiSchema?.groups || []), ...(found.profile.uiSchema?.groups || [])]) {
-    by.set(g.id, { id: g.id, label: g.labelI18n?.ko || g.label || g.id, order: g.order ?? 99 });
+    by.set(g.id, { id: g.id, label: nameFor(g.labelI18n, language) || g.label || g.id, order: g.order ?? 99 });
   }
   return [...by.values()].sort((a, b) => a.order - b.order);
 }

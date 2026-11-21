@@ -788,9 +788,9 @@ function judgeCall(one: AiSettings, size: number): Pick<Call, "provider" | "mode
     tokensOf: (json) => dialectOf(one).usageOf?.(json as Reply) ?? null,
     explain: (raw) => {
       try {
-        return readVerdicts(dialectOf(one).answerOf(JSON.parse(raw) as Reply) || "", size) ? undefined : "판정을 읽지 못함";
+        return readVerdicts(dialectOf(one).answerOf(JSON.parse(raw) as Reply) || "", size) ? undefined : rule("ai-verdict-unreadable");
       } catch {
-        return "판정을 읽지 못함(JSON이 아닌 응답)";
+        return rule("ai-verdict-not-json");
       }
     },
   };
@@ -1119,8 +1119,8 @@ async function judgeTest(draft: Draft, cands: TestCandidate[] | null | undefined
   try {
     request = await buildRequest(one, usable, genre);
   } catch (error) {
-    // 헤더 생성 실패 시(버텍스 토큰을 못 받는 등). 원인을 화면으로 반환한다
-    return { url: "", headers: {}, body: {}, messages: [], tokens: null, status: null, response: mask(messageOf(error)), verdicts: null, tookMs: Date.now() - started } satisfies JudgeResult;
+    // 헤더 생성 실패 시(버텍스 토큰을 못 받는 등). 원인을 화면으로 반환한다(reason)
+    return { url: "", headers: {}, body: {}, messages: [], tokens: null, status: null, response: "", reason: checkFailure(error), verdicts: null, tookMs: Date.now() - started } satisfies JudgeResult;
   }
   const out: JudgeResult = { url: request.url, headers: safeHeaders(request.headers), body: request.body, messages: request.messages, tokens: await countTokens(one, request.wire), status: null, response: "", verdicts: null };
 
@@ -1140,8 +1140,8 @@ async function judgeTest(draft: Draft, cands: TestCandidate[] | null | undefined
       out.verdicts = null;
     }
   } catch (error) {
-    // 판정 테스트의 응답이다. 실패 원인은 화면으로 돌려주고 요청은 AI 리퀘스트 로그에 남았다
-    out.response = mask(String((error as Error | null)?.message));
+    // 판정 테스트의 응답이다. 실패 원인은 화면으로 돌려주고(reason) 요청은 AI 리퀘스트 로그에 남았다
+    out.reason = checkFailure(error);
   }
   out.tookMs = Date.now() - started;
   return out;

@@ -882,7 +882,7 @@ test("테스트는 못 보내도 예외를 던지지 않는다", async () => {
   });
   const shown = await assist.judgeTest({ provider: "openai", baseUrl: "http://x/v1", model: "m" }, []);
   assert.equal(shown.status, null);
-  assert.match(shown.response, /연결 실패/);
+  assert.match(shown.reason ? logRuleLine(shown.reason) : "", /연결 실패/);
 });
 
 // 거절 응답에 보낸 값을 되비추는 서비스가 있다. 화면에도 로그에도 키가 남으면 안 된다
@@ -1501,7 +1501,7 @@ test("버텍스 미리보기는 토큰을 받으러 나가지 않는다. 연결 
 
   const judged = await assist.judgeTest({ provider: "vertex", model: "gemini-3.7-flash", location: "global", project: "p" }, []);
   assert.equal(judged.status, null);
-  assert.match(judged.response, /network down/);
+  assert.match(judged.reason ? logRuleLine(judged.reason) : "", /network down/);
 });
 
 test("판정 테스트 후보: 못 읽은 줄은 호출부가 고른 안내를 보이고, 실패 원문은 운영자 로그로 보낸다", async (t) => {

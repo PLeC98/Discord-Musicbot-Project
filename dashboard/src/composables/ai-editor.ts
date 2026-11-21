@@ -25,7 +25,7 @@ import type { AiDefaults, ModelsCheck, PingCheck, Preview, JudgeResult, TestCand
 import type { AiFields, AiKeyState, AiSaved, AiState, CandidatesReply, ConfigFile, KeysReply, LinesReply, PromptReply, TokensReply } from "../../../src/dashboard/contract/admin.ts";
 import { AI_SAMPLE_CANDIDATES } from "../../../src/dashboard/contract/admin.ts";
 import { formatDuration } from "../../../src/ui/format.ts";
-import { text } from "../text/index.ts";
+import { text, textLanguage } from "../text/index.ts";
 const TJ = text.ai.judge;
 const TR = text.ai.prompt;
 const TL = text.ai.list;
@@ -618,9 +618,9 @@ function serverReads(s: State, io: Exchange) {
       io.loadError.value = problemText(error, T.failed.preview);
     }
   }
-  // 프로바이더나 모델이 바뀌면 받을 수 있는 필드도 달라진다.
+  // 프로바이더나 모델이 바뀌면 받을 수 있는 필드도 달라진다. 화면 언어가 바뀌면 그룹 이름을 바뀐 언어로 다시 받는다
   watch(
-    () => [draft.value.provider, draft.value.model],
+    () => [draft.value.provider, draft.value.model, textLanguage.value],
     () => loadFields(),
     { immediate: true },
   );
@@ -654,7 +654,7 @@ function judgeTest(s: State, io: Exchange) {
       { title: "URL", text: one.url },
       { title: T.boxes.headers, text: JSON.stringify(one.headers, null, 2) },
       { title: T.boxes.body, text: JSON.stringify(one.body, null, 2) },
-      { title: T.boxes.response, text: one.response || T.boxes.empty },
+      { title: T.boxes.response, text: one.reason ? ruleLine(one.reason) : one.response || T.boxes.empty },
     ];
   });
   // 못 읽은 줄이 섞여 있어 후보 순서와 줄 순서가 어긋난다. 멀쩡한 것만 세어 맞춘다

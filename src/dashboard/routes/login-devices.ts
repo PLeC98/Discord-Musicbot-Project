@@ -18,10 +18,12 @@ import { discordHttp, type DiscordHttp } from "../discord-api.ts";
 import { bestEffort } from "../../infra/best-effort.ts";
 import { sendProblem } from "../problem.ts";
 import { messageOf } from "../../rules/error-kind.ts";
-import type { LoginDevices, SignedOut } from "../contract/identity.ts";
+import type { DevicePlace, LoginDevices, SignedOut } from "../contract/identity.ts";
+import type { Language } from "../../rules/languages.ts";
+import { viewerLanguage } from "../../ui/language.ts";
 
-/** IP 위치(dashboard/geoip). load: 목록을 그리기 전에 올린다(쓸 수 있으면 true, 화면이 출처 링크를 단다). locate: 공인 주소만 조회한다 */
-type Places = { load(): Promise<boolean>; locate: Locate };
+/** IP 위치(dashboard/geoip). load: 목록을 그리기 전에 올린다(쓸 수 있으면 true, 화면이 출처 링크를 단다). locate: 공인 주소만 조회한다(이름은 해당 언어로) */
+type Places = { load(): Promise<boolean>; locate: (ip: string, language: Language) => DevicePlace };
 
 /** http: 디스코드(토큰 폐기) */
 function createLoginDevicesRouter({ places, http = discordHttp }: { places: Places; http?: DiscordHttp }) {
@@ -53,7 +55,8 @@ function createLoginDevicesRouter({ places, http = discordHttp }: { places: Plac
     const store = tokenStoreOf(req);
     if (!store) return sendProblem(res, "unknown-error");
     const geoip = await places.load();
-    const locate: Locate = geoip ? places.locate : () => null;
+    const language = viewerLanguage({ userId: signedIn(req).id, acceptLanguage: req.get("accept-language") });
+    const locate: Locate = geoip ? (ip) => places.locate(ip, language) : () => null;
     const rows = store.sessionsOf(signedIn(req).id).map(({ sid, session, device }) => describe(sid, session, device, req.sessionID, locate));
     rows.sort((a, b) => Number(b.current) - Number(a.current) || (b.seenAt ?? 0) - (a.seenAt ?? 0));
     res.json({ devices: rows, geoip } satisfies LoginDevices);

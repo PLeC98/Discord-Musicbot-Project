@@ -52,10 +52,11 @@ type TokenCount = { total: number; body: number; each?: number[]; by: string; ex
 /** 나갈 것을 만들어만 본 것. 헤더의 키 값은 가려져 있다 */
 type Preview = { url: string; headers: Record<string, string>; body: Body; messages: ShownMessage[]; tokens: TokenCount | null };
 
-/** 판정 테스트의 답. 나간 것, 온 것, 곡별 판정 */
+/** 판정 테스트의 답. 나간 것, 온 것, 곡별 판정. reason: 보내지 못했거나 응답을 받지 못한 원인(규칙 문제) */
 type JudgeResult = Preview & {
   status: number | null;
   response: string;
+  reason?: RuleProblem;
   verdicts: Array<{ title?: string | null; url?: string; song: boolean | null; fits: boolean | null }> | null;
   usage?: Usage | null;
   tookMs?: number;

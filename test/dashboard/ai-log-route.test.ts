@@ -2,6 +2,7 @@
 
 process.env.OWNER_ID = "owner";
 
+import { plain } from "../../src/rules/rule-problem.ts";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import express from "express";
@@ -47,14 +48,14 @@ const get = async <T>(route: string) => {
 test("목록: 서버 이름을 붙이고, 필터, 페이지 넘기기, 저장 상태를 준다", async () => {
   requests.clearRequests();
   add();
-  add({ source: "models", model: "", name: "", guildId: undefined, ok: false, status: 503, error: "HTTP 503" });
+  add({ source: "models", model: "", name: "", guildId: undefined, ok: false, status: 503, error: plain("HTTP 503") });
   const all = await get<Page>("/logs?limit=1");
   assert.equal(all.status, 200);
   assert.equal(all.json.entries.length, 1);
   assert.deepEqual([all.json.total, all.json.matched], [2, 2]);
   assert.equal(all.json.storage.enabled, true);
   const failed = await get<Page>("/logs?result=failed&sources=models,nope");
-  assert.deepEqual([failed.json.matched, failed.json.entries[0].error], [1, "HTTP 503"]);
+  assert.deepEqual([failed.json.matched, failed.json.entries[0].error], [1, plain("HTTP 503")]);
   const older = await get<Page>(`/logs?before=${all.json.entries[0].id}`);
   assert.equal(older.json.entries[0].guildName, "음악 감상실");
 });

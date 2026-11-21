@@ -306,7 +306,7 @@ adminRouter.get("/ai/fields", (req, res) => {
     known: !!models.profileOf(registry, model),
     profiled: true,
     fields: model ? models.fieldsOf(registry, model) : [],
-    groups: model ? models.groupsOf(registry, model) : [],
+    groups: model ? models.groupsOf(registry, model, viewerLanguage({ userId: req.session.user?.id, acceptLanguage: req.get("accept-language") })) : [],
     // 프로필이 아는 모델들. 목록에 라벨을 입힐 때 쓴다
     models: models.modelsOf(registry),
   } satisfies AiFields);

@@ -3,6 +3,7 @@
 // 기록은 저장할 때 키를 가린다(assist/mask: 헤더 값, 주소, 본문, 응답). 비용은 그때의 값표로 센다(config/ai-prices).
 // 기록이 꺼져 있거나(AI_LOG_ENABLED) DB가 열려 있지 않으면(스크립트, 테스트) 남기지 않는다. 기록이 실패해도 요청은 그대로 간다.
 
+import { plain, type RuleProblem } from "../../rules/rule-problem.ts";
 import config from "../../config/index.ts";
 import * as requests from "../../store/ai-requests.ts";
 import * as prices from "../../config/ai-prices.ts";
@@ -28,7 +29,7 @@ type Call = {
   genre?: string;
   candidates?: number;
   tokensOf?: (json: unknown) => Usage | null;
-  explain?: (text: string) => string | undefined;
+  explain?: (text: string) => RuleProblem | undefined;
   keep?: (res: Response) => boolean;
 };
 
@@ -70,7 +71,7 @@ function tokensFrom(call: Call, text: string): AiTokens | null {
   }
 }
 
-type Outcome = { status: number | null; ok: boolean; aborted: boolean; tookMs: number; firstMs: number | null; text: string; error?: string };
+type Outcome = { status: number | null; ok: boolean; aborted: boolean; tookMs: number; firstMs: number | null; text: string; error?: RuleProblem };
 
 function write(call: Call, url: string, init: RequestInit, got: Outcome) {
   if (!config.aiLog.enabled || !requests.isOpen()) return;
@@ -99,7 +100,7 @@ function write(call: Call, url: string, init: RequestInit, got: Outcome) {
         ...(call.candidates ? { candidates: call.candidates } : {}),
         tokens,
         costUsd,
-        ...(got.error ? { error: mask(got.error) } : {}),
+        ...(got.error ? { error: masked(got.error) } : {}),
         requestHeaders: JSON.stringify(safeHeaders(init.headers as Record<string, string> | undefined)),
         requestBody: mask(typeof init.body === "string" ? init.body : ""),
         response: mask(got.text),
@@ -113,10 +114,13 @@ function write(call: Call, url: string, init: RequestInit, got: Outcome) {
   }
 }
 
+// 바깥 글(plain)은 키를 가려서 남긴다
+const masked = (error: RuleProblem): RuleProblem => (error.code === "plain" ? plain(mask(String(error.params?.text ?? ""))) : error);
+
 /** 실패 응답의 원인 한 줄(HTTP 상태와 저쪽 문구) */
-function failureOf(status: number, text: string) {
+function failureOf(status: number, text: string): RuleProblem {
   const { key, detail } = retry.summaryOf(status, text);
-  return detail ? `${key}: ${detail}` : key;
+  return plain(detail ? `${key}: ${detail}` : key);
 }
 
 /** 보내고 기록한다. 닿지 못했으면(연결 실패, 시간 초과) 기록한 뒤 그 오류를 그대로 던진다 */
@@ -131,7 +135,7 @@ async function sendLogged(send: Send, call: Call, url: string, init: RequestInit
     return { res, text };
   } catch (error) {
     const aborted = Boolean(init.signal?.aborted);
-    write(call, url, init, { status: res?.status ?? null, ok: false, aborted, tookMs: Date.now() - started, firstMs: null, text: "", error: messageOf(error) });
+    write(call, url, init, { status: res?.status ?? null, ok: false, aborted, tookMs: Date.now() - started, firstMs: null, text: "", error: plain(messageOf(error)) });
     throw error;
   }
 }

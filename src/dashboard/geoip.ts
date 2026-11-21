@@ -22,6 +22,7 @@ import { codeOf, errorProblem, messageOf } from "../rules/error-kind.ts";
 import { rule, type RuleProblem } from "../rules/rule-problem.ts";
 import { logRuleLine } from "../rules/text/index.ts";
 import type { DevicePlace } from "./contract/identity.ts";
+import { nameFor, type Language } from "../rules/languages.ts";
 import type { GeoipCheck, GeoipStatus } from "./contract/admin.ts";
 const log = logger.child({ category: "dashboard", sub: "geoip" });
 
@@ -127,12 +128,14 @@ async function load(): Promise<boolean> {
   return true;
 }
 
-/** 공인 주소의 위치. 올리지 않았거나 모르면 null. 이름은 한국어가 있으면 한국어 */
-function locate(ip: string): DevicePlace {
+// DB 이름 중 해당 언어의 이름, 없으면 영어
+const nameIn = (names: { en?: string } | undefined, language: Language) => nameFor(names, language) ?? names?.en ?? null;
+
+/** 공인 주소의 위치. 올리지 않았거나 모르면 null. 이름은 사용자 언어(없으면 영어) */
+function locate(ip: string, language: Language): DevicePlace {
   const hit = reader?.get(ip);
   if (!hit) return null;
-  const name = (names: { en?: string; ko?: string } | undefined) => names?.ko ?? names?.en ?? null;
-  return { kind: "geo", city: name(hit.city?.names), region: name(hit.subdivisions?.[0]?.names), country: name(hit.country?.names) };
+  return { kind: "geo", city: nameIn(hit.city?.names, language), region: nameIn(hit.subdivisions?.[0]?.names, language), country: nameIn(hit.country?.names, language) };
 }
 
 /** 그 버전이 올라와 있으면 받는 크기, 없으면 null(HEAD 요청만 보낸다) */

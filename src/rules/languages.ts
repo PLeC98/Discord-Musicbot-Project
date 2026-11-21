@@ -71,5 +71,14 @@ function acceptedTags(header: string | null | undefined): string[] {
     .map((one) => one.tag);
 }
 
-export { LANGUAGES, TEST_LANGUAGE, BASE_LANGUAGE, LOG_LANGUAGE, KNOWN_TAGS, availableLanguages, isAvailable, infoOf, matchLanguage, discordLanguage, acceptedTags };
+/** 언어 키로 된 이름 표(MaxMind의 names, AI 모델 프로필의 labelI18n: ko, en, zh-CN 등)에서 해당 언어의 이름. 언어 태그, 로케일, 각각의 기본 언어 코드 순으로 찾고 없으면 undefined */
+function nameFor(names: object | undefined, language: Language): string | undefined {
+  if (!names) return undefined;
+  const table = names as Partial<Record<string, string>>;
+  const { tag, locale } = infoOf(language);
+  const key = [tag, locale, tag.split("-")[0], locale.split("-")[0]].find((one) => table[one]);
+  return key ? table[key] : undefined;
+}
+
+export { LANGUAGES, TEST_LANGUAGE, BASE_LANGUAGE, LOG_LANGUAGE, KNOWN_TAGS, availableLanguages, isAvailable, infoOf, matchLanguage, discordLanguage, acceptedTags, nameFor };
 export type { LanguageInfo, Language, TextLanguage };

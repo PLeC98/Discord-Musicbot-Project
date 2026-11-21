@@ -1,5 +1,7 @@
 // src/autoplay/assist/request-log.ts: AI 리퀘스트 로그에 남기며 보내기. 가림, 시도, 토큰, 시간 초과, 판정 못 읽음, 남기지 않는 답, 끄기
 
+import { rule } from "../../src/rules/rule-problem.ts";
+import { logRuleLine } from "../../src/rules/text/index.ts";
 import test, { after, beforeEach } from "node:test";
 import assert from "node:assert";
 import { openTempStore } from "../helpers/temp-store.ts";
@@ -44,16 +46,16 @@ test("거절 응답은 실패로 남기고 원인(상태, 저쪽 문구)을 적�
   const entry = latest();
   assert.equal(entry.ok, false);
   assert.equal(entry.status, 429);
-  assert.match(entry.error ?? "", /HTTP 429.*quota exceeded/);
+  assert.match(entry.error ? logRuleLine(entry.error) : "", /HTTP 429.*quota exceeded/);
   assert.equal(entry.tokens, null);
   assert.equal(entry.costUsd, null);
 });
 
 test("2xx인데 쓸 수 없는 답은 성공으로 두고 원인을 적는다. 시도 번호, 장르, 후보 수도 적는다", async () => {
-  await sendLogged(reply({ i: 1 }), { ...CALL, source: "autoplay", attempt: 2, genre: "rock", candidates: 8, explain: () => "판정을 읽지 못함" }, "http://127.0.0.1:11434/v1/chat/completions", { method: "POST" });
+  await sendLogged(reply({ i: 1 }), { ...CALL, source: "autoplay", attempt: 2, genre: "rock", candidates: 8, explain: () => rule("ai-verdict-unreadable") }, "http://127.0.0.1:11434/v1/chat/completions", { method: "POST" });
   const entry = latest();
   assert.equal(entry.ok, true);
-  assert.equal(entry.error, "판정을 읽지 못함");
+  assert.deepEqual(entry.error, rule("ai-verdict-unreadable"));
   assert.deepEqual([entry.attempt, entry.genre, entry.candidates], [2, "rock", 8]);
 });
 

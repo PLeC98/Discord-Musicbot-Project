@@ -1,5 +1,6 @@
 // src/dashboard/geoip.ts: IP 위치 DB 다운로드, 확인, 자동 갱신, 읽기. 바깥(download.db-ip.com)에 닿지 않게 전송과 여는 것을 가짜로 넘긴다(작은 MMDB를 만들 도구가 없다).
 
+import { TEST_LANGUAGE } from "../../src/rules/languages.ts";
 import { rule } from "../../src/rules/rule-problem.ts";
 import { test, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
@@ -114,17 +115,18 @@ test("자동 업데이트를 껐거나 위치 DB를 껐으면 묻지 않는다",
   assert.deepEqual([asked, files()], [[], []]);
 });
 
-test("읽기: 켜져 있고 파일이 있을 때만 올린다. 이름은 한국어가 있으면 한국어, 모르는 주소는 null. 끄면 올리지 않는다(파일은 둔다)", async () => {
+test("읽기: 켜져 있고 파일이 있을 때만 올린다. 이름은 사용자 언어가 있으면 해당 언어(없으면 영어), 모르는 주소는 null. 끄면 올리지 않는다(파일은 둔다)", async () => {
   assert.equal(await geoip.load(), false, "파일이 없다");
   fs.writeFileSync(path.join(dir, `dbip-city-lite-${thisMonth}.mmdb`), "city-new");
   assert.equal(await geoip.load(), true);
-  assert.deepEqual(geoip.locate("1.1.1.1"), { kind: "geo", city: "Sydney", region: "New South Wales", country: "오스트레일리아" });
-  assert.equal(geoip.locate("8.8.8.8"), null);
+  assert.deepEqual(geoip.locate("1.1.1.1", "ko"), { kind: "geo", city: "Sydney", region: "New South Wales", country: "오스트레일리아" });
+  assert.equal(geoip.locate("8.8.8.8", "ko"), null);
+  assert.deepEqual(geoip.locate("1.1.1.1", TEST_LANGUAGE), geoip.locate("1.1.1.1", "ko"), "테스트 언어는 해당 로케일의 이름");
   await geoip.load();
   assert.equal(opened.length, 1, "이미 올렸으면 다시 열지 않는다");
 
   config.geoip.enabled = false;
   assert.equal(await geoip.load(), false);
-  assert.equal(geoip.locate("1.1.1.1"), null);
+  assert.equal(geoip.locate("1.1.1.1", "ko"), null);
   assert.deepEqual(files(), [`dbip-city-lite-${thisMonth}.mmdb`]);
 });
