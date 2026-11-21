@@ -17,7 +17,7 @@ test("언어를 선택하는 호출은 utils/locale 에만(디자인으로 영�
   const stray: string[] = [];
   for (const file of walk(SRC)) {
     const rel = path.relative(SRC, file).split(path.sep).join("/");
-    if (rel === "utils/locale.ts" || rel === "emoji-list.ts") continue;
+    if (rel === "utils/locale.ts" || rel.startsWith("emoji-list/")) continue;
     for (const line of fs.readFileSync(file, "utf8").split("\n")) {
       for (const m of line.matchAll(LOCALE_CALL)) {
         const english = ENGLISH_BY_DESIGN.has(rel) && line.slice(m.index).startsWith(`${m[0]}"en-US"`);

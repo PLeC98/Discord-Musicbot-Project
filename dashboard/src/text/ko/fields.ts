@@ -1,5 +1,7 @@
 // 입력 컴포넌트(단일 선택, 다중 선택, 칩, 태그, 구간, 이모지, 마크다운 편집)의 글
 
+import type { EmojiGroupId } from "../../emoji-list/index.ts";
+
 /** 선택 입력란의 검색(후보가 많을 때) */
 const searchAmong = (count: number) => `${count}개 중에서 검색`;
 const pick = "선택";
@@ -29,6 +31,8 @@ const emojiClear = "비우기";
 /** 글 입력란의 이모지 버튼(커서 위치에 넣는다) */
 const emojiInsert = "이모지 넣기";
 const appEmojiGroup = "앱 이모지";
+/** 이모지 선택 목록의 분류 이름(분류 id 기준). 디스코드 한국어 선택기 그대로 */
+const emojiGroups = { people: "사람", nature: "자연", food: "음식", activities: "활동", travel: "여행", objects: "사물", symbols: "기호", flags: "국기" } satisfies Record<EmojiGroupId, string>;
 /** 저장된 앱 이모지가 봇의 앱에 없다(지웠거나 다른 봇의 이모지). 보낼 때는 빠진다 */
 const appEmojiMissing = "삭제된 앱 이모지가 있어요. 보낼 때 그 이모지는 빠져요";
 const emojiLoadFailed = "목록을 불러오지 못했어요. 대시보드를 다시 빌드했다면 새로고침해 주세요.";
@@ -90,4 +94,4 @@ const datePicker = {
 const filter = "필터";
 const filterApplied = (count: number) => `필터 ${count}개 적용됨`;
 
-export { datePicker, filter, filterApplied, searchAmong, pick, pickedSummary, emojiChange, emojiPick, rangeStart, rangeEnd, typeForSuggestions, suggestLoading, suggestFailed, suggestNone, linkText, mentionUser, mentionRole, mentionChannel, emojiSearch, searchClear, emojiLoading, emojiNone, emojiClear, emojiInsert, appEmojiGroup, appEmojiMissing, emojiLoadFailed, colorArea, colorAreaValue, colorHue, colorDefault, colorFormat, colorHex, colorChannel, format };
+export { datePicker, filter, filterApplied, searchAmong, pick, pickedSummary, emojiChange, emojiPick, rangeStart, rangeEnd, typeForSuggestions, suggestLoading, suggestFailed, suggestNone, linkText, mentionUser, mentionRole, mentionChannel, emojiSearch, searchClear, emojiLoading, emojiNone, emojiClear, emojiInsert, appEmojiGroup, emojiGroups, appEmojiMissing, emojiLoadFailed, colorArea, colorAreaValue, colorHue, colorDefault, colorFormat, colorHex, colorChannel, format };

@@ -42,16 +42,16 @@
 
             <!-- content-visibility로 화면 밖 분류를 건너뛰지 않는다: 짐작한 높이와 실제 높이의 차이가 소수점으로 남아 붙어 있는 분류 헤더 위에 틈이 비친다.
                칸은 이모지 글꼴 글자 하나라(요청이 없다) 다 그려도 부담이 작다 -->
-            <section v-for="group in shown" v-else :key="group.name">
+            <section v-for="group in shown" v-else :key="group.id">
               <!-- 분류 헤더: 목록의 그룹 이름 모양에 접기 꺾쇠, 개수. 목록 영역과 같은 바탕이라 붙어 있는 동안 밑으로 지나가는 셀이 비치지 않는다 -->
-              <button type="button" :class="header" :aria-expanded="!collapsed[group.name]" @click="toggleGroup(group.name)">
-                <Icon name="expand_more" :size="18" class="transition-transform spring-fast" :class="collapsed[group.name] && '-rotate-90'" />
-                <span class="truncate">{{ group.name }}</span>
+              <button type="button" :class="header" :aria-expanded="!collapsed[group.id]" @click="toggleGroup(group.id)">
+                <Icon name="expand_more" :size="18" class="transition-transform spring-fast" :class="collapsed[group.id] && '-rotate-90'" />
+                <span class="truncate">{{ groupName(group.id) }}</span>
                 <span class="ml-auto nums font-normal">{{ group.emoji.length }}</span>
               </button>
 
               <CollapseTransition>
-                <div v-if="!collapsed[group.name]" :class="[grid, 'px-1 pb-1']">
+                <div v-if="!collapsed[group.id]" :class="[grid, 'px-1 pb-1']">
                   <button v-for="e in group.emoji" :key="e.char" type="button" :class="cell" v-tooltip="e.label" @click="choose(e.char)"><EmojiGlyph :char="e.char" :size="24" /></button>
                 </div>
               </CollapseTransition>
@@ -80,8 +80,8 @@ import { ONE_EMOJI } from "../../../src/config/schema/genres.ts";
 import { tokenOf } from "../../../src/rules/app-emoji-token.ts";
 import { appEmojis, loadAppEmojis } from "../composables/app-emojis.ts";
 import { readStored, writeStored } from "../utils/storage.ts";
-import type { Emoji, EmojiGroup } from "../emoji-list.ts";
-import { text } from "../text/index.ts";
+import { loadEmojiList, type Emoji, type EmojiGroup } from "../emoji-list/index.ts";
+import { text, textLanguage } from "../text/index.ts";
 const T = text.fields;
 
 const props = withDefaults(
@@ -105,22 +105,28 @@ const groups = shallowRef<EmojiGroup[]>([]);
 const collapsed = ref<Record<string, boolean>>({});
 const loadError = ref("");
 
-// 어느 분류를 접어 뒀는지는 브라우저가 기억한다. 못 읽거나 못 쓰는 환경(사생활 보호 창 등)에서도
+// 어느 분류를 접어 뒀는지는 브라우저가 기억한다(분류 id 기준). 못 읽거나 못 쓰는 환경(사생활 보호 창 등)에서도
 // 그냥 다 펼친 채로 동작해야 하므로 실패는 삼킨다.
 const STORE_KEY = "emojiPicker.collapsed";
 
-function toggleGroup(name: string) {
-  collapsed.value[name] = !collapsed.value[name];
+// 분류 이름(화면 언어). 앱 이모지 분류는 따로
+const groupName = (id: EmojiGroup["id"]) => (id === "app" ? T.appEmojiGroup : T.emojiGroups[id]);
+
+function toggleGroup(id: string) {
+  collapsed.value[id] = !collapsed.value[id];
   writeStored(STORE_KEY, JSON.stringify(Object.keys(collapsed.value).filter((k) => collapsed.value[k])));
 }
 
+// 현재 불러온 목록의 언어. 화면 언어가 바뀌면 다음에 열 때 새 언어 목록을 불러온다
+let listLanguage: string | null = null;
+
 async function load() {
-  if (groups.value.length) return;
+  if (groups.value.length && listLanguage === textLanguage.value) return;
   loadError.value = "";
 
   let module;
   try {
-    module = await import("../emoji-list.ts");
+    module = await loadEmojiList(textLanguage.value);
   } catch {
     // 목록은 따로 불러오므로 못 불러올 수가 있다. 특히 대시보드를 다시 빌드하면 파일 이름이
     // 바뀌어서, 열어 둔 화면이 없어진 파일을 찾는다. 새로고침하면 풀린다.
@@ -128,6 +134,7 @@ async function load() {
     return;
   }
   groups.value = module.EMOJI_GROUPS;
+  listLanguage = textLanguage.value;
 
   let saved: unknown;
   try {
@@ -135,13 +142,13 @@ async function load() {
   } catch {
     saved = null; // 못 읽는 환경이면 그냥 다 펼친다
   }
-  // 저장된 이름 중 지금도 있는 것만 본다. 분류가 바뀌어도 엉뚱하게 접히지 않는다
-  const names = new Set(Array.isArray(saved) ? saved : []);
-  collapsed.value = Object.fromEntries(module.EMOJI_GROUPS.map((group) => [group.name, names.has(group.name)]));
+  // 저장된 id 중 지금도 있는 것만 본다. 분류가 바뀌어도 엉뚱하게 접히지 않는다
+  const ids = new Set(Array.isArray(saved) ? saved : []);
+  collapsed.value = Object.fromEntries(module.EMOJI_GROUPS.map((group) => [group.id, ids.has(group.id)]));
 }
 
 // 앱 이모지 분류(켤 때만): 고르면 토큰, 이름으로 찾는다. 아이콘도 넣는다
-const appGroup = computed<EmojiGroup | null>(() => (props.appEmoji && appEmojis.value.length ? { name: T.appEmojiGroup, emoji: appEmojis.value.map((one) => ({ char: tokenOf(one), label: `:${one.name}:`, search: one.name.toLowerCase() })) } : null));
+const appGroup = computed<EmojiGroup | null>(() => (props.appEmoji && appEmojis.value.length ? { id: "app", emoji: appEmojis.value.map((one) => ({ char: tokenOf(one), label: `:${one.name}:`, search: one.name.toLowerCase() })) } : null));
 const shown = computed(() => (appGroup.value ? [appGroup.value, ...groups.value] : groups.value));
 watch(open, (now) => {
   if (now && props.appEmoji) void loadAppEmojis();

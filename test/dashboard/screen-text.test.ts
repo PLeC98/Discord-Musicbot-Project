@@ -11,8 +11,8 @@ import { parse } from "@vue/compiler-sfc";
 const SRC = path.join(import.meta.dirname, "..", "..", "dashboard", "src");
 const HANGUL = /[가-힣ㄱ-ㆎ]/;
 
-// 문구가 아니라 한글을 다루는 자료(이모지 이름)
-const NOT_TEXT = new Set(["emoji-list.ts"]);
+// 문구가 아니라 언어별 데이터(이모지 이름, emoji-list/<언어>.ts)
+const NOT_TEXT = /^emoji-list\/(?!index\.ts$)[^/]+\.ts$/;
 
 const walk = (dir: string): string[] => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(dir, e.name)) : /\.(vue|ts)$/.test(e.name) ? [path.join(dir, e.name)] : []));
 
@@ -53,7 +53,7 @@ test("화면 파일에 한글 문구가 없다(문구는 text/ 에)", () => {
   const found: string[] = [];
   for (const file of walk(SRC)) {
     const rel = path.relative(SRC, file).split(path.sep).join("/");
-    if (rel.startsWith("text/") || NOT_TEXT.has(rel)) continue;
+    if (rel.startsWith("text/") || NOT_TEXT.test(rel)) continue;
     for (const s of stringsOf(file)) found.push(`${rel}: ${s.slice(0, 60)}`);
   }
   assert.deepEqual(found, [], "문구표(text/)로 옮긴다");

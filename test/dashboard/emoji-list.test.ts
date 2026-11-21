@@ -1,4 +1,4 @@
-// dashboard/src/emoji-list.ts: 이모지 선택 목록이 지켜야 할 것들.
+// dashboard/src/emoji-list/: 이모지 선택 목록(언어별 목록 파일)이 지켜야 할 규칙.
 //
 // 목록은 scripts/data/discord-emoji-picker.md를 원본으로 scripts/build-emoji-list.ts가 만든다.
 // 그 스크립트는 인터넷을 쓰므로 여기서는 만들어진 결과물만 본다.
@@ -7,17 +7,27 @@ import test from "node:test";
 import assert from "node:assert";
 import fs from "node:fs";
 import path from "path";
+import { EMOJI_GROUP_IDS, loadEmojiList } from "../../dashboard/src/emoji-list/index.ts";
+import { LANGUAGES } from "../../src/rules/languages.ts";
 
-const list = () => import("../../dashboard/src/emoji-list.ts");
+const list = () => import("../../dashboard/src/emoji-list/ko.ts");
 const groups = () => list().then((m) => m.EMOJI_GROUPS);
-const all = async () => (await groups()).flatMap((g) => g.emoji.map((e) => [g.name, e.char, e] as const));
+const all = async () => (await groups()).flatMap((g) => g.emoji.map((e) => [g.id, e.char, e] as const));
 
-test("분류는 디스코드 한국어 선택기 그대로다", async () => {
+test("분류와 id 순서는 모든 언어에서 디스코드 선택기와 같다", async () => {
   // 선택하는 사람이 디스코드에서 보던 위치에서 찾을 수 있어야 한다.
   assert.deepEqual(
-    (await groups()).map((g) => g.name),
-    ["사람", "자연", "음식", "활동", "여행", "사물", "기호", "국기"],
+    (await groups()).map((g) => g.id),
+    [...EMOJI_GROUP_IDS],
   );
+  for (const { tag } of LANGUAGES) {
+    const other = await loadEmojiList(tag);
+    assert.deepEqual(
+      other.EMOJI_GROUPS.map((g) => [g.id, g.emoji.map((e) => e.char)]),
+      (await groups()).map((g) => [g.id, g.emoji.map((e) => e.char)]),
+      `${tag}: 분류와 이모지는 모든 언어에서 같아야 한다`,
+    );
+  }
 });
 
 test("선택 목록은 이모지 한 글자씩만 담는다", async () => {

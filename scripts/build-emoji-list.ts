@@ -5,7 +5,7 @@
 // 그대로 옮겨 적은 파일이라, 선택하는 사람이 디스코드에서 보던 위치에서 찾을 수 있다.
 // 여기서는 거기에 두 가지를 붙인다.
 // - 단축명(:shushing_face:) → 이모지. 디스코드에서 복사하면 이 형식으로 붙는다.
-// - 한국어 이름, 검색어. emojibase에서 가져온다.
+// - 해당 언어의 이름과 검색어. emojibase에서 해당 언어 데이터를 가져온다. 언어별 파일 하나(dashboard/src/emoji-list/<언어>.ts)
 //
 // 그리고 Twemoji에 이미지 파일이 실제로 있는지 대조한다. 없는 것을 목록에 넣으면 그 셀만 깨져 보인다.
 // 실행에는 인터넷이 필요하다. 결과물은 저장소에 넣는다.
@@ -20,10 +20,16 @@ const EMOJIBASE = "17.0.0";
 // 대시보드가 내주는 그림(디스코드가 올린 @discordapp/twemoji)과 같은 것을 본다. 설치된 패키지에서 읽어 어긋날 일을 없앤다
 import twemojiPackage from "../dashboard/node_modules/@discordapp/twemoji/package.json" with { type: "json" };
 import { PROJECT } from "../src/infra/project-paths.ts";
+import { LANGUAGES, type TextLanguage } from "../src/rules/languages.ts";
+import type { EmojiGroupId } from "../dashboard/src/emoji-list/index.ts";
 const TWEMOJI = twemojiPackage.version;
 const GIST = "https://gist.githubusercontent.com/rigwild/1b509bf69e2a2391f44aa5de3f05b006/raw/discord_emojis.min.json";
 const PICKER = path.join(import.meta.dirname, "data", "discord-emoji-picker.md");
-const OUT = path.join(PROJECT.root, "dashboard", "src", "emoji-list.ts");
+const OUT_DIR = path.join(PROJECT.root, "dashboard", "src", "emoji-list");
+// 원본의 분류 제목(디스코드 한국어 선택기) → 분류 id. 분류 이름은 화면 문구표에 있다
+const GROUP_IDS: Record<string, EmojiGroupId> = { 사람: "people", 자연: "nature", 음식: "food", 활동: "activities", 여행: "travel", 사물: "objects", 기호: "symbols", 국기: "flags" };
+// 언어별 emojibase 로케일
+const LOCALES: Record<TextLanguage, string> = { ko: "ko" };
 
 // 다운로드하는 데이터의 형식. 여기서 읽는 필드만 적는다
 const Gist = z.record(z.string(), z.string());
@@ -68,10 +74,12 @@ function readPicker() {
     .split(/^# /m)
     .slice(1)
     .filter((section) => !section.startsWith("비고"))
-    .map((section) => ({
-      name: section.split("\n")[0].trim(),
-      codes: (section.match(/:([a-z0-9_+-]+):/g) || []).map((c) => c.slice(1, -1)),
-    }));
+    .map((section) => {
+      const name = section.split("\n")[0].trim();
+      const id = GROUP_IDS[name];
+      if (!id) throw new Error(`분류 id가 없는 분류: ${name}. GROUP_IDS와 화면 문구표의 분류 이름에 추가 필요`);
+      return { id, codes: (section.match(/:([a-z0-9_+-]+):/g) || []).map((c) => c.slice(1, -1)) };
+    });
 }
 
 // 설치된 Twemoji 패키지에 있는 svg 파일 이름들
@@ -85,8 +93,8 @@ function readAssets() {
 type Compacted = z.output<typeof Compact>[number];
 
 // 단축명 → 이모지. emojibase를 먼저, 지스트는 emojibase에 없는 디스코드 고유 이름만 메운다
-function shortcodes(ko: Compacted[], sets: z.output<typeof Shortcodes>[], gist: z.output<typeof Gist>) {
-  const charOfHex = new Map(ko.map((e) => [e.hexcode, e.unicode]));
+function shortcodes(compact: Compacted[], sets: z.output<typeof Shortcodes>[], gist: z.output<typeof Gist>) {
+  const charOfHex = new Map(compact.map((e) => [e.hexcode, e.unicode]));
   const charOfCode = new Map<string, string>();
   const add = (code: string, char: string) => {
     const name = code.replace(/:/g, "");
@@ -103,11 +111,11 @@ function shortcodes(ko: Compacted[], sets: z.output<typeof Shortcodes>[], gist: 
 }
 
 // 목록의 한 줄. 못 담으면 dropped, 이미지 파일이 없으면 noAsset에 이유를 적는다
-function rowOf(group: string, code: string, charOfCode: Map<string, string>, korean: Map<string, Compacted>, assets: Set<string>): { line?: string; dropped?: string; noAsset?: string } {
+function rowOf(group: string, code: string, charOfCode: Map<string, string>, named: Map<string, Compacted>, assets: Set<string>): { line?: string; dropped?: string; noAsset?: string } {
   const found = charOfCode.get(code);
   if (!found) return { dropped: `${group}:${code} (대응 없음)` };
 
-  const info = korean.get(key(found));
+  const info = named.get(key(found));
   // 표준 표기로 바로잡는다. emojibase는 ⌚처럼 이미 그림으로 보이는 글자에도 VS16을 붙여 주는데,
   // 그 형태는 RGI가 아니라 저장 검사(/^\p{RGI_Emoji}$/v)가 거부한다. 선택할 수는 있는데 저장은
   // 안 되는 항목이 생기므로, 통과하는 쪽을 선택해 담는다.
@@ -123,69 +131,72 @@ function rowOf(group: string, code: string, charOfCode: Map<string, string>, kor
   return { line, noAsset: iconIds(char).some((id) => assets.has(id)) ? undefined : `${group}:${code} ${char}` };
 }
 
-async function main() {
-  const picker = readPicker();
-
-  // emojibase를 먼저 믿는다. 지스트는 이름이 바뀌기 전에 뜬 것이라 :beetle:을 🐞로,
-  // :man_in_tuxedo:를 🤵로 준다(지금은 각각 🪲, 🤵‍♂️다).
-  const [assets, gist, ko, sets] = await Promise.all([readAssets(), json(GIST, Gist), base("ko/compact.json", Compact), Promise.all(["en/shortcodes/joypixels.json", "en/shortcodes/github.json", "en/shortcodes/emojibase.json", "en/shortcodes/emojibase-legacy.json", "en/shortcodes/cldr.json"].map((file) => base(file, Shortcodes)))]);
-
-  const charOfCode = shortcodes(ko, sets, gist);
-  const korean = new Map(ko.map((e) => [key(e.unicode), e]));
-
-  const groups: [string, string[]][] = [];
+// 한 언어의 목록 파일. 분류, 순서, 이모지는 언어와 무관하게 같고 이름과 검색어만 해당 언어 기준이다
+async function writeList(language: TextLanguage, picker: ReturnType<typeof readPicker>, charOfCode: Map<string, string>, assets: Set<string>) {
+  const locale = LOCALES[language];
+  const named = new Map((await base(`${locale}/compact.json`, Compact)).map((e) => [key(e.unicode), e]));
+  const groups: [EmojiGroupId, string[]][] = [];
   const dropped: string[] = [];
   const noAsset: string[] = [];
 
   for (const section of picker) {
     const rows: string[] = [];
     for (const code of section.codes) {
-      const row = rowOf(section.name, code, charOfCode, korean, assets);
+      const row = rowOf(section.id, code, charOfCode, named, assets);
       if (row.dropped) dropped.push(row.dropped);
       if (row.noAsset) noAsset.push(row.noAsset);
       if (row.line) rows.push(row.line);
     }
-    groups.push([section.name, rows]);
+    groups.push([section.id, rows]);
   }
 
   const total = groups.reduce((sum, [, rows]) => sum + rows.length, 0);
+  const out = path.join(OUT_DIR, `${language}.ts`);
 
   // 저장소의 서식 검사를 지나도록 prettier 설정대로 맞춰 쓴다
   const source = [
     "// 자동 생성물. 손으로 고치지 않는다. scripts/build-emoji-list.ts를 고치고 다시 만든다.",
-    "// 분류·순서는 디스코드 선택기 그대로.",
-    `// 이름·검색어: emojibase-data@${EMOJIBASE} (MIT, ko) + 디스코드 단축명`,
+    "// 분류, 순서는 디스코드 선택기 그대로(분류 이름은 화면 문구표에서 id로 찾는다).",
+    `// 이름, 검색어: emojibase-data@${EMOJIBASE} (MIT, ${locale}) + 디스코드 단축명`,
     `// 그림: @discordapp/twemoji@${TWEMOJI}. 전부 실제로 있는 파일인지 대조했다`,
     "//",
     "// 한 분류를 한 줄짜리 문자열로 담는다. 항목마다 객체로 두면 파일이 몇 배로 불어난다.",
     "// 줄은 줄바꿈으로, 필드는 |로 나뉜다: 이모지|이름|검색어",
+    'import type { EmojiGroup, EmojiGroupId } from "./index.ts";',
+    "",
     `export const TWEMOJI_VERSION = ${JSON.stringify(TWEMOJI)};`,
     "",
-    "/** 선택 목록의 이모지 하나. search는 이름과 검색어를 소문자로 이은 것 */",
-    "type Emoji = { char: string; label: string; search: string };",
-    "type EmojiGroup = { name: string; emoji: Emoji[] };",
-    "",
-    "const RAW: Array<[name: string, rows: string]> = [",
-    groups.map(([name, rows]) => `  [${JSON.stringify(name)}, ${JSON.stringify(rows.join("\n"))}],`).join("\n"),
+    "const RAW: Array<[id: EmojiGroupId, rows: string]> = [",
+    groups.map(([id, rows]) => `  [${JSON.stringify(id)}, ${JSON.stringify(rows.join("\n"))}],`).join("\n"),
     "];",
     "",
-    "export const EMOJI_GROUPS: EmojiGroup[] = RAW.map(([name, rows]) => ({",
-    "  name,",
+    "export const EMOJI_GROUPS: EmojiGroup[] = RAW.map(([id, rows]) => ({",
+    "  id,",
     '  emoji: rows.split("\\n").map((row) => {',
     '    const [char, label, tags] = row.split("|");',
     "    return { char, label, search: `${label} ${tags}`.toLowerCase() };",
     "  }),",
     "}));",
     "",
-    "export type { Emoji, EmojiGroup };",
-    "",
   ].join("\n");
-  fs.writeFileSync(OUT, await prettier.format(source, { ...(await prettier.resolveConfig(OUT)), filepath: OUT }));
+  fs.writeFileSync(out, await prettier.format(source, { ...(await prettier.resolveConfig(out)), filepath: out }));
 
-  console.log(groups.map(([n, r]) => `${n}(${r.length})`).join(" "));
-  console.log(`총 ${total}개 · ${(fs.statSync(OUT).size / 1024).toFixed(0)}KB · @discordapp/twemoji@${TWEMOJI}`);
-  if (dropped.length) console.log(`뺀 것 ${dropped.length}개: ${dropped.slice(0, 6).join(" ")}${dropped.length > 6 ? " …" : ""}`);
-  console.log(noAsset.length ? `그림 파일이 없는 것 ${noAsset.length}개: ${noAsset.slice(0, 8).join(" ")}` : "그림 파일은 전부 있음");
+  console.log(`[${language}] ${groups.map(([id, rows]) => `${id}(${rows.length})`).join(" ")}`);
+  console.log(`[${language}] 총 ${total}개, ${(fs.statSync(out).size / 1024).toFixed(0)}KB, @discordapp/twemoji@${TWEMOJI}`);
+  if (dropped.length) console.log(`[${language}] 뺀 것 ${dropped.length}개: ${dropped.slice(0, 6).join(" ")}${dropped.length > 6 ? " …" : ""}`);
+  console.log(noAsset.length ? `[${language}] 그림 파일이 없는 것 ${noAsset.length}개: ${noAsset.slice(0, 8).join(" ")}` : `[${language}] 그림 파일은 전부 있음`);
+}
+
+async function main() {
+  const picker = readPicker();
+
+  // emojibase를 먼저 믿는다. 지스트는 이름이 바뀌기 전에 뜬 것이라 :beetle:을 🐞로,
+  // :man_in_tuxedo:를 🤵로 준다(지금은 각각 🪲, 🤵‍♂️다). 단축명 매핑은 언어와 무관하므로 기준 언어 목록에서 찾는다
+  const [assets, gist, compact, sets] = await Promise.all([readAssets(), json(GIST, Gist), base(`${LOCALES[LANGUAGES[0].tag]}/compact.json`, Compact), Promise.all(["en/shortcodes/joypixels.json", "en/shortcodes/github.json", "en/shortcodes/emojibase.json", "en/shortcodes/emojibase-legacy.json", "en/shortcodes/cldr.json"].map((file) => base(file, Shortcodes)))]);
+  const charOfCode = shortcodes(compact, sets, gist);
+
+  fs.mkdirSync(OUT_DIR, { recursive: true });
+  for (const { tag } of LANGUAGES) await writeList(tag, picker, charOfCode, assets);
 }
 
 main().catch((error) => {

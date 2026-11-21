@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import * as fontkit from "fontkit";
-import { EMOJI_GROUPS } from "../../dashboard/src/emoji-list.ts";
+import { EMOJI_GROUPS } from "../../dashboard/src/emoji-list/ko.ts";
 import { codepointsOf } from "../../scripts/unicode-range.ts";
 
 const SRC = path.join(import.meta.dirname, "..", "..", "dashboard", "src");
