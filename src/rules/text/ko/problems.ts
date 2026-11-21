@@ -3,6 +3,7 @@
 import { josa } from "../../josa.ts";
 import type { RuleSentences } from "../../rule-problem.ts";
 import { ai, format, genres, prompt, status } from "./settings.ts";
+import { archive } from "./archive.ts";
 
 const problems = {
   "tune-value": (p, cause) => `${p.key} 값이 잘못됨(${p.value}): ${cause}`,
@@ -49,6 +50,7 @@ const problems = {
   ...ai,
   ...prompt,
   ...format,
+  ...archive,
 } satisfies RuleSentences;
 
 export { problems };

@@ -10,7 +10,7 @@
 // 남이 준 파일일 수 있으니 바깥으로 나가는 값(AI 요청이 가는 곳, 봇 웹사이트 주소), PC에 매인 값(쿠키 출처, POToken)이 바뀌면 미리 보기가 표시해 준다.
 // 불러온 뒤 다시 시작해야 적용되는 값이 바뀌었거나 쿠키 출처가 바뀌었으면 응답이 알린다(화면이 다시 시작 창, 연령 제한 탭 안내를 연다).
 
-import { rule, unmoved, type RuleProblem } from "../rules/rule-problem.ts";
+import { rule, type RuleCode, type RuleProblem } from "../rules/rule-problem.ts";
 import { logRuleLine } from "../rules/text/index.ts";
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -69,7 +69,8 @@ type ArchiveJson = {
 /** 읽은 파일. favicons는 favicon/ 아래 파일들, file은 올린 파일(로그인 배경은 거기서 스트리밍으로 읽는다) */
 type Parsed = { json: Partial<ArchiveJson>; favicons: Array<{ name: string; data: Buffer }>; file: string };
 
-const badArchive = (why: string) => codedError("BAD_ARCHIVE", why);
+/** 이 봇의 내보내기가 아닌 파일. 메시지는 로그 언어로 그린 이유, problem은 화면이 그릴 이유 */
+const badArchive = (problem: RuleProblem) => Object.assign(codedError("BAD_ARCHIVE", logRuleLine(problem)), { problem });
 const isTable = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
 const digest = (data: Buffer) => crypto.createHash("sha256").update(data).digest("hex");
 
@@ -107,19 +108,19 @@ function parse(file: string): Parsed {
   try {
     const entry = zipped.entries.find((one) => one.name === JSON_NAME);
     // 명령 전체 백업(pnpm run backup)은 봇 폴더에 풀어 덮어쓰는 것이라 여기서 불러오지 않는다
-    if (!entry && zipped.entries.some((one) => one.name === FULL_BACKUP_MARK)) throw badArchive("전체 백업은 불러올 수 없음. 봇을 종료한 채 봇 폴더에 풀어 덮어쓰세요(다음 기동 시 설정 DB를 교체하고 오디오 캐시를 합침)");
-    if (!entry) throw badArchive(`${JSON_NAME}이 없음. 이 봇의 설정 내보내기 파일이 아님`);
-    if (entry.size > JSON_MAX_BYTES) throw badArchive(`${JSON_NAME}이 너무 큼`);
+    if (!entry && zipped.entries.some((one) => one.name === FULL_BACKUP_MARK)) throw badArchive(rule("archive-full-backup"));
+    if (!entry) throw badArchive(rule("archive-no-json", { name: JSON_NAME }));
+    if (entry.size > JSON_MAX_BYTES) throw badArchive(rule("archive-json-big", { name: JSON_NAME }));
     let json: unknown;
     try {
       json = JSON.parse(zipped.read(entry, JSON_MAX_BYTES).toString("utf8"));
     } catch {
-      throw badArchive(`${JSON_NAME}이 JSON이 아님`);
+      throw badArchive(rule("archive-json-bad", { name: JSON_NAME }));
     }
-    if (!isTable(json)) throw badArchive(`${JSON_NAME}이 객체 형식이 아님`);
-    if (json.format !== FORMAT) throw badArchive(`모르는 형식(format ${String(json.format)}). 이 봇이 읽는 형식은 ${FORMAT}`);
+    if (!isTable(json)) throw badArchive(rule("archive-json-shape", { name: JSON_NAME }));
+    if (json.format !== FORMAT) throw badArchive(rule("archive-format", { format: String(json.format), expected: FORMAT }));
     const faviconEntries = zipped.entries.filter((one) => one.name.startsWith(FAVICON_DIR) && one.name.length > FAVICON_DIR.length);
-    if (faviconEntries.reduce((sum, one) => sum + one.size, 0) > FAVICON_MAX_BYTES) throw badArchive("파비콘 파일이 너무 큼");
+    if (faviconEntries.reduce((sum, one) => sum + one.size, 0) > FAVICON_MAX_BYTES) throw badArchive(rule("archive-favicon-big"));
     const favicons = faviconEntries.map((one) => ({ name: one.name.slice(FAVICON_DIR.length), data: zipped.read(one, FAVICON_MAX_BYTES) }));
     return { json: json as Partial<ArchiveJson>, favicons, file };
   } finally {
@@ -143,35 +144,32 @@ function stable(value: unknown): string {
 const absent = (item: ArchiveItem): ArchiveRow => ({ item, inFile: false, same: false, problems: [], warnings: [], count: null });
 
 const textOf = (values: Record<string, unknown>, key: string) => (typeof values[key] === "string" ? (values[key] as string) : "");
-// 쿠키 출처의 이름(빈 값은 쓰지 않음, file은 직접 입력, 그 밖은 브라우저 이름)
-const cookiesName = (value: string) => (value === "" ? "쓰지 않음" : value === "file" ? "쿠키 직접 입력" : value);
 
 // 도구의 버전 고정이 바뀌는가. yt-dlp는 저장하자마자 그 버전으로 맞추고, bgutil은 설치된 것을 혼자서 바꾸지 않는다(카드의 설치 버튼)
-function pinWarnings(value: Record<string, unknown>, now: Record<string, string>): string[] {
-  const shown = (pin: string) => pin || "없음";
+function pinWarnings(value: Record<string, unknown>, now: Record<string, string>): RuleProblem[] {
   const ytdlp = [textOf(value, "YTDLP_VERSION"), now.YTDLP_VERSION ?? ""];
   const bgutil = [textOf(value, "BGUTIL_VERSION"), now.BGUTIL_VERSION ?? ""];
   const bgutilMoved = bgutil[0] !== bgutil[1] || textOf(value, "BGUTIL_COMMIT") !== (now.BGUTIL_COMMIT ?? "");
-  return [...(ytdlp[0] !== ytdlp[1] ? [`yt-dlp 버전 고정이 바뀌어요: ${shown(ytdlp[1])} → ${shown(ytdlp[0])}(불러오면 바로 그 버전으로 맞춰요)`] : []), ...(bgutilMoved ? [`bgutil 버전 고정이 바뀌어요: ${shown(bgutil[1])} → ${shown(bgutil[0])}(업데이트 탭의 bgutil 카드에서 설치해요)`] : [])];
+  return [...(ytdlp[0] !== ytdlp[1] ? [rule("archive-ytdlp-pin", { from: ytdlp[1], to: ytdlp[0] })] : []), ...(bgutilMoved ? [rule("archive-bgutil-pin", { from: bgutil[1], to: bgutil[0] })] : [])];
 }
 
 function tunablesRow(json: Partial<ArchiveJson>): ArchiveRow {
   if (!isTable(json.tunables)) return absent("tunables");
   const value = json.tunables;
   const now = tunables.view().values;
-  const warnings: string[] = [];
+  const warnings: RuleProblem[] = [];
   const [website, cookies] = [textOf(value, "WEBSITE"), textOf(value, COOKIES_KEY)];
-  if (website !== (now.WEBSITE ?? "")) warnings.push(website ? `봇 웹사이트 주소가 바뀌어요: ${website}` : "봇 웹사이트 주소가 비워져요.");
-  if (cookies !== (now[COOKIES_KEY] ?? "")) warnings.push(`쿠키 출처가 바뀌어요: ${cookiesName(now[COOKIES_KEY] ?? "")} → ${cookiesName(cookies)}`);
-  if (textOf(value, POTOKEN_KEY) !== (now[POTOKEN_KEY] ?? "")) warnings.push("POToken 사용이 바뀌어요(다시 시작해야 적용돼요)");
+  if (website !== (now.WEBSITE ?? "")) warnings.push(website ? rule("archive-website", { url: website }) : rule("archive-website-cleared"));
+  if (cookies !== (now[COOKIES_KEY] ?? "")) warnings.push(rule("archive-cookies", { from: now[COOKIES_KEY] ?? "", to: cookies }));
+  if (textOf(value, POTOKEN_KEY) !== (now[POTOKEN_KEY] ?? "")) warnings.push(rule("archive-potoken"));
   warnings.push(...pinWarnings(value, now));
-  return { item: "tunables", inFile: true, same: stable(value) === stable(now), problems: tunables.problemsOf(value), warnings: warnings.map(unmoved), count: null };
+  return { item: "tunables", inFile: true, same: stable(value) === stable(now), problems: tunables.problemsOf(value), warnings, count: null };
 }
 
 /** 문서 하나의 검사. 프롬프트는 AI를 켠 설정과 함께일 때만 {{list}}를 따진다 */
 function docProblems(item: DocItem, data: unknown, aiDoc: unknown): RuleProblem[] {
-  if (item === "ai-prompt") return Array.isArray(data) ? promptProblems(data, !aiSwitchedOff(aiDoc)) : [unmoved("프롬프트가 섹션 목록이 아니에요")];
-  if (!isTable(data)) return [unmoved("객체 형식이 아니에요")];
+  if (item === "ai-prompt") return Array.isArray(data) ? promptProblems(data, !aiSwitchedOff(aiDoc)) : [rule("archive-prompt-shape")];
+  if (!isTable(data)) return [rule("archive-not-table")];
   return { genres: genreProblems, status: statusProblems, ai: aiProblems }[item](data);
 }
 
@@ -190,16 +188,16 @@ function aiTarget(doc: unknown) {
 const linksIn = (value: unknown) => new Set(JSON.stringify(value ?? null).match(/https?:\/\/[^\s"'\\]+/g) ?? []);
 
 /** 바깥으로 나가는 값이 바뀌는지(남이 준 파일로 모르고 불러오지 않게) */
-function docWarnings(item: DocItem, value: unknown): string[] {
+function docWarnings(item: DocItem, value: unknown): RuleProblem[] {
   if (item === "ai") {
     const before = aiTarget(documents.get("ai"));
     const after = aiTarget(value);
-    return after && after !== before ? [`AI 요청이 가는 곳이 바뀌어요: ${after}`] : [];
+    return after && after !== before ? [rule("archive-ai-target", { target: after })] : [];
   }
   if (item === "status") {
     const known = linksIn(documents.get("status"));
     const added = [...linksIn(value)].filter((link) => !known.has(link));
-    return added.length ? [`활동 문구에 새 링크가 들어와요: ${added.join(", ")}`] : [];
+    return added.length ? [rule("archive-status-links", { links: added.join(", ") })] : [];
   }
   return [];
 }
@@ -208,15 +206,11 @@ function docRow(item: DocItem, json: Partial<ArchiveJson>, aiDoc: unknown): Arch
   const docs = isTable(json.documents) ? json.documents : {};
   if (!(item in docs)) return absent(item);
   const value = docs[item];
-  return { item, inFile: true, same: stable(value) === stable(documents.get(item)), problems: docProblems(item, value, aiDoc), warnings: docWarnings(item, value).map(unmoved), count: null };
+  return { item, inFile: true, same: stable(value) === stable(documents.get(item)), problems: docProblems(item, value, aiDoc), warnings: docWarnings(item, value), count: null };
 }
 
 // 파비콘 검사에 걸린 이유를 한 줄로
-const FAVICON_WHY: Record<appearance.FaviconFault, string> = {
-  index: "파비콘 목록(index.json)을 읽을 수 없어요",
-  missing: "목록에 있는 이미지 파일이 빠져 있어요",
-  broken: "깨졌거나 크기가 맞지 않는 이미지가 있어요",
-};
+const FAVICON_WHY: Record<appearance.FaviconFault, RuleCode> = { index: "archive-favicon-index", missing: "archive-favicon-missing", broken: "archive-favicon-broken" };
 
 /** 파일에 파비콘이 있는지: 목록(index.json)이 함께 담겼어야 한다 */
 const hasFavicons = (parsed: Parsed) => Array.isArray(parsed.json.favicons) && parsed.favicons.some((one) => one.name === "index.json");
@@ -224,7 +218,7 @@ const hasFavicons = (parsed: Parsed) => Array.isArray(parsed.json.favicons) && p
 async function faviconRow(parsed: Parsed): Promise<ArchiveRow> {
   if (!hasFavicons(parsed)) return absent("favicon");
   const checked = await appearance.checkFavicons(parsed.favicons);
-  const problems = checked.ok ? [] : checked.faults.map((one) => unmoved(FAVICON_WHY[one]));
+  const problems = checked.ok ? [] : checked.faults.map((one) => rule(FAVICON_WHY[one]));
   const now = appearance
     .faviconFiles()
     .map((one) => digest(one.data))
@@ -372,7 +366,7 @@ async function applyStagedAudio(dir: string): Promise<ArchiveImported | null> {
   if (!fs.existsSync(file)) return null;
   try {
     const shown = await preview(file);
-    if (shown.kind !== "audio-cache") throw codedError("BAD_ARCHIVE", "오디오 캐시 번들이 아님");
+    if (shown.kind !== "audio-cache") throw badArchive(rule("archive-not-audio"));
     const items = shown.rows.filter((row) => row.inFile).map((row) => row.item);
     const done = items.length ? await apply(file, items) : { imported: [], restart: false, cookiesSource: null };
     fs.rmSync(file, { force: true });

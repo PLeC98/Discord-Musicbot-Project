@@ -86,7 +86,7 @@ async function exported(kind: "settings" | "favicon" = "settings") {
 const upload = async (file: Buffer) => fetch(`${base}/preview`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ upload: await uploadVia(origin, "archive", file) }) });
 async function preview(file: Buffer) {
   const res = await upload(file);
-  return { status: res.status, json: (await res.json()) as { token: string; kind: string; rows: Row[]; botVersion: string | null; code?: string; detail?: string } };
+  return { status: res.status, json: (await res.json()) as { token: string; kind: string; rows: Row[]; botVersion: string | null; code?: string; detail?: string; errors?: Array<{ rule?: RuleProblem }> } };
 }
 /** 불러오기: 미리 보기로 올려 받은 티켓으로(route는 "import?items=…") */
 async function send(route: string, file: Buffer) {
@@ -245,7 +245,11 @@ test("명령 전체 백업을 올리면 bad-archive로 봇 폴더에 풀라고 �
   ]);
   const { status, json } = await preview(full);
   assert.deepEqual([status, json.code], [400, "bad-archive"]);
-  assert.match(json.detail ?? "", /전체 백업은 불러올 수 없음/);
+  assert.deepEqual(
+    json.errors?.map((one) => one.rule),
+    [{ code: "archive-full-backup" }],
+    "화면이 그 언어로 그릴 이유",
+  );
 });
 
 test("ZIP이 아니거나 settings.json이 없거나 모르는 형식이면 bad-archive", async () => {

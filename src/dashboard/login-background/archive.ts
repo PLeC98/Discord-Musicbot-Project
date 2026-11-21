@@ -4,7 +4,7 @@
 // 도는 단계를 멈춘 뒤 기록을 바꾸고 옛 배경을 삭제한다. 로그인 화면은 옛 배경의 파일을 못 받으면 배경 정보를 다시 읽는다.
 // 남이 준 파일일 수 있어 형식만 받는다: 기록은 다 만든 배경의 형식, 파일은 기록에 있는 배경의 내는 파일, 목록(.m3u8)은 그 폴더 안의 파일만 가리키고, 정지 그림은 적힌 폭의 WebP
 
-import { unmoved } from "../../rules/rule-problem.ts";
+import { rule, type RuleProblem } from "../../rules/rule-problem.ts";
 import fs from "node:fs";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
@@ -158,38 +158,38 @@ function playlistTargets(text: string, line: RegExp, allowMap: boolean): string[
 type Files = { has: (rel: string) => boolean; read: (rel: string, max: number) => Buffer };
 
 /** 정지 그림이 다 있고 적힌 폭의 WebP인지 */
-async function stillsProblem(one: store.Stored, files: Files): Promise<string | null> {
+async function stillsProblem(one: store.Stored, files: Files): Promise<RuleProblem | null> {
   for (const width of one.media.stills) {
     const rel = `still-${width}.webp`;
-    if (!files.has(rel)) return `"${one.name}"의 정지 이미지(${rel})가 없어요`;
+    if (!files.has(rel)) return rule("lbg-still-missing", { name: one.name, file: rel });
     const meta = await sharp(files.read(rel, STILL_MAX_BYTES))
       .metadata()
       .catch(() => null);
-    if (meta?.format !== "webp" || meta.width !== width) return `"${one.name}"의 정지 이미지(${rel})가 그 폭의 WebP가 아니에요`;
+    if (meta?.format !== "webp" || meta.width !== width) return rule("lbg-still-format", { name: one.name, file: rel });
   }
   return null;
 }
 
 /** 코덱마다 목록, 단계 목록, init, 세그먼트가 다 있고 목록이 그 폴더 안만 가리키는지 */
-function streamsProblem(one: store.Stored, { has, read }: Files): string | null {
+function streamsProblem(one: store.Stored, { has, read }: Files): RuleProblem | null {
   for (const [codec, rungs] of Object.entries(one.media.rungs) as [LoginBackgroundCodec, LoginBackgroundRung[]][]) {
     const master = `${codec}/${PLAYLIST}`;
-    if (!has(master)) return `"${one.name}"의 ${codec} 목록이 없어요`;
+    if (!has(master)) return rule("lbg-list-missing", { name: one.name, codec });
     const shorts = playlistTargets(read(master, PLAYLIST_MAX_BYTES).toString("utf8"), RUNG_LINE, false);
-    if (!shorts || shorts.length !== rungs.length) return `"${one.name}"의 ${codec} 목록을 쓸 수 없어요`;
+    if (!shorts || shorts.length !== rungs.length) return rule("lbg-list-bad", { name: one.name, codec });
     for (const line of shorts) {
       const short = RUNG_LINE.exec(line)![1];
       const playlist = `${codec}/${short}/${PLAYLIST}`;
-      if (!has(playlist) || !has(`${codec}/${short}/init.mp4`)) return `"${one.name}"의 ${codec} ${short} 단계 파일이 없어요`;
+      if (!has(playlist) || !has(`${codec}/${short}/init.mp4`)) return rule("lbg-rung-missing", { name: one.name, codec, rung: short });
       const segments = playlistTargets(read(playlist, PLAYLIST_MAX_BYTES).toString("utf8"), SEGMENT_LINE, true);
-      if (!segments?.length || segments.some((name) => !has(`${codec}/${short}/${name}`))) return `"${one.name}"의 ${codec} ${short} 단계 목록을 쓸 수 없어요`;
+      if (!segments?.length || segments.some((name) => !has(`${codec}/${short}/${name}`))) return rule("lbg-rung-bad", { name: one.name, codec, rung: short });
     }
   }
   return null;
 }
 
 /** 배경 하나의 파일이 다 있고 형식이 맞는지. 문제 한 줄(없으면 null) */
-async function itemProblem(zipped: Zipped, one: store.Stored, entries: ZipItem[]): Promise<string | null> {
+async function itemProblem(zipped: Zipped, one: store.Stored, entries: ZipItem[]): Promise<RuleProblem | null> {
   const prefix = `${DIR}${one.id}/`;
   const byName = new Map(entries.map((entry) => [entry.name.slice(prefix.length), entry]));
   const files: Files = { has: (rel) => byName.has(rel), read: (rel, max) => zipped.read(byName.get(rel)!, max) };
@@ -197,25 +197,25 @@ async function itemProblem(zipped: Zipped, one: store.Stored, entries: ZipItem[]
 }
 
 /** 파일의 기록(index.json)을 읽는다. 못 읽으면 원인 */
-function indexFrom(zipped: Zipped, entry: ZipItem): { index: store.Index } | { problem: string } {
-  if (entry.size > INDEX_MAX_BYTES) return { problem: "배경 기록(index.json)이 너무 커요" };
+function indexFrom(zipped: Zipped, entry: ZipItem): { index: store.Index } | { problem: RuleProblem } {
+  if (entry.size > INDEX_MAX_BYTES) return { problem: rule("lbg-index-big") };
   let json: unknown;
   try {
     json = JSON.parse(zipped.read(entry, INDEX_MAX_BYTES).toString("utf8"));
   } catch {
-    return { problem: "배경 기록(index.json)을 읽을 수 없어요" };
+    return { problem: rule("lbg-index-unreadable") };
   }
-  if (!isTable(json) || !Array.isArray(json.items)) return { problem: "배경 기록(index.json)이 객체 형식이 아니에요" };
+  if (!isTable(json) || !Array.isArray(json.items)) return { problem: rule("lbg-index-shape") };
   const items = json.items.map(itemFrom);
-  if (items.some((one) => one === null)) return { problem: "완성된 배경 형식이 아닌 기록이 있어요" };
+  if (items.some((one) => one === null)) return { problem: rule("lbg-unfinished") };
   const ids = (items as store.Stored[]).map((one) => one.id);
-  if (new Set(ids).size !== ids.length) return { problem: "같은 배경이 두 번 적혀 있어요" };
+  if (new Set(ids).size !== ids.length) return { problem: rule("lbg-duplicate") };
   const current = typeof json.current === "string" && ids.includes(json.current) ? json.current : null;
   return { index: { current, items: items as store.Stored[], options: store.optionsFrom(json.options), limits: store.limitsFrom(json.limits) } };
 }
 
 /** 파일을 검사한다. 파일에 배경 기록이 없으면 null, 걸리면 problems, 지나면 불러올 것 */
-async function planOf(zipped: Zipped): Promise<{ problems: string[]; plan: Plan | null; bytes: number } | null> {
+async function planOf(zipped: Zipped): Promise<{ problems: RuleProblem[]; plan: Plan | null; bytes: number } | null> {
   const indexEntry = zipped.entries.find((entry) => entry.name === INDEX_NAME);
   if (!indexEntry) return null;
   const read = indexFrom(zipped, indexEntry);
@@ -229,15 +229,15 @@ async function planOf(zipped: Zipped): Promise<{ problems: string[]; plan: Plan 
     if (list && isServed(rest)) list.push(entry);
     else unknown.push(entry.name);
   }
-  if (unknown.length) return { problems: [`모르는 파일이 있어요: ${unknown.slice(0, 3).join(", ")}${unknown.length > 3 ? ` 외 ${unknown.length - 3}개` : ""}`], plan: null, bytes: 0 };
-  const problems: string[] = [];
+  if (unknown.length) return { problems: [rule("lbg-unknown-files", { files: unknown.slice(0, 3).join(", "), more: Math.max(0, unknown.length - 3) })], plan: null, bytes: 0 };
+  const problems: RuleProblem[] = [];
   for (const one of read.index.items) {
     const problem = await itemProblem(zipped, one, files.get(one.id)!);
     if (problem) problems.push(problem);
   }
   const bytes = [...files.values()].flat().reduce((sum, entry) => sum + entry.size, 0);
   const room = store.room();
-  if (bytes > room) problems.push(`저장 공간이 부족해요(압축을 푼 크기 ${formatBytes(bytes)}, 남은 공간 ${formatBytes(room)})`);
+  if (bytes > room) problems.push(rule("lbg-no-room", { size: formatBytes(bytes), room: formatBytes(room) }));
   return { problems, plan: problems.length ? null : { index: read.index, files }, bytes };
 }
 
@@ -278,10 +278,10 @@ function sameAsNow(plan: Plan): boolean {
 }
 
 /** 지금 기록이 어떻게 되는지(통째로 바뀐다) */
-function warningsFor(plan: Plan): string[] {
+function warningsFor(plan: Plan): RuleProblem[] {
   const now = store.items();
   const making = now.filter((one) => !store.isReady(one) && one.problem === null).length;
-  return [...(now.length ? [`지금 배경 ${now.length}개를 모두 삭제하고 파일의 배경으로 바꿔요.`] : []), ...(making ? [`만들고 있는 배경 ${making}개도 멈추고 삭제해요.`] : []), ...(plan.index.items.length ? [] : ["파일에 배경이 없어 로그인 화면이 봇 프로필 이미지로 돌아가요."])];
+  return [...(now.length ? [rule("lbg-replace", { count: now.length })] : []), ...(making ? [rule("lbg-stop-making", { count: making })] : []), ...(plan.index.items.length ? [] : [rule("lbg-none")])];
 }
 
 /** 미리 보기 한 줄과 불러올 것(검사에 걸리면 plan이 null) */
@@ -292,7 +292,7 @@ async function check(file: string): Promise<{ row: ArchiveRow; plan: Plan | null
     if (!checked) return { row: { item: "login-background", inFile: false, same: false, problems: [], warnings: [], count: null }, plan: null };
     const count = checked.plan?.index.items.length ?? null;
     const same = checked.plan ? sameAsNow(checked.plan) : false;
-    return { row: { item: "login-background", inFile: true, same, problems: checked.problems.map(unmoved), warnings: checked.plan ? warningsFor(checked.plan).map(unmoved) : [], count }, plan: checked.plan };
+    return { row: { item: "login-background", inFile: true, same, problems: checked.problems, warnings: checked.plan ? warningsFor(checked.plan) : [], count }, plan: checked.plan };
   } finally {
     zipped.close();
   }

@@ -9,6 +9,8 @@
 //   연령 제한, SponsorBlock 합친다
 // 연령 제한을 먼저 불러온다(퇴거 점수가 읽는다). 파일은 임시 이름으로 받아 옮긴다(받는 동안 정리가 지우지 않게 지킨다). 설정 DB가 아니라 스냅샷을 뜨지 않는다.
 
+import { rule, type RuleProblem } from "../rules/rule-problem.ts";
+import { logRuleLine } from "../rules/text/index.ts";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
@@ -112,20 +114,22 @@ const isAudioItem = (item: ArchiveItem): item is AudioItem => (AUDIO_ITEMS as re
 /** 읽은 번들: 행 목록과 ZIP의 캐시 파일 항목(이름 → 항목) */
 type Bundle = { rows: Rows; entries: Map<string, ZipItem> };
 
+// 이 봇의 오디오 캐시 내보내기가 아닌 파일(settings-archive의 badArchive와 같은 모양)
+const archiveError = (problem: RuleProblem) => Object.assign(codedError("BAD_ARCHIVE", logRuleLine(problem)), { problem });
 /** 올린 ZIP의 행 목록을 읽는다. 없거나 모양이 틀리면 BAD_ARCHIVE */
 function readBundle(file: string): Bundle {
   const zipped = openZip(file);
   try {
     const entry = zipped.entries.find((one) => one.name === ROWS_NAME);
-    if (!entry) throw codedError("BAD_ARCHIVE", `${ROWS_NAME}이 없음. 오디오 캐시 내보내기 파일이 아님`);
+    if (!entry) throw archiveError(rule("archive-no-rows", { name: ROWS_NAME }));
     let raw: unknown;
     try {
       raw = JSON.parse(zipped.read(entry, ROWS_MAX_BYTES).toString("utf8"));
     } catch {
-      throw codedError("BAD_ARCHIVE", `${ROWS_NAME}이 JSON이 아니거나 너무 큼`);
+      throw archiveError(rule("archive-rows-bad", { name: ROWS_NAME }));
     }
     const parsed = RowsSchema.safeParse(raw);
-    if (!parsed.success) throw codedError("BAD_ARCHIVE", `${ROWS_NAME}의 형식이 맞지 않음: ${parsed.error.issues[0]?.path.join(".")}`);
+    if (!parsed.success) throw archiveError(rule("archive-rows-shape", { name: ROWS_NAME, at: parsed.error.issues[0]?.path.join(".") ?? "" }));
     return { rows: parsed.data, entries: new Map(zipped.entries.filter((one) => one.name.startsWith(FILES_DIR)).map((one) => [one.name, one])) };
   } finally {
     zipped.close();

@@ -30,7 +30,8 @@ const CLIENT_CLOSED = new Set<unknown>(["ERR_STREAM_PREMATURE_CLOSE", "EPIPE", "
 // 읽지 못한 파일(ZIP이 깨졌거나 이 봇의 내보내기가 아님)은 그 원인과 함께 400
 function unreadable(res: Response, error: unknown) {
   if (codeOf(error) === "BAD_ZIP" || codeOf(error) === "BAD_ARCHIVE") {
-    sendProblem(res, "bad-archive", {}, { detail: messageOf(error) });
+    const problem = (error as { problem?: RuleProblem }).problem;
+    sendProblem(res, "bad-archive", {}, problem ? { errors: [{ code: "bad-archive", rule: problem }] } : { detail: messageOf(error) });
     return true;
   }
   return false;
