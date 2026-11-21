@@ -275,8 +275,16 @@ test("운영 설정값이 바꾸는 설정 필드는 모두 저장할 때 덮어
   );
 });
 
-test("저장하면 IP 위치 DB, 테스트 언어도 바로 적용된다", async () => {
-  const saved = await req<View>("PUT", { values: { GEOIP_ENABLED: "false", TEST_LANGUAGE_ENABLED: "true" }, revision: 0 });
+test("저장하면 IP 위치 DB, 봇 기본 언어도 바로 적용된다", async () => {
+  const saved = await req<View>("PUT", { values: { GEOIP_ENABLED: "false", BOT_LANGUAGE: "qps-ploc" }, revision: 0 });
   assert.equal(saved.status, 200);
-  assert.deepEqual([config.geoip.enabled, config.i18n.testLanguage], [false, true]);
+  assert.deepEqual([config.geoip.enabled, config.i18n.botLanguage], [false, "qps-ploc"]);
+});
+
+test("제거된 운영 설정값은 예전 내보내기 파일에 있어도 모르는 이름으로 거부하지 않는다", () => {
+  assert.deepEqual(tunables.problemsOf({ TEST_LANGUAGE_ENABLED: "true" }), []);
+  assert.deepEqual(
+    tunables.problemsOf({ NO_SUCH_TUNABLE: "1" }).map((one) => one.code),
+    ["tune-unknown-key"],
+  );
 });

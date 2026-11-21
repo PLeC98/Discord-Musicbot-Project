@@ -6,6 +6,7 @@
 process.env.OWNER_ID = "owner";
 
 const { listenForFetch, baseUrl } = await import("../helpers/listen.ts");
+import { useTestLanguage } from "../../src/rules/languages.ts";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import type { Server } from "node:http";
@@ -445,7 +446,7 @@ test("서버 언어: 언어가 하나면 카드가 없다, 둘 이상이면 봇 
   assert.deepEqual([off.language, off.cards?.includes("language")], [undefined, false]);
   assert.equal((await save({ language: "qps-ploc" })).status, 400, "테스트 언어를 끈 동안에는 쓸 수 없는 언어");
 
-  config.i18n.testLanguage = true;
+  useTestLanguage(true);
   try {
     assert.deepEqual((await read()).language, {
       value: null,
@@ -462,7 +463,7 @@ test("서버 언어: 언어가 하나면 카드가 없다, 둘 이상이면 봇 
     assert.equal((await save({ language: null })).status, 200);
     assert.equal(settings.table.getLanguage(GUILD_ID), null);
   } finally {
-    config.i18n.testLanguage = false;
+    useTestLanguage(false);
   }
 });
 

@@ -8,7 +8,7 @@ type LanguageInfo = { tag: string; name: string; locale: string; discord: readon
 const LANGUAGES = [{ tag: "ko", name: "한국어", locale: "ko-KR", discord: ["ko"], htmlLang: "ko" }] as const satisfies readonly LanguageInfo[];
 
 /**
- * 테스트 언어. 기준 언어의 문구를 바꿔 만든다(rules/pseudo-text). 운영 설정값으로 켜면 언어 목록에 든다.
+ * 테스트 언어. 기준 언어의 문구를 바꿔 만든다(rules/pseudo-text). 테스트에서만 언어 목록에 넣는다(useTestLanguage).
  * 태그는 실제 언어와 겹치지 않는 것이어야 한다(ko-x-test는 언어 부분 맞추기에서 ko와 겹치고, x-test는 Intl이 받지 않는다)
  */
 const TEST_LANGUAGE = "qps-ploc";
@@ -22,8 +22,16 @@ const BASE_LANGUAGE: TextLanguage = "ko";
 /** 로그와 예외 메시지를 그리는 언어. 로그 메시지는 번역하지 않는다 */
 const LOG_LANGUAGE: TextLanguage = "ko";
 
-/** 쓸 수 있는 언어. testOn: 테스트 언어를 켰는가(운영 설정값. 이 모듈은 설정을 읽지 않는다) */
-const availableLanguages = (testOn: boolean): readonly LanguageInfo[] => (testOn ? [...LANGUAGES, TEST_INFO] : LANGUAGES);
+// 테스트 언어의 언어 목록 포함 여부. 테스트에서만 켠다(useTestLanguage)
+let testLanguageOn = false;
+
+/** 테스트 전용: 테스트 언어를 언어 목록에 넣거나 뺀다(언어가 둘일 때의 동작을 테스트한다) */
+const useTestLanguage = (on: boolean) => {
+  testLanguageOn = on;
+};
+
+/** 쓸 수 있는 언어 */
+const availableLanguages = (): readonly LanguageInfo[] => (testLanguageOn ? [...LANGUAGES, TEST_INFO] : LANGUAGES);
 
 /** 저장할 수 있는 언어 태그 모두(테스트 언어 포함). 저장한 값을 읽을 때 검증에 쓴다. 지금 쓸 수 있는지는 availableLanguages로 본다 */
 const KNOWN_TAGS: readonly [Language, ...Language[]] = [TEST_LANGUAGE, ...LANGUAGES.map((one) => one.tag)];
@@ -80,5 +88,5 @@ function nameFor(names: object | undefined, language: Language): string | undefi
   return key ? table[key] : undefined;
 }
 
-export { LANGUAGES, TEST_LANGUAGE, BASE_LANGUAGE, LOG_LANGUAGE, KNOWN_TAGS, availableLanguages, isAvailable, infoOf, matchLanguage, discordLanguage, acceptedTags, nameFor };
+export { LANGUAGES, TEST_LANGUAGE, BASE_LANGUAGE, LOG_LANGUAGE, KNOWN_TAGS, availableLanguages, useTestLanguage, isAvailable, infoOf, matchLanguage, discordLanguage, acceptedTags, nameFor };
 export type { LanguageInfo, Language, TextLanguage };

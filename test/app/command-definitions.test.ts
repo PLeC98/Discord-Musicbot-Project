@@ -1,6 +1,7 @@
 // src/discord/commands, src/ui/command-localizations.ts: 슬래시 명령 정의(배포하는 JSON)와 언어마다의 명령 문구(locales/<언어>/bot/commands).
 // 기본값(설명, 이름, 선택지)은 고정한 정의(fixtures/commands/definitions-ko.json)와 같고, 언어마다의 문구는 그 언어가 받는 디스코드 로케일 키로 실린다
 
+import { withTestLanguage } from "../helpers/test-language.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -11,7 +12,6 @@ import { definitions } from "../../src/app/command-loader.ts";
 import { localizeCommand } from "../../src/ui/command-localizations.ts";
 import { textFor } from "../../src/ui/text/index.ts";
 import { LANGUAGES, type TextLanguage } from "../../src/rules/languages.ts";
-import { withConfig } from "../helpers/config.ts";
 
 const FIXTURE = path.join(import.meta.dirname, "..", "fixtures", "commands", "definitions-ko.json");
 const KO = textFor("ko").commands;
@@ -97,8 +97,8 @@ for (const language of LANGUAGES) {
 }
 
 test("테스트 언어를 켜면 /language만 더해진다(언어가 둘이 된다). 다른 명령의 정의는 같다(테스트 언어는 디스코드 로케일이 없다)", () => {
-  const names = (on: boolean) => withConfig({ i18n: { testLanguage: on } }, () => definitions()).map((one) => one.name);
-  const others = (on: boolean) => withConfig({ i18n: { testLanguage: on } }, () => JSON.stringify(definitions().filter((one) => one.name !== "language")));
+  const names = (on: boolean) => withTestLanguage(on, () => definitions()).map((one) => one.name);
+  const others = (on: boolean) => withTestLanguage(on, () => JSON.stringify(definitions().filter((one) => one.name !== "language")));
   assert.deepEqual(
     names(true).filter((name) => !names(false).includes(name)),
     ["language"],

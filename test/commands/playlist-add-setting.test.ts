@@ -9,7 +9,7 @@ import { command as commandNamed, run } from "../helpers/commands.ts";
 import { screenOf, textOf } from "../helpers/cv2.ts";
 import { MessageFlags } from "discord.js";
 import { PLAYLIST_ADD_DEFAULT } from "../../src/rules/limits.ts";
-import { TEST_LANGUAGE } from "../../src/rules/languages.ts";
+import { TEST_LANGUAGE, useTestLanguage } from "../../src/rules/languages.ts";
 
 const store = openTempStore("playlist-add-");
 after(() => store.close());
@@ -126,13 +126,13 @@ test("/setplaylistlimit: 저장에 실패하면 바꾸지 않고 실패를 알�
 
 // 서버 언어를 테스트 언어로 고른 동안
 async function withTestLanguage(fn: () => Promise<void>) {
-  config.i18n.testLanguage = true;
+  useTestLanguage(true);
   guildSettings.setLanguage(G, TEST_LANGUAGE);
   try {
     await fn();
   } finally {
     guildSettings.setLanguage(G, null);
-    config.i18n.testLanguage = false;
+    useTestLanguage(false);
   }
 }
 const asker = (locale: string, options: { count?: number | null } = {}) => Object.assign(interaction(options), { locale, guildId: G });

@@ -10,7 +10,7 @@ const log = logger.child({ category: "config" });
 import * as root from "../config/index.ts";
 import { codedError, messageOf } from "../rules/error-kind.ts";
 import { tunablesChanged } from "../config/tunables-changed.ts";
-import { TUNABLES, TUNABLE_KEYS, RESTART_KEYS, CARD_KEYS, tunable, tunableValue, type TunablesView } from "../rules/tunables.ts";
+import { TUNABLES, TUNABLE_KEYS, RETIRED_TUNABLES, RESTART_KEYS, CARD_KEYS, tunable, tunableValue, type TunablesView } from "../rules/tunables.ts";
 import { rule, tuneKeyOf, tuneProblem, type RuleProblem } from "../rules/rule-problem.ts";
 import { logRuleLine } from "../rules/text/index.ts";
 import * as docs from "./settings-docs.ts";
@@ -129,7 +129,7 @@ function lockedProblems(before: Record<string, string>, after: Record<string, st
 
 // 모르는 이름, 문자열이 아닌 값
 function shapeProblems(values: Record<string, unknown>): RuleProblem[] {
-  const unknown = Object.keys(values).filter((key) => !TUNABLE_KEYS.has(key));
+  const unknown = Object.keys(values).filter((key) => !TUNABLE_KEYS.has(key) && !RETIRED_TUNABLES.has(key));
   const wrongType = Object.entries(values).filter(([, value]) => typeof value !== "string" && value !== null);
   return [...unknown.map((key) => rule("tune-unknown-key", { key })), ...wrongType.map(([key]) => rule("tune-not-text", { key }))];
 }

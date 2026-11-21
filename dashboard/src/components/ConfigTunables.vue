@@ -105,7 +105,7 @@ const mine = computed(() => TUNABLES.filter((one) => !one.card && !OWN_CARD_GROU
 const keys = computed(() => mine.value.map((one) => one.key));
 // 고급 항목은 "고급 설정 보기"를 켰을 때만. 꺼 두었어도 수정 중이거나 다시 시작을 기다리는 항목은 보인다(저장 바, 다시 시작 안내가 가리키는 칸이 숨지 않게)
 // 쓸 수 있는 언어(저장한 테스트 언어 스위치를 따른다). 하나뿐이면 고를 것이 없어 언어 필드를 표시하지 않는다
-const languageOptions = computed(() => availableLanguages(saved.value.TEST_LANGUAGE_ENABLED === "true").map((one) => ({ value: one.tag, label: one.name })));
+const languageOptions = computed(() => availableLanguages().map((one) => ({ value: one.tag, label: one.name })));
 const pickLanguage = (one: Tunable, tag: string) => (draft.value[one.key] = tag === one.def ? "" : tag);
 const hidden = (one: Tunable) => one.kind === "language" && languageOptions.value.length <= 1 && !changed(one);
 const shown = (one: Tunable) => !hidden(one) && (!one.advanced || showAdvanced.value || changed(one) || pending.value.includes(one.key));

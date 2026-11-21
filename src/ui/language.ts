@@ -1,6 +1,6 @@
 // 누가 보는가로 언어를 고른다. 여럿이 보는 것(채널에 남는 공개 메시지)은 서버 언어, 개인이 보는 것(본인에게만 보이는 답, 대시보드 화면)은 그 사람의 언어.
 // 호출부는 언어를 직접 정하지 않고 보낼 곳의 독자에 맞는 함수를 부른다. 언어를 돌려주는 함수(그리기 워커의 일감에 실을 수 있다)와 그 언어의 문구표를 주는 함수가 짝이다.
-// 저장한 언어(봇 기본 언어, 서버 언어, 개인 언어)가 지금 쓸 수 없는 언어면(테스트 언어를 껐다, 언어를 뺐다) 한 번 알리고 다음 순서로 넘어간다
+// 저장한 언어(봇 기본 언어, 서버 언어, 개인 언어)가 지금 쓸 수 없는 언어면(언어가 빠졌거나 테스트 언어가 저장된 경우) 한 번 알리고 다음 순서로 넘어간다
 
 import { MessageFlags } from "discord.js";
 import config from "../config/index.ts";
@@ -13,7 +13,7 @@ import { textFor } from "./text/index.ts";
 const log = logger.child({ category: "core" });
 
 /** 지금 쓸 수 있는 언어 */
-const languagesNow = () => availableLanguages(config.i18n.testLanguage);
+const languagesNow = () => availableLanguages();
 
 // 이미 알린 쓸 수 없는 저장 값(어디, 값)
 const warned = new Set<string>();

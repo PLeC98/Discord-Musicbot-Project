@@ -3,6 +3,7 @@
 process.env.OWNER_ID = "owner";
 process.env.DASHBOARD_TRUST_PROXY = "";
 
+import { useTestLanguage } from "../../src/rules/languages.ts";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import net from "node:net";
@@ -114,14 +115,14 @@ test("차단 안내 쪽은 보낸 사람의 언어(Accept-Language, 없으면 �
     assert.match(plain.body, /[가-힣]/);
     assert.match((await evil("qps-ploc")).body, /<html lang="ko">/, "테스트 언어를 끈 동안에는 봇 기본 언어");
 
-    config.i18n.testLanguage = true;
+    useTestLanguage(true);
     try {
       const pseudo = await evil("qps-ploc, ko;q=0.5");
       assert.match(pseudo.body, /<html lang="qps-ploc">/);
       assert.doesNotMatch(pseudo.body, /[가-힣]/, "문구가 모두 그 언어로 나온다");
       assert.match(pseudo.body, /evil\.com/);
     } finally {
-      config.i18n.testLanguage = false;
+      useTestLanguage(false);
     }
   } finally {
     config.dashboard.url = saved;

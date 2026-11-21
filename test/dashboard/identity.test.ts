@@ -2,6 +2,7 @@
 
 process.env.OWNER_ID = "owner";
 
+import { useTestLanguage } from "../../src/rules/languages.ts";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import express from "express";
@@ -139,7 +140,7 @@ test("개인 언어: /api/me가 보내고(정한 적 없으면 null), PUT /api/m
   assert.equal((await get("/api/me")).json.language, "auto");
   assert.equal((await put({ language: "qps-ploc" })).status, 400, "테스트 언어를 끈 동안에는 쓸 수 없는 언어");
   assert.equal((await put({ language: "xx" })).status, 400);
-  config.i18n.testLanguage = true;
+  useTestLanguage(true);
   try {
     assert.equal((await put({ language: "qps-ploc" })).status, 200);
     const bot = await get("/api/bot");
@@ -154,7 +155,7 @@ test("개인 언어: /api/me가 보내고(정한 적 없으면 null), PUT /api/m
       ],
     );
   } finally {
-    config.i18n.testLanguage = false;
+    useTestLanguage(false);
   }
   user = null;
   assert.equal((await put({ language: "ko" })).status, 401);

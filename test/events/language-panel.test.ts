@@ -8,10 +8,9 @@ import { openTempStore } from "../helpers/temp-store.ts";
 import { interactionKind } from "../helpers/interaction-kind.ts";
 import { textOf } from "../helpers/cv2.ts";
 import { command, run } from "../helpers/commands.ts";
-import { TEST_LANGUAGE } from "../../src/rules/languages.ts";
+import { TEST_LANGUAGE, useTestLanguage } from "../../src/rules/languages.ts";
 
 const temp = openTempStore("language-panel-");
-const config = (await import("../../src/config/index.ts")).default;
 const guildSettings = await import("../../src/store/guild-settings.ts");
 const userSettings = await import("../../src/store/user-settings.ts");
 const { fakeWith, fakeBot } = await import("../helpers/fake.ts");
@@ -19,11 +18,11 @@ const interactionCreate = (await import("../../src/discord/events/interaction-cr
 const language = await command("language");
 
 after(() => {
-  config.i18n.testLanguage = false;
+  useTestLanguage(false);
   temp.close();
 });
 beforeEach(() => {
-  config.i18n.testLanguage = true;
+  useTestLanguage(true);
   guildSettings.setLanguage("g1", null);
   userSettings.setLanguage("u1", null);
 });
@@ -93,7 +92,7 @@ function pick(customId: string, value: string, { manager = true, inGuild = true 
 
 test("언어가 둘 이상일 때만 명령이 켜진다", () => {
   assert.equal(language.enabled?.(), true);
-  config.i18n.testLanguage = false;
+  useTestLanguage(false);
   assert.equal(language.enabled?.(), false);
 });
 

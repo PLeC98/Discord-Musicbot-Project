@@ -478,10 +478,9 @@ function serviceConfig({ env, envInt, envEnum, envUrl, envOrigin, envAddress, en
       enabled: tuneBool("AI_LOG_ENABLED"),
       maxBytes: tuneInt("AI_LOG_MAX_MB") * 1024 * 1024,
     },
-    // 언어. botLanguage: 봇 기본 언어(쓸 수 있는 언어가 아니면 ui/language가 기준 언어를 쓴다), testLanguage: 테스트 언어를 언어 목록에 넣는가(ui/language)
+    // 언어. botLanguage: 봇 기본 언어(쓸 수 있는 언어가 아니면 ui/language가 기준 언어를 쓴다)
     i18n: {
       botLanguage: tuneEnum("BOT_LANGUAGE", KNOWN_TAGS),
-      testLanguage: tuneBool("TEST_LANGUAGE_ENABLED"),
     },
     // IP 위치 DB(dashboard/geoip). 로그인한 기기의 위치. 끄면 받지도 쓰지도 않는다(받은 파일은 둔다)
     geoip: {

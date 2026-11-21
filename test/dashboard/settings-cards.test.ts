@@ -1,11 +1,11 @@
 // src/dashboard/settings-cards.ts: 서버 설정 카드마다 누가 보고 고치는가. 카드의 조건(계층, 봇 추방), 보이는 카드, 막힌 필드가 하나라도 있으면 거절, 카드가 없을 때의 거절
 
+import { withTestLanguage } from "../helpers/test-language.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { CARDS, shownCards, editsAny, noCardRefusal, noBodyCardRefusal, cardRefusal, fieldRefusal, type CardTable, type Viewer } from "../../src/dashboard/settings-cards.ts";
 import { useDefaultDocuments, useDocument } from "../helpers/config-docs.ts";
 import { settingsPatch } from "../../src/dashboard/request-schemas.ts";
-import { withConfig } from "../helpers/config.ts";
 
 // 보는 사람: 계층과 봇을 추방할 수 있는지
 const as = (tier: Viewer["tier"], kicksBot = false): Viewer => ({ tier, kicksBot });
@@ -50,10 +50,10 @@ test("연령 제한 카드는 운영자가 켰을 때만 보인다(고치는 것
 });
 
 test("서버 언어 카드는 언어가 둘 이상일 때만 보인다(디스코드 /language와 같다. 고치는 것은 막지 않는다)", () => {
-  assert.ok(!withConfig({ i18n: { testLanguage: false } }, () => shownCards(MANAGER)).includes("language"));
+  assert.ok(!withTestLanguage(false, () => shownCards(MANAGER)).includes("language"));
   assert.equal(fieldRefusal(MANAGER, { language: { from: null, to: "ko" } }), null);
-  assert.ok(withConfig({ i18n: { testLanguage: true } }, () => shownCards(MANAGER)).includes("language"));
-  assert.ok(!withConfig({ i18n: { testLanguage: true } }, () => shownCards(DJ)).includes("language"), "서버 관리자만");
+  assert.ok(withTestLanguage(true, () => shownCards(MANAGER)).includes("language"));
+  assert.ok(!withTestLanguage(true, () => shownCards(DJ)).includes("language"), "서버 관리자만");
 });
 
 test("저장 본문의 필드는 모두 어느 한 카드에 속한다(속하지 않은 필드는 권한 확인 없이 지나간다)", () => {
