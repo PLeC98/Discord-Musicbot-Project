@@ -1,6 +1,16 @@
 <template>
-  <!-- 권한 적용해서 보기(디스코드의 "역할 적용해서 서버 보기", 서버 판정까지 같이 낮아진다). 커맨드 재배포는 설정 탭(ConfigCommands), 초기화는 백업, 초기화 탭(ConfigReset) -->
+  <!-- 맨 위 스위치(안드로이드의 "개발자 옵션 사용", 끄면 탭이 숨는다), 권한 적용해서 보기(디스코드의 "역할 적용해서 서버 보기", 서버 판정까지 같이 낮아진다).
+       커맨드 재배포는 설정 탭(ConfigCommands), 초기화는 백업, 초기화 탭(ConfigReset) -->
   <div class="grid grid-cols-1 xl:grid-cols-2 gap-(--gap-in) items-start">
+    <BaseCard class="xl:col-span-2">
+      <label class="flex items-start gap-3 cursor-pointer">
+        <span class="min-w-0 flex-1">
+          <span class="block text-sm font-semibold text-on-surface">{{ T.toggle.title }}</span>
+          <span class="block text-xs text-on-surface-variant">{{ T.toggle.desc }}</span>
+        </span>
+        <BaseSwitch :model-value="devOptions" :disabled="switchingTier" class="mt-0.5" @update:model-value="(on) => !on && turnOff()" />
+      </label>
+    </BaseCard>
     <BaseCard icon="visibility" :title="T.viewAs.title">
       <p class="mb-3 flex items-center gap-1 text-sm text-on-surface-variant">{{ T.viewAs.desc }}<Icon name="info" :size="16" class="shrink-0 cursor-help" v-tooltip="T.viewAs.tip" /></p>
       <div role="radiogroup" :aria-label="T.viewAs.label" class="flex flex-col gap-1">
@@ -20,6 +30,8 @@
 import { computed, ref } from "vue";
 import BaseCard from "./BaseCard.vue";
 import Icon from "./BaseIcon.vue";
+import BaseSwitch from "./BaseSwitch.vue";
+import { devOptions, setDevOptions } from "../composables/dev-options.ts";
 import { notifyProblem } from "../composables/toasts.ts";
 import { SELECT_ROW_ON } from "../utils/select-row.ts";
 import { useUserStore, viewAsTiers } from "../stores/user.ts";
@@ -36,6 +48,21 @@ const TIER_ROWS = computed<{ id: Tier | null; label: string; desc: string }[]>((
 
 // 라디오 항목(선택한 항목은 목록, 상세의 선택한 항목과 같은 색)
 const tierRow = "state-layer w-full flex items-start gap-3 text-left rounded-(--r-inner) px-3 py-2.5 text-on-surface cursor-pointer transition-[background-color,border-radius] effects disabled:cursor-not-allowed disabled:opacity-38";
+
+// 끄면 탭을 숨기고(정보 탭으로 옮기는 것은 운영자 패널), 권한 적용해서 보기가 켜져 있으면 같이 해제한다(해제하면 새로고침된다).
+// 해제하지 못하면 탭을 다시 켜고 알린다
+async function turnOff() {
+  setDevOptions(false);
+  if (user.viewAs === null) return;
+  switchingTier.value = true;
+  try {
+    await user.setViewAs(null);
+  } catch (e) {
+    setDevOptions(true);
+    notifyProblem(e, T.viewAs.failed);
+    switchingTier.value = false;
+  }
+}
 
 async function pickTier(tier: Tier | null) {
   if (switchingTier.value || user.viewAs === tier) return;

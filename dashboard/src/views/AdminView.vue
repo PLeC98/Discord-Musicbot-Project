@@ -221,6 +221,7 @@ import BotRestartDialog from "../components/BotRestartDialog.vue";
 import ConfigAppearance from "../components/ConfigAppearance.vue";
 import AppEmojiCard from "../components/AppEmojiCard.vue";
 import DevOptions from "../components/DevOptions.vue";
+import { devOptions } from "../composables/dev-options.ts";
 import { SHOWN_LINES, type LogGap, type WireEntry } from "../../../src/infra/log/levels.ts";
 import type { LogRow } from "../utils/log-rows.ts";
 import { COUNTS_ONLY, GUILD_QUERY, STATUS_QUERY, guildParams, statusParams, type AdminGuilds, type AdminStatus, type GuildQuery, type StatusQuery } from "../../../src/dashboard/contract/admin.ts";
@@ -255,8 +256,8 @@ const ALL_TABS = computed<Tab[]>(() => [
   { id: "info", label: T.tabs.info, icon: "info", group: "dev" },
   { id: "dev", label: T.tabs.dev, icon: "build", group: "dev" },
 ]);
-// 보이는 탭. 연령 제한 탭은 연령 제한 콘텐츠를 켰을 때만 있다
-const TABS = computed(() => ALL_TABS.value.filter((t) => t.id !== "age" || ageContent.value.enabled));
+// 보이는 탭. 연령 제한 탭은 연령 제한 콘텐츠를 켰을 때만, 개발자 옵션 탭은 개발자 옵션을 켰을 때만(composables/dev-options) 있다
+const TABS = computed(() => ALL_TABS.value.filter((t) => (t.id !== "age" || ageContent.value.enabled) && (t.id !== "dev" || devOptions.value)));
 // ── 저장 바 ─────────────────────────────────────────────────────────────────
 // 고친 편집기를 탭 순서대로 저장한다. 하나가 실패하면 멈추고 그 탭으로 옮긴다(검사 문제는 그 편집기 안에 그려진다).
 // 지금 탭에 문제가 있으면 그대로 둔다(setTab은 지금 탭을 받으면 상세를 닫는다)
@@ -338,6 +339,10 @@ watch(
   },
   { immediate: true },
 );
+// 개발자 옵션 탭에서 개발자 옵션을 끄면 그 탭이 사라져 지난번 탭이나 첫 탭으로 넘어가므로, 켜는 곳(봇 정보 탭)으로 옮긴다
+watch(tab, (now, before) => {
+  if (before === "dev" && now !== "dev" && !devOptions.value) void router.replace({ query: { ...route.query, tab: "info" } });
+});
 // 언어를 바꾸면 탭 이름도 바뀐다
 watchEffect(() => (shell.subtitle = ALL_TABS.value.find((t) => t.id === tab.value)?.label ?? ""));
 onUnmounted(() => (shell.subtitle = ""));

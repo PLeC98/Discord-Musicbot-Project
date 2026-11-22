@@ -1,4 +1,14 @@
-// 운영자 패널: 개발자 옵션 탭(권한 적용해서 보기). 슬래시 커맨드 재배포는 설정 탭(locales/ko/screen/commands), 초기화는 백업, 초기화 탭(locales/ko/screen/reset)
+// 운영자 패널: 개발자 옵션 탭(켜고 끄기, 권한 적용해서 보기). 슬래시 커맨드 재배포는 설정 탭(locales/ko/screen/commands), 초기화는 백업, 초기화 탭(locales/ko/screen/reset)
+
+/** 켜고 끄기. 봇 정보 탭의 Version을 7번 눌러 켜고(그동안의 알림), 이 탭 맨 위 스위치로 끈다 */
+const toggle = {
+  title: "개발자 옵션 사용",
+  desc: "끄면 이 탭이 사라지고 권한 적용해서 보기도 해제돼요. 봇 정보 탭의 Version을 7번 누르면 다시 켜져요.",
+  left: (n: number) => `개발자 옵션까지 ${n}번 남았어요.`,
+  unlocked: "개발자 옵션을 켰어요.",
+  already: "개발자 옵션이 이미 켜져 있어요.",
+  open: "열기",
+};
 
 /** 권한 적용해서 보기 */
 const viewAs = {
@@ -10,4 +20,4 @@ const viewAs = {
   failed: "권한 수준을 바꾸지 못했어요.",
 };
 
-export { viewAs };
+export { toggle, viewAs };

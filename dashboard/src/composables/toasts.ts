@@ -70,8 +70,8 @@ export function dismiss(id: number): void {
   }
 }
 
-/** 알림 하나. 새 것이 맨 위다. 같은 글이 떠 있으면 새로 쌓지 않고 그것의 시간을 다시 잰다 */
-export function notify({ title, body = "", detail = "", codeLine = "", severity = "error", reportUrl = "", actions = [] }: Pick<Toast, "title"> & Partial<Omit<Toast, "id" | "timer" | "at" | "ms" | "round" | "due" | "paused">>): void {
+/** 알림 하나. 새 것이 맨 위다. 같은 글이 떠 있으면 새로 쌓지 않고 그것의 시간을 다시 잰다. 알림의 id(같은 글이면 떠 있던 것의 id)를 돌려준다 */
+export function notify({ title, body = "", detail = "", codeLine = "", severity = "error", reportUrl = "", actions = [] }: Pick<Toast, "title"> & Partial<Omit<Toast, "id" | "timer" | "at" | "ms" | "round" | "due" | "paused">>): number {
   const same = toasts.find((one) => one.title === title && one.body === body && one.codeLine === codeLine);
   if (same) {
     // 멈춰 둔 동안이면 남은 시간만 처음으로 돌리고 멈춘 채로 둔다
@@ -84,13 +84,14 @@ export function notify({ title, body = "", detail = "", codeLine = "", severity 
     same.at = Date.now();
     same.round++;
     keep(same);
-    return;
+    return same.id;
   }
   const id = nextId++;
   const ms = SHOW_MS[severity];
   toasts.unshift({ id, title, body, detail, codeLine, severity, reportUrl, actions, timer: setTimeout(() => dismiss(id), ms), at: Date.now(), ms, round: 0, due: Date.now() + ms, paused: null });
   keep(toasts[0]);
   while (toasts.length > MAX) dismiss(toasts[toasts.length - 1].id);
+  return id;
 }
 
 /** 떠 있는 동안 시간을 멈추고(마우스를 올렸을 때), 멈춘 자리부터 이어 잰다(뗐을 때) */
