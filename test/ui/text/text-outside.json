@@ -35,8 +35,8 @@
     "log": 3
   },
   "scripts/check-vendor-updates.ts": {
-    "log": 5,
-    "outside": 4
+    "log": 8,
+    "outside": 1
   },
   "scripts/deploy-commands.ts": {
     "log": 8,
@@ -63,8 +63,7 @@
     "log": 1
   },
   "scripts/update-ytdlp.ts": {
-    "outside": 13,
-    "log": 6
+    "log": 19
   },
   "scripts/verify-move.ts": {
     "outside": 8,
