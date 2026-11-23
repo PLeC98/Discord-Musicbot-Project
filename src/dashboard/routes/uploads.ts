@@ -16,6 +16,8 @@ import * as uploads from "../uploads.ts";
 import type { UploadProgress, UploadStarted, UploadStatus } from "../contract/uploads.ts";
 import * as archiveUploads from "../archive-uploads.ts";
 import * as backgrounds from "../login-background/store.ts";
+import { L } from "../../infra/log/text.ts";
+import { logTextError } from "../../infra/log/log-text.ts";
 
 const uploadsRouter = express.Router();
 uploadsRouter.use(requireOwner);
@@ -71,7 +73,7 @@ const readChunk = express.raw({ type: "application/octet-stream", limit: uploads
 /** 본문(청크)을 메모리로 받는다. 끊기거나 형식이 다르면 reject 한다 */
 const bodyOf = (req: Request, res: Response) =>
   new Promise<Buffer>((resolve, reject) => {
-    readChunk(req, res, (error?: unknown) => (error ? reject(error) : Buffer.isBuffer(req.body) ? resolve(req.body) : reject(new Error("청크가 application/octet-stream이 아님"))));
+    readChunk(req, res, (error?: unknown) => (error ? reject(error) : Buffer.isBuffer(req.body) ? resolve(req.body) : reject(logTextError(L.dashboard.uploadChunkNotOctet()))));
   });
 
 /** 청크 길이(Content-Length)의 문제. 명시하지 않았으면 bad-request, 청크 상한이나 선언한 크기를 넘으면 payload-too-large */

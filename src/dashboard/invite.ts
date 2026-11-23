@@ -6,6 +6,7 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import { messageOf } from "../rules/error-kind.ts";
 import { userGuilds, _resetUserGuilds, type UserGuild } from "./user-guilds.ts";
+import { L } from "../infra/log/text.ts";
 
 /** 누가 초대할 수 있나. 공개 봇이 아니면 앱 소유자(팀이면 팀원)만 넣을 수 있고, code grant를 요구하면 초대 링크만으로는 들어오지 않는다 */
 type AppInfo = { botPublic: boolean; requireCodeGrant: boolean; ownerIds: string[] };
@@ -27,7 +28,7 @@ function loadAppInfo(client: Client): Promise<void> {
       const ownerIds = !owner ? [] : "members" in owner ? [...owner.members.keys()] : [owner.id];
       appInfo = { botPublic: app.botPublic === true, requireCodeGrant: app.botRequireCodeGrant === true, ownerIds };
     })
-    .catch((error: unknown) => log.warn(`디스코드 앱 정보 불러오기 실패(초대 화면 일시 비활성화): ${messageOf(error)}`))
+    .catch((error: unknown) => log.warn(L.dashboard.inviteAppInfoFailed({ error: messageOf(error) })))
     .finally(() => (loading = null));
   return loading;
 }

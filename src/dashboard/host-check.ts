@@ -10,6 +10,7 @@ import logger from "../infra/log/logger.ts";
 import { trustedPeer } from "./browser-side.ts";
 import { warnGate } from "./warn-gate.ts";
 import { htmlPage } from "./html-page.ts";
+import { L } from "../infra/log/text.ts";
 
 const log = logger.child({ category: "dashboard" });
 
@@ -75,7 +76,7 @@ function hostCheck(url: string): RequestHandler {
     if (verdict === "warn") {
       log.warn(shown ? `허용하지 않은 호스트로 온 요청 차단(${bad.header}): ${shown}. 이 주소로 접속하려면 DASHBOARD_URL을 이 주소로 바꾸세요.` : "Host 헤더가 없거나 여러 개이거나 형식이 잘못된 요청 차단");
     } else if (verdict === "cap") {
-      log.warn("허용하지 않은 호스트로 온 요청이 많아 1시간 동안 더는 로그에 남기지 않음(차단은 그대로)");
+      log.warn(L.dashboard.badHostMuted());
     }
     res
       .status(403)

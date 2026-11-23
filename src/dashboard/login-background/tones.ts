@@ -11,6 +11,7 @@ import * as store from "./store.ts";
 import { fitShort, seekArgs, sourceFilter, squareCrop } from "./ladder.ts";
 import { probeVideo, READ_ARGS } from "./source.ts";
 import { frameAt } from "./stills.ts";
+import { L } from "../../infra/log/text.ts";
 
 /** 장면 바뀜의 임계값(ffmpeg scene 점수), 하나로 보는 간격, 처음, 끝에서 빼는 몫, 장면을 뜨는 때(바뀐 뒤), 찾을 때의 짧은 변 */
 const THRESHOLD = 0.3;
@@ -44,8 +45,8 @@ async function tones({ item, signal, progress }: StageJob): Promise<StageResult>
       if (at) times.push(Number(at[1]));
     },
   });
-  if (run.aborted) throw codedError("aborted", "중단됨");
-  if (run.code !== 0) throw codedError("background-failed", `장면 전환 찾기 실패: ${run.stderr.split("\n").filter(Boolean).at(-1) ?? ""}`);
+  if (run.aborted) throw codedError("aborted", L.dashboard.backgroundAborted());
+  if (run.code !== 0) throw codedError("background-failed", L.dashboard.backgroundScenesFailed({ stderr: run.stderr.split("\n").filter(Boolean).at(-1) ?? "" }));
   const length = to - from;
   const starts = [0, ...cutsOf(times, length)];
   const scenes: LoginBackgroundScene[] = [];

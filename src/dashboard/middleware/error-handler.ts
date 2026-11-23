@@ -5,6 +5,7 @@ import { PROBLEMS, type Code } from "../../rules/problems.ts";
 import { htmlPage } from "../html-page.ts";
 import { sendProblem } from "../problem.ts";
 import { SessionEndedError, isEnded, sessionEnded } from "../session-requests.ts";
+import { L } from "../../infra/log/text.ts";
 const log = logger.child({ category: "dashboard" });
 
 // 오류 응답에 스택, 내부 경로, 의존성 버전이 실리지 않게 한다.
@@ -70,7 +71,7 @@ function errorHandler(err: unknown, req: Request, res: Response, next: NextFunct
   // 요청 처리 중 세션이 끝나 중단됐다(상태 변경 직전의 세션 확인, 봇이 끊은 업로드의 본문 수신 실패). 해당 사용자의 세션 문제라 봇에는 영향이 없다.
   // 그 밖의 오류는 끝난 요청이어도 아래로 간다(봇 버그를 숨기지 않는다)
   if (err instanceof SessionEndedError || (isEnded(req) && cutShort(err))) {
-    log.debug(`${req.method} ${req.originalUrl} → 401 세션이 진행 중에 끝남`);
+    log.debug(L.dashboard.sessionEndedMidRequest({ method: req.method, url: req.originalUrl }));
     if (!sessionEnded(res, err) && !res.headersSent) sendProblem(res, "login-required");
     return;
   }

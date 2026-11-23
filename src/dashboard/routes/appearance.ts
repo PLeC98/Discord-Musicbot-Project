@@ -13,6 +13,7 @@ import * as safeUrl from "../../infra/safe-url.ts";
 import { APPEARANCE_MAX_BYTES, FAVICON_SIZES, type FaviconSlots } from "../contract/appearance.ts";
 import * as store from "../appearance.ts";
 import { assertSignedIn, sessionEnded } from "../session-requests.ts";
+import { L } from "../../infra/log/text.ts";
 
 /** 매니페스트가 부르는 아이콘 크기(안드로이드 홈 화면) */
 const MANIFEST_SIZES = [192, 256, 512];
@@ -66,12 +67,12 @@ async function changing(req: Request, res: Response, what: [string, string], job
     done = await job();
   } catch (error) {
     if (sessionEnded(res, error)) return;
-    log.error({ sub: "admin" }, `파비콘 ${what[1]} 실패: ${messageOf(error)}`);
+    log.error({ sub: "admin" }, L.dashboard.faviconFailed({ action: what[1], error: messageOf(error) }));
     return sendProblem(res, "appearance-save-failed", {}, { detail: messageOf(error) });
   }
   if (done === false) return sendProblem(res, "route-not-found");
   if (typeof done === "object" && !done.ok) return sendProblem(res, done.code, done.params);
-  log.info({ sub: "admin" }, `파비콘 ${what[0]}. 실행 ${ranBy(req)}`);
+  log.info({ sub: "admin" }, L.dashboard.faviconChanged({ action: what[0], by: ranBy(req) }));
   res.json(reply(req));
 }
 
@@ -88,7 +89,7 @@ appearanceRouter.post("/favicon/fetch", async (req, res) => {
   try {
     data = await safeUrl.getBuffer(body.value.url, LINK_ACCEPT);
   } catch (error) {
-    log.warn({ sub: "admin" }, `파비콘 링크에서 이미지 다운로드 실패: ${messageOf(error)}`);
+    log.warn({ sub: "admin" }, L.dashboard.faviconLinkDownloadFailed({ error: messageOf(error) }));
     return sendProblem(res, "image-link-failed", { max: APPEARANCE_MAX_BYTES });
   }
   const format = await sharp(data)

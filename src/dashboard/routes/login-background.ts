@@ -22,6 +22,7 @@ import { bakeNow } from "../login-background/encode.ts";
 import { previewOf } from "../login-background/preview.ts";
 import { stripOf } from "../login-background/strip.ts";
 import { cropKeyOf, estimatedBytes } from "../../rules/background-estimate.ts";
+import { L } from "../../infra/log/text.ts";
 
 const loginBackgroundRouter = express.Router();
 loginBackgroundRouter.use(requireOwner);
@@ -87,7 +88,7 @@ function itemFor(req: Request<{ id: string }>, res: Response) {
 /** 바꾼 것을 적고 로그를 남기고 상태로 응답한다 */
 function changed<P>(req: Request<P>, res: Response, what: string) {
   store.save();
-  log.info({ sub: "admin" }, `로그인 배경: ${what}. 실행 ${ranBy(req)}`);
+  log.info({ sub: "admin" }, L.dashboard.backgroundChanged({ what, by: ranBy(req) }));
   reply(res);
 }
 

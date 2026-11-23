@@ -19,6 +19,7 @@ import { loggedInIntents } from "../../infra/gateway-intents.ts";
 import { sendProblem } from "../problem.ts";
 import { requireAuth } from "../middleware/require-auth.ts";
 import { recentLogin, RECENT_LOGIN_MS } from "../middleware/recent-login.ts";
+import { L } from "../../infra/log/text.ts";
 
 const identityRouter = express.Router();
 
@@ -43,7 +44,7 @@ identityRouter.put("/me/language", requireAuth, (req, res) => {
   try {
     userSettings.setLanguage(userId, language as Language | "auto");
   } catch (error) {
-    log.error(`개인 언어 저장 실패: ${userId}`, error);
+    log.error(L.dashboard.languageSaveFailed({ userId }), error);
     return sendProblem(res, "settings-save-failed");
   }
   res.json({ language } satisfies MyLanguageReply);

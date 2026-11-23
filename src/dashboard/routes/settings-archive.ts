@@ -20,6 +20,7 @@ import * as snapshots from "../../store/snapshots.ts";
 import { isArchiveItem, isArchiveKind, type ArchiveDownload, type ArchiveImported, type ArchiveItem, type ArchiveKind, type ArchivePreview } from "../contract/settings-archive.ts";
 import type { Response } from "express";
 import { assertSignedIn, sessionEnded } from "../session-requests.ts";
+import { L } from "../../infra/log/text.ts";
 
 const settingsArchiveRouter = express.Router();
 settingsArchiveRouter.use(requireOwner);
@@ -77,8 +78,8 @@ settingsArchiveRouter.get("/download/:ticket", async (req, res) => {
     res.end();
   } catch (error) {
     // 받던 쪽이 끊었거나 쓰는 동안 파일이 삭제됐다(헤더를 이미 보냈으니 응답을 끊는다)
-    if (res.destroyed || CLIENT_CLOSED.has(codeOf(error))) log.debug({ sub: "admin" }, `설정 내보내기 전송 중단: ${messageOf(error)}`);
-    else log.error({ sub: "admin" }, `ZIP 스트리밍 전송 실패(다운로드된 파일 불완전): 종류=${KIND_LABEL[kind]} | ${messageOf(error)}`);
+    if (res.destroyed || CLIENT_CLOSED.has(codeOf(error))) log.debug({ sub: "admin" }, L.dashboard.exportAborted({ error: messageOf(error) }));
+    else log.error({ sub: "admin" }, L.dashboard.exportStreamFailed({ kind: KIND_LABEL[kind], error: messageOf(error) }));
     res.destroy();
   } finally {
     release();
@@ -137,7 +138,7 @@ settingsArchiveRouter.post("/import", requireRecentLogin, async (req, res) => {
     if (sessionEnded(res, error)) return;
     if (unreadable(res, error)) return;
     if (codeOf(error) === "CONFIG_INVALID") return sendProblem(res, "config-invalid", {}, { errors: ((error as { problems?: RuleProblem[] }).problems ?? []).map((rule) => ({ code: "config-invalid", rule })) });
-    log.error({ sub: "admin" }, `설정 불러오기 실패: ${messageOf(error)}`);
+    log.error({ sub: "admin" }, L.dashboard.importFailed({ error: messageOf(error) }));
     sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
   }
 });

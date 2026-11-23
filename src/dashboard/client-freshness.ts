@@ -6,6 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import logger from "../infra/log/logger.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "dashboard" });
 
 /** 빌드가 남기는 것. files는 저장소 루트에서의 상대 경로(/ 구분) */
@@ -19,7 +20,7 @@ function mtimeOf(file: string) {
   try {
     return fs.statSync(file).mtimeMs;
   } catch (error) {
-    if (codeOf(error) !== "ENOENT") log.warn(`화면 소스 수정 시각 읽기 실패: ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(L.dashboard.screenSourceTimeReadFailed({ error: messageOf(error) }));
     return null;
   }
 }
@@ -29,7 +30,7 @@ function readInputs(file: string): BuildInputs | null {
     const data = JSON.parse(fs.readFileSync(file, "utf8")) as Partial<BuildInputs>;
     return typeof data.builtAt === "number" && Array.isArray(data.files) ? { builtAt: data.builtAt, files: data.files } : null;
   } catch (error) {
-    if (codeOf(error) !== "ENOENT") log.warn(`화면 빌드 정보(${BUILD_INPUTS}) 읽기 실패: ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(L.dashboard.screenBuildInfoReadFailed({ file: BUILD_INPUTS, error: messageOf(error) }));
     return null;
   }
 }

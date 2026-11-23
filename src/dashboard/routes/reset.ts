@@ -14,6 +14,7 @@ import * as reset from "../reset.ts";
 import * as fullReset from "../../store/full-reset.ts";
 import type { ResetDone, ResetOverview } from "../contract/reset.ts";
 import { assertSignedIn, sessionEnded } from "../session-requests.ts";
+import { L } from "../../infra/log/text.ts";
 
 const resetRouter = express.Router();
 resetRouter.use(requireOwner);
@@ -54,7 +55,7 @@ resetRouter.post("/", requireRecentLogin, async (req, res) => {
     }
   } catch (error) {
     if (sessionEnded(res, error)) return;
-    log.error({ sub: "admin" }, `초기화(${request.kind}) 실패: ${messageOf(error)}`);
+    log.error({ sub: "admin" }, L.dashboard.resetFailed({ kind: request.kind, error: messageOf(error) }));
     return sendProblem(res, "reset-failed", {}, { detail: messageOf(error) });
   }
   res.json(done);

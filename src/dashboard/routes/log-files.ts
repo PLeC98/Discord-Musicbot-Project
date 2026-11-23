@@ -14,6 +14,7 @@ import { sendProblem } from "../problem.ts";
 import { filteredLines, formatLogLine, listLogFiles, readNamedLogPage, resolveLogFile } from "../log-file-reader.ts";
 import { isLevel } from "../../infra/log/levels.ts";
 import { FILE_PAGE_LINES, FILE_PAGE_MAX, LOG_SEARCH_MAX, type FileLine, type FilePage, type LogFileList, type LogFilter } from "../contract/log-files.ts";
+import { L } from "../../infra/log/text.ts";
 const log = logger.child({ category: "dashboard" });
 
 const logFilesRouter = express.Router();
@@ -90,8 +91,8 @@ logFilesRouter.get("/file/download", async (req, res) => {
     await pipeline(Readable.from(downloadText(filteredLines(target, filterOf(req)), offset), { objectMode: false }), res);
   } catch (error) {
     // 중간에 끊긴 응답은 pipeline이 스트림을 강제로 닫으므로 받는 쪽이 덜 받은 것을 안다
-    if (codeOf(error) === "ERR_STREAM_PREMATURE_CLOSE") log.debug(`로그 파일 다운로드 중단: ${target.name}`);
-    else log.warn(`로그 파일 다운로드 실패: ${target.name}: ${messageOf(error)}`);
+    if (codeOf(error) === "ERR_STREAM_PREMATURE_CLOSE") log.debug(L.dashboard.logFileDownloadAborted({ name: target.name }));
+    else log.warn(L.dashboard.logFileDownloadFailed({ name: target.name, error: messageOf(error) }));
   }
 });
 

@@ -13,6 +13,7 @@ import { codeOf, messageOf } from "../../rules/error-kind.ts";
 import * as tunables from "../../store/tunables.ts";
 import * as youtubeSource from "../../sources/youtube/index.ts";
 import { TUNABLES, RESTART_KEYS } from "../../rules/tunables.ts";
+import { L } from "../../infra/log/text.ts";
 
 const tunablesRouter = express.Router();
 tunablesRouter.use(requireOwner);
@@ -42,7 +43,7 @@ tunablesRouter.put("/", (req, res) => {
   } catch (error) {
     if (codeOf(error) === "CONFIG_INVALID") return sendProblem(res, "config-invalid", {}, { errors: ((error as { problems?: RuleProblem[] }).problems ?? []).map((rule) => ({ code: "config-invalid", rule })) });
     if (codeOf(error) === "REVISION_CONFLICT") return sendProblem(res, "config-changed");
-    log.error({ sub: "admin" }, `운영 설정값 저장 실패: ${messageOf(error)}`);
+    log.error({ sub: "admin" }, L.dashboard.tunablesSaveFailed({ error: messageOf(error) }));
     sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
   }
 });

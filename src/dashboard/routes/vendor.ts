@@ -27,6 +27,7 @@ import { recountVendor } from "../status/storage.ts";
 import { assertSignedIn, sessionEnded } from "../session-requests.ts";
 import type { BgutilResolveReply, BgutilRestartReply, VendorReply } from "../contract/admin.ts";
 import type { TunablesView } from "../../rules/tunables.ts";
+import { L } from "../../infra/log/text.ts";
 
 const vendorRouter = express.Router();
 vendorRouter.use(requireOwner);
@@ -37,12 +38,12 @@ const reply = (saved?: TunablesView): VendorReply => ({ status: { ytdlp: ytdlpBi
 function saveCard(req: Request, res: Response, tool: string, changes: Record<string, string | null>, what: string): TunablesView | null {
   try {
     const saved = tunables.saveCard(changes);
-    log.warn({ sub: "admin" }, `대시보드에서 ${tool} ${what}. 실행 ${ranBy(req)}`);
+    log.warn({ sub: "admin" }, L.dashboard.vendorSettingChanged({ tool, what, by: ranBy(req) }));
     return saved;
   } catch (error) {
     if (codeOf(error) === "CONFIG_INVALID") sendProblem(res, "config-invalid", {}, { errors: ((error as { problems?: RuleProblem[] }).problems ?? []).map((rule) => ({ code: "config-invalid", rule })) });
     else {
-      log.error({ sub: "admin" }, `${tool} 설정 저장 실패: ${messageOf(error)}`);
+      log.error({ sub: "admin" }, L.dashboard.vendorSettingSaveFailed({ tool, error: messageOf(error) }));
       sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
     }
     return null;
@@ -61,7 +62,7 @@ vendorRouter.post("/ytdlp/check", async (_req, res) => {
     await ytdlpBinary.peek();
     res.json(reply());
   } catch (error) {
-    log.warn({ sub: "admin" }, `yt-dlp 최신 릴리스 조회 실패: ${messageOf(error)}`);
+    log.warn({ sub: "admin" }, L.dashboard.ytdlpReleaseLookupFailed({ error: messageOf(error) }));
     sendProblem(res, "tool-check-failed", {}, { detail: messageOf(error) });
   }
 });
@@ -74,7 +75,7 @@ vendorRouter.post("/ytdlp/update", (req, res) => {
   const started = ytdlpBinary.update(channel, tag);
   if (started === "pinned") return sendProblem(res, "tool-version-pinned");
   if (started === "stale") return sendProblem(res, "tool-check-stale");
-  log.warn({ sub: "admin" }, `대시보드에서 yt-dlp 업데이트: ${tag}(${channel}). 실행 ${ranBy(req)}`);
+  log.warn({ sub: "admin" }, L.dashboard.ytdlpUpdated({ tag, channel, by: ranBy(req) }));
   void bestEffort(log, started, "yt-dlp 업데이트", "warn");
   res.status(202).json(reply());
 });
@@ -112,7 +113,7 @@ vendorRouter.post("/bgutil/install", async (req, res) => {
   const before = bgutilAutoInstall.running;
   await bgutilAutoInstall.ensure("manual");
   // 실제로 설치를 시작했을 때만 남긴다(저장 후 다시 시작이 설치 여부를 확인하려고 부르기도 한다)
-  if (bgutilAutoInstall.running !== null && bgutilAutoInstall.running !== before) log.info({ sub: "admin" }, `대시보드에서 bgutil 설치. 실행 ${ranBy(req)}`);
+  if (bgutilAutoInstall.running !== null && bgutilAutoInstall.running !== before) log.info({ sub: "admin" }, L.dashboard.bgutilInstalled({ by: ranBy(req) }));
   res.json(reply());
 });
 
@@ -122,7 +123,7 @@ vendorRouter.post("/bgutil/check", async (_req, res) => {
     await bgutilRemote.check();
     res.json(reply());
   } catch (error) {
-    log.warn({ sub: "admin" }, `bgutil 최신 릴리스 조회 실패: ${messageOf(error)}`);
+    log.warn({ sub: "admin" }, L.dashboard.bgutilReleaseLookupFailed({ error: messageOf(error) }));
     sendProblem(res, "tool-check-failed", {}, { detail: messageOf(error) });
   }
 });
@@ -136,7 +137,7 @@ vendorRouter.post("/bgutil/resolve", async (req, res) => {
     if (!commit) return sendProblem(res, "bgutil-tag-missing");
     res.json({ tag, commit } satisfies BgutilResolveReply);
   } catch (error) {
-    log.warn({ sub: "admin" }, `bgutil 태그 ${tag}의 커밋 조회 실패: ${messageOf(error)}`);
+    log.warn({ sub: "admin" }, L.dashboard.bgutilCommitLookupFailed({ tag, error: messageOf(error) }));
     sendProblem(res, "bgutil-resolve-failed", {}, { detail: messageOf(error) });
   }
 });
@@ -203,11 +204,11 @@ vendorRouter.post("/old-versions", async (req, res) => {
   try {
     const tools = await removeOldTools(() => assertSignedIn(req), undefined, tool as OldTool | undefined);
     recountVendor();
-    log.warn({ sub: "admin" }, `대시보드에서 외부 프로그램 이전 버전 삭제: ${doneLine(tools)}. 실행 ${ranBy(req)}`);
+    log.warn({ sub: "admin" }, L.dashboard.oldToolsRemoved({ tools: doneLine(tools), by: ranBy(req) }));
     res.json(tools);
   } catch (error) {
     if (sessionEnded(res, error)) return;
-    log.error({ sub: "admin" }, `외부 프로그램 이전 버전 삭제 실패: ${messageOf(error)}`);
+    log.error({ sub: "admin" }, L.dashboard.oldToolsRemoveFailed({ error: messageOf(error) }));
     sendProblem(res, "tool-cleanup-failed", {}, { detail: messageOf(error) });
   }
 });

@@ -14,6 +14,7 @@ import type { StageJob, StageResult } from "./runner.ts";
 import * as store from "./store.ts";
 import { UHD } from "./ladder.ts";
 import { inspectSource } from "./source.ts";
+import { L } from "../../infra/log/text.ts";
 
 /** 편집 창용 미리보기의 짧은 변(그 아래에서 가장 좋은 것) */
 const PREVIEW_RES = 480;
@@ -27,7 +28,7 @@ const downloaded = (folder: string, base: string) => fs.readdirSync(folder).find
 async function fetchVideo(url: string, folder: string, base: string, res: number, signal: AbortSignal): Promise<{ file: string; info: Info }> {
   for (const name of fs.readdirSync(folder)) if (name.startsWith(`${base}.`)) fs.rmSync(path.join(folder, name), { force: true });
   const room = store.room();
-  if (room <= 0) throw codedError("background-no-space", "남은 공간 없음");
+  if (room <= 0) throw codedError("background-no-space", L.dashboard.backgroundNoRoom());
   // 짧은 변 res 이하에서 가장 좋은 것(-S res:N). 타입 정의에는 한도를 붙인 형식이 없어 맞춰 넘긴다
   const formatSort = [`res:${res}`] as unknown as YtDlpFlags["formatSort"];
   const flags: YtDlpFlags = { output: path.join(folder, `${base}.%(ext)s`), format: "bv*", formatSort, noPlaylist: true, matchFilter: "!is_live", maxFilesize: String(room), writeInfoJson: true };
@@ -39,18 +40,18 @@ async function fetchVideo(url: string, folder: string, base: string, res: number
     );
   } catch (error) {
     if (signal.aborted) throw error;
-    throw codedError("background-link-failed", `유튜브에서 다운로드 실패: ${messageOf(error)}`, { cause: error });
+    throw codedError("background-link-failed", L.dashboard.backgroundYoutubeFailed({ error: messageOf(error) }), { cause: error });
   }
   const name = downloaded(folder, base);
   // 라이브는 건너뛰고(match-filter) 크기 상한을 넘으면 다운로드하지 않고 끝난다(둘 다 파일이 없다)
-  if (!name) throw codedError("background-link-failed", "유튜브에서 영상 다운로드 실패: 라이브이거나 남은 공간보다 큼");
+  if (!name) throw codedError("background-link-failed", L.dashboard.backgroundYoutubeTooBig());
   const infoFile = path.join(folder, `${base}.info.json`);
   let info: Info = {};
   try {
     info = JSON.parse(fs.readFileSync(infoFile, "utf8")) as Info;
   } catch (error) {
     // 정보가 없어도 다운로드한 영상은 쓴다
-    log.warn(`로그인 배경 영상 정보(info.json) 읽기 실패: ${messageOf(error)}`);
+    log.warn(L.dashboard.backgroundInfoJsonReadFailed({ error: messageOf(error) }));
   }
   fs.rmSync(infoFile, { force: true });
   return { file: path.join(folder, name), info };
@@ -83,7 +84,7 @@ async function highRes({ item, folder, signal }: StageJob): Promise<StageResult>
   fs.renameSync(file, store.sourceOf(item.id));
   const inspected = await inspectSource(store.sourceOf(item.id), signal);
   const short = shortfall(item, inspected);
-  if (short) log.warn({ sub: "admin" }, `로그인 배경 "${item.name}"의 고해상도 다운로드 파일이 예상보다 작음: ${short}`);
+  if (short) log.warn({ sub: "admin" }, L.dashboard.backgroundHighResShort({ name: item.name, short }));
   return { width: inspected.width, height: inspected.height, fps: inspected.fps };
 }
 

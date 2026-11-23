@@ -12,6 +12,7 @@ import { signedIn } from "./middleware/require-auth.ts";
 import { shadowMember } from "./view-as.ts";
 import { sendProblem } from "./problem.ts";
 import { assertSignedIn } from "./session-requests.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "dashboard" });
 
 /** 멤버 조회의 응답: 멤버가 아니다 */
@@ -20,7 +21,7 @@ const NOT_MEMBER = new Set<unknown>([RESTJSONErrorCodes.UnknownMember, RESTJSONE
 const memberFailures = new Map<string, ReturnType<typeof repeatingFailure>>();
 const memberFailureOf = (guildId: string) => {
   let one = memberFailures.get(guildId);
-  if (!one) memberFailures.set(guildId, (one = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, `디스코드 서버 멤버 조회(${guildId})`)));
+  if (!one) memberFailures.set(guildId, (one = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.dashboard.memberLookup({ guildId }))));
   return one;
 };
 const memberAnswered = (guildId: string) => {
@@ -36,7 +37,7 @@ const notMember = (guildId: string, userId: string) => (error: unknown) => {
     return null;
   }
   memberFailureOf(guildId).fail(`${code === undefined ? "" : `${code} | `}${messageOf(error)} (멤버 아님으로 처리)`);
-  log.debug(`멤버 조회 실패: 서버 ${guildId}, 사용자 ${userId} | ${describeError(error)}`);
+  log.debug(L.dashboard.memberLookupFailed({ guildId, userId, error: describeError(error) }));
   return null;
 };
 

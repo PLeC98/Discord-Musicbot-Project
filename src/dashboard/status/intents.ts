@@ -6,6 +6,7 @@ import logger from "../../infra/log/logger.ts";
 import { messageOf } from "../../rules/error-kind.ts";
 import { loggedInIntents, needsApproval, switchesOf, type AppFlags, type Privileged, type Switches } from "../../infra/gateway-intents.ts";
 import type { AdminStatus } from "../contract/admin.ts";
+import { L } from "../../infra/log/text.ts";
 
 const log = logger.child({ category: "dashboard" });
 
@@ -25,7 +26,7 @@ function refresh(client: Client, now: number) {
       known = { switches: switchesOf(app), approval: needsApproval(app), at: now };
     })
     .catch((error: unknown) => {
-      log.debug(`봇 상태: 앱 설정(특권 인텐트) 읽기 실패: ${messageOf(error)}`);
+      log.debug(L.dashboard.intentsReadFailed({ error: messageOf(error) }));
       if (known) known = { ...known, at: now };
     })
     .finally(() => {

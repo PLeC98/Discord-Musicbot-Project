@@ -8,6 +8,7 @@ import logger from "../infra/log/logger.ts";
 import { messageOf } from "../rules/error-kind.ts";
 import * as requests from "../store/ai-requests.ts";
 import type { AiLogEntry, AiLogPushed } from "./contract/ai-log.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "dashboard" });
 
 /** 재연결할 때 보내는 놓친 줄의 상한(줄 수, 바이트). 각 줄의 요약 텍스트는 길이가 일정하지 않다. 상한을 넘어 생략된 줄은 화면이 목록을 다시 불러올 때 받는다 */
@@ -44,7 +45,7 @@ function send(res: Response, frame: string, what: string) {
     }
     res.write(frame);
   } catch (error) {
-    log.trace(`AI 리퀘스트 로그 SSE ${what} 실패: ${messageOf(error)}`);
+    log.trace(L.dashboard.aiLogStreamFailed({ what, error: messageOf(error) }));
     drop(res);
   }
 }
@@ -83,7 +84,7 @@ function addClient(res: Response, userKey: string, after: number): boolean {
   syncHeartbeat();
   res.on("close", () => drop(res));
   res.on("error", (error: unknown) => {
-    log.debug(`AI 리퀘스트 로그 SSE 연결 오류: ${messageOf(error)}`);
+    log.debug(L.dashboard.aiLogStreamConnectionError({ error: messageOf(error) }));
     drop(res);
   });
   return true;

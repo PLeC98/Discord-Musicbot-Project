@@ -29,6 +29,7 @@ import * as spotify from "../sources/spotify.ts";
 import type { AudioCachePart } from "../rules/audio-cache-parts.ts";
 import logger from "../infra/log/logger.ts";
 import { josa } from "../infra/josa.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "dashboard" });
 
 const PART_NAMES: Record<AudioCachePart, string> = { files: "캐시 파일", ledger: "곡 찾기 기록", external: "바깥 서비스 데이터", pins: "직접 지정한 음원" };
@@ -51,7 +52,7 @@ async function resetAudioCache(parts: readonly AudioCachePart[], by: string, go?
   }
   const files = parts.includes("files") ? [`캐시 파일 ${result.removed}개(${MB(result.freedBytes)}MB) 삭제${result.kept ? `(재생 중이거나 대기열 앞에 있는 곡, 또는 삭제하지 못한 ${result.kept}개는 남김)` : ""}`] : [];
   const rows = parts.filter((part) => part !== "files").map((part) => `${PART_NAMES[part]} ${result.cleared[part] ?? 0}행`);
-  log.warn({ sub: "admin" }, `대시보드에서 오디오 캐시 초기화: ${[...files, ...rows].join(", ")}. 실행 ${by}`);
+  log.warn({ sub: "admin" }, L.dashboard.audioCacheReset({ targets: [...files, ...rows].join(", "), by }));
   return result;
 }
 
@@ -80,7 +81,7 @@ async function resetGuildSettings(by: string, go?: () => void) {
   snapshots.tidy();
   const guilds = guildSettings.guildCount();
   guildSettings.removeAll();
-  log.warn({ sub: "admin" }, `대시보드에서 서버별 설정 초기화: 서버 ${guilds}곳(되돌릴 스냅샷 ${snapshot}). 실행 ${by}`);
+  log.warn({ sub: "admin" }, L.dashboard.guildSettingsReset({ guilds, snapshot, by }));
   return { snapshot, guilds };
 }
 
@@ -88,7 +89,7 @@ async function resetGuildSettings(by: string, go?: () => void) {
 function resetUserData(by: string) {
   const users = userSettings.userCount();
   userSettings.removeAll();
-  log.warn({ sub: "admin" }, `대시보드에서 사용자 데이터 초기화: ${users}명. 실행 ${by}`);
+  log.warn({ sub: "admin" }, L.dashboard.userDataReset({ users, by }));
   return { users };
 }
 
@@ -98,7 +99,7 @@ function resetDisplay(by: string) {
   const backgrounds = backgroundStore.items().length;
   backgroundRunner.stopAll();
   backgroundStore.replace({ current: null, items: [], options: LOGIN_BG_OPTIONS_DEFAULT, limits: LOGIN_BG_LIMITS_DEFAULT });
-  log.warn({ sub: "admin" }, `대시보드에서 디스플레이 설정 초기화: 파비콘 ${favicons}개, 로그인 배경 ${backgrounds}개. 실행 ${by}`);
+  log.warn({ sub: "admin" }, L.dashboard.displayReset({ favicons, backgrounds, by }));
   return { favicons, backgrounds };
 }
 
@@ -148,7 +149,7 @@ async function stageFullReset(by: string, restarting: boolean, go?: () => void) 
 /** 봇 전체 초기화 예약을 취소한다. 예약되어 있었으면 true */
 function cancelFullReset(by: string): boolean {
   if (!fullReset.cancel()) return false;
-  log.warn({ sub: "admin" }, `대시보드에서 봇 전체 초기화 예약 취소. 실행 ${by}`);
+  log.warn({ sub: "admin" }, L.dashboard.fullResetCancelled({ by }));
   return true;
 }
 

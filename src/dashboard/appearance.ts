@@ -14,6 +14,7 @@ import { repeatingFailure } from "../infra/repeating-failure.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { FAVICON_HISTORY, FAVICON_MIN_SIDE, FAVICON_RESERVE_SIDE, FAVICON_SIZES, type FaviconImage, type FaviconSlot, type FaviconSlots } from "./contract/appearance.ts";
 import type { Code, Params } from "../rules/problems.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "dashboard" });
 
 let dir = path.join(PROJECT.dashboardData, "favicon");
@@ -40,7 +41,7 @@ let slots: Map<number, Slot> | null = null;
 let version = Date.now();
 const renders = new Map<string, Buffer>();
 let avatar: { url: string; input: Buffer | null } | null = null;
-const avatarFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "파비콘용 봇 프로필 이미지 다운로드");
+const avatarFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.dashboard.faviconAvatarDownload());
 
 const refused = (code: Code, params?: Params): Refused => ({ ok: false, code, params });
 const pngOf = (id: string) => path.join(dir, `${id}.png`);
@@ -86,14 +87,14 @@ function loaded(): Map<number, Slot> {
     names = fs.readdirSync(dir);
   } catch (error) {
     // 아직 하나도 올리지 않았다
-    if (codeOf(error) !== "ENOENT") log.warn(`파비콘 경로 읽기 실패: ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(L.dashboard.faviconPathReadFailed({ error: messageOf(error) }));
   }
   let raw: unknown = null;
   try {
     raw = JSON.parse(fs.readFileSync(path.join(dir, INDEX), "utf8"));
   } catch (error) {
     // 목록이 없거나 망가졌다: 빈 슬롯으로
-    if (codeOf(error) !== "ENOENT") log.warn(`파비콘 목록(${INDEX}) 읽기 실패(빈 슬롯으로 시작, 목록에 없는 이미지 파일은 삭제): ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(L.dashboard.faviconListReadFailed({ file: INDEX, error: messageOf(error) }));
   }
   const present = new Set(names);
   slots = slotsFrom(raw, (id) => present.has(`${id}.png`) && present.has(`${id}.reserve.png`));
@@ -142,7 +143,7 @@ async function inspect(raw: Buffer, size: number): Promise<{ ok: true; image: St
     const [png, reserve] = await Promise.all([draw(size), draw(reserveSide)]);
     return { ok: true, image: { id: newId(), bytes: raw.length, width, height, vector, at: Date.now(), reserveSide }, png, reserve };
   } catch (error) {
-    log.warn(`파비콘 변환 실패(${meta.format} ${width}×${height}): ${messageOf(error)}`);
+    log.warn(L.dashboard.faviconConvertFailed({ format: meta.format, width, height, error: messageOf(error) }));
     return refused("bad-image");
   }
 }
@@ -234,7 +235,7 @@ async function avatarInput(url: string | null): Promise<Buffer | null> {
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
     if (res.ok) input = Buffer.from(await res.arrayBuffer());
-    else log.warn(`봇 프로필 이미지 다운로드 실패: HTTP ${res.status}`);
+    else log.warn(L.dashboard.avatarDownloadHttpFailed({ status: res.status }));
     avatarFailure.ok();
   } catch (error) {
     // 디스코드에 닿지 못했다: 기억하지 않고 다음 요청에서 다시 다운로드한다

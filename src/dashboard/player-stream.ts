@@ -5,6 +5,7 @@ import logger from "../infra/log/logger.ts";
 import { messageOf } from "../rules/error-kind.ts";
 import { sendProblem } from "./problem.ts";
 import type { GuildEvent } from "./contract/guilds.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "dashboard" });
 
 type StreamOptions = { heartbeatMs: number; maxPerUser: number; coalesceMs: number };
@@ -130,7 +131,7 @@ class PlayerStream {
     this.subs.add(sub);
     res.on("close", sub.cleanup);
     res.on("error", (error: unknown) => {
-      log.debug(`재생 상태 SSE 연결 오류: ${messageOf(error)}`);
+      log.debug(L.dashboard.playerStreamError({ error: messageOf(error) }));
       sub.cleanup();
     });
     return true;
@@ -172,7 +173,7 @@ class PlayerStream {
       try {
         sub.res.write(payload);
       } catch (error) {
-        log.trace(`재생 상태 SSE 쓰기 실패: ${messageOf(error)}`);
+        log.trace(L.dashboard.playerStreamWriteFailed({ error: messageOf(error) }));
         sub.cleanup();
       }
     }
@@ -184,7 +185,7 @@ class PlayerStream {
       try {
         sub.res.write(ping);
       } catch (error) {
-        log.trace(`재생 상태 SSE 하트비트 쓰기 실패: ${messageOf(error)}`);
+        log.trace(L.dashboard.playerStreamHeartbeatFailed({ error: messageOf(error) }));
         sub.cleanup();
       }
     }

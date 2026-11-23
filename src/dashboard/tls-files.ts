@@ -10,6 +10,7 @@ import { isIP } from "node:net";
 import type { SecureContextOptions, TlsOptions } from "node:tls";
 import logger from "../infra/log/logger.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
+import { L } from "../infra/log/text.ts";
 
 const log = logger.child({ category: "dashboard" });
 
@@ -132,7 +133,7 @@ function worldReadable(file: string, platform = process.platform) {
   try {
     return (fs.statSync(file).mode & 0o004) !== 0;
   } catch (error) {
-    log.warn(`TLS 키 파일 stat 실패(다른 사용자 읽기 권한 확인 건너뜀): ${file} | ${codeOf(error) ?? messageOf(error)}`);
+    log.warn(L.dashboard.tlsKeyStatFailed({ file, reason: codeOf(error) ?? messageOf(error) }));
     return false;
   }
 }
@@ -152,7 +153,7 @@ function watchExpiry(leaf: X509Certificate, from: TlsFiles["from"]) {
   if (timer) clearInterval(timer);
   timer = setInterval(() => {
     const left = daysLeft(leaf, Date.now());
-    if (left <= 0) log.error(`대시보드 인증서의 기한이 지남(${dateText(Date.parse(leaf.validTo))}). 브라우저가 접속을 막음. 새 인증서로 바꾸고 봇을 다시 시작하세요`);
+    if (left <= 0) log.error(L.dashboard.tlsExpired({ date: dateText(Date.parse(leaf.validTo)) }));
     else if (left <= WARN_DAYS) log.warn(expiryText(left, leaf));
   }, DAY_MS);
   timer.unref();

@@ -37,6 +37,7 @@ import {
   type LoginBackgroundStage,
   type LoginBackgroundStrip,
 } from "../contract/login-background.ts";
+import { L } from "../../infra/log/text.ts";
 const log = logger.child({ category: "dashboard" });
 
 let dir = path.join(PROJECT.dashboardData, "login-background");
@@ -157,7 +158,7 @@ function readIndex(folder = dir): Index {
     raw = JSON.parse(fs.readFileSync(path.join(folder, INDEX), "utf8")) as Partial<Index>;
   } catch (error) {
     // 아직 없거나 망가졌다: 빈 기록으로
-    if (codeOf(error) !== "ENOENT") log.warn(`로그인 배경 기록(${INDEX}) 읽기 실패(빈 기록으로 시작, 기록에 없는 배경 폴더는 삭제): ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(L.dashboard.backgroundIndexReadFailed({ file: INDEX, error: messageOf(error) }));
   }
   const items = (Array.isArray(raw?.items) ? raw.items : []).filter(isStored).filter((one) => fs.existsSync(path.join(folder, one.id)));
   const current = items.some((one) => one.id === raw?.current) ? (raw!.current as string) : null;
@@ -175,7 +176,7 @@ function loaded(): Index {
     names = fs.readdirSync(dir);
   } catch (error) {
     // 아직 하나도 올리지 않았다
-    if (codeOf(error) !== "ENOENT") log.warn(`로그인 배경 경로 읽기 실패: ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(L.dashboard.backgroundPathReadFailed({ error: messageOf(error) }));
   }
   const kept = new Set(items.map((one) => one.id));
   for (const name of names) if (LOGIN_BG_ID.test(name) && !kept.has(name)) fs.rmSync(path.join(dir, name), { recursive: true, force: true });
@@ -328,7 +329,7 @@ function folderBytes(id: string): number {
     walk(folderOf(id));
   } catch (error) {
     // 폴더가 없다
-    if (codeOf(error) !== "ENOENT") log.warn(`로그인 배경 폴더(${id}) 용량 계산 실패: ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(L.dashboard.backgroundFolderSizeFailed({ id, error: messageOf(error) }));
   }
   return sum;
 }

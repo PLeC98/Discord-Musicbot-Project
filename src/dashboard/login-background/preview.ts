@@ -16,6 +16,7 @@ import { enoughMemory, needOf } from "./memory.ts";
 import { MAX_PIXELS, probeVideo, READ_ARGS } from "./source.ts";
 import { cropped, fitShort, scaleTo, seekArgs, sourceFilter, stillWidths, TRANSPARENT_FILL, UHD } from "./ladder.ts";
 import type { LoginBackgroundCrop } from "../contract/login-background.ts";
+import { L } from "../../infra/log/text.ts";
 
 /** 미리보기, 추산의 짧은 변 */
 const PREVIEW_SHORT = 480;
@@ -98,8 +99,8 @@ async function previewOfImage(item: Readonly<Stored>): Promise<StageResult> {
 function previewTarget(hdr: boolean): { encoder: string; ext: "mp4" | "webm"; container: string[] } {
   const h264 = encoderFor("h264");
   const encoder = h264 ?? encoderFor("vp9");
-  if (!encoder) throw codedError("background-no-video-encoder", "H.264와 VP9 인코더가 없어 영상 배경을 만들 수 없음");
-  if (hdr && !canToneMapHdr()) throw codedError("background-hdr-unsupported", "ffmpeg에 zscale 필터가 없어 HDR 영상을 SDR로 바꿀 수 없음");
+  if (!encoder) throw codedError("background-no-video-encoder", L.dashboard.backgroundNoVideoEncoder());
+  if (hdr && !canToneMapHdr()) throw codedError("background-hdr-unsupported", L.dashboard.backgroundHdrUnsupported());
   return h264 ? { encoder, ext: "mp4", container: ["-movflags", "+faststart", "-f", "mp4"] } : { encoder, ext: "webm", container: ["-f", "webm"] };
 }
 
@@ -126,7 +127,7 @@ async function previewOfVideo(item: Readonly<Stored>, signal: AbortSignal, progr
       if (time) progress(Number(time[1]) / 1e6 / item.duration);
     },
   });
-  if (run.aborted) throw codedError("aborted", "중단됨");
+  if (run.aborted) throw codedError("aborted", L.dashboard.backgroundAborted());
   if (run.code !== 0) {
     fs.rmSync(part, { force: true });
     throw codedError("background-failed", `미리보기 만들기 실패: ${run.timedOut ? "시간 초과" : run.stderr.split("\n").filter(Boolean).slice(-3).join(" ")}`);
@@ -159,7 +160,7 @@ async function preview({ item, signal, progress }: StageJob): Promise<StageResul
 /** 크기 추산 다시 세기: 그 크롭, 구간만 인코딩해 그 초의 크기를 바꾼다(영상만, 그림은 넓이로 다시 계산) */
 const recount: Recounter = async ({ item, crop, range, signal }) => {
   const before = item.estimate;
-  if (!before) throw codedError("background-failed", "추산값 없음");
+  if (!before) throw codedError("background-failed", L.dashboard.backgroundNoEstimate());
   const size = cropped(item.width, item.height, crop);
   // 그림은 잰 화소당 크기 그대로 넓이만 다시 센다
   if (item.kind === "image") return { ...before, crop, stillBytes: stillBytesOf(size.width, size.height, before.stillBytes / stillPixels(item.width, item.height)) };
@@ -169,7 +170,7 @@ const recount: Recounter = async ({ item, crop, range, signal }) => {
   const [from, to] = range ?? [0, item.duration];
   const graph = `${sourceFilter(probed, crop, { from, to })},${scaleTo(fitShort(size.width, size.height, PROBE_SHORT))}[e]`;
   const run = await ffmpeg(["-v", "error", ...PROGRESS_ARGS, ...seekArgs(probed, { from, to }), ...READ_ARGS, "-i", source, "-filter_complex", graph, "-an", ...probeOutput("[e]")], { signal, ...longJob(to - from) });
-  if (run.code !== 0) throw codedError("background-failed", `추산값 재계산 실패: ${run.stderr.split("\n").filter(Boolean).at(-1) ?? ""}`);
+  if (run.code !== 0) throw codedError("background-failed", L.dashboard.backgroundEstimateFailed({ stderr: run.stderr.split("\n").filter(Boolean).at(-1) ?? "" }));
   // 이 구간의 초만 새 크롭의 크기로(구간 밖은 앞선 추산 그대로, 넓히면 화면이 다시 세게 한다)
   const scale = upscale(item, probed, crop);
   const counted = toSet(

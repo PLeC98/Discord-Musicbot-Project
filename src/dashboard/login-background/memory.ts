@@ -6,6 +6,7 @@
 
 import logger from "../../infra/log/logger.ts";
 import { availableMemory } from "../../infra/available-memory.ts";
+import { L } from "../../infra/log/text.ts";
 const log = logger.child({ category: "dashboard" });
 
 const GB = 1024 ** 3;
@@ -56,7 +57,7 @@ async function enoughMemory(need: number, what: string, signal: AbortSignal): Pr
   const started = Date.now();
   let told = false;
   while (availableMemory() < need && !signal.aborted && Date.now() - started < WAIT_MAX_MS) {
-    if (!told) log.info({ sub: "admin" }, `로그인 배경 ${what}: 여유 메모리가 부족해 대기(${(availableMemory() / GB).toFixed(1)}GB / ${(need / GB).toFixed(1)}GB)`);
+    if (!told) log.info({ sub: "admin" }, L.dashboard.backgroundMemoryWait({ what, freeGb: (availableMemory() / GB).toFixed(1), needGb: (need / GB).toFixed(1) }));
     told = true;
     await new Promise((resolve) => setTimeout(resolve, POLL_MS));
   }

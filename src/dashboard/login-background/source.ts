@@ -13,6 +13,7 @@ import type { StageJob, StageResult } from "./runner.ts";
 import * as store from "./store.ts";
 import { frameRate, stacked } from "./ladder.ts";
 import { inputFilter, VIDEO_FORMATS } from "../../media/ffmpeg/input-filter.ts";
+import { L } from "../../infra/log/text.ts";
 
 /** 원본을 읽는 ffmpeg에 늘 붙이는 것(영상 컨테이너와 움직이는 그림만, 파일만) */
 const READ_ARGS = inputFilter(VIDEO_FORMATS, "file");
@@ -99,7 +100,7 @@ function parseInput(stderr: string): Probed | null {
 async function probeVideo(file: string, signal: AbortSignal): Promise<Probed> {
   // 출력 없이 열기만 하면 헤더를 적고 "출력이 없다"로 끝난다(끝난 코드는 보지 않는다)
   const { stderr, aborted } = await ffmpeg([...READ_ARGS, "-i", file], { signal, timeoutMs: INSPECT_MS });
-  if (aborted) throw codedError("aborted", "중단됨");
+  if (aborted) throw codedError("aborted", L.dashboard.backgroundAborted());
   const input = parseInput(stderr);
   if (!input) throw badSource(`ffmpeg가 영상으로 읽지 못함: ${stderr.split("\n").filter(Boolean).at(-1) ?? ""}`);
   return input;
@@ -149,8 +150,8 @@ async function download(url: string, file: string, room: number, signal: AbortSi
   } catch (error) {
     fs.rmSync(part, { force: true });
     if (signal.aborted) throw error;
-    if (codeOf(error) === safeUrl.TOO_LARGE) throw codedError("background-no-space", `파일이 남은 공간을 넘음: ${messageOf(error)}`, { cause: error });
-    throw codedError("background-link-failed", `링크에서 다운로드 실패: ${messageOf(error)}`, { cause: error });
+    if (codeOf(error) === safeUrl.TOO_LARGE) throw codedError("background-no-space", L.dashboard.backgroundFileOverRoom({ error: messageOf(error) }), { cause: error });
+    throw codedError("background-link-failed", L.dashboard.backgroundLinkDownloadFailed({ error: messageOf(error) }), { cause: error });
   }
 }
 
@@ -158,7 +159,7 @@ async function download(url: string, file: string, room: number, signal: AbortSi
 async function receive({ item, signal }: StageJob): Promise<StageResult> {
   const file = store.sourceOf(item.id);
   if (item.from === "link" && item.link) await download(item.link, file, store.room(), signal);
-  if (!fs.existsSync(file)) throw codedError("background-failed", "원본 없음");
+  if (!fs.existsSync(file)) throw codedError("background-failed", L.dashboard.backgroundSourceMissing());
   return inspectSource(file, signal);
 }
 

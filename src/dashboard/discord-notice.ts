@@ -22,6 +22,7 @@ import { signedIn } from "./middleware/require-auth.ts";
 import { publicText } from "../ui/language.ts";
 import type { BotText } from "../ui/text/index.ts";
 import type { SharedText } from "../ui/text/shared.ts";
+import { L } from "../infra/log/text.ts";
 
 type Channel = Awaited<ReturnType<NowPlayingPanel["panelChannel"]>> | null;
 
@@ -32,7 +33,7 @@ const dashboardActor = (req: Request, T: BotText) => T.controls.viaDashboard(`<@
 function channelOf({ panels }: Pick<BotContext, "panels">, player: Player | null | undefined): Promise<Channel> {
   if (!player) return Promise.resolve(null);
   return panels.panelChannel(player).catch((error: unknown) => {
-    log.warn("대시보드 조작 알림 전송 실패(패널 채널을 찾지 못함):", error);
+    log.warn(L.dashboard.actionNoticeNoChannel(), error);
     return null;
   });
 }
@@ -55,7 +56,7 @@ function announcer(bot: Pick<BotContext, "panels">, player: Player | null | unde
 function dashboardResponder(bot: Pick<BotContext, "players" | "panels">, guildId: string): Responder {
   return {
     async notifyQueued(draw: DrawAdded) {
-      await sendTo(channelOf(bot, bot.players.get(guildId)), draw(publicText(guildId)), LIFETIME.glance).catch((error: unknown) => log.warn("대시보드 곡 추가 알림 전송 실패:", error));
+      await sendTo(channelOf(bot, bot.players.get(guildId)), draw(publicText(guildId)), LIFETIME.glance).catch((error: unknown) => log.warn(L.dashboard.trackAddedNoticeFailed(), error));
     },
     async dismissPlaceholder() {
       /* 대시보드는 자리표시자 메시지를 보내지 않아 지울 것이 없다 */
@@ -91,7 +92,7 @@ function restartNotices(bot: Pick<BotContext, "players" | "panels">): Promise<bo
         await channel.send({ embeds: [announceEmbed(T, "maintenance", body, title)] });
         return true;
       } catch (error) {
-        log.warn(`다시 시작 공지 전송 실패(${player.guild.name}): ${messageOf(error)}`);
+        log.warn(L.dashboard.restartNoticeFailed({ guild: player.guild.name, error: messageOf(error) }));
         return false;
       }
     });

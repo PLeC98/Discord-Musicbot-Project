@@ -11,6 +11,7 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import { codeOf, describeError, messageOf } from "../rules/error-kind.ts";
 import { repeatingFailure } from "../infra/repeating-failure.ts";
+import { L } from "../infra/log/text.ts";
 
 // express-session의 기본 MemoryStore 대체:
 // 다시 시작할 때 세션 소실(로그인 풀림)과 메모리 누수 경고를 SQLite 영속화로 해소.
@@ -41,7 +42,7 @@ type Ended = (sid: string) => void;
 const unheard =
   (what: string): Done =>
   (err) => {
-    if (err) log.error(`로그인 세션 ${what} 실패: ${messageOf(err)}`);
+    if (err) log.error(L.dashboard.sessionOpFailed({ what, error: messageOf(err) }));
   };
 
 /** 로그인한 세션의 절대 기한. 로그인했는데 로그인 시각이 없으면 이미 지난 것(0). 로그인 전 세션은 기한 없음(null) */
@@ -67,9 +68,9 @@ class SqliteSessionStore extends Store {
   /** 끝냈지만 삭제하지 못한 sid → 그 사용자 id(모르면 null). 다시 삭제한다 */
   _unsaved = new Map<string, string | null>();
   _retryTimer: NodeJS.Timeout | null = null;
-  _pruneFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "만료된 로그인 세션 정리");
-  _retryFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "로그아웃된 세션 행 삭제 재시도");
-  _markerFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "로그인 세션 표시 파일 생성");
+  _pruneFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.dashboard.expiredSessionsPrune());
+  _retryFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.dashboard.signedOutRowRetry());
+  _markerFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.dashboard.sessionMarkerCreate());
   _warnedBroken = new Set<string>();
   // 열린 DB 파일의 실제 경로. 메모리 DB면 null
   _file: string | null = null;
@@ -142,7 +143,7 @@ class SqliteSessionStore extends Store {
         try {
           fn(sid);
         } catch (error) {
-          log.warn(`로그인 세션 끝 알림 처리 실패: ${messageOf(error)}`);
+          log.warn(L.dashboard.sessionEndNoticeFailed({ error: messageOf(error) }));
         }
       }
     }
@@ -265,11 +266,11 @@ class SqliteSessionStore extends Store {
       this._armRetry();
       this._bornHere = new Set();
       const booted = this._buryBooted();
-      if (booted === null) log.error(`기동 시 로그인 세션 삭제와 읽기 실패(현재 실행에서는 이번에 만든 세션만 허용하며 다시 시도): ${messageOf(error)}`);
-      else log.error(`기동 시 로그인 세션 삭제 실패(현재 실행에서는 기동 전 세션 ${booted}개를 허용하지 않으며 다시 삭제 시도): ${messageOf(error)}`);
+      if (booted === null) log.error(L.dashboard.bootSessionWipeReadFailed({ error: messageOf(error) }));
+      else log.error(L.dashboard.bootSessionWipeFailed({ booted, error: messageOf(error) }));
       return;
     }
-    if (gone) log.warn(`끊은 세션 정리 표시 파일(${path.basename(this._marker ?? "")})을 확인하지 못해 기동 시 로그인 세션 ${gone}개 삭제(모두 다시 로그인해야 함)`);
+    if (gone) log.warn(L.dashboard.sessionMarkerMissing({ marker: path.basename(this._marker ?? ""), gone }));
     this._restoreMarker();
   }
 
@@ -359,8 +360,8 @@ class SqliteSessionStore extends Store {
   /** 종료할 때 삭제하지 못한 행을 마지막으로 다시 삭제하고 남은 수를 반환한다. 표시 파일을 지웠으면 다음 기동 시 로그인 세션을 모두 지우고, 지우지 못했으면 끊은 로그인이 되살아난다 */
   finish() {
     const left = this.retryUnsaved();
-    if (left && this._wipesNext()) log.error(`끊은 로그인 세션 ${left}개를 저장소에서 삭제하지 못한 채 종료. 다시 시작하면 로그인 세션을 모두 삭제하니(모두 다시 로그인) 저장 공간을 확인하세요`);
-    else if (left) log.error(`끊은 로그인 세션 ${left}개를 저장소에서 삭제하지 못한 채 종료. 다시 시작하면 그 로그인이 되살아나니 저장 공간을 확인하고, 되살아난 기기는 다른 기기 로그아웃으로 끊으세요`);
+    if (left && this._wipesNext()) log.error(L.dashboard.sessionsLeftWipeAll({ left }));
+    else if (left) log.error(L.dashboard.sessionsLeftRevive({ left }));
     return left;
   }
 
@@ -434,7 +435,7 @@ class SqliteSessionStore extends Store {
       this._warnedBroken.add(sid);
       this._end(sid);
       ended.push(sid);
-      log.warn(`손상된 로그인 세션 1개 삭제(해당 사용자는 다시 로그인해야 함): ${messageOf(error)}`);
+      log.warn(L.dashboard.brokenSessionRemoved({ error: messageOf(error) }));
       return null;
     }
     const deadline = deadlineOf(session);
@@ -626,7 +627,7 @@ function finishSessions() {
     try {
       store.finish();
     } catch (error) {
-      log.error(`로그인 세션 저장소 마무리 실패: ${messageOf(error)}`);
+      log.error(L.dashboard.sessionStoreCloseFailed({ error: messageOf(error) }));
     }
   }
 }

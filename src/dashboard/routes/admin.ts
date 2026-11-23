@@ -79,6 +79,8 @@ import { guildList, guildQueryOf, statusQueryOf } from "../list-window.ts";
 import { errorMessage } from "../../ui/error-messages.ts";
 import { botCompare, publicText, viewerLanguage } from "../../ui/language.ts";
 import { textFor } from "../../ui/text/index.ts";
+import { L } from "../../infra/log/text.ts";
+import { logTextError } from "../../infra/log/log-text.ts";
 
 const adminRouter = express.Router();
 // 운영자 전용이다. 경로마다 따로 달지 않고 여기서 한 번에 건다(라우터를 어디에 붙이든 보호된다)
@@ -137,7 +139,7 @@ adminRouter.post("/broadcast", async (req, res) => {
   const results = await Promise.allSettled(
     [...client.guilds.cache.values()].map(async (guild) => {
       const ch = await announceChannel(guild);
-      if (!ch) throw new Error("보낼 채널 없음");
+      if (!ch) throw logTextError(L.dashboard.announceNoChannel());
       // 채널을 찾는 사이 세션이 끝났으면 이 서버에는 보내지 않는다
       sessionRequests.assertSignedIn(req);
       // 공지 틀(제목, 바닥글)은 서버마다 그 서버의 언어로 그린다
@@ -181,11 +183,11 @@ adminRouter.post("/guilds/:guildId/leave", requireRecentLogin, async (req, res) 
   const name = guild.name;
   try {
     await leaveGuild(players, guild, { reason: "운영자 패널에서 서버 나가기", end: "operator-leave", go: () => sessionRequests.assertSignedIn(req) });
-    log.info({ sub: "admin" }, `대시보드 운영자 패널에서 서버 나가기: ${name} (${guild.id})`);
+    log.info({ sub: "admin" }, L.dashboard.guildLeft({ name, id: guild.id }));
     res.json({ success: true, name } satisfies LeaveReply);
   } catch (error) {
     if (sessionRequests.sessionEnded(res, error)) return;
-    log.error({ sub: "admin" }, "서버 나가기 실패:", error);
+    log.error({ sub: "admin" }, L.dashboard.guildLeaveFailed(), error);
     sendProblem(res, "leave-guild-failed", {}, { detail: messageOf(error) });
   }
 });
@@ -205,11 +207,11 @@ adminRouter.post("/intents/:name/enable", requireRecentLogin, async (req, res) =
     if (result === "approval") return sendProblem(res, "intent-needs-approval");
     if (result === "unknown") return sendProblem(res, "intent-flags-unknown");
     forgetAppIntents();
-    if (result === "enabled") log.info({ sub: "admin" }, `대시보드 운영자 패널에서 특권 인텐트 켬: ${INTENT_NAMES[name]} | 실행 ${by} | 봇을 다시 시작하면 적용됨`);
+    if (result === "enabled") log.info({ sub: "admin" }, L.dashboard.intentEnabled({ intent: INTENT_NAMES[name], by }));
     res.json({ result } satisfies IntentEnableReply);
   } catch (error) {
     if (sessionRequests.sessionEnded(res, error)) return;
-    log.warn({ sub: "admin" }, `특권 인텐트 켜기 실패: ${INTENT_NAMES[name]} | 실행 ${by} | ${messageOf(error)}`);
+    log.warn({ sub: "admin" }, L.dashboard.intentEnableFailed({ intent: INTENT_NAMES[name], by, error: messageOf(error) }));
     sendProblem(res, "intent-enable-failed", {}, { detail: messageOf(error) });
   }
 });
@@ -225,7 +227,7 @@ adminRouter.post("/redeploy-commands", async (req, res) => {
     return res.json({ success: true, count: r.count, scope: r.scope, guildId: r.guildId, names: r.names } satisfies RedeployReply);
   }
   // 원인 안내는 기동 로그, pnpm commands와 같은 문장이다(운영자용 원문 필드)
-  log.error({ sub: "admin" }, `대시보드 운영자 패널에서 슬래시 명령어 재등록 실패: ${messageOf(r.error)}${r.hint ? ` | ${logRuleLine(r.hint)}` : ""}`);
+  log.error({ sub: "admin" }, L.dashboard.commandsDeployFailed({ error: messageOf(r.error), hint: r.hint ? ` | ${logRuleLine(r.hint)}` : "" }));
   return sendProblem(res, "deploy-failed", {}, { errors: [{ code: "deploy-failed", detail: messageOf(r.error) }, ...(r.hint ? [{ code: "deploy-failed" as const, rule: r.hint }] : [])], discordCode: codeOf(r.error) ?? null });
 });
 
@@ -256,7 +258,7 @@ const suggestFailures = new Map<string, ReturnType<typeof repeatingFailure>>();
 function suggestFailure(type: string, what: string) {
   const key = `${type} ${what}`;
   let one = suggestFailures.get(key);
-  if (!one) suggestFailures.set(key, (one = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, `출처 자동완성 조회(${type}, ${what})`)));
+  if (!one) suggestFailures.set(key, (one = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.dashboard.suggestLookup({ type, what }))));
   return one;
 }
 adminRouter.get("/source-suggest", async (req, res) => {
@@ -312,8 +314,8 @@ adminRouter.get("/ai/fields", (req, res) => {
   } satisfies AiFields);
 });
 
-const claudeCountFailure = repeatingFailure({ error: (line) => log.warn({ sub: "admin" }, line), info: (line) => log.info({ sub: "admin" }, line) }, "Anthropic 토큰 수 조회");
-const tokenCountFailure = repeatingFailure({ error: (line) => log.error({ sub: "admin" }, line), info: (line) => log.info({ sub: "admin" }, line) }, "토큰 계산");
+const claudeCountFailure = repeatingFailure({ error: (line) => log.warn({ sub: "admin" }, line), info: (line) => log.info({ sub: "admin" }, line) }, L.dashboard.anthropicTokenCount());
+const tokenCountFailure = repeatingFailure({ error: (line) => log.error({ sub: "admin" }, line), info: (line) => log.info({ sub: "admin" }, line) }, L.dashboard.tokenCount());
 
 // 앤트로픽에서 받은 입력란마다의 본문 토큰. 하나라도 못 받으면 null(tik로 추산한다)
 async function countByClaude(texts: string[], provider: string, model: string) {
@@ -415,10 +417,10 @@ adminRouter.put("/ai/keys", requireRecentLogin, (req, res) => {
       else aiKeys.put(provider, value.trim(), assist.keyBinding({ ...draft, provider }));
     }
   } catch (error) {
-    log.error({ sub: "admin" }, `AI 키 저장 실패: ${Object.keys(keys).join(", ")} | 요청자=${ranBy(req)} | ${messageOf(error)}`);
+    log.error({ sub: "admin" }, L.dashboard.aiKeysSaveFailed({ keys: Object.keys(keys).join(", "), by: ranBy(req), error: messageOf(error) }));
     return sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
   }
-  log.warn({ sub: "admin" }, `대시보드에서 AI 키 저장: ${Object.keys(keys).join(", ")}. 실행 ${ranBy(req)}`);
+  log.warn({ sub: "admin" }, L.dashboard.aiKeysSaved({ keys: Object.keys(keys).join(", "), by: ranBy(req) }));
   res.json(keysReply({ ...draft }) satisfies KeysReply);
 });
 
@@ -478,11 +480,11 @@ adminRouter.put("/ai/settings", (req, res) => {
       { name: "ai", data, revision: revision as number },
       { name: "ai-prompt", data: sections },
     ]);
-    log.warn({ sub: "admin" }, `대시보드에서 설정 저장: AI 설정, 프롬프트. 실행 ${ranBy(req)}`);
+    log.warn({ sub: "admin" }, L.dashboard.aiSettingsSaved({ by: ranBy(req) }));
     res.json({ data: documents.get("ai") as Record<string, unknown>, sections: aiConfig.aiPrompt(), revision: next } satisfies AiSaved);
   } catch (error) {
     if (codeOf(error) === "REVISION_CONFLICT") return sendProblem(res, "config-changed");
-    log.error({ sub: "admin" }, `설정 저장 실패(AI): ${messageOf(error)}`);
+    log.error({ sub: "admin" }, L.dashboard.aiSettingsSaveFailed({ error: messageOf(error) }));
     sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
   }
 });
@@ -572,10 +574,10 @@ adminRouter.post("/geoip/check", async (_req, res) => {
 });
 
 adminRouter.post("/geoip/update", (req, res) => {
-  log.info({ sub: "admin" }, `대시보드에서 IP 위치 DB 업데이트. 실행 ${ranBy(req)}`);
+  log.info({ sub: "admin" }, L.dashboard.geoipUpdated({ by: ranBy(req) }));
   geoip.update().catch((error: unknown) => {
     // 원인은 geoip가 로그에 남긴다(다운로드 실패는 상태의 error에도)
-    if (!geoip.alreadyLogged(error)) log.error({ sub: "admin" }, `GeoIP 수동 업데이트 실패: ${messageOf(error)}`);
+    if (!geoip.alreadyLogged(error)) log.error({ sub: "admin" }, L.dashboard.geoipUpdateFailed({ error: messageOf(error) }));
   });
   res.status(202).json(geoip.status() satisfies GeoipStatus);
 });
@@ -608,11 +610,11 @@ adminRouter.put("/config/:name", (req, res) => {
 
   try {
     const next = documents.put(name, data, revision as number);
-    log.warn({ sub: "admin" }, `대시보드에서 설정 저장: ${name}. 실행 ${ranBy(req)}`);
+    log.warn({ sub: "admin" }, L.dashboard.settingSaved({ name, by: ranBy(req) }));
     res.json({ success: true, data: documents.get(name) as Record<string, unknown>, revision: next } satisfies ConfigSaved);
   } catch (error) {
     if (codeOf(error) === "REVISION_CONFLICT") return sendProblem(res, "config-changed");
-    log.error({ sub: "admin" }, `설정 저장 실패(${name}): ${messageOf(error)}`);
+    log.error({ sub: "admin" }, L.dashboard.settingSaveFailed({ name, error: messageOf(error) }));
     sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
   }
 });

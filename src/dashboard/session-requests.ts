@@ -16,6 +16,7 @@ import { problemBody } from "./contract/problem.ts";
 import logger from "../infra/log/logger.ts";
 import { messageOf } from "../rules/error-kind.ts";
 import { repeatingFailure } from "../infra/repeating-failure.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "dashboard" });
 
 /** 알림 없이 끝난 세션을 다시 확인하는 간격 */
@@ -61,7 +62,7 @@ const heard = new WeakSet<SqliteSessionStore>();
 let timer: NodeJS.Timeout | null = null;
 let failures = 0;
 // 다시 보기의 저장소 읽기 실패. 같은 원인이 이어지면 한 번만, 풀리면 한 줄
-const readFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "진행 중인 요청의 로그인 세션 확인");
+const readFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.dashboard.activeRequestSessionCheck());
 
 /** 모든 요청의 맨 앞(정적 파일보다 앞): 소켓의 마지막 요청을 적는다 */
 function noteSocket(req: Request, _res: Response, next: NextFunction) {
@@ -242,7 +243,7 @@ function stop(entry: Entry, why: string) {
   if (entries.get(res) === entry) entries.delete(res);
   if (!entries.size) disarm();
   entry.socket.destroy();
-  log.debug(`세션이 끝나 진행 중인 요청을 끊음(${why}): ${req.method} ${req.baseUrl}${req.path} | ${entry.name}`);
+  log.debug(L.dashboard.requestCut({ why, method: req.method, baseUrl: req.baseUrl, path: req.path, name: entry.name }));
 }
 
 // 본문을 아직 받는 중인가(큰 업로드). 본문 없는 요청은 핸들러가 동기로 도는 동안 complete가 아직 거짓이라 본문이 있는지부터 본다
@@ -263,7 +264,7 @@ function closeStream(entry: Entry, why: string) {
   try {
     entry.drop();
   } catch (error) {
-    log.warn(`스트림 정리 실패(${kind}): ${messageOf(error)}`);
+    log.warn(L.dashboard.streamCleanupFailed({ kind, error: messageOf(error) }));
   }
   if (large || res.writableEnded || res.destroyed) {
     socket.destroy();
@@ -274,7 +275,7 @@ function closeStream(entry: Entry, why: string) {
     setTimeout(() => socket.destroy(), CLOSE_GRACE_MS).unref();
   }
   // 로그아웃, 다시 로그인마다 탭 수만큼 나온다. 끊은 일 자체(다른 기기 로그아웃 등)는 그 경로가 남긴다
-  log.debug(`스트림을 끊음(${why}): ${kind} | ${entry.name}`);
+  log.debug(L.dashboard.streamCut({ why, kind, name: entry.name }));
 }
 
 /** 묶인 요청의 세션을 다시 본다(RECHECK_MS마다). 세션마다 저장소를 한 번 읽는다. 절대 기한은 저장소를 읽지 못해도 본다 */

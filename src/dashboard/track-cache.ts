@@ -44,6 +44,7 @@ import type { LookupRow } from "../store/rows.ts";
 import { messageOf } from "../rules/error-kind.ts";
 import logger from "../infra/log/logger.ts";
 import { matchRegexes } from "./regex-filter.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "dashboard" });
 
 /** 거절. 경로가 문제로 응답한다(errors의 pointer는 읽기면 /filters/<열>, /q, /sort, 쓰기면 /ops/<번호>/<필드>) */
@@ -295,7 +296,7 @@ async function read(query: TrackCacheQuery, { signal }: { signal?: AbortSignal }
   try {
     matched = await withRegexes(plain, matcher.regexes, signal);
   } catch (error) {
-    log.warn(`캐시 DB의 정규식 필터 검사 실패: ${messageOf(error)}`);
+    log.warn(L.dashboard.regexFilterFailed({ error: messageOf(error) }));
     return refusal("filter-failed");
   }
   // 이미 실행 중이던 정규식 검사는 끝까지 돌리므로, 끝난 뒤에도 그사이 취소되었는지 확인한다
@@ -389,7 +390,7 @@ async function write(input: TrackCacheOp[], by: string, go?: () => void): Promis
     log.debug({ sub: "track-cache" }, `캐시 DB ${OP_NAMES[op.op]}: ${targetOf(op)} | ${results[i].ok ? "됨" : JSON.stringify(results[i])}`);
   }
   const summary = [...counts].map(([name, { done, failed }]) => `${OP_NAMES[name]} ${done + failed}${failed ? `(실패 ${failed})` : ""}`).join(", ");
-  log.warn({ sub: "admin" }, `대시보드에서 캐시 DB 저장: ${summary}. 실행 ${by}`);
+  log.warn({ sub: "admin" }, L.dashboard.trackCacheSaved({ summary, by }));
   return { ok: true, written: { results, revision: cacheRevision().revision } };
 }
 

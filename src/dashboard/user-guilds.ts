@@ -8,6 +8,7 @@ import { repeatingFailure, type FailureLog } from "../infra/repeating-failure.ts
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { DISCORD_API, discordHttp, type DiscordHttp } from "./discord-api.ts";
 import { tokenStoreOf } from "./session-store.ts";
+import { L } from "../infra/log/text.ts";
 
 /** 디스코드가 주는 서버 목록에서 읽는 필드. permissions는 서버 단위 권한 비트 */
 type UserGuild = { id: string; name: string; icon: string | null; owner: boolean; permissions: string };
@@ -36,7 +37,7 @@ const failuresOf = (key: string) => {
   let one = failures.get(key);
   if (!one) {
     const to: FailureLog = { error: (line) => log.warn(line), info: (line) => log.info(line) };
-    failures.set(key, (one = { refresh: repeatingFailure(to, "사용자 서버 목록 백그라운드 갱신"), list: repeatingFailure(to, "사용자 서버 목록 조회") }));
+    failures.set(key, (one = { refresh: repeatingFailure(to, L.dashboard.userGuildsRefresh()), list: repeatingFailure(to, L.dashboard.userGuildsList()) }));
   }
   return one;
 };

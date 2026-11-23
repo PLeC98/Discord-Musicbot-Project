@@ -32,3 +32,4 @@ export { ytdlp } from "./ytdlp.ts";
 export { soundcloud } from "./soundcloud.ts";
 export { commands } from "./commands.ts";
 export { events } from "./events.ts";
+export { dashboard } from "./dashboard.ts";

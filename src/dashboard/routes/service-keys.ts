@@ -15,6 +15,7 @@ import * as serviceKeys from "../../store/service-keys.ts";
 import { checkCredentials as checkSpotify } from "../../sources/spotify.ts";
 import { checkLastfmKey } from "../../autoplay/sources/lastfm.ts";
 import { checkListenbrainzToken } from "../../autoplay/sources/lbradio.ts";
+import { L } from "../../infra/log/text.ts";
 
 const CHECKS: Record<ServiceId, () => Promise<KeyCheck>> = { spotify: checkSpotify, lastfm: checkLastfmKey, listenbrainz: checkListenbrainzToken };
 
@@ -31,10 +32,10 @@ serviceKeysRouter.put("/:service", requireRecentLogin, (req, res) => {
     serviceKeys.save(service, values as Record<string, unknown>);
   } catch (error) {
     if (codeOf(error) === "SECRET_INVALID") return sendProblem(res, "nothing-to-save");
-    log.error({ sub: "admin" }, `${serviceKeys.LABELS[service]} 키 저장 실패: ${messageOf(error)}`);
+    log.error({ sub: "admin" }, L.dashboard.serviceKeySaveFailed({ service: serviceKeys.LABELS[service], error: messageOf(error) }));
     return sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
   }
-  log.warn({ sub: "admin" }, `대시보드에서 ${serviceKeys.LABELS[service]} 키 저장(${Object.keys(values).join(", ")}). 실행 ${ranBy(req)}`);
+  log.warn({ sub: "admin" }, L.dashboard.serviceKeySaved({ service: serviceKeys.LABELS[service], fields: Object.keys(values).join(", "), by: ranBy(req) }));
   res.json(serviceKeys.view());
 });
 
@@ -42,7 +43,7 @@ serviceKeysRouter.delete("/:service", requireRecentLogin, (req, res) => {
   const { service } = req.params;
   if (!isServiceId(service)) return sendProblem(res, "nothing-to-save");
   serviceKeys.remove(service);
-  log.warn({ sub: "admin" }, `대시보드에서 ${serviceKeys.LABELS[service]} 키 삭제. 실행 ${ranBy(req)}`);
+  log.warn({ sub: "admin" }, L.dashboard.serviceKeyRemoved({ service: serviceKeys.LABELS[service], by: ranBy(req) }));
   res.json(serviceKeys.view());
 });
 

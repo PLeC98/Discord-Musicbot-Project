@@ -37,6 +37,7 @@ import { LIFETIME } from "../../ui/delivery.ts";
 import { announcer, dashboardActor, dashboardResponder } from "../discord-notice.ts";
 import { assertSignedIn, sessionEnded } from "../session-requests.ts";
 import { publicText } from "../../ui/language.ts";
+import { L } from "../../infra/log/text.ts";
 
 // ── 재생 조작 ──
 // 전제 조건과 권한은 usecases/controls가 본다. 경로는 입력 모양만 확정하고 거절을 HTTP로 옮긴다.
@@ -310,7 +311,7 @@ function queueEditRoutes(router: Router) {
 
 function searchFailed(guildId: string, q: string, error: unknown) {
   const at = error instanceof Error ? error.stack?.split("\n").find((line) => line.trim().startsWith("at ")) : undefined;
-  log.error({ sub: "search" }, `검색 요청 처리 실패: 서버=${guildId} | 검색어=${q} | ${messageOf(error)}${at ? ` | ${at.trim()}` : ""}`);
+  log.error({ sub: "search" }, L.dashboard.searchFailed({ guildId, query: q, error: messageOf(error), location: at ? ` | ${at.trim()}` : "" }));
 }
 
 // 자동재생. 판정과 처리는 디스코드의 장르 메뉴와 같다(usecases/controls의 autoplay)
@@ -435,7 +436,7 @@ function addRoutes(router: Router) {
       res.json({ ...playerState(player, queueWindow(req)), dropped, queueLimited, skipped: result.placed?.skipped ?? 0, added: addedSummary(guildId, result.placed), more: moreView(result.more), queueMax: config.bot.maxQueueSize } satisfies AddReply);
     } catch (err) {
       if (sessionEnded(res, err)) return;
-      log.error("대시보드에서 곡 추가 실패:", err);
+      log.error(L.dashboard.trackAddFailed(), err);
       sendProblem(res, "add-failed");
     }
   });
@@ -472,7 +473,7 @@ function addRoutes(router: Router) {
       res.json({ ...playerState(player, queueWindow(req)), added: result.added, dropped: result.dropped || 0, result: outcomeOf(state.kind, result), more: moreView(result.next), queueMax: config.bot.maxQueueSize } satisfies MoreReply);
     } catch (err) {
       if (sessionEnded(res, err)) return;
-      log.error("대시보드에서 재생목록 더 넣기 실패:", err);
+      log.error(L.dashboard.playlistMoreFailed(), err);
       sendProblem(res, "add-failed");
     }
   });
