@@ -1,7 +1,7 @@
 <template>
   <!-- 로그 한 줄(실시간 로그, 로그 파일 보기). 넓으면 한 줄(시각, 레벨, 카테고리, 태그, 글), 좁으면(로그 영역 42rem 아래) 글을 아랫줄로. 글은 단어 단위로 끊는다.
-       검색어와 일치한 부분은 칠한다(MatchText) -->
-  <div class="flex flex-col @2xl/log:flex-row @2xl/log:items-baseline gap-x-3 py-0.5 text-xs leading-5">
+       검색어와 일치한 부분은 칠한다(MatchText). 문구로 찍은 줄은 마우스를 올리면 문구 코드를 보여 준다(언어와 상관없이 찾는 이름. 값 안의 라벨, 규칙 문제 코드는 아랫줄에) -->
+  <div class="flex flex-col @2xl/log:flex-row @2xl/log:items-baseline gap-x-3 py-0.5 text-xs leading-5" v-tooltip="entry.events?.join('\n') ?? ''">
     <span class="flex items-baseline gap-3 shrink-0">
       <span class="font-mono nums text-on-surface-variant">{{ time }}</span>
       <span class="w-[5ch] font-mono font-semibold" :class="LEVEL_TONE[entry.level]">{{ entry.level.toUpperCase() }}</span>

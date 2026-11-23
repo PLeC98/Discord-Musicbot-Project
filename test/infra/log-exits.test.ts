@@ -53,7 +53,7 @@ async function throughExits(write: (log: ReturnType<typeof createLogger>) => voi
     .filter(Boolean)
     .map((line) => JSON.parse(line) as Record<string, unknown>);
   const page = await readLogPage({ name: "bot.log", path: file }, { limit: 10, filter: {} });
-  return { terminal, sse, fileLines, viewer: page!.lines };
+  return { terminal, sse, fileLines, viewer: page!.lines, file };
 }
 
 test("문구 한 줄이 터미널, SSE, 파일, 로그 파일 보기에 같은 글로 가고, 파일에는 문구 코드와 값이 남는다", async () => {
@@ -71,6 +71,26 @@ test("문구 한 줄이 터미널, SSE, 파일, 로그 파일 보기에 같은 �
   assert.deepEqual(got.fileLines[0].args, { value: "zz", malformed: false, language: "ko" });
   assert.equal(got.fileLines[0].category, "config");
   assert.equal(got.viewer[0].text, expected, "로그 파일 보기");
+});
+
+test("실시간 로그와 로그 파일 보기의 줄에 문구 코드가 실리고(값 안의 라벨 것까지), 문구 코드로 찾힌다", async () => {
+  const label = L.core.runRecordUpdate();
+  const got = await throughExits((log) => {
+    log.warn(L.failure.started({ what: label, reason: "x" }));
+    log.info("문구 없는 줄");
+  });
+  const sse = got.sse as Array<{ text: string; events?: string[] }>;
+  assert.deepEqual(sse.find((entry) => entry.text.startsWith("실행 기록 갱신 실패"))?.events, ["failure.started", "core.runRecordUpdate"]);
+  assert.equal(sse.find((entry) => entry.text === "문구 없는 줄")?.events, undefined, "문구로 찍지 않은 줄에는 없다");
+  assert.deepEqual(got.viewer[0].events, ["failure.started", "core.runRecordUpdate"]);
+  for (const q of ["failure.started", "runRecordUpdate"]) {
+    const found = await readLogPage({ name: "bot.log", path: got.file }, { limit: 10, filter: { q } });
+    assert.deepEqual(
+      found!.lines.map((line) => line.text),
+      ["실행 기록 갱신 실패: x"],
+      q,
+    );
+  }
 });
 
 test("로그 테스트 언어로 찍으면 네 출구 모두 바꾼 글이다", async () => {
