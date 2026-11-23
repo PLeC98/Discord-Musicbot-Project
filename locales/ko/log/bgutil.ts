@@ -7,6 +7,8 @@ const bgutil = {
   lockBadName: ({ key }: { key: string }) => `lockfile에 잘못된 형식의 패키지 이름이 있습니다: ${key}`,
   /** names: 이름이 같은 개발 의존성에도 설치 스크립트가 있는 패키지(쉼표로 이음) */
   lockDevOverlap: ({ names }: { names: string }) => `이름이 같은 개발 의존성에도 설치 스크립트가 있어 이름으로 다시 빌드할 수 없습니다: ${names}`,
+  /** 체크아웃이 고정한 커밋 그대로가 아니다. head: 지금 HEAD, changed: 바뀐 파일 수(없으면 0) */
+  checkoutNotPinned: ({ commit, head, changed }: { commit: string; head: string; changed: number }) => `체크아웃 상태가 고정된 커밋(${commit}) 그대로가 아닙니다(HEAD ${head}${changed ? `, 바뀐 파일 ${changed}개` : ""})`,
 };
 
 export { bgutil };

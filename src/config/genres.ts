@@ -106,7 +106,7 @@ function checkedGenres(): GenresConfig {
   // 이름, 숫자 이름, 이모지도 같은 검사가 본다(대시보드 저장 전 검사와 같은 문구). 문제를 한 번에 다 알린다
   const shape = validateGenres(loaded);
   if (shape.length) {
-    throw Object.assign(new Error(["자동재생 장르 설정 읽기 실패:", ...shape.map((p) => `   ${logRuleLine(p)}`)].join("\n")), { code: "CONFIG_INVALID" });
+    throw Object.assign(logTextError(L.config.genresReadFailed({ problems: shape.map((p) => `   ${logRuleLine(p)}`).join("\n") })), { code: "CONFIG_INVALID" });
   }
   const data = loaded as Partial<GenresConfig>; // 검사를 지났다
 

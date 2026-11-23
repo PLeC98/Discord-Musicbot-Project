@@ -60,7 +60,7 @@ async function checkoutPinned({ dir, repo, tag, commit, git, log }: { dir: strin
   await git(["clean", "-ffdx"], dir);
   const head = (await git(["rev-parse", "HEAD"], dir)).trim();
   const dirty = (await git(["status", "--porcelain", "--ignored"], dir)).trim();
-  if (head !== commit || dirty) throw new Error(`체크아웃 상태가 고정된 커밋(${commit}) 그대로가 아닙니다(HEAD ${head}${dirty ? `, 바뀐 파일 ${dirty.split("\n").length}개` : ""})`);
+  if (head !== commit || dirty) throw logTextError(L.bgutil.checkoutNotPinned({ commit, head, changed: dirty ? dirty.split("\n").length : 0 }));
 }
 
 export { checkoutPinned, gitWith };

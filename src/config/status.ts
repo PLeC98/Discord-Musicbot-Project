@@ -6,6 +6,7 @@
 import { logRuleLine } from "../rules/text/index.ts";
 import logger from "../infra/log/logger.ts";
 import { L } from "../infra/log/text.ts";
+import { logTextError } from "../infra/log/log-text.ts";
 const log = logger.child({ category: "config" });
 import * as documents from "./documents.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
@@ -29,7 +30,7 @@ function checkedStatus(): StatusConfig {
   const data = documents.get("status");
   const problems = validateStatus(data);
   if (problems.length) {
-    throw Object.assign(new Error(["활동 문구 설정 읽기 실패:", ...problems.map((p) => `   ${logRuleLine(p)}`)].join("\n")), { code: "CONFIG_INVALID" });
+    throw Object.assign(logTextError(L.config.statusReadFailed({ problems: problems.map((p) => `   ${logRuleLine(p)}`).join("\n") })), { code: "CONFIG_INVALID" });
   }
   return data as StatusConfig;
 }

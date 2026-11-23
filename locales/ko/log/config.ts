@@ -58,6 +58,10 @@ const config = {
   /** 우리가 정하는 칸을 바꾸려는 AI 모델 정보의 자리(기본값, 필드) */
   modelDefaultTouched: ({ id, key }: { id: string; key: string }) => `${id} 기본값 ${key}`,
   modelFieldTouched: ({ id, key }: { id: string; key: string }) => `${id} 필드 ${key}`,
+  /** 자동재생 장르 설정을 읽지 못했다. problems: 문제(줄마다 들여 쓴 글, 줄바꿈으로 이음) */
+  genresReadFailed: ({ problems }: { problems: string }) => `자동재생 장르 설정 읽기 실패:\n${problems}`,
+  /** 활동 문구 설정을 읽지 못했다. problems: 문제(줄마다 들여 쓴 글, 줄바꿈으로 이음) */
+  statusReadFailed: ({ problems }: { problems: string }) => `활동 문구 설정 읽기 실패:\n${problems}`,
 };
 
 export { config };
