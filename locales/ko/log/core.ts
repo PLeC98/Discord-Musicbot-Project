@@ -30,6 +30,9 @@ const core = {
   diskFreeLookup: ({ target }: { target: string }) => `${target} 디스크 여유 공간 statfs 조회`,
   diskSizeUnknown: ({ error }: { error: string }) => `${error} (드라이브 카드에 알 수 없음으로 표시)`,
   diskFreeZero: ({ error }: { error: string }) => `${error} (여유 공간 0바이트로 처리)`,
+  alreadyRunning: ({ detail }: { detail: string }) => `이 폴더에서 봇이 이미 실행 중${detail}. 같은 폴더에서는 하나만 실행할 수 있음`,
+  /** 본체 모듈을 불러오다 예외가 나서 기동을 멈췄다(오류는 err로) */
+  mainLoadFailed: () => `메인 모듈 불러오기 실패(기동 중단)`,
 };
 
 export { core };

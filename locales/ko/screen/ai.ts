@@ -2,7 +2,7 @@
 
 import type { ProviderGroup } from "../../../src/config/schema/ai-providers.ts";
 import { formatNumber } from "../../../dashboard/src/utils/locale.ts";
-import { josa } from "../../../src/rules/josa.ts";
+import { josa } from "../../../src/infra/josa.ts";
 
 // 목록
 const title = "AI 보조";

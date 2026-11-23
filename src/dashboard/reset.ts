@@ -28,7 +28,7 @@ import * as sponsorBlock from "../sources/sponsor-block.ts";
 import * as spotify from "../sources/spotify.ts";
 import type { AudioCachePart } from "../rules/audio-cache-parts.ts";
 import logger from "../infra/log/logger.ts";
-import { josa } from "../rules/josa.ts";
+import { josa } from "../infra/josa.ts";
 const log = logger.child({ category: "dashboard" });
 
 const PART_NAMES: Record<AudioCachePart, string> = { files: "캐시 파일", ledger: "곡 찾기 기록", external: "바깥 서비스 데이터", pins: "직접 지정한 음원" };

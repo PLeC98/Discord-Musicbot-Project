@@ -24,7 +24,7 @@ import { alignFfmpeg, type AlignOutcome, type InstallIo, type Probe } from "../s
 import { parseInstallArgs } from "../src/media/ffmpeg/cli-args.ts";
 import { download } from "./download.ts";
 import { scriptLine } from "../src/infra/script-line.ts";
-import { josa } from "../src/rules/josa.ts";
+import { josa } from "../src/infra/josa.ts";
 import path from "node:path";
 
 const say = scriptLine("ffmpeg");

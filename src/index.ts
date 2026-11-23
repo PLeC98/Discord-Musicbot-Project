@@ -9,13 +9,14 @@ import logger from "./infra/log/logger.ts";
 import { EXIT } from "./app/exit-codes.ts";
 import { acquireInstanceLock } from "./infra/instance-lock.ts";
 import { PROJECT } from "./infra/project-paths.ts";
+import { L } from "./infra/log/text.ts";
 
 configCheck.stopOnConfigProblems(loadedConfig, logger.child({ category: "config" }));
 
 // 같은 폴더에서 둘째 실행은 DB를 열기 전에 멈춘다. 다시 시작해도 같으므로 설정 오류와 같은 코드로(실행기가 다시 띄우지 않는다)
 const lock = await acquireInstanceLock(PROJECT.database);
 if (!lock.ok) {
-  logger.child({ category: "core" }).error(`이 폴더에서 봇이 이미 실행 중${lock.holder ? `(pid ${lock.holder})` : ""}. 같은 폴더에서는 하나만 실행할 수 있음`);
+  logger.child({ category: "core" }).error(L.core.alreadyRunning({ detail: lock.holder ? `(pid ${lock.holder})` : "" }));
   process.exit(EXIT.badSetup);
 }
 
@@ -24,7 +25,7 @@ let main: () => void;
 try {
   ({ main } = await import("./app/main.ts"));
 } catch (error) {
-  logger.child({ category: "core" }).error("메인 모듈 불러오기 실패(기동 중단):", error);
+  logger.child({ category: "core" }).error({ err: error }, L.core.mainLoadFailed());
   process.exit(EXIT.badSetup);
 }
 main();

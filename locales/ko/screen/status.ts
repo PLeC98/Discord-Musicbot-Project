@@ -1,6 +1,6 @@
 // 운영자 패널: 봇 상태 탭과 그 그래프
 
-import { josa } from "../../../src/rules/josa.ts";
+import { josa } from "../../../src/infra/josa.ts";
 import { formatNumber } from "../../../dashboard/src/utils/locale.ts";
 
 /** 그래프 가로축의 왼쪽 끝, 오른쪽 끝 */

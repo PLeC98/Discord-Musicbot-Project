@@ -1,5 +1,7 @@
 // 로그 문구: 설정(config 분류). 기동 때의 설정 검사와 로그 언어 고르기
 
+import { josa } from "../../../src/infra/josa.ts";
+
 const config = {
   /** 적은 LOG_LANGUAGE를 쓸 수 없어 다른 언어로 찍는다. malformed: 언어 태그 형식이 아님(아니면 그 언어의 로그 문구가 없음) */
   logLanguageIgnored: ({ value, malformed, language }: { value: string; malformed: boolean; language: string }) => `LOG_LANGUAGE 무시(${value}): ${malformed ? "언어 태그 형식이 아님" : "그 언어의 로그 문구가 없음"}. 로그 언어: ${language}`,
@@ -29,6 +31,33 @@ const config = {
   pricesHttpFailed: ({ status, source }: { status: number; source: string }) => `값표 ${status}: ${source}`,
   pricesNoneRead: () => `가격표에서 우리 프로바이더의 가격을 하나도 읽지 못함(저쪽 형식이 바뀐 것으로 보여 쓰지 않음)`,
   genreEmpty: ({ name }: { name: string }) => `자동재생 장르 ${name}에 소스와 키워드가 하나도 없음. 운영자 패널의 자동재생 탭에서 확인하세요`,
+  ownerNobody: () => `대시보드 운영자 패널과 /system에 아무도 들어갈 수 없음`,
+  ownerIdMissing: ({ nobody }: { nobody: string }) => `OWNER_ID 미설정. ${nobody}`,
+  ownerIdInvalid: ({ ownerId, nobody }: { ownerId: string; nobody: string }) => `OWNER_ID 값이 디스코드 사용자 ID 형식(17 ~ 20자리 숫자)이 아님(${ownerId}). ${nobody}`,
+  envValueInvalid: ({ key, value, reason }: { key: string; value: string; reason: string }) => `.env의 ${key} 값이 잘못됨(${value}): ${reason}. 고친 뒤 다시 실행하세요`,
+  tabSettings: () => `일반`,
+  tabAppearance: () => `디스플레이`,
+  tabYoutube: () => `유튜브`,
+  tabUpdate: () => `업데이트`,
+  tabAge: () => `연령 제한(일반 탭에서 연령 제한 콘텐츠를 켜면 생긴다)`,
+  tabAi: () => `AI 보조`,
+  tabDev: () => `개발자 옵션`,
+  envFileMissing: () => `.env 파일이 없음. 봇을 실행하면 .env.example로 만들고 비밀 키를 채움. 그 뒤 파일 안의 주석을 참고해 [필수] 값을 채우세요`,
+  credentialsMissing: ({ names }: { names: string }) => `비어 있는 필수 값: ${names}. README의 "설정" 절과 .env.example의 주석을 참고해 .env에 채운 뒤 다시 실행하세요.`,
+  secretsKeyRemake: ({ command }: { command: string }) => `만들기: ${command}의 출력을 .env의 SECRETS_KEY= 뒤에 넣고 다시 실행하세요. 새 키로는 대시보드에 저장해 둔 비밀값을 복호화하지 못해 다시 입력해야 함`,
+  secretsKeyEmpty: ({ remake }: { remake: string }) => `SECRETS_KEY가 비어 있음(비밀값 암호화 키). ${remake}`,
+  secretsKeyInvalid: ({ remake }: { remake: string }) => `.env의 SECRETS_KEY가 base64로 인코딩한 32바이트가 아님. ${remake}`,
+  envFileMade: ({ names }: { names: string }) => `.env가 없어 .env.example로 만듦(SECRETS_KEY, SESSION_SECRET은 채움). ${names} 값을 채운 뒤 실행하세요`,
+  genreSourcesDropped: ({ genres, missing }: { genres: string; missing: string }) => `자동재생 장르 ${genres}: ${missing} 키가 없어 그 소스를 빼고 나머지 소스만 사용`,
+  genreSourcesNone: ({ genres, missing }: { genres: string; missing: string }) => `자동재생 장르 ${genres}: ${missing} 키가 없어 쓸 소스가 없음. 키를 입력하기 전까지 이 장르는 선택할 수 없음`,
+  nodeUnsupported: ({ version, range }: { version: string; range: string }) => `지원 범위 밖의 Node(지금 ${version}, 지원 ${range}). 알려진 보안 취약점이 고쳐진 버전으로 업데이트 필요`,
+  /** .env에 적은 운영 설정값 이름(이제 운영자 패널에서 입력). names: 이름(쉼표로 이음), last: 마지막 이름(조사를 고른다), tab: 입력할 탭 */
+  envNamesMoved: ({ names, last, tab }: { names: string; last: string; tab: string }) => `.env의 ${names}${josa(last, "은")} 이제 쓰지 않음. 운영자 패널의 ${tab} 탭에서 입력하고 .env에서 삭제하세요`,
+  /** .env에 적은, 봇이 읽지 않는 이름. last: 마지막 이름(조사를 고른다) */
+  envNamesUnknown: ({ names, last }: { names: string; last: string }) => `.env의 ${names}${josa(last, "은")} 봇이 읽지 않는 이름. 오타이거나 예전 설정이면 .env에서 삭제하세요(쓰는 이름은 .env.example 참고)`,
+  /** 우리가 정하는 칸을 바꾸려는 AI 모델 정보의 자리(기본값, 필드) */
+  modelDefaultTouched: ({ id, key }: { id: string; key: string }) => `${id} 기본값 ${key}`,
+  modelFieldTouched: ({ id, key }: { id: string; key: string }) => `${id} 필드 ${key}`,
 };
 
 export { config };

@@ -1,8 +1,8 @@
-// src/rules/josa.ts: 앞말의 끝소리를 보고 조사를 선택한다. 모르면 괄호 형태
+// src/infra/josa.ts: 앞말의 끝소리를 보고 조사를 선택한다. 모르면 괄호 형태
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { josa, finalOf } from "../../src/rules/josa.ts";
+import { josa, finalOf } from "../../src/infra/josa.ts";
 
 // 단어마다 [을/를 선택한 것]을 적어 둔다
 const picks = (words: string[], particle: Parameters<typeof josa>[1] = "을") => words.map((w) => `${w}${josa(w, particle)}`);

@@ -11,7 +11,7 @@ import { sendProblem } from "../problem.ts";
 import * as uploads from "../uploads.ts";
 import { assertSignedIn, sessionEnded } from "../session-requests.ts";
 import { isHttpLink, isYouTubeURL } from "../../rules/links.ts";
-import { josa } from "../../rules/josa.ts";
+import { josa } from "../../infra/josa.ts";
 import { formatBytes } from "../../ui/format.ts";
 import { parse, BackgroundEditBody, BackgroundEstimateBody, BackgroundLimitsBody, BackgroundLinkBody, BackgroundOptionsBody, BackgroundPositionBody, BackgroundUseBody, BackgroundUploadBody } from "../request-schemas.ts";
 import type { LoginBackgroundItem, LoginBackgroundState } from "../contract/login-background.ts";

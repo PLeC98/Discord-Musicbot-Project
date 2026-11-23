@@ -1,7 +1,7 @@
 // 봇 다시 시작(봇 상태 탭, 운영 설정값의 다시 시작해야 적용되는 값)
 
 import { formatNumber } from "../../../dashboard/src/utils/locale.ts";
-import { josa } from "../../../src/rules/josa.ts";
+import { josa } from "../../../src/infra/josa.ts";
 
 const button = "다시 시작";
 const unavailable = "실행기 없이 켠 봇이라 여기서 다시 시작할 수 없어요. 봇 폴더에서 pnpm start로 실행하면 쓸 수 있어요.";

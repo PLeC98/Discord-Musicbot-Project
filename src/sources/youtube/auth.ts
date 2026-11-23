@@ -44,7 +44,7 @@ function bgutilPluginDirs(): string | null {
 }
 import * as cookieJar from "../../store/cookie-jar.ts";
 import { ageContentOn } from "../../config/age-content.ts";
-import { josa } from "../../rules/josa.ts";
+import { josa } from "../../infra/josa.ts";
 
 // 유튜브용 yt-dlp 옵션. 공통(baseOptions) 위에 유튜브 전용을 얹는다
 function getYtDlpOptions(extraOptions: Flags = {}, { forceCookies = false } = {}): Flags {

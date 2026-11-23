@@ -7,8 +7,8 @@ import { L } from "../infra/log/text.ts";
 import { logLanguage } from "../rules/languages.ts";
 import type { LogText } from "../infra/log/log-text.ts";
 
-type Checked = { warnings: string[]; problems: string[] };
-type Out = { warn(line: string | LogText): unknown; error(line: string): unknown };
+type Checked = { warnings: LogText[]; problems: LogText[] };
+type Out = { warn(line: LogText): unknown; error(line: LogText): unknown };
 
 function stopOnConfigProblems(config: Checked, out: Out, exit: (code: number) => void = (code) => process.exit(code)) {
   const notice = takeLogLanguageNotice();

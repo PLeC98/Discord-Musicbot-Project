@@ -14,7 +14,7 @@ import logger from "../infra/log/logger.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import type { ModelField, ModelGroup, ModelSummary, RefreshResult, ShowIf } from "./ai-model-types.ts";
 import { L } from "../infra/log/text.ts";
-import { logTextError } from "../infra/log/log-text.ts";
+import { asText, logTextError } from "../infra/log/log-text.ts";
 const log = logger.child({ category: "config" });
 
 const RAW = "https://raw.githubusercontent.com/PocketRisu/pocketrisu-model-registry/main";
@@ -182,8 +182,8 @@ function defaultsOf(registry: string, modelId: string, snapshot: Snapshot = load
 function touchingOurs(snapshot: Snapshot): string[] {
   const out: string[] = [];
   const scan = (id: string, defaults: Record<string, unknown> | undefined, fields: SchemaField[] | undefined) => {
-    for (const key of Object.keys(defaults || {})) if (OURS.has(key)) out.push(`${id} 기본값 ${key}`);
-    for (const f of fields || []) if (f?.mapsTo?.target === "body" && f.mapsTo.path && ours(f.mapsTo.path) && f.key !== "modelId") out.push(`${id} 필드 ${f.key}`);
+    for (const key of Object.keys(defaults || {})) if (OURS.has(key)) out.push(asText(L.config.modelDefaultTouched({ id, key })));
+    for (const f of fields || []) if (f?.mapsTo?.target === "body" && f.mapsTo.path && ours(f.mapsTo.path) && f.key !== "modelId") out.push(asText(L.config.modelFieldTouched({ id, key: f.key })));
   };
   for (const [id, base] of Object.entries(snapshot.baseProviders || {})) scan(id, base.defaultBody, base.requestSchema);
   for (const [id, profile] of Object.entries(snapshot.profiles || {})) scan(id, profile.defaults, profile.schema);

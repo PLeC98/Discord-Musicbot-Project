@@ -6,6 +6,7 @@ import { chooseLogLanguage, pickLogLanguage, takeLogLanguageNotice } from "../..
 import { LOG_LANGUAGES, logLanguage, setLogLanguage } from "../../src/infra/log/language.ts";
 import { BASE_LANGUAGE, LANGUAGES } from "../../src/rules/languages.ts";
 import { stopOnConfigProblems } from "../../src/app/config-check.ts";
+import { logText, renderLogText, type LogText } from "../../src/infra/log/log-text.ts";
 
 afterEach(() => {
   setLogLanguage(BASE_LANGUAGE);
@@ -31,9 +32,9 @@ test("유닉스 로케일 꼴(밑줄, 인코딩, 수식)도 받는다", () => {
 test("설정 검사가 고를 때의 알림을 다른 경고보다 먼저 한 번 찍는다(설정 문제로 멈출 때도)", () => {
   chooseLogLanguage({ LOG_LANGUAGE: "zz" });
   const lines: string[] = [];
-  const out = { warn: (line: string) => lines.push(`warn ${line}`), error: (line: string) => lines.push(`error ${line}`) };
+  const out = { warn: (line: LogText) => lines.push(`warn ${renderLogText(line)}`), error: (line: LogText) => lines.push(`error ${renderLogText(line)}`) };
   let code: number | null = null;
-  stopOnConfigProblems({ warnings: ["경고"], problems: ["문제"] }, out, (c) => (code = c));
+  stopOnConfigProblems({ warnings: [logText("test.warn", {}, () => "경고")], problems: [logText("test.problem", {}, () => "문제")] }, out, (c) => (code = c));
   assert.equal(code !== null, true);
   assert.match(lines[0], /^warn LOG_LANGUAGE 무시\(zz\): /);
   assert.deepEqual(lines.slice(1), ["warn 경고", "error 문제"]);

@@ -10,14 +10,15 @@ import { LEVEL_NAMES } from "../infra/log/levels.ts";
 import { SECRETS_KEY_COMMAND, isSecretsKey } from "../rules/secrets-key.ts";
 import { GROUP_TAB, TUNABLE_KEYS, tunable } from "../rules/tunables.ts";
 import { rule, tuneProblem, type RuleProblem } from "../rules/rule-problem.ts";
-import { logRuleLine } from "../rules/text/index.ts";
 import { COOKIE_BROWSERS, cookieBrowserOf } from "../rules/cookie-browsers.ts";
 import { isYtdlpTag, YTDLP_CHANNELS } from "../rules/ytdlp-tag.ts";
 import { KNOWN_TAGS } from "../rules/languages.ts";
-import { josa } from "../rules/josa.ts";
 import { BGUTIL_COMMIT, BGUTIL_VERSION } from "./vendor-versions.ts";
 import { bgutilTarget } from "../rules/bgutil-install.ts";
 import { isSnowflake } from "../rules/snowflake.ts";
+import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
+import { ruleLogText } from "../rules/text/index.ts";
 
 // 이 파일은 사용자가 직접 수정하기 위한 설정 파일이 아닙니다. `.env` 파일과 대시보드(운영자 패널)에서 고치십시오.
 //
@@ -85,14 +86,14 @@ type HexColor = `#${string}`;
 const isHexColor = (v: string): v is HexColor => /^#[0-9a-fA-F]{6}$/.test(v);
 
 // 운영자 ID는 비었거나 형식이 틀려도 경고만 한다(봇은 돈다. 값은 그대로 두며 어느 사용자와도 일치하지 않는다)
-function ownerIdWarning(ownerId: string | null): string | null {
-  const nobody = "대시보드 운영자 패널과 /system에 아무도 들어갈 수 없음";
-  if (!ownerId) return `OWNER_ID 미설정. ${nobody}`;
-  return isSnowflake(ownerId) ? null : `OWNER_ID 값이 디스코드 사용자 ID 형식(17 ~ 20자리 숫자)이 아님(${ownerId}). ${nobody}`;
+function ownerIdWarning(ownerId: string | null): LogText | null {
+  const nobody = L.config.ownerNobody();
+  if (!ownerId) return L.config.ownerIdMissing({ nobody });
+  return isSnowflake(ownerId) ? null : L.config.ownerIdInvalid({ ownerId, nobody });
 }
 
 // .env, 설정값 읽는 도구. 잘못 적은 값은 문제 목록에 적고 기본값을 돌려준다(설정값은 tuneProblems에. 기동을 멈추지 않는다)
-function envReaders(source: EnvSource, problems: string[], tuneProblems: RuleProblem[] = []) {
+function envReaders(source: EnvSource, problems: LogText[], tuneProblems: RuleProblem[] = []) {
   // 읽어 본 이름. .env 파일에 이것 밖의 이름이 있으면 경고한다(loadConfig)
   const asked = new Set<string>();
   // .env의 값. 키가 없거나 공백뿐이면 def
@@ -112,7 +113,7 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: RulePro
    */
   function invalid<T>(key: string, value: unknown, reason: RuleProblem, def: T): T {
     if (TUNABLE_KEYS.has(key)) tuneProblems.push(tuneProblem(key, String(value), reason));
-    else problems.push(`.env의 ${key} 값이 잘못됨(${String(value)}): ${logRuleLine(reason)}. 고친 뒤 다시 실행하세요`);
+    else problems.push(L.config.envValueInvalid({ key, value: String(value), reason: ruleLogText(reason) }));
     return def;
   }
 
@@ -255,12 +256,12 @@ function resolveFromRoot(p: string | null) {
 /** 비면 기동을 멈추는 자격증명. 봇 로그인, 명령 배포, 대시보드 로그인(OAuth) */
 const REQUIRED_CREDENTIALS = ["DISCORD_TOKEN", "CLIENT_SECRET"] as const;
 // 운영자 패널 탭 이름(운영 설정값의 그룹이 놓인 탭, rules/tunables의 GROUP_TAB). 연령 제한 탭은 연령 제한 콘텐츠를 켜야 생긴다
-const TAB_NAMES = { settings: "일반", appearance: "디스플레이", youtube: "유튜브", update: "업데이트", age: "연령 제한(일반 탭에서 연령 제한 콘텐츠를 켜면 생긴다)", ai: "AI 보조", dev: "개발자 옵션" } as const;
+const TAB_NAMES = { settings: L.config.tabSettings(), appearance: L.config.tabAppearance(), youtube: L.config.tabYoutube(), update: L.config.tabUpdate(), age: L.config.tabAge(), ai: L.config.tabAi(), dev: L.config.tabDev() } as const;
 
 /** 운영 설정값을 입력할 운영자 패널 탭별로(그 그룹의 탭) */
-function groupByTab(names: string[]): Map<string, string[]> {
+function groupByTab(names: string[]): Map<LogText, string[]> {
   const tabOf = (name: string) => TAB_NAMES[GROUP_TAB[tunable(name).group]];
-  const byTab = new Map<string, string[]>();
+  const byTab = new Map<LogText, string[]>();
   for (const name of names) byTab.set(tabOf(name), [...(byTab.get(tabOf(name)) ?? []), name]);
   return byTab;
 }
@@ -269,12 +270,12 @@ function groupByTab(names: string[]): Map<string, string[]> {
  * .env에 적힌 이름 중 쓰지 않는 것의 경고. 운영 설정값의 이름은 입력할 탭마다(셸이 준 값도),
  * 그 밖에 .env 파일에 있는데 설정이 읽지 않은 이름(asked 밖. 오타, 예전 설정)은 한 줄로
  */
-function envNameWarnings(source: EnvSource, envFileNames: string[], asked: Set<string>): string[] {
-  const lines: string[] = [];
+function envNameWarnings(source: EnvSource, envFileNames: string[], asked: Set<string>): LogText[] {
+  const lines: LogText[] = [];
   const moved = [...TUNABLE_KEYS].filter((name) => String(source[name] ?? "").trim() || envFileNames.includes(name));
-  for (const [tab, names] of groupByTab(moved)) lines.push(`.env의 ${names.join(", ")}${josa(names.at(-1)!, "은")} 이제 쓰지 않음. 운영자 패널의 ${tab} 탭에서 입력하고 .env에서 삭제하세요`);
+  for (const [tab, names] of groupByTab(moved)) lines.push(L.config.envNamesMoved({ names: names.join(", "), last: names.at(-1)!, tab }));
   const unknown = envFileNames.filter((name) => !TUNABLE_KEYS.has(name) && !asked.has(name));
-  if (unknown.length) lines.push(`.env의 ${unknown.join(", ")}${josa(unknown.at(-1)!, "은")} 봇이 읽지 않는 이름. 오타이거나 예전 설정이면 .env에서 삭제하세요(쓰는 이름은 .env.example 참고)`);
+  if (unknown.length) lines.push(L.config.envNamesUnknown({ names: unknown.join(", "), last: unknown.at(-1)! }));
   return lines;
 }
 
@@ -285,10 +286,10 @@ function envNameWarnings(source: EnvSource, envFileNames: string[], asked: Set<s
  * 옮기거나 없앤 이름을 하나씩 적어 두면 끝이 없다). 셸이 준 환경 변수는 보지 않는다
  */
 function loadConfig(source: EnvSource, { envFileFound = true, tunables = {}, envFileNames = [] }: { envFileFound?: boolean; tunables?: Record<string, string>; envFileNames?: string[] } = {}) {
-  const problems: string[] = [];
-  const warnings: string[] = [];
+  const problems: LogText[] = [];
+  const warnings: LogText[] = [];
   const tuneProblems: RuleProblem[] = [];
-  if (!envFileFound) problems.push(".env 파일이 없음. 봇을 실행하면 .env.example로 만들고 비밀 키를 채움. 그 뒤 파일 안의 주석을 참고해 [필수] 값을 채우세요");
+  if (!envFileFound) problems.push(L.config.envFileMissing());
 
   const fromEnv = Object.fromEntries(Object.entries(source).filter(([key]) => !TUNABLE_KEYS.has(key)));
   const readers = envReaders({ ...fromEnv, ...tunables }, problems, tuneProblems);
@@ -302,13 +303,13 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {}, env
   // .env가 없으면 그 문제 하나만 알린다(나머지는 거기서 따라 나온다).
   const missing = REQUIRED_CREDENTIALS.filter((name) => !env(name));
   if (envFileFound && missing.length) {
-    problems.push(`비어 있는 필수 값: ${missing.join(", ")}. README의 "설정" 절과 .env.example의 주석을 참고해 .env에 채운 뒤 다시 실행하세요.`);
+    problems.push(L.config.credentialsMissing({ names: missing.join(", ") }));
   }
   // 비밀값 암호화 키. 대시보드에 저장하는 비밀값(바깥 서비스 키, 쿠키)을 이것으로 암호화한다(store/secrets). 바꾸면 저장한 비밀값을 복호화하지 못한다
   const secretsKey = env("SECRETS_KEY");
-  const remake = `만들기: ${SECRETS_KEY_COMMAND}의 출력을 .env의 SECRETS_KEY= 뒤에 넣고 다시 실행하세요. 새 키로는 대시보드에 저장해 둔 비밀값을 복호화하지 못해 다시 입력해야 함`;
-  if (envFileFound && !secretsKey) problems.push(`SECRETS_KEY가 비어 있음(비밀값 암호화 키). ${remake}`);
-  else if (secretsKey && !isSecretsKey(secretsKey)) problems.push(`.env의 SECRETS_KEY가 base64로 인코딩한 32바이트가 아님. ${remake}`);
+  const remake = L.config.secretsKeyRemake({ command: SECRETS_KEY_COMMAND });
+  if (envFileFound && !secretsKey) problems.push(L.config.secretsKeyEmpty({ remake }));
+  else if (secretsKey && !isSecretsKey(secretsKey)) problems.push(L.config.secretsKeyInvalid({ remake }));
   const ownerWarning = ownerIdWarning(env("OWNER_ID"));
   if (ownerWarning) warnings.push(ownerWarning);
 

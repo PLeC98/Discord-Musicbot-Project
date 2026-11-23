@@ -1,4 +1,4 @@
-// 조사 헬퍼(rules/josa)가 쓰는 한자 표(data/kanji-finals.json)를 만든다. 손으로 실행한다. postinstall이나 빌드에 걸려 있지 않다.
+// 조사 헬퍼(infra/josa)가 쓰는 한자 표(data/kanji-finals.json)를 만든다. 손으로 실행한다. postinstall이나 빌드에 걸려 있지 않다.
 //   node scripts/build-kanji-finals.ts
 //
 // 원본은 유니코드 Unihan 데이터베이스의 일본어 읽기(kJapaneseOn 음독, kJapaneseKun 훈독, 로마자)다.

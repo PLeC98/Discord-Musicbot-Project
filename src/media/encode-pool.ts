@@ -13,7 +13,7 @@ import { Worker, MessageChannel, receiveMessageOnPort, type MessagePort } from "
 import logger from "../infra/log/logger.ts";
 import { codedError, messageOf } from "../rules/error-kind.ts";
 import type { FromWorker, Reply, ToWorker } from "./encode-worker.ts";
-import { josa } from "../rules/josa.ts";
+import { josa } from "../infra/josa.ts";
 import { sec } from "../infra/log/seconds.ts";
 const log = logger.child({ category: "player" });
 

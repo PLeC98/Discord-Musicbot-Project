@@ -22,7 +22,7 @@ import { cropped, FHD, FPS_CAP, fitShort, frameRate, scaleTo, seekArgs, sourceFi
 import { probeVideo, READ_ARGS, type Probed } from "./source.ts";
 import { encoderFor, encodersReady, recheck } from "./encoders.ts";
 import { AV1_LP_MAX, av1LpFor, enoughMemory, needOf, splitLp } from "./memory.ts";
-import { josa } from "../../rules/josa.ts";
+import { josa } from "../../infra/josa.ts";
 import { formatBytes } from "../../ui/format.ts";
 
 /** H.264 단계의 짧은 변 */

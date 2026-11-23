@@ -2,7 +2,7 @@
 
 import { noticeOf } from "../../../src/ui/text/notice.ts";
 import { escapeMd } from "../../../src/ui/mentions.ts";
-import { josa } from "../../../src/rules/josa.ts";
+import { josa } from "../../../src/infra/josa.ts";
 import { sources } from "../rules/sources.ts";
 import * as labels from "./labels.ts";
 

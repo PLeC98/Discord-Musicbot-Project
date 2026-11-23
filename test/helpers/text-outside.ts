@@ -30,7 +30,7 @@ const LEVELS = new Set(["trace", "debug", "info", "warn", "error", "fatal", "log
 // 문구가 아니라 데이터인 파일(전체)과 선언(해당 이름의 선언 내부). 화면에 노출되어도 번역할 문구가 아니다
 const DATA_FILES: Readonly<Record<string, string>> = {
   "src/rules/ko-search.ts": "한글 검색의 자모 표",
-  "src/rules/josa.ts": "조사 표",
+  "src/infra/josa.ts": "조사 표",
   "src/sources/youtube/match.ts": "제목 맞추기 표",
   "src/config/defaults/genres.ts": "운영자가 수정하는 기본 장르 문서",
   "src/config/defaults/status.ts": "운영자가 수정하는 기본 활동 문구 문서",

@@ -163,18 +163,8 @@
   "src/autoplay/sources/voca.ts": {
     "log": 12
   },
-  "src/config/ai-models.ts": {
-    "outside": 2
-  },
-  "src/config/env-file.ts": {
-    "outside": 2
-  },
   "src/config/genres.ts": {
-    "log": 1,
-    "outside": 4
-  },
-  "src/config/index.ts": {
-    "outside": 27
+    "log": 1
   },
   "src/config/status.ts": {
     "log": 1
@@ -458,9 +448,6 @@
   "src/discord/interactions/settings-panel-handler.ts": {
     "log": 1
   },
-  "src/index.ts": {
-    "log": 3
-  },
   "src/infra/error-text.ts": {
     "outside": 6
   },
@@ -602,9 +589,6 @@
   "src/player/voice-link.ts": {
     "outside": 11,
     "log": 71
-  },
-  "src/rules/node-support.ts": {
-    "outside": 3
   },
   "src/rules/tunables.ts": {
     "bug": 1

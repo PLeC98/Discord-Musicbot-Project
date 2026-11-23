@@ -94,8 +94,8 @@ test("로그 언어를 고르는 모듈은 다른 프로젝트 모듈, Node 내�
   assert.deepEqual(now.chooseBareImports, []);
 });
 
-test("로그 문구 진입점은 문구 번들 장치와 로그 문구표만 부른다(로그, 설정, Node 내장 모듈, 패키지 없이)", () => {
-  const allowed = (rel: string) => /^src\/infra\/(text-bundle|text-fill|pseudo-text)\.ts$|^src\/infra\/log\/(text|log-text|language)\.ts$|^locales\/[^/]+\/log\//.test(rel);
+test("로그 문구 진입점은 문구 번들 장치와 로그 문구표만 부른다(로그, 설정, Node 내장 모듈, 패키지 없이). 한국어 문구표는 조사 도우미와 그 받침 표도", () => {
+  const allowed = (rel: string) => /^src\/infra\/(text-bundle|text-fill|pseudo-text)\.ts$|^src\/infra\/log\/(text|log-text|language)\.ts$|^locales\/[^/]+\/log\/|^src\/infra\/(josa|english-final)\.ts$|^data\/(kanji|english)-finals\.json$/.test(rel);
   assert.ok(
     now.logTextReach.some((rel) => rel.startsWith("locales/ko/log/")),
     "따라가기가 문구표까지 닿는다",

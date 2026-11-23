@@ -11,7 +11,8 @@ import fs from "fs";
 import path from "path";
 import { parseEnv } from "util";
 import { spawnSync } from "child_process";
-import { loadConfig } from "../src/config/index.ts";
+import { loadConfig as loadRaw } from "../src/config/index.ts";
+import { asText, logText, renderLogText, type LogText } from "../src/infra/log/log-text.ts";
 import { logRuleLine } from "../src/rules/text/index.ts";
 import { stopOnConfigProblems } from "../src/app/config-check.ts";
 
@@ -20,6 +21,13 @@ const ROOT = path.join(import.meta.dirname, "..");
 const KEY = Buffer.alloc(32, 7).toString("base64");
 
 /** 주어진 환경 변수(env)와 운영 설정값(tunables, settings.db의 문서)으로 설정을 계산한다 */
+
+// 설정 검사의 문제, 경고는 로그 문구다. 글로 비교하려고 그린다
+const loadConfig = (...args: Parameters<typeof loadRaw>) => {
+  const loaded = loadRaw(...args);
+  return { ...loaded, problems: loaded.problems.map(asText), warnings: loaded.warnings.map(asText) };
+};
+
 function load(env: Record<string, string>, opts?: Parameters<typeof loadConfig>[1]) {
   const { config: c, problems, warnings, tuneProblems } = loadConfig({ DISCORD_TOKEN: "t", CLIENT_SECRET: "s", SECRETS_KEY: KEY, ...env }, opts);
   return { problems, warnings, tuneProblems: tuneProblems.map(logRuleLine), cfg: { port: c.dashboard.port, apiMax: c.dashboard.rateLimit.apiMax, website: c.bot.website, queueMax: c.bot.maxQueueSize } };
@@ -168,11 +176,11 @@ test("SECRETS_KEY: 비었거나 32바이트 base64가 아니면 만드는 명령
 });
 
 test("불러와도 멈추지 않는다. 문제는 목록으로 따로 내보내고 설정 값에는 섞이지 않는다", () => {
-  const probe = "import('./src/config/index.ts').then((m) => console.log('CFG:' + JSON.stringify({ problems: m.problems, keys: Object.keys(m.default).includes('problems') })));";
+  const probe = "import('./src/config/index.ts').then((m) => console.log('CFG:' + JSON.stringify({ problems: m.problems.map(String), keys: Object.keys(m.default).includes('problems') })));";
   const r = spawnSync(process.execPath, ["-e", probe], { cwd: ROOT, encoding: "utf8", env: { ...process.env, DISCORD_TOKEN: "t", DASHBOARD_PORT: "abc" } });
   assert.equal(r.status, 0);
   const out = JSON.parse(/CFG:(\{.*\})/.exec(r.stdout)?.[1] ?? "null");
-  // 자식은 저장소의 .env를 읽는다. 있고 없고에 따라 다른 문제가 더 붙을 수 있어 넣은 값의 문제만 센다
+  // 자식은 저장소의 .env를 읽는다. 있고 없고에 따라 다른 문제가 더 붙을 수 있어 넣은 값의 문제만 센다(문제는 로그 문구라 넘기기 전에 글로 그린다)
   assert.equal(out.problems.filter((p: string) => /DASHBOARD_PORT/.test(p)).length, 1);
   assert.equal(out.keys, false);
 });
@@ -180,12 +188,14 @@ test("불러와도 멈추지 않는다. 문제는 목록으로 따로 내보내�
 test("기동 첫 줄: 경고는 찍고 지나가고, 문제가 있으면 전부 찍고 멈춘다", () => {
   const exits: number[] = [];
   const seen: string[] = [];
-  const out = { warn: (line: string) => seen.push(`warn ${line}`), error: (line: string) => seen.push(`error ${line}`) };
+  const out = { warn: (line: LogText) => seen.push(`warn ${renderLogText(line)}`), error: (line: LogText) => seen.push(`error ${renderLogText(line)}`) };
+  // 시험용 서술자: 코드와 글이 같다
+  const text = (code: string) => logText(`test.${code}`, {}, () => code);
 
   const exit = (code: number) => exits.push(code);
-  stopOnConfigProblems({ warnings: ["w"], problems: [] }, out, exit);
+  stopOnConfigProblems({ warnings: [text("w")], problems: [] }, out, exit);
   assert.deepEqual(exits, []);
-  stopOnConfigProblems({ warnings: [], problems: ["a", "b"] }, out, exit);
+  stopOnConfigProblems({ warnings: [], problems: [text("a"), text("b")] }, out, exit);
   assert.deepEqual(exits, [78], "설정이 틀림: 고치기 전에는 다시 켜도 같다");
   assert.deepEqual(seen, ["warn w", "error a", "error b"]);
 });

@@ -6,7 +6,7 @@ import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "guild" });
 import * as guildSettings from "../../store/guild-settings.ts";
 import type { ClientEvent } from "../../app/main.ts";
-import { josa } from "../../rules/josa.ts";
+import { josa } from "../../infra/josa.ts";
 import { messageOf } from "../../rules/error-kind.ts";
 
 const exported: ClientEvent<Events.ChannelDelete> = {

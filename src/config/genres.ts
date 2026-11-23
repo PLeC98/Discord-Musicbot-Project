@@ -3,6 +3,7 @@
 import { logRuleLine, logSourceLabel } from "../rules/text/index.ts";
 import logger from "../infra/log/logger.ts";
 import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
 const log = logger.child({ category: "config" });
 // 설정 검증과 실제 실행이 같은 표를 봐야 한다. 어긋나면 저장은 되는데 재생이 안 된다
 import * as sources from "./schema/genre-sources.ts";
@@ -147,7 +148,7 @@ function unusableGenre(name: string): string[] | null {
 function checkSourceKeys(genres: Record<string, Genre>) {
   // 같은 키가 빠진 장르를 묶어 한 줄로 알린다. 장르마다 한 줄이면 기동 로그가 경고로 덮인다
   const grouped = new Map<string, string[]>();
-  const lines: string[] = [];
+  const lines: LogText[] = [];
 
   const dead = new Map<string, string[]>();
 
@@ -160,10 +161,10 @@ function checkSourceKeys(genres: Record<string, Genre>) {
   }
 
   for (const [missing, names] of grouped) {
-    lines.push(`자동재생 장르 ${names.join(", ")}: ${missing} 키가 없어 그 소스를 빼고 나머지 소스만 사용`);
+    lines.push(L.config.genreSourcesDropped({ genres: names.join(", "), missing }));
   }
   for (const [missing, names] of dead) {
-    lines.push(`자동재생 장르 ${names.join(", ")}: ${missing} 키가 없어 쓸 소스가 없음. 키를 입력하기 전까지 이 장르는 선택할 수 없음`);
+    lines.push(L.config.genreSourcesNone({ genres: names.join(", "), missing }));
   }
 
   // 곡을 선택할 때마다 불리므로 내용이 달라졌을 때만 남긴다

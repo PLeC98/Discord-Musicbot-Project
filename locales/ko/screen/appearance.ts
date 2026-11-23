@@ -1,6 +1,6 @@
 // 운영자 패널: 디스플레이 탭의 파비콘 카드, 이미지 편집, 크기별 팝업(업로드, 링크, 기록)
 
-import { josa } from "../../../src/rules/josa.ts";
+import { josa } from "../../../src/infra/josa.ts";
 import { formatClock, formatDate } from "../../../dashboard/src/utils/locale.ts";
 
 const favicon = "파비콘";

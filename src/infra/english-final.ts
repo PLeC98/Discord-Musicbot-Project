@@ -1,5 +1,5 @@
 // 영어 단어의 끝소리. 발음(ARPAbet)의 마지막 소리에 외래어 표기법을 따르는 법, 사전에 없는 말을 철자로 추정하는 법, 대문자 약어를 글자 이름으로 읽는 법.
-// 조사 헬퍼(rules/josa)와 그 표를 만드는 스크립트(scripts/build-english-finals.ts)가 같이 쓴다
+// 조사 헬퍼(infra/josa)와 그 표를 만드는 스크립트(scripts/build-english-finals.ts)가 같이 쓴다
 
 import type { Final } from "./josa.ts";
 

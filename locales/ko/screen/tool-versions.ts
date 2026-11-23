@@ -1,7 +1,7 @@
 // 운영자 패널 업데이트 탭의 외부 프로그램 이전 버전 카드: 삭제할 수 있는 이전 버전과 크기, 이전 버전 삭제
 
 import type { OldTool, OldToolKept } from "../../../src/dashboard/contract/old-tools.ts";
-import { josa } from "../../../src/rules/josa.ts";
+import { josa } from "../../../src/infra/josa.ts";
 
 const title = "외부 프로그램 이전 버전";
 const name: Record<OldTool, string> = { ytdlp: "yt-dlp", ffmpeg: "ffmpeg", bgutil: "bgutil", legacy: "예전 설치 위치" };

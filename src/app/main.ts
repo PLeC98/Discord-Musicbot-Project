@@ -88,7 +88,7 @@ import { welcomeGuild } from "./welcome.ts";
 import { nudgeOnSettingsChange } from "./settings-nudge.ts";
 import * as guildSettings from "../store/guild-settings.ts";
 import { AppEmojis, apiOf } from "./app-emojis.ts";
-import { josa } from "../rules/josa.ts";
+import { josa } from "../infra/josa.ts";
 import { missingText } from "../ui/text/index.ts";
 import { missingRuleText } from "../rules/text/index.ts";
 import { missingLogText } from "../infra/log/text.ts";

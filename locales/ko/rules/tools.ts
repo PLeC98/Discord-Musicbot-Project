@@ -1,6 +1,6 @@
 // 외부 도구(yt-dlp, bgutil, ffmpeg 인코더, 서명 확인)와 IP 위치 DB의 다운로드, 설치, 실행 실패 이유
 
-import { josa } from "../../../src/rules/josa.ts";
+import { josa } from "../../../src/infra/josa.ts";
 import type { RuleSentences } from "../../../src/rules/rule-problem.ts";
 
 const MB = 1024 * 1024;

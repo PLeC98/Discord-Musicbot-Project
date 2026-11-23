@@ -2,7 +2,7 @@
 // 브라우저(대시보드)도 쓴다. Node, discord.js에 기대는 것이 없다(꾸밈은 호출부가 씌운다)
 
 import * as labels from "./labels.ts";
-import { josa } from "../../../src/rules/josa.ts";
+import { josa } from "../../../src/infra/josa.ts";
 
 /**
  * 추가한 곡. collection은 여러 곡을 추가한 출처의 이름(labels.collection, 없으면 한 곡), total은 출처 전체 곡 수(일부만 추가했을 때),

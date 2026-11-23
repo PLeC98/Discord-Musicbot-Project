@@ -36,7 +36,7 @@ function graph() {
 
 test("공유 문구가 부르는 모듈(타입 포함)에는 discord.js, Node 내장 모듈, 바깥 패키지가 없다", () => {
   const { seen, outside } = graph();
-  assert.ok(seen.has("src/rules/josa.ts") && seen.has("src/rules/english-final.ts"), "따라가기가 조사 헬퍼까지 닿는다");
+  assert.ok(seen.has("src/infra/josa.ts") && seen.has("src/infra/english-final.ts"), "따라가기가 조사 헬퍼까지 닿는다");
   assert.deepEqual(outside, []);
 });
 

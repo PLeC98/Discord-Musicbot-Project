@@ -3,7 +3,7 @@
 
 import { formatBytes, formatMs } from "../../../src/ui/format.ts";
 import { noticeOf, type ErrorTable, type LinkLook, type Topic } from "../../../src/ui/text/notice.ts";
-import { josa } from "../../../src/rules/josa.ts";
+import { josa } from "../../../src/infra/josa.ts";
 import { VOLUME_MAX } from "../../../src/rules/limits.ts";
 import { sources } from "../rules/sources.ts";
 

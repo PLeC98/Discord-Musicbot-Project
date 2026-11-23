@@ -7,7 +7,7 @@ import fs from "fs";
 import { ownerOnly } from "../infra/owner-only.ts";
 import logger from "../infra/log/logger.ts";
 import { messageOf } from "../rules/error-kind.ts";
-import { josa } from "../rules/josa.ts";
+import { josa } from "../infra/josa.ts";
 const log = logger.child({ category: "core" });
 
 type Db = Database.Database;

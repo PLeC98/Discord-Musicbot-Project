@@ -12,10 +12,17 @@ import fs from "node:fs";
 import util from "node:util";
 import path from "node:path";
 
-import { loadConfig } from "../src/config/index.ts";
+import { loadConfig as loadRaw } from "../src/config/index.ts";
+import { asText } from "../src/infra/log/log-text.ts";
 import { VARIANT, TARGETS, RELEASES_URL, resolveAsset } from "../src/media/ffmpeg/release.ts";
 import { isMonthEndBuild } from "../src/rules/vendor-updates.ts";
 import { FFMPEG_RELEASE } from "../src/config/vendor-versions.ts";
+
+// 설정 검사의 문제, 경고는 로그 문구다. 글로 비교하려고 그린다
+const loadConfig = (...args: Parameters<typeof loadRaw>) => {
+  const loaded = loadRaw(...args);
+  return { ...loaded, problems: loaded.problems.map(asText), warnings: loaded.warnings.map(asText) };
+};
 
 const DEFAULTS = loadConfig({}).config;
 

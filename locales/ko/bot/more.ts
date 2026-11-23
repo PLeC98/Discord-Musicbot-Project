@@ -1,7 +1,7 @@
 // 재생목록 "더 넣기" 메뉴, 모달, 결과의 문구. 수는 여기서 자릿점을 찍는다.
 // 결과의 글(result)은 대시보드도 그리므로 아이콘 없이 두고, 디스코드 메뉴는 resultMark로 아이콘을 앞에 붙인다
 
-import { josa } from "../../../src/rules/josa.ts";
+import { josa } from "../../../src/infra/josa.ts";
 import { icon } from "../../../src/ui/icons.ts";
 import * as labels from "./labels.ts";
 import type { MoreOutcome } from "../../../src/rules/more-choices.ts";

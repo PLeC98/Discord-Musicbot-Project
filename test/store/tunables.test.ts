@@ -8,6 +8,7 @@ import path from "node:path";
 import { test, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import express from "express";
+import { renderLogText } from "../../src/infra/log/log-text.ts";
 
 const { listenForFetch, baseUrl } = await import("../helpers/listen.ts");
 const { signedInAs, requestJson, detailsOf } = await import("../helpers/dashboard.ts");
@@ -214,8 +215,8 @@ test(".env의 yt-dlp 버전 설정은 무시하고, 업데이트 탭에서 설�
   const { config: loaded, warnings } = loadConfig({ YTDLP_CHANNEL: "stable", YTDLP_UPDATE: "off", YTDLP_VERSION: "2026.08.19" });
   assert.deepEqual([loaded.ytdlp.channel, loaded.ytdlp.update, loaded.ytdlp.version], ["nightly", "auto", null]);
   assert.ok(
-    warnings.some((line) => /YTDLP_CHANNEL, YTDLP_UPDATE, YTDLP_VERSION은 이제 쓰지 않음\. 운영자 패널의 업데이트 탭/.test(line)),
-    warnings.join("\n"),
+    warnings.some((line) => /YTDLP_CHANNEL, YTDLP_UPDATE, YTDLP_VERSION은 이제 쓰지 않음\. 운영자 패널의 업데이트 탭/.test(renderLogText(line))),
+    warnings.map(renderLogText).join("\n"),
   );
 });
 

@@ -12,7 +12,7 @@ import { withLock } from "../../infra/folder-lock.ts";
 import { renameRetry } from "../../infra/version-folders.ts";
 import { EMPTY_STATE, readState, setAsideBroken, writeState, type BgutilBuild, type BgutilState } from "./state.ts";
 import { ENTRY } from "./launch.ts";
-import { josa } from "../../rules/josa.ts";
+import { josa } from "../../infra/josa.ts";
 import { L } from "../../infra/log/text.ts";
 import { logTextError } from "../../infra/log/log-text.ts";
 

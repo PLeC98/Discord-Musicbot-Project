@@ -1,7 +1,7 @@
 // 운영자 패널: 디스플레이 탭의 로그인 배경 카드, 변경 팝업, 편집 창, 시간 막대
 
 import type { LoginBackgroundCodec, LoginBackgroundItem, LoginBackgroundStage } from "../../../src/dashboard/contract/login-background.ts";
-import { josa } from "../../../src/rules/josa.ts";
+import { josa } from "../../../src/infra/josa.ts";
 
 /** 만드는 단계(운영자에게 보이는 말). 다운로드 단계는 가져온 곳마다(올린 것은 이미 받아 확인만 한다) */
 const stage: Record<Exclude<LoginBackgroundStage, "receive">, string> = {

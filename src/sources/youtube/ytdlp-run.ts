@@ -22,7 +22,7 @@ import * as recentInfo from "./recent-info.ts";
 import fs from "node:fs";
 import path from "node:path";
 import { clearOutput, familyOf } from "../ytdlp-spawn.ts";
-import { josa } from "../../rules/josa.ts";
+import { josa } from "../../infra/josa.ts";
 // 어긋난 미디어 주소를 다시 받기 전에 잠깐 쉰다. 곧바로 다시 요청하면 같은 것을 받기 쉽다.
 const STALE_RETRY_MS = 700;
 

@@ -1,7 +1,7 @@
 // 재생 조작이 된 뒤의 응답 문장. 명령과 패널 버튼이 같은 조작을 하면 같은 함수를 부른다.
 // 헤더 줄과 본문이 있는 응답은 { icon, title, body }로 돌려준다(ui/control-replies가 그리고, 누가 했나 줄을 붙인다). icon은 아이콘 표(ui/icons)의 키
 
-import { josa } from "../../../src/rules/josa.ts";
+import { josa } from "../../../src/infra/josa.ts";
 import { VOLUME_MAX } from "../../../src/rules/limits.ts";
 import { icon, type IconKey } from "../../../src/ui/icons.ts";
 import * as labels from "./labels.ts";

@@ -7,6 +7,7 @@ import fs from "fs";
 import path from "path";
 import { PROJECT } from "../infra/project-paths.ts";
 import { newSecretsKey, newSessionSecret } from "../rules/secrets-key.ts";
+import { L } from "../infra/log/text.ts";
 
 /** 사람이 채워야 하는 값(.env.example의 [필수] 중 무작위로 못 만드는 것) */
 const FILL_BY_HAND = ["DISCORD_TOKEN", "CLIENT_SECRET"];
@@ -35,6 +36,6 @@ function loadEnv(target = PROJECT.env) {
 }
 
 /** 만든 뒤 알릴 한 줄 */
-const madeLine = () => `.env가 없어 .env.example로 만듦(SECRETS_KEY, SESSION_SECRET은 채움). ${FILL_BY_HAND.join(", ")} 값을 채운 뒤 실행하세요`;
+const madeLine = () => L.config.envFileMade({ names: FILL_BY_HAND.join(", ") });
 
 export { setupEnv, loadEnv, fillLine, madeLine, FILL_BY_HAND };
