@@ -47,23 +47,27 @@ function taggedCommit(output: string, tag: string): string | null {
 /** package-lock.json(v2, v3)의 한 항목에서 쓰는 필드 */
 type LockEntry = { hasInstallScript?: boolean; dev?: boolean; devOptional?: boolean; link?: boolean };
 
+/** 다시 빌드할 패키지 이름. 못 정하면 그 까닭: bad-name(형식이 잘못된 이름, key: lockfile의 키), dev-overlap(이름이 같은 개발 의존성에도 설치 스크립트가 있다, names: 그 이름) */
+type RebuildTargets = { ok: true; names: string[] } | { ok: false; why: "bad-name"; key: string } | { ok: false; why: "dev-overlap"; names: string[] };
+
 /**
  * 설치 스크립트를 돌릴 실행 의존성의 이름(개발 의존성은 빼고, 이름순). npm ci --ignore-scripts 뒤 npm rebuild로 넘긴다.
- * 이름은 셸 명령줄에 들어가므로 npm 패키지 이름 형식이 아니면 예외를 던진다.
- * npm rebuild는 이름이 같은 패키지를 모두 다시 빌드하므로, 같은 이름의 개발 의존성에 설치 스크립트가 있으면 예외를 던진다(개발 의존성의 스크립트가 돌게 된다)
+ * 이름은 셸 명령줄에 들어가므로 npm 패키지 이름 형식이 아니면 못 정한다.
+ * npm rebuild는 이름이 같은 패키지를 모두 다시 빌드하므로, 같은 이름의 개발 의존성에 설치 스크립트가 있으면 못 정한다(개발 의존성의 스크립트가 돌게 된다).
+ * 던지지 않고 까닭을 돌려준다(화면 번들이 닿는 모듈이라 로그 문구를 부를 수 없다. 글은 부르는 쪽이 그린다)
  */
-function rebuildTargets(lock: { packages?: Record<string, LockEntry> }): string[] {
+function rebuildTargets(lock: { packages?: Record<string, LockEntry> }): RebuildTargets {
   const names = new Set<string>();
   const devNames = new Set<string>();
   for (const [key, entry] of Object.entries(lock.packages ?? {})) {
     if (!key || entry.link || !entry.hasInstallScript) continue;
     const name = key.slice(key.lastIndexOf("node_modules/") + "node_modules/".length);
-    if (!/^(@[a-z0-9][a-z0-9._~-]*\/)?[a-z0-9][a-z0-9._~-]*$/.test(name)) throw new Error(`lockfile에 잘못된 형식의 패키지 이름이 있습니다: ${key}`);
+    if (!/^(@[a-z0-9][a-z0-9._~-]*\/)?[a-z0-9][a-z0-9._~-]*$/.test(name)) return { ok: false, why: "bad-name", key };
     (entry.dev || entry.devOptional ? devNames : names).add(name);
   }
   const both = [...names].filter((name) => devNames.has(name));
-  if (both.length) throw new Error(`이름이 같은 개발 의존성에도 설치 스크립트가 있어 이름으로 다시 빌드할 수 없습니다: ${both.join(", ")}`);
-  return [...names].sort();
+  if (both.length) return { ok: false, why: "dev-overlap", names: both };
+  return { ok: true, names: [...names].sort() };
 }
 
 // npm ci가 루트 패키지에서 돌리는 수명 주기 스크립트

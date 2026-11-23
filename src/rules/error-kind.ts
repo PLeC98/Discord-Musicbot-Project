@@ -23,6 +23,14 @@ function codedError(code: string, message: string | LogText, options?: { cause?:
 }
 
 /**
+ * 화면 번들이 닿는 모듈의 예외(로그 문구, 규칙 문구의 진입점을 부를 수 없다): 글 대신 규칙 문제를 갖고 메시지는 코드다.
+ * 로그는 rules/text의 errorText가 그 문제를 로그 언어로, 화면은 보는 사람의 언어로 그린다
+ */
+function problemError(code: string, problem: RuleProblem) {
+  return Object.assign(new Error(code), { code, problem });
+}
+
+/**
  * 오류에 담긴 규칙 문제(problem 필드). 없으면 오류의 사실(infra/error-text의 errorFacts)로: 메시지, 이름, 줄인 내용은 그 글 그대로(plain),
  * 메시지가 없어 알 수 있는 것은 규칙 문제(던진 값, 오류 코드, 메시지 없는 오류)라 보는 사람의 언어로 그린다
  */
@@ -99,4 +107,4 @@ function errorKind(error: unknown): Code {
   return "unknown-error";
 }
 
-export { errorKind, errorProblem, codedError, codeOf, messageOf, timeoutError, describeError, chainOf, isNetworkCode };
+export { errorKind, errorProblem, codedError, problemError, codeOf, messageOf, timeoutError, describeError, chainOf, isNetworkCode };

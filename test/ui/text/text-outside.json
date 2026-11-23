@@ -166,17 +166,11 @@
   "src/config/ai-models.ts": {
     "outside": 2
   },
-  "src/config/ai-prices.ts": {
-    "log": 2
-  },
-  "src/config/documents.ts": {
-    "log": 2
-  },
   "src/config/env-file.ts": {
     "outside": 2
   },
   "src/config/genres.ts": {
-    "log": 3,
+    "log": 1,
     "outside": 4
   },
   "src/config/index.ts": {
@@ -467,9 +461,6 @@
   "src/index.ts": {
     "log": 3
   },
-  "src/infra/app-id.ts": {
-    "log": 1
-  },
   "src/infra/cpu-affinity.ts": {
     "log": 1
   },
@@ -494,7 +485,7 @@
     "outside": 1
   },
   "src/infra/pinned-checkout.ts": {
-    "log": 10
+    "log": 4
   },
   "src/infra/process-memory.ts": {
     "outside": 3
@@ -507,16 +498,13 @@
     "outside": 2
   },
   "src/infra/safe-url.ts": {
-    "log": 24
+    "log": 14
   },
   "src/infra/system-upload.ts": {
     "outside": 4
   },
-  "src/infra/tool-run.ts": {
-    "log": 7
-  },
   "src/infra/zip.ts": {
-    "log": 23,
+    "log": 21,
     "outside": 2
   },
   "src/media/cache-download.ts": {
@@ -655,9 +643,6 @@
     "outside": 11,
     "log": 71
   },
-  "src/rules/bgutil-install.ts": {
-    "log": 2
-  },
   "src/rules/container-index.ts": {
     "outside": 25
   },
@@ -670,9 +655,6 @@
   "src/rules/end-verdict.ts": {
     "outside": 10
   },
-  "src/rules/hls-playlist.ts": {
-    "log": 1
-  },
   "src/rules/node-support.ts": {
     "outside": 3
   },
@@ -680,10 +662,7 @@
     "outside": 4
   },
   "src/rules/tunables.ts": {
-    "log": 1
-  },
-  "src/rules/vendor-updates.ts": {
-    "log": 1
+    "bug": 1
   },
   "src/sources/age-gate.ts": {
     "log": 3

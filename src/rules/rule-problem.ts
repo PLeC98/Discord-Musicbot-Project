@@ -174,6 +174,8 @@ const RULE_CODES = [
   "error-thrown",
   "error-code",
   "error-no-message",
+  // 설정 문서를 읽은 뒤 그사이 다른 저장이 있었다(config/documents). name: 문서 이름, read: 읽은 번호, now: 지금 번호
+  "doc-revision-conflict",
   // 봇 상태 탭의 연결(dashboard/status/links)
   "link-off",
   "link-no-key",

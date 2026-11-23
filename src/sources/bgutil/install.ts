@@ -13,6 +13,8 @@ import { renameRetry } from "../../infra/version-folders.ts";
 import { EMPTY_STATE, readState, setAsideBroken, writeState, type BgutilBuild, type BgutilState } from "./state.ts";
 import { ENTRY } from "./launch.ts";
 import { josa } from "../../rules/josa.ts";
+import { L } from "../../infra/log/text.ts";
+import { logTextError } from "../../infra/log/log-text.ts";
 
 /**
  * checkout: repoDir(아직 없는 경로)에 태그의 커밋을 받는다. npmCi, npmRebuild, tsc: serverDir에서 실행한다.
@@ -46,7 +48,9 @@ async function build(serverDir: string, io: InstallIo): Promise<string> {
   const rootScripts = rootInstallScripts(pkg);
   if (rootScripts.length) throw new Error(`server/package.json에 설치 스크립트(${rootScripts.join(", ")})가 생김. 무엇을 하는지 확인한 뒤 설치 스크립트를 고쳐야 함`);
   if (typeof pkg.version !== "string" || !pkg.version) throw new Error("server/package.json에 버전이 없음");
-  const rebuild = rebuildTargets(JSON.parse(fs.readFileSync(path.join(serverDir, "package-lock.json"), "utf8")));
+  const targets = rebuildTargets(JSON.parse(fs.readFileSync(path.join(serverDir, "package-lock.json"), "utf8")));
+  if (!targets.ok) throw logTextError(targets.why === "bad-name" ? L.bgutil.lockBadName({ key: targets.key }) : L.bgutil.lockDevOverlap({ names: targets.names.join(", ") }));
+  const rebuild = targets.names;
   io.log("의존성 설치(npm ci --ignore-scripts)");
   await io.npmCi(serverDir);
   if (rebuild.length) {

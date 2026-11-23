@@ -7,3 +7,8 @@ export { core } from "./core.ts";
 export { proc } from "./proc.ts";
 export { voice } from "./voice.ts";
 export { reason } from "./reason.ts";
+export { bgutil } from "./bgutil.ts";
+export { net } from "./net.ts";
+export { zip } from "./zip.ts";
+export { link } from "./link.ts";
+export { vendor } from "./vendor.ts";

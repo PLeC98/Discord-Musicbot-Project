@@ -6,7 +6,10 @@ import assert from "node:assert/strict";
 
 import * as documents from "../../src/config/documents.ts";
 import * as settingsDocs from "../../src/store/settings-docs.ts";
-import { codeOf } from "../../src/rules/error-kind.ts";
+import { codeOf, errorProblem } from "../../src/rules/error-kind.ts";
+import { rule } from "../../src/rules/rule-problem.ts";
+import { errorText } from "../../src/rules/text/index.ts";
+import { isLogText, renderLogText } from "../../src/infra/log/log-text.ts";
 import { openTempStore } from "../helpers/temp-store.ts";
 import { useDefaultDocuments } from "../helpers/config-docs.ts";
 import { LEGACY_LINE_FORMATS, LEGACY_PROMPTS } from "../../src/config/legacy-ai-defaults.ts";
@@ -129,4 +132,18 @@ test("운영자가 고친 줄 형식, 프롬프트는 그대로 둔다", () => {
   assert.deepEqual(documents.attach(settingsDocs), []);
   assert.equal((documents.get("ai") as { list: { lineFormat: string } }).list.lineFormat, mine);
   assert.deepEqual(documents.get("ai-prompt"), prompt);
+});
+
+test("번호 충돌 예외는 규칙 문제(doc-revision-conflict)를 갖고, 로그에는 그 문제가 로그 언어로 그려진다(화면 번들이 닿는 모듈이라 글을 갖지 않는다)", () => {
+  documents.put("genres", documents.get("genres"), 0);
+  let caught: unknown = null;
+  try {
+    documents.put("genres", documents.get("genres"), 0);
+  } catch (error) {
+    caught = error;
+  }
+  assert.deepEqual(errorProblem(caught), rule("doc-revision-conflict", { name: "genres", read: 0, now: 1 }));
+  const text = errorText(caught);
+  assert.ok(isLogText(text));
+  assert.deepEqual([text.event, renderLogText(text)], ["rule.doc-revision-conflict", "genres 문서가 그사이 바뀜(읽은 번호 0, 지금 1)"]);
 });

@@ -22,6 +22,8 @@ import { pipeline, Transform } from "stream";
 import { isPublicIp } from "./public-address.ts";
 import { codeOf, messageOf, timeoutError } from "./error-text.ts";
 import config from "../config/index.ts";
+import { L } from "./log/text.ts";
+import { logTextError } from "./log/log-text.ts";
 
 // 보안 상수. 잘못 설정해 방어가 꺼지지 않게 설정으로 빼지 않는다
 const ALLOWED_SCHEMES = new Set(["http:", "https:"]);
@@ -145,9 +147,9 @@ function send({ method, url, agent, timeoutMs, headers, signal }: Outgoing): Pro
       signal?.removeEventListener("abort", stop);
       resolve({ status: res.statusCode ?? 0, headers: res.headers, body: res });
     });
-    const stop = () => req.destroy(signal?.reason instanceof Error ? signal.reason : new Error("요청이 취소됨"));
+    const stop = () => req.destroy(signal?.reason instanceof Error ? signal.reason : logTextError(L.net.requestCancelled()));
     signal?.addEventListener("abort", stop, { once: true });
-    req.on("timeout", () => req.destroy(timeoutError(`응답이 ${timeoutMs}ms 동안 없음`)));
+    req.on("timeout", () => req.destroy(timeoutError(L.net.noResponse({ ms: timeoutMs }))));
     req.on("error", (error) => {
       signal?.removeEventListener("abort", stop);
       reject(error);
@@ -204,7 +206,7 @@ async function guardedRequest(method: "HEAD" | "GET", rawUrl: string, { request 
       response.body.destroy();
       agent.destroy();
       // 받는 쪽이 상태로 구분한다(416은 받을 구간이 없음, 4xx는 재시도해도 같다)
-      throw Object.assign(new Error(`요청 실패: HTTP ${response.status}`), { status: response.status });
+      throw Object.assign(logTextError(L.net.httpFailed({ status: response.status })), { status: response.status });
     }
 
     return { response, agent, finalUrl: url.href };
@@ -220,7 +222,7 @@ function byteCap(maxBytes: number) {
     transform(chunk, _enc, cb) {
       total += chunk.length;
       if (total > maxBytes) {
-        cb(Object.assign(tooLarge(new Error(`다운로드한 파일이 최대 크기(${maxBytes} bytes)를 초과함`)), { permanent: true }));
+        cb(Object.assign(tooLarge(logTextError(L.net.downloadTooBig({ maxBytes }))), { permanent: true }));
         return;
       }
       cb(null, chunk);
@@ -271,7 +273,7 @@ function watchBodyIdle(source: Readable & { setTimeout?(ms: number): unknown }, 
   const timer = setInterval(
     () => {
       if (source.readableFlowing !== true) last = Date.now();
-      else if (Date.now() - last >= idleMs) source.destroy(timeoutError(`본문이 ${idleMs}ms 동안 오지 않음`));
+      else if (Date.now() - last >= idleMs) source.destroy(timeoutError(L.net.bodyStalled({ ms: idleMs })));
     },
     Math.min(BODY_CHECK_MS, idleMs),
   );
@@ -313,7 +315,7 @@ async function getStream(rawUrl: string, deps: RequestDeps = {}, { bodyIdleMs = 
 async function getBuffer(rawUrl: string, accept: Accept, deps: RequestDeps = {}): Promise<Buffer> {
   const { response, agent } = await guardedRequest("GET", rawUrl, deps, { timeoutMs: accept.timeoutMs, allowUrl: accept.allowUrl });
   const source = response.body;
-  const deadline = setTimeout(() => source.destroy(new Error(`다운로드가 ${accept.timeoutMs}ms 안에 끝나지 않음`)), accept.timeoutMs);
+  const deadline = setTimeout(() => source.destroy(logTextError(L.net.downloadTimedOut({ ms: accept.timeoutMs }))), accept.timeoutMs);
   try {
     assertResponseAllowed(response.headers, accept);
     const chunks: Buffer[] = [];

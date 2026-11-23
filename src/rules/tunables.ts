@@ -10,6 +10,8 @@
 //   값을 바꾸는 것이 곧 다운로드를 시작하는 조작이고 최근 로그인을 요구하기 때문이다
 // lockedBy: 그 이름의 값이 있는 동안 바꿀 수 없다(저장 바의 저장이 거절한다)
 
+import { bug } from "../infra/bug.ts";
+
 /** 그룹(화면의 카드 순서) */
 const TUNABLE_GROUPS = ["language", "queue", "look", "ytdlp", "bgutil", "youtube", "sponsorblock", "ageyoutube", "cache", "stream", "geoip", "dashboard", "ailog"] as const;
 type TunableGroup = (typeof TUNABLE_GROUPS)[number];
@@ -126,7 +128,7 @@ function tunableValue(key: string, raw: string): string {
 /** 이름으로 찾는다. 모르는 이름이면 예외를 던진다(코드의 오타다) */
 function tunable(key: string): Tunable {
   const found = TUNABLES.find((one) => one.key === key);
-  if (!found) throw new Error(`모르는 설정값: ${key}`);
+  if (!found) throw bug(`모르는 설정값: ${key}`);
   return found;
 }
 

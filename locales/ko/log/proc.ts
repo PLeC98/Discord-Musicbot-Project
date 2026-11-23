@@ -39,6 +39,10 @@ const proc = {
   priorityRaiseFailed: ({ now, why }: { now: string; why: string }) => `프로세스 우선순위 설정 실패(현재 "${now}"${why ? `, ${why}` : ""}). 다른 프로그램이 CPU를 많이 쓰면 재생이 끊길 수 있음`,
   /** 낮은 우선순위로 띄워졌다(작업 스케줄러) */
   priorityStartedLow: () => `낮은 우선순위로 실행됨(I/O, 메모리 우선순위는 낮게 남음). 작업 스케줄러라면 작업 XML의 Priority를 4로 변경 필요`,
+  toolRunFailed: ({ label, error }: { label: string; error: string }) => `${label} 실행 실패: ${error}`,
+  toolTimedOut: ({ label, seconds }: { label: string; seconds: number }) => `${label}: 시간 상한(${seconds}초)을 넘겨 강제 종료함`,
+  toolOutputTooBig: ({ label, megabytes }: { label: string; megabytes: number }) => `${label}: 출력이 상한(${megabytes}MB)을 넘어 강제 종료함`,
+  toolExitFailed: ({ label, code, detail }: { label: string; code: number | string; detail: string }) => `${label} 실패(종료 코드 ${code})${detail}`,
 };
 
 export { proc };

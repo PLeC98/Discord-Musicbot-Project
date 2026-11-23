@@ -6,7 +6,8 @@
 //
 // 문서마다 저장 번호가 있다. 읽은 번호와 지금 번호가 다르면 저장을 거절한다(두 탭, 두 사람이 서로 덮지 않게).
 
-import { codedError } from "../rules/error-kind.ts";
+import { problemError } from "../rules/error-kind.ts";
+import { rule } from "../rules/rule-problem.ts";
 import genresDefault from "./defaults/genres.ts";
 import statusDefault from "./defaults/status.ts";
 import aiDefault from "./defaults/ai.ts";
@@ -82,7 +83,7 @@ const put = (name: DocName, data: unknown, revision: number): number => putAll([
 function putAll(puts: DocPut[]): number[] {
   const nows = puts.map(({ name }) => revisionOf(name));
   puts.forEach(({ name, revision }, i) => {
-    if (revision !== undefined && revision !== nows[i]) throw codedError("REVISION_CONFLICT", `${name} 문서가 그사이 바뀜(읽은 번호 ${revision}, 지금 ${nows[i]})`);
+    if (revision !== undefined && revision !== nows[i]) throw problemError("REVISION_CONFLICT", rule("doc-revision-conflict", { name, read: revision, now: nows[i] }));
   });
   const next = store ? store.writeAll(puts.map(({ name, data }, i) => ({ name, data, revision: nows[i] }))) : nows.map((now) => now + 1);
   puts.forEach(({ name, data }, i) => held.set(name, { data: structuredClone(data), revision: next[i] }));

@@ -10,6 +10,8 @@ import { once } from "node:events";
 import { pipeline as pipelineAsync } from "node:stream/promises";
 import { Readable, Transform, pipeline, type Writable } from "node:stream";
 import zlib from "node:zlib";
+import { L } from "./log/text.ts";
+import { logTextError } from "./log/log-text.ts";
 
 /** 항목 하나. name은 / 로 나눈 경로 */
 type ZipEntry = { name: string; data: Buffer };
@@ -43,7 +45,7 @@ type Sink = (chunk: Buffer) => Promise<void>;
 
 /** 흐름(파일, 응답)을 받는 곳으로. 버퍼가 차면 비워질 때까지 기다린다. 그 사이 닫히면(다운로드하던 쪽이 끊었다) 실패로 멈춘다 */
 function sinkOf(out: Writable): Sink {
-  const closed = () => new Error("받는 쪽이 닫힘");
+  const closed = () => logTextError(L.zip.receiverClosed());
   return async (chunk) => {
     if (out.destroyed) throw closed();
     if (out.write(chunk)) return;
@@ -194,7 +196,7 @@ async function writeZip(inputs: ZipInput[], sink: Sink, { at = new Date(), zip64
 // ── 읽기 ──
 
 // 기반 층이라 오류 도구(rules)를 부르지 않는다. 코드는 같은 형식(code 필드)
-const bad = (why: string) => Object.assign(new Error(`ZIP 파일 읽기 실패: ${why}`), { code: "BAD_ZIP" });
+const bad = (why: string) => Object.assign(logTextError(L.zip.readFailed({ why })), { code: "BAD_ZIP" });
 
 /** 읽을 곳: 크기, 그 위치의 바이트, 그 위치부터 스트림 읽기 */
 type Source = { size: number; read(at: number, length: number): Buffer; stream(at: number, length: number): Readable };

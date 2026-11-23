@@ -10,6 +10,7 @@ import { usable } from "./source-keys.ts";
 import * as documents from "./documents.ts";
 import { genreProblems, tidyGenres } from "./schema/genres.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
+import { logTextError } from "../infra/log/log-text.ts";
 
 // 저장 전 검사(대시보드)와 읽을 때 검사가 같은 스키마를 본다
 const validateGenres = genreProblems;
@@ -121,7 +122,7 @@ function checkedGenres(): GenresConfig {
 function keyCheck(name: string, genre: Genre) {
   const list = Array.isArray(genre?.sources) ? genre.sources : [];
   if (!list.length) {
-    throw Object.assign(new Error(`자동재생 장르 ${name}에 소스와 키워드가 하나도 없음. 운영자 패널의 자동재생 탭에서 확인하세요`), { code: "CONFIG_INVALID" });
+    throw Object.assign(logTextError(L.config.genreEmpty({ name })), { code: "CONFIG_INVALID" });
   }
   const missing: string[] = [];
   let alive = 0;

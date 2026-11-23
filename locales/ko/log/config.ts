@@ -26,6 +26,9 @@ const config = {
   registryHashMismatch: () => `레지스트리 인덱스와 카탈로그의 해시가 다름(원격에서 갱신 중, 다음에 다시 불러옴)`,
   /** 모델 필드가 통째로 빈 레지스트리. registries: 이름(쉼표로 이음) */
   registryFieldsLost: ({ registries }: { registries: string }) => `${registries}의 모델 필드가 통째로 비어 있음. 원격 형식이 바뀐 것으로 보여 쓰지 않음`,
+  pricesHttpFailed: ({ status, source }: { status: number; source: string }) => `값표 ${status}: ${source}`,
+  pricesNoneRead: () => `가격표에서 우리 프로바이더의 가격을 하나도 읽지 못함(저쪽 형식이 바뀐 것으로 보여 쓰지 않음)`,
+  genreEmpty: ({ name }: { name: string }) => `자동재생 장르 ${name}에 소스와 키워드가 하나도 없음. 운영자 패널의 자동재생 탭에서 확인하세요`,
 };
 
 export { config };

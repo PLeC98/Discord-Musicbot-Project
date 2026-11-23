@@ -73,19 +73,19 @@ test("설치 스크립트를 돌릴 의존성: 실행 의존성 가운데 설치
       "node_modules/linked": { hasInstallScript: true, link: true },
     },
   };
-  assert.deepEqual(rebuildTargets(lock), ["@scope/native", "canvas"]);
-  assert.deepEqual(rebuildTargets({}), []);
+  assert.deepEqual(rebuildTargets(lock), { ok: true, names: ["@scope/native", "canvas"] });
+  assert.deepEqual(rebuildTargets({}), { ok: true, names: [] });
 });
 
-test("설치 스크립트를 돌릴 의존성: 이름이 npm 패키지 형식이 아니면 예외를 던진다(셸 명령줄에 들어간다)", () => {
+test("설치 스크립트를 돌릴 의존성: 이름이 npm 패키지 형식이 아니면 못 정하고 그 키를 돌려준다(셸 명령줄에 들어간다)", () => {
   for (const key of ["node_modules/a;rm -rf", "node_modules/$(x)", "node_modules/A"]) {
-    assert.throws(() => rebuildTargets({ packages: { [key]: { hasInstallScript: true } } }), /잘못된 형식의 패키지 이름이 있습니다/, key);
+    assert.deepEqual(rebuildTargets({ packages: { [key]: { hasInstallScript: true } } }), { ok: false, why: "bad-name", key }, key);
   }
 });
 
-test("설치 스크립트를 돌릴 의존성: 이름이 같은 개발 의존성에도 설치 스크립트가 있으면 예외를 던진다(npm rebuild는 이름으로 모두 고른다)", () => {
+test("설치 스크립트를 돌릴 의존성: 이름이 같은 개발 의존성에도 설치 스크립트가 있으면 못 정하고 그 이름을 돌려준다(npm rebuild는 이름으로 모두 고른다)", () => {
   const lock = { packages: { "node_modules/canvas": { hasInstallScript: true }, "node_modules/jest/node_modules/canvas": { hasInstallScript: true, dev: true } } };
-  assert.throws(() => rebuildTargets(lock), /canvas/);
+  assert.deepEqual(rebuildTargets(lock), { ok: false, why: "dev-overlap", names: ["canvas"] });
 });
 
 test("루트의 설치 수명 주기 스크립트를 찾는다(--ignore-scripts로 건너뛰므로 사람이 본다)", () => {

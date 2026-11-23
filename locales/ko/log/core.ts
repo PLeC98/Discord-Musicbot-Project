@@ -13,6 +13,7 @@ const core = {
   ffmpegOldFoldersRemoved: ({ names }: { names: string }) => `ffmpeg 옛 폴더 정리: ${names}`,
   bgutilOldFoldersRemoved: ({ names }: { names: string }) => `bgutil 옛 폴더 정리: ${names}`,
   versionReadFailed: ({ file, error }: { file: string; error: string }) => `버전 정보 읽기 실패(${file}): ${error}`,
+  appIdNotRead: () => `앱 ID를 아직 읽지 않음(기동이 앱 설정을 읽은 뒤에 쓴다)`,
 };
 
 export { core };
