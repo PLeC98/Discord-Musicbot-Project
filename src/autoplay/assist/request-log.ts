@@ -17,6 +17,7 @@ import { mask, safeHeaders } from "./mask.ts";
 import * as retry from "./retry.ts";
 import type { AiLogSource, AiTokens } from "../../dashboard/contract/ai-log.ts";
 import type { Usage } from "./types.ts";
+import { L } from "../../infra/log/text.ts";
 
 type Send = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -109,7 +110,7 @@ function write(call: Call, url: string, init: RequestInit, got: Outcome) {
     );
     warned = false;
   } catch (error) {
-    if (!warned) log.warn(`AI 리퀘스트 로그 기록 실패(요청은 계속 진행): ${messageOf(error)}`);
+    if (!warned) log.warn(L.autoplay.aiRequestLogWriteFailed({ error: messageOf(error) }));
     warned = true;
   }
 }

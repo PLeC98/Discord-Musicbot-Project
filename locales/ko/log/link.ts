@@ -26,6 +26,24 @@ const link = {
   ignoredRangeDiscardOverCap: ({ discardBytes, maxBytes }: { discardBytes: number; maxBytes: number }) => `서버가 구간을 무시해서, 버릴 앞부분(${discardBytes}B)이 상한(${maxBytes}B)을 넘음`,
   /** contentRange: 받은 Content-Range(없으면 null) */
   resumedRangeMismatch: ({ offsetBytes, contentRange }: { offsetBytes: number; contentRange: string | null }) => `이어 받은 구간이 어긋남: ${offsetBytes}B부터 요청, ${contentRange ?? "Content-Range 없음"}`,
+  shoutcastV1: ({ url }: { url: string }) => `옛 SHOUTcast(ICY 첫 줄) 방송: ${url}`,
+  directUnplayable: () => `재생할 수 없는 링크`,
+  notAudioLink: ({ kind }: { kind: string }) => `음원이 아닌 링크(${kind})`,
+  notDirectLink: () => `직접 링크가 아님`,
+  directStreamFailed: ({ error }: { error: string }) => `직접 링크 스트림 실패: ${error}`,
+  hlsCollectStopped: () => `그만 받음`,
+  hlsSegmentClosedEarly: () => `세그먼트 본문이 끝나기 전에 닫힘`,
+  notHlsPlaylist: () => `HLS 재생목록이 아님`,
+  hlsNoVariant: () => `HLS 상위 목록에 불러올 하위 목록이 없음`,
+  hlsDrmLocked: () => `DRM으로 잠긴 HLS`,
+  hlsByteRangeUnreadable: () => `HLS 바이트 구간(BYTERANGE)을 읽을 수 없음`,
+  hlsSegmentDecryptFailed: ({ error }: { error: string }) => `HLS 세그먼트 복호화 실패: ${error}`,
+  liveHlsNotMediaPlaylist: () => `라이브 목록이 하위 목록이 아님`,
+  liveHlsReloadFailed: ({ failures, max, error }: { failures: number; max: number; error: string }) => `라이브 HLS 플레이리스트 갱신 실패(${failures}/${max}): ${error}`,
+  hlsOverMaxBytes: ({ maxBytes }: { maxBytes: number }) => `HLS가 최대 크기(${maxBytes} bytes)를 넘음`,
+  hlsPartRangeOverMax: ({ maxBytes }: { maxBytes: number }) => `HLS 세그먼트 구간이 최대 크기(${maxBytes} bytes)를 넘음`,
+  aesKeyLengthInvalid: ({ length }: { length: number }) => `AES-128 키가 16바이트가 아님(${length})`,
+  hlsRangeIgnoredOverMax: ({ maxBytes }: { maxBytes: number }) => `HLS 서버가 구간을 무시해 세그먼트가 최대 크기(${maxBytes} bytes)를 넘음`,
 };
 
 export { link };

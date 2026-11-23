@@ -17,6 +17,7 @@ import { messageOf } from "../rules/error-kind.ts";
 import logger from "../infra/log/logger.ts";
 import { logTitle } from "../infra/log/title.ts";
 import type { Seeking } from "./youtube/equivalent.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "track" });
 
 /** 스포티파이 곡을 다시 찾는 것. 여기서 부르는 것만 */
@@ -35,7 +36,7 @@ async function leaveDeadPin(track: Seeking, error: unknown, equivalent: Refind):
     try {
       sourceChecks.recordCheck(key, { ok: false, code, at: Date.now() });
     } catch (recordError) {
-      log.warn(`직접 지정한 음원의 source_checks DB 기록 실패: ${key} | 검사 코드=${code} | ${messageOf(recordError)}`);
+      log.warn(L.track.pinnedCheckRecordFailed({ key, code, error: messageOf(recordError) }));
     }
   }
   log.warn(`직접 지정한 음원을 재생할 수 없어 이번에는 다시 찾음(지정은 그대로): "${logTitle(track.title)}" | ${track.audioUrl ?? "없음"} | ${code}`);

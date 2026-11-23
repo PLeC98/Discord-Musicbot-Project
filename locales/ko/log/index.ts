@@ -26,3 +26,7 @@ export { control } from "./control.ts";
 export { registry } from "./registry.ts";
 export { session } from "./session.ts";
 export { sponsor } from "./sponsor.ts";
+export { autoplay } from "./autoplay.ts";
+export { spotify } from "./spotify.ts";
+export { ytdlp } from "./ytdlp.ts";
+export { soundcloud } from "./soundcloud.ts";

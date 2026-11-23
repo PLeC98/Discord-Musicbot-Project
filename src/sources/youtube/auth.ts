@@ -12,6 +12,7 @@ import { potServerUrl } from "./pot-server.ts";
 import { NEEDS_POT, KNOWN, playerClients } from "./clients.ts";
 import { bgutilBundle } from "../bgutil/bundle.ts";
 import type { CookieSource, YoutubeStatus } from "./status-types.ts";
+import { L } from "../../infra/log/text.ts";
 
 // yt-dlp의 --plugin-dirs는 하위 디렉터리마다 yt_dlp_plugins가 들어 있는 루트를 기대한다
 // (`<지정한 경로>/<아무 이름>/yt_dlp_plugins/...`). yt_dlp_plugins를 직접 담은 디렉터리를 주면
@@ -25,7 +26,7 @@ function findPluginRoot(dir: string): string | null {
     entries = fs.readdirSync(dir, { withFileTypes: true });
   } catch (error) {
     // 설치 안 됨
-    if (codeOf(error) !== "ENOENT") log.warn(`POToken 플러그인 폴더 읽기 실패: ${dir} | ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(L.youtube.potPluginDirReadFailed({ dir, error: messageOf(error) }));
     return null;
   }
   for (const e of entries) {

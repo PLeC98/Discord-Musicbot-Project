@@ -215,6 +215,22 @@ const core = {
   stateDbLost: () => `저장된 대기열, 음성 채널 상태, 재생 패널 위치, 24/7 상주 채널이 사라짐`,
   usersDbLabel: () => `사용자 데이터 DB`,
   usersDbSchemaMismatch: ({ dbVersion, botVersion, file }: { dbVersion: number; botVersion: number; file: string }) => `사용자 데이터 DB 구조가 이 봇과 맞지 않음(DB v${dbVersion}, 봇 v${botVersion}): ${file}. 사람들의 선택을 지우지 않도록 새로 만들지 않음. 이 DB를 만든 버전의 봇으로 실행하세요`,
+  bgutilAutoInstallCheckFailed: ({ error }: { error: string }) => `bgutil 자동 설치 판정 실패: ${error}`,
+  bgutilInstallQueued: ({ job }: { job: string }) => `bgutil 설치를 다른 작업(${job}) 뒤로 미룸`,
+  bgutilInstallCancelled: () => `bgutil 설치 중단(POToken 서버 사용을 끔)`,
+  bgutilRestartUnreserved: ({ why }: { why: string }) => `설치 뒤 다시 시작 예약 취소(${why})`,
+  bgutilStateReadFailed: ({ file, error }: { file: string; error: string }) => `bgutil 기록(${file}) 읽기 실패(${error}): 설치되지 않은 것으로 봄. pnpm run install:bgutil로 다시 설치하세요`,
+  bgutilBuildEntryMissing: ({ folder }: { folder: string }) => `bgutil 기록이 가리키는 빌드(${folder})에 서버 실행 파일이 없음: 설치되지 않은 것으로 봄. pnpm run install:bgutil로 다시 설치하세요`,
+  bgutilVersionMismatch: ({ installed, target }: { installed: string; target: string }) => `bgutil 설치 버전이 설정값과 다름: 설치 ${installed}, 설정 ${target}. 대시보드 업데이트 탭의 bgutil 카드에서 설치하거나 pnpm run install:bgutil로 맞춘 뒤 봇을 다시 시작하세요`,
+  potServerLaunchFailed: ({ error }: { error: string }) => `POToken 서버 실행 실패(POToken 없이 진행): ${error}`,
+  potServerDisabled: () => `bgutil이 설치되어 있지만 유튜브 탭의 POToken 서버 사용이 꺼져 있음(POToken 서버를 실행하지 않고 진행)`,
+  potServerNotInstalled: () => `유튜브 탭에서 POToken 서버 사용을 켰지만 bgutil이 설치되어 있지 않음(POToken 없이 진행. 기동 뒤 자동으로 설치하고, 다시 시작하면 켜짐)`,
+  potServerProcessError: ({ error }: { error: string }) => `POToken 서버 실행 실패: ${error}`,
+  potServerConsoleClosed: () => `POToken 서버가 콘솔 종료 신호로 끝남(봇도 곧 끝나므로 다시 실행하지 않음)`,
+  potServerBindGaveUp: ({ tries }: { tries: number }) => `POToken 서버가 빈 포트를 ${tries}번 연달아 열지 못해 다시 실행하지 않음(POToken 없이 진행)`,
+  potServerPortRetry: ({ port }: { port: string }) => `포트 ${port}번을 열지 못해 새 포트로 POToken 서버 다시 실행`,
+  potServerStarting: ({ port }: { port: number }) => `POToken 서버 시작(포트 ${port})`,
+  potServerReady: ({ url }: { url: string }) => `POToken 서버 준비 완료 (${url})`,
 };
 
 export { core };

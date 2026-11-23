@@ -10,6 +10,7 @@ import { PassThrough, type Readable } from "node:stream";
 import * as SafeUrl from "../infra/safe-url.ts";
 import { contentOf, listTarget, HEAD_BYTES, type LinkContent } from "../rules/link-content.ts";
 import { codedError, codeOf } from "../rules/error-kind.ts";
+import { L } from "../infra/log/text.ts";
 
 /** 받는 쪽이 음원의 버전을 헤더에서, 이어 받기가 됐는지를 상태에서 읽는다 */
 type AudioStream = Readable & { headers?: Record<string, unknown>; status?: number; url?: string };
@@ -113,7 +114,7 @@ async function openLink(url: string, { net = { getStream: SafeUrl.getStream }, .
   try {
     source = await net.getStream(url, undefined, { accept: OPEN_ACCEPT, ...opts });
   } catch (error) {
-    if (isIcyStatusLine(error)) throw codedError("shoutcast-v1", `옛 SHOUTcast(ICY 첫 줄) 방송: ${url}`, { cause: error });
+    if (isIcyStatusLine(error)) throw codedError("shoutcast-v1", L.link.shoutcastV1({ url }), { cause: error });
     throw error;
   }
   const file = fileOf(source);

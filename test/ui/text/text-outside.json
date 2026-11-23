@@ -73,44 +73,20 @@
     "log": 4
   },
   "src/autoplay/assist/index.ts": {
-    "log": 17,
-    "outside": 15
-  },
-  "src/autoplay/assist/request-log.ts": {
-    "log": 1
+    "outside": 15,
+    "log": 5
   },
   "src/autoplay/assist/tokens.ts": {
-    "log": 16
+    "log": 6
   },
   "src/autoplay/filter.ts": {
     "outside": 9
   },
-  "src/autoplay/pool.ts": {
-    "log": 3
-  },
   "src/autoplay/route.ts": {
-    "log": 4
-  },
-  "src/autoplay/sources/anisongdb.ts": {
-    "log": 2
-  },
-  "src/autoplay/sources/http.ts": {
-    "log": 1
-  },
-  "src/autoplay/sources/index.ts": {
-    "log": 3
-  },
-  "src/autoplay/sources/lastfm.ts": {
-    "log": 2
-  },
-  "src/autoplay/sources/lbradio.ts": {
-    "log": 2
-  },
-  "src/autoplay/sources/playlists.ts": {
     "log": 2
   },
   "src/autoplay/sources/voca.ts": {
-    "log": 12
+    "log": 5
   },
   "src/dashboard/ai-log-stream.ts": {
     "log": 3,
@@ -400,21 +376,14 @@
   "src/rules/tunables.ts": {
     "bug": 1
   },
-  "src/sources/age-gate.ts": {
-    "log": 3
-  },
   "src/sources/bgutil/auto-install.ts": {
-    "log": 22,
+    "log": 17,
     "outside": 3
-  },
-  "src/sources/bgutil/bundle.ts": {
-    "log": 5
   },
   "src/sources/bgutil/cli-args.ts": {
     "outside": 8
   },
   "src/sources/bgutil/install.ts": {
-    "log": 5,
     "outside": 10
   },
   "src/sources/bgutil/remote.ts": {
@@ -424,110 +393,87 @@
     "outside": 1
   },
   "src/sources/bgutil/trial.ts": {
-    "log": 2,
     "outside": 7
   },
-  "src/sources/bgutil/version.ts": {
+  "src/sources/direct-open.ts": {
     "log": 3
   },
-  "src/sources/cover.ts": {
-    "log": 2
-  },
-  "src/sources/direct-open.ts": {
-    "log": 4
-  },
-  "src/sources/direct-tags.ts": {
-    "log": 2
-  },
   "src/sources/direct.ts": {
-    "outside": 1,
-    "log": 5
+    "outside": 1
   },
   "src/sources/embedded-art.ts": {
-    "log": 9,
+    "log": 8,
     "outside": 2
   },
   "src/sources/file-tags.ts": {
-    "outside": 1,
-    "log": 4
+    "outside": 1
   },
   "src/sources/github-release.ts": {
     "log": 2
   },
   "src/sources/hls.ts": {
-    "log": 20,
+    "log": 4,
     "outside": 5
   },
   "src/sources/lookup.ts": {
-    "log": 15
+    "log": 2
   },
   "src/sources/pinned-fallback.ts": {
-    "log": 4
+    "log": 2
   },
   "src/sources/soundcloud/api.ts": {
-    "log": 10
-  },
-  "src/sources/soundcloud/run.ts": {
-    "log": 1
-  },
-  "src/sources/source-probe.ts": {
-    "log": 1
+    "log": 6
   },
   "src/sources/sponsor-block.ts": {
-    "log": 10
+    "log": 2
   },
   "src/sources/spotify.ts": {
-    "log": 38,
+    "log": 10,
     "outside": 7
   },
   "src/sources/stream-url.ts": {
-    "log": 7
+    "log": 4
   },
   "src/sources/youtube/api.ts": {
-    "log": 9
+    "log": 2
   },
   "src/sources/youtube/auth.ts": {
-    "log": 8,
-    "outside": 9
+    "outside": 9,
+    "log": 7
   },
   "src/sources/youtube/clients.ts": {
-    "log": 8,
+    "log": 7,
     "outside": 2
   },
   "src/sources/youtube/equivalent.ts": {
-    "log": 5
+    "log": 2
   },
   "src/sources/youtube/errors.ts": {
     "outside": 7
   },
   "src/sources/youtube/pot-server.ts": {
-    "log": 17,
+    "log": 6,
     "outside": 2
   },
   "src/sources/youtube/text-search.ts": {
-    "log": 4
+    "log": 2
   },
   "src/sources/youtube/ytdlp-run.ts": {
-    "log": 21,
+    "log": 11,
     "outside": 2
   },
   "src/sources/ytdlp-binary.ts": {
-    "log": 19,
+    "log": 7,
     "outside": 21
   },
   "src/sources/ytdlp-cli-args.ts": {
     "outside": 6
   },
-  "src/sources/ytdlp-exec.ts": {
-    "log": 4
-  },
   "src/sources/ytdlp-info.ts": {
-    "log": 3,
     "outside": 2
   },
   "src/sources/ytdlp-spawn.ts": {
-    "outside": 2,
-    "log": 15
+    "outside": 2
   },
   "src/ui/card-render/render.ts": {
     "log": 7,

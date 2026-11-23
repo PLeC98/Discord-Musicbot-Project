@@ -6,6 +6,8 @@ import childProcess from "node:child_process";
 import { toolEnv } from "../../config/tool-env.ts";
 import { killTrees } from "../../infra/kill-tree.ts";
 import { HOST, pickFreePort, serverArgs, versionOf } from "./launch.ts";
+import { L } from "../../infra/log/text.ts";
+import { logTextError } from "../../infra/log/log-text.ts";
 
 /** 응답을 기다리는 상한(ms). 따뜻할 때 bgutil의 모듈을 불러오는 데 1.6초쯤 걸린다 */
 const READY_MS = 30_000;
@@ -35,7 +37,7 @@ async function shutDown(child: childProcess.ChildProcess) {
   child.stdin?.end();
   if (await exited(child, EXIT_MS)) return;
   if (child.pid) killTrees([{ pid: child.pid, group: false }]);
-  if (!(await exited(child, EXIT_MS))) throw new Error(`실행 테스트로 띄운 POToken 서버(PID ${String(child.pid)})가 끝나지 않음`);
+  if (!(await exited(child, EXIT_MS))) throw logTextError(L.bgutil.trialServerNotExited({ pid: String(child.pid) }));
 }
 
 /**

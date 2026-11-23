@@ -9,6 +9,7 @@ import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "youtube", sub: "client" });
 import config from "../../config/index.ts";
 import { josa } from "../../infra/josa.ts";
+import { L } from "../../infra/log/text.ts";
 
 // yt-dlp가 알아듣는 것을 확인한 클라이언트 이름. 목록에 없는 이름은 기동 시 한 줄 알리고 상태 화면에 표시만 한다.
 // 필터링하지 않고 그대로 yt-dlp에 넘긴다(필터링하면 yt-dlp가 나중에 추가하는 클라이언트를 막게 된다).
@@ -93,7 +94,7 @@ class PlayerClients {
   noteExhausted() {
     if (this.exhaustedLogged) return;
     this.exhaustedLogged = true;
-    log.warn(`지정한 클라이언트가 모두 제외됨(yt-dlp 기본값으로 진행)`);
+    log.warn(L.youtube.allClientsExcluded());
   }
 
   // 로그, 대시보드용

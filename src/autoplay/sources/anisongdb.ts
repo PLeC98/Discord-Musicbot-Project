@@ -7,6 +7,7 @@ import { getJson, postJson, remembered } from "./http.ts";
 import { messageOf } from "../../rules/error-kind.ts";
 import type { GenreSource } from "../../config/genres.ts";
 import type { Candidate } from "./candidate.ts";
+import { L } from "../../infra/log/text.ts";
 
 // 여기서 읽는 필드만
 type RawStats = { songs_by_season?: Record<string, unknown>; songs_by_difficulty?: number[]; songs_by_genre?: Record<string, unknown>; songs_by_tag?: Record<string, unknown> };
@@ -54,7 +55,7 @@ async function loadAnisongStats(): Promise<AnisongStats | null> {
       ...(years.length ? { min: Math.min(...years), max: Math.max(...years) } : {}),
     };
   } catch (error) {
-    log.warn(`AnisongDB 목록 불러오기 실패: ${messageOf(error)}`);
+    log.warn(L.autoplay.anisongListFailed({ error: messageOf(error) }));
     return null;
   }
 }
@@ -149,7 +150,7 @@ async function anilistCovers(ids: number[]): Promise<Map<number, string>> {
       for (const [id, url] of coversIn(body)) covers.set(id, url);
     } catch (error) {
       // 표지가 없어도 곡은 튼다. 소스를 죽일 이유가 아니다
-      log.warn(`AniList 커버 이미지 불러오기 실패: ${messageOf(error)}`);
+      log.warn(L.autoplay.anilistCoverFailed({ error: messageOf(error) }));
     }
   }
   return covers;

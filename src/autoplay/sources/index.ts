@@ -27,6 +27,8 @@ import { animethemes } from "./animethemes.ts";
 import { anisongdb, anisongCatalog, anisongFilters, _seedAnisongStats, CATALOG_TTL_MS, CATALOG_WAIT_MS, CATALOG_RETRY_MS } from "./anisongdb.ts";
 import { vocaFamily, advancedFilters, someLanguages, suggest, isSite } from "./voca.ts";
 import { spotify, youtube } from "./playlists.ts";
+import { L } from "../../infra/log/text.ts";
+import { logTextError } from "../../infra/log/log-text.ts";
 
 // ── 레지스트리 ────────────────────────────────────────────────────────────────
 
@@ -50,7 +52,7 @@ const yearRange = remembered<YearRange>(
       const [min, max] = ends.map((r) => Number(r?.anime?.[0]?.year));
       return min && max && min <= max ? { min, max } : null;
     } catch (error) {
-      log.warn(`AnimeThemes 연도 범위 불러오기 실패: ${messageOf(error)}`);
+      log.warn(L.autoplay.animeThemesYearsFailed({ error: messageOf(error) }));
       return null;
     }
   },
@@ -110,9 +112,9 @@ async function catalog(text: RuleSource): Promise<SourceTypeView[]> {
 /** 설정에 적힌 소스 하나를 곡 목록으로. 예외를 던지면 호출부가 다음 소스로 넘어간다. */
 async function fetchFrom(source: GenreSource, deps: FetchDeps = {}): Promise<Candidate[]> {
   const fetcher = FETCHERS[source?.type];
-  if (!fetcher) throw new Error(`모르는 소스: ${source?.type}`);
+  if (!fetcher) throw logTextError(L.autoplay.unknownSource({ type: source?.type }));
   const tracks = await fetcher(source, deps);
-  log.debug(`${source.type}: ${tracks.length}곡`);
+  log.debug(L.autoplay.sourceFetched({ type: source.type, count: tracks.length }));
   return tracks;
 }
 

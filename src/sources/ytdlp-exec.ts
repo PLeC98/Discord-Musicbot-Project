@@ -5,6 +5,8 @@
 import path from "node:path";
 import { EventEmitter } from "node:events";
 import { spawn, type ChildProcess, type SpawnOptions } from "node:child_process";
+import { L } from "../infra/log/text.ts";
+import { logTextError } from "../infra/log/log-text.ts";
 
 /** yt-dlp 플래그(camelCase). 이 봇이 쓰는 것만 적는다. 출력 템플릿은 하나만 쓴다(다운로드 파일 그룹 감시가 하나를 전제한다) */
 type YtDlpFlags = {
@@ -56,8 +58,8 @@ const optionOf = (key: string) => (key.length === 1 ? "-" : "--") + key.replace(
 function argsOf(flags: YtDlpFlags): string[] {
   const out: unknown[] = [];
   for (const [key, value] of Object.entries(flags) as [string, unknown][]) {
-    if (key === "_" || key === "--") throw new Error(`yt-dlp 플래그로 받지 않는 키: ${key}`);
-    if (SELF_UPDATE.has(key)) throw new Error(`yt-dlp 자체 업데이트 플래그는 넘기지 않음: ${key}`);
+    if (key === "_" || key === "--") throw logTextError(L.ytdlp.flagKeyRejected({ key }));
+    if (SELF_UPDATE.has(key)) throw logTextError(L.ytdlp.selfUpdateFlagRejected({ key }));
     const push = (name: string, argument: unknown) => {
       out.push(optionOf(name));
       if (argument) out.push(argument);
@@ -137,7 +139,7 @@ function launch(file: string, args: string[], options: SpawnOptions): Running {
       const out = { stdout: textOf(stdout), stderr: textOf(stderr) };
       if (exitCode === 0) return resolve(out);
       const command = `${file} ${args.join(" ")}`;
-      reject(Object.assign(new Error(`yt-dlp 종료(코드 ${String(child.exitCode)}, 신호 ${String(child.signalCode)}): ${command}`), { command, exitCode: child.exitCode, signalCode: child.signalCode, pid: child.pid, spawnfile: child.spawnfile, ...out }));
+      reject(Object.assign(logTextError(L.ytdlp.processExited({ exitCode: String(child.exitCode), signal: String(child.signalCode), command })), { command, exitCode: child.exitCode, signalCode: child.signalCode, pid: child.pid, spawnfile: child.spawnfile, ...out }));
     });
   });
   // 띄운 때의 필드를 복사한다. exitCode, signalCode는 늘 null로 남아 레지스트리가 release 전까지 살아 있는 것으로 본다

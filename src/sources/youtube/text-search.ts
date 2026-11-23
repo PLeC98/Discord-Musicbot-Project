@@ -15,6 +15,7 @@ import { canonicalUrl } from "../../rules/canonical-url.ts";
 import { youtubeWatchUrl } from "../../rules/links.ts";
 import { youtubeArt } from "../../rules/track-art.ts";
 import type { TrackInfo } from "../../player/track.ts";
+import { L } from "../../infra/log/text.ts";
 const log = logger.child({ category: "youtube", sub: "search" });
 
 // youtubei.js는 모르는 노드를 만나면 콘솔에 바로 쓴다. 끄고, 읽지 못한 결과는 검색마다 여기서 warn으로 남긴다
@@ -35,7 +36,7 @@ type TextSearchResult = { tracks: TrackInfo[]; gated: boolean };
 
 const http = httpFor("youtube");
 const slots = new SlotQueue(() => CONCURRENT);
-const failures = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "유튜브 검색");
+const failures = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.youtube.textSearch());
 let now = () => Date.now();
 let memo = queryMemo<TextSearchResult>({ ttlMs: MEMO_MS, max: MEMO_MAX, now: () => now() });
 
@@ -47,7 +48,7 @@ let sessionError: unknown = null;
 async function send(input: string | URL | Request, init?: RequestInit): Promise<Response> {
   const res = await http.fetch(input, { ...init, signal: AbortSignal.timeout(REQUEST_MS) });
   if (res.ok) return res;
-  throw codedError(res.status === 429 ? "rate-limited" : "network-error", `유튜브 검색 요청 실패: HTTP ${res.status}`, { cause: { status: res.status } });
+  throw codedError(res.status === 429 ? "rate-limited" : "network-error", L.youtube.textSearchHttpFailed({ status: res.status }), { cause: { status: res.status } });
 }
 
 function sessionOf(): Promise<Innertube> {

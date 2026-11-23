@@ -4,6 +4,7 @@
 import { youtubeWatchUrl } from "../../rules/links.ts";
 import logger from "../../infra/log/logger.ts";
 import { briefError } from "./errors.ts";
+import { L } from "../../infra/log/text.ts";
 const log = logger.child({ category: "youtube" });
 
 /** 채점할 후보(유튜브 검색 결과). rank는 병합한 순위, listOrder는 주 쿼리 0, 보조 1 */
@@ -532,7 +533,7 @@ async function searchCandidates(target: Target, search: Search, profile: SearchP
       answered = true;
       return results.map((r) => ({ id: r.id, url: r.audioUrl || (r.id ? youtubeWatchUrl(String(r.id)) : null), title: r.title, channel: r.artist, durationSec: r.duration, isLive: r.isLive, thumbnail: r.thumbnail }));
     } catch (error) {
-      log.debug(`개별 검색어 검색 실패(나머지 결과 사용): "${query}" | ${briefError(error, 1)}`);
+      log.debug(L.youtube.queryVariantSearchFailed({ query, error: briefError(error, 1) }));
       failed = error;
       return [];
     }

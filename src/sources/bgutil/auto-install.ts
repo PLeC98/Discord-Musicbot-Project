@@ -22,6 +22,7 @@ import { readState } from "./state.ts";
 import { ENTRY } from "./launch.ts";
 import { missingNeeds } from "./tools.ts";
 import type { BgutilNeed } from "./status-types.ts";
+import { L } from "../../infra/log/text.ts";
 const log = logger.child({ category: "core", sub: "bgutil" });
 
 /** 설치 스크립트의 시간 상한(ms). 체크아웃(11분)과 npm ci(10분), 다시 빌드(5분), tsc(3분)를 더한 것 */
@@ -110,7 +111,7 @@ class BgutilAutoInstall {
       while (this.pending) {
         const why = this.pending;
         this.pending = null;
-        await this._ensure(why).catch((error: unknown) => log.warn(`bgutil 자동 설치 판정 실패: ${(error as Error).message}`));
+        await this._ensure(why).catch((error: unknown) => log.warn(L.core.bgutilAutoInstallCheckFailed({ error: (error as Error).message })));
       }
     } finally {
       this.checking = null;
@@ -175,7 +176,7 @@ class BgutilAutoInstall {
     if (!started.ok) {
       // 다른 작업(ffmpeg 맞추기 등)이 돌고 있다. 자리가 비면 한다. 종료 중이면 하지 않는다
       this.queued = started.reason === "busy";
-      if (this.queued) log.info(`bgutil 설치를 다른 작업(${started.running?.name ?? "?"}) 뒤로 미룸`);
+      if (this.queued) log.info(L.core.bgutilInstallQueued({ job: started.running?.name ?? "?" }));
       else {
         this.wanted = false;
         this.unreserve("봇 종료 중");
@@ -208,7 +209,7 @@ class BgutilAutoInstall {
     const tail = info.output.slice(-TAIL_LINES).map(stripScriptPrefix).join(" | ");
     const reason = info.reason === "cancelled" ? rule("bgutil-install-cancelled") : rule("bgutil-install-failed", { why: info.reason ?? "?", ...(info.exitCode !== null ? { code: info.exitCode } : {}), ...(tail ? { tail } : {}) });
     this.failure = { reason, at: this.deps.now() };
-    if (info.reason === "cancelled") log.info("bgutil 설치 중단(POToken 서버 사용을 끔)");
+    if (info.reason === "cancelled") log.info(L.core.bgutilInstallCancelled());
     else log.error(`bgutil 설치 실패(${had ? "지금 쓰는 bgutil 그대로" : "POToken 없이 진행"}): ${logRuleLine(reason)}. 대시보드 업데이트 탭에서 재시도하세요`);
   }
 
@@ -223,7 +224,7 @@ class BgutilAutoInstall {
   unreserve(why: string): boolean {
     if (!this.reserved) return false;
     this.reserved = null;
-    log.info(`설치 뒤 다시 시작 예약 취소(${why})`);
+    log.info(L.core.bgutilRestartUnreserved({ why }));
     return true;
   }
 

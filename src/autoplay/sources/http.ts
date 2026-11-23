@@ -5,6 +5,7 @@ import config from "../../config/index.ts";
 import { httpFor, type HttpClient } from "../../infra/http.ts";
 import { messageOf } from "../../rules/error-kind.ts";
 import logger from "../../infra/log/logger.ts";
+import { L } from "../../infra/log/text.ts";
 const log = logger.child({ category: "autoplay" });
 
 const userAgent = () => config.userAgents.bot;
@@ -39,7 +40,7 @@ async function probe(service: SourceService, url: string, headers: Record<string
     return await send(service, url, { headers: { Accept: "application/json", "User-Agent": userAgent(), ...headers }, signal: AbortSignal.timeout(TIMEOUT_MS) });
   } catch (error) {
     // 주소에 키가 실려 있어(Last.fm) 주소는 싣지 않는다
-    log.warn(`${service} 키 확인 요청 실패: ${messageOf(error)}`);
+    log.warn(L.autoplay.keyCheckRequestFailed({ service, error: messageOf(error) }));
     return null;
   }
 }

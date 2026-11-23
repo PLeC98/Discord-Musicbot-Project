@@ -18,6 +18,7 @@ import { inputKind, type InputKind } from "../rules/input-kind.ts";
 import { queryNamesTrack } from "../rules/query-cover.ts";
 import logger from "../infra/log/logger.ts";
 import { logTitle } from "../infra/log/title.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "track" });
 
 /** 소스가 찾은 곡(player/track의 TrackInfo). 소스마다 필드가 더 있다 */
@@ -67,10 +68,10 @@ async function fromYouTubeSearch(query: string, { youtube, spotify }: Pick<Sourc
   if (!found.gated) return single(found.tracks.slice(0, 1));
   const top = await spotify.searchTracks(query).then(
     (tracks) => tracks[0],
-    (e: unknown) => log.debug(`연령 인증 검색어의 스포티파이 검색 실패(연령 인증 안내로 응답함): ${messageOf(e)}`),
+    (e: unknown) => log.debug(L.track.ageGatedSpotifySearchFailed({ error: messageOf(e) })),
   );
-  if (!top || !queryNamesTrack(query, top)) throw codedError("search-age-gated", `유튜브가 검색어에 연령 인증 안내만 줌: ${query}`);
-  log.debug({ tags: ["fallback"] }, `유튜브가 검색어에 연령 인증 안내만 줘 스포티파이 1위 곡으로: ${query} → "${logTitle(top.title)}"`);
+  if (!top || !queryNamesTrack(query, top)) throw codedError("search-age-gated", L.track.searchAgeGated({ query }));
+  log.debug({ tags: ["fallback"] }, L.track.searchAgeGatedSpotifyTop({ query, title: logTitle(top.title) }));
   return single([top]);
 }
 
@@ -84,14 +85,14 @@ async function fromYouTube(query: string, range: Range, youtube: Sources["youtub
       list = await youtube.getPlaylist(query, range);
     } catch (error) {
       if (!video) throw error;
-      log.warn(`재생목록을 불러오지 못해 단일 영상으로 처리: ${messageOf(error).split("\n")[0]}`);
+      log.warn(L.track.playlistLoadFailedAsSingle({ error: messageOf(error).split("\n")[0] }));
       return single([await youtube.getInfo(query)]);
     }
     const found = list && youTubeList(query, list, video);
     if (found) return found;
     if (!video) return single([]);
     // yt-dlp가 비공개, 개인 목록(LL 등)을 알아보지 못하면 영상 하나만 준다
-    log.info(`재생목록이 비었거나 열리지 않아 단일 영상으로 처리(${video})`);
+    log.info(L.track.playlistEmptyAsSingle({ video }));
   }
   return single([await youtube.getInfo(query)]);
 }
@@ -100,7 +101,7 @@ async function fromYouTube(query: string, range: Range, youtube: Sources["youtub
 // 구간이 모두 재생할 수 없는 곡이면 빈 목록과 뺀 곡 수(findTracks가 nothing-playable로 알린다). 주소에 영상이 있으면 그 영상 하나로 가게 null
 function youTubeList(query: string, list: Collection, video: string | null): Found | null {
   const skipped = list.skipped ?? 0;
-  if (skipped > 0) log.info(`유튜브 재생목록에서 재생할 수 없는 ${skipped}곡을 제외(삭제, 비공개 영상): ${query}`);
+  if (skipped > 0) log.info(L.track.youtubePlaylistSkipped({ skipped, query }));
   if (!list.tracks?.length && (skipped === 0 || video)) return null;
   return { tracks: list.tracks ?? [], isPlaylist: true, collection: "playlist", total: list.total ?? null, nextOffset: list.nextOffset ?? null, skipped };
 }
@@ -120,7 +121,7 @@ async function fromSoundCloud(query: string, range: Range, soundcloud: Sources["
   const found = await soundcloud.find(query, { ...range, what: links.parseSoundCloud(query)?.kind === "set" ? "set" : "track" });
   if (found.kind === "track") return single([found.track]);
   const { skipped } = found;
-  if (skipped > 0) log.info(`사운드클라우드 세트에서 재생할 수 없는 ${skipped}곡을 제외(미리듣기, 지역 제한 등): ${found.title ?? query}`);
+  if (skipped > 0) log.info(L.track.soundcloudSetSkipped({ skipped, title: found.title ?? query }));
   const secret = links.parseSoundCloud(query)?.secret ?? false;
   return { tracks: found.tracks, isPlaylist: true, collection: "playlist", collectionId: secret ? null : found.setId, total: found.total, nextOffset: found.nextOffset, skipped };
 }
@@ -154,12 +155,12 @@ async function findTracks(query: string, context: string | null = "lookup.findTr
 function lookupFailed(error: unknown, context: string | null): LookupResult {
   const code = codeOf(error);
   if (code === "unsupported-link" || code === "shoutcast-v1" || code === "search-age-gated") {
-    log.debug({ sub: context || undefined }, `찾을 수 없음(${code}): ${messageOf(error)}`);
+    log.debug({ sub: context || undefined }, L.track.lookupNotFound({ code, error: messageOf(error) }));
     return { success: false, code };
   }
   // 한 줄에는 무엇이 막았는지만. 원문(yt-dlp의 WARNING 줄 포함)은 조사할 때 본다
-  log.error({ sub: context || undefined, kind: errorKind(error) }, `곡 찾기 실패: ${renderLogText(failureReason(error, youtubeSource.cookiesConfigured()))}`);
-  log.debug({ sub: context || undefined }, `곡 찾기 실패 원문: ${youtubeSource.briefError(error)}`);
+  log.error({ sub: context || undefined, kind: errorKind(error) }, L.track.lookupFailed({ reason: renderLogText(failureReason(error, youtubeSource.cookiesConfigured())) }));
+  log.debug({ sub: context || undefined }, L.track.lookupFailedRaw({ error: youtubeSource.briefError(error) }));
   return { success: false, code: "lookup-failed", error };
 }
 
@@ -196,7 +197,7 @@ async function resolveQuery(query: string, context?: string | null, range: Range
   if (pin) return { success: true, isPlaylist: false, tracks: [await pinnedTrack(query, pin, context, sources)] };
   const cacheHit: CacheHit = skipCache ? { hit: false } : trackLookup.resolveFromCache(query);
   if (cacheHit.hit && (inputKind(query) !== "direct" || cacheHit.track.audioFoundBy === "given")) {
-    log.debug(`캐시 히트(조회, 검색 생략): "${logTitle(cacheHit.track.title)}" → ${cacheHit.track.audioUrl}`);
+    log.debug(L.track.cacheHitLookup({ title: logTitle(cacheHit.track.title), audioUrl: cacheHit.track.audioUrl }));
     return { success: true, isPlaylist: false, tracks: [cacheHit.track] };
   }
   return findTracks(query, context, range, sources);

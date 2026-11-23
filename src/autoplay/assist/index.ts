@@ -33,6 +33,8 @@ import { sendLogged, type Call } from "./request-log.ts";
 import { sec } from "../../infra/log/seconds.ts";
 import { UNSAFE_KEYS, delPath, setPath } from "../../rules/dot-path.ts";
 import { readExtra, type Extra } from "../../rules/ai-extra.ts";
+import { L } from "../../infra/log/text.ts";
+import { logTextError } from "../../infra/log/log-text.ts";
 
 // 바깥으로 나가는 요청은 공유 HTTP 클라이언트로(부른 결과가 남는다). 테스트는 useFetch로 가짜를 넘긴다(null이면 진짜 fetch)
 const http = httpFor("ai");
@@ -468,7 +470,7 @@ async function countTokens(one: AiSettings, messages: Wire[]): Promise<TokenCoun
     return await tokens.countMessages(messages, by, spec?.dialect || "openai");
   } catch (error) {
     // 못 세도 요청은 나가야 한다
-    log.warn(`토큰 세기 실패(${String(one.provider)}, ${String(one.model ?? "")}): ${mask(messageOf(error))}`);
+    log.warn(L.autoplay.tokenCountFailed({ provider: String(one.provider), model: String(one.model ?? ""), error: mask(messageOf(error)) }));
     return null;
   }
 }
@@ -614,7 +616,7 @@ function arraysIn(text: string): string[] {
  */
 function skipped(error: unknown) {
   const calls = error instanceof AskFailure && error.calls > 1 ? `(${error.calls}번 불러 모두 실패)` : "";
-  log.warn(`AI 보조 실패${calls}: ${messageOf(error)}. 이번 판정은 규칙만으로 선택`);
+  log.warn(L.autoplay.aiAssistFailed({ callsSuffix: calls, error: messageOf(error) }));
 }
 
 /** 판정 하나(재시도, 다시 묻기까지 끝낸 것)의 실패. reason은 원인, detail은 저쪽 문구, calls는 부른 수 */
@@ -713,13 +715,13 @@ async function askBatch(one: AiSettings, cands: Judged[], genre: string | undefi
       if (got.ok) return got.verdicts;
       if (got.unreadable && !reasked) {
         reasked = true;
-        log.debug(`AI 보조: 판정 응답 파싱 실패(재요청): ${got.detail.slice(0, 80)}`);
+        log.debug(L.autoplay.verdictParseRetry({ detail: got.detail.slice(0, 80) }));
         continue;
       }
       const wait = waitBefore(limited, used, got, endsAt);
       if ("stop" in wait) throw new AskFailure(got.reason, [got.detail, wait.stop].filter(Boolean).join(". "), calls);
       used++;
-      log.debug(`AI 보조 재시도 ${used}/${retries}(${got.reason}) ${sec(wait.ms)}초 뒤`);
+      log.debug(L.autoplay.aiAssistRetry({ used, retries, reason: got.reason, seconds: sec(wait.ms) }));
       await sleep(wait.ms);
     }
   } finally {
@@ -758,7 +760,7 @@ async function filter<T extends Judged>(candidates: T[] | null | undefined, abou
     });
   }
 
-  if (kept.length !== candidates.length) log.debug(`AI 보조: ${candidates.length}개 중 ${kept.length}개 남김${about.genre ? ` [${about.genre}]` : ""}`);
+  if (kept.length !== candidates.length) log.debug(L.autoplay.aiAssistKept({ candidates: candidates.length, kept: kept.length, genreSuffix: about.genre ? ` [${about.genre}]` : "" }));
   // 전부 떨어졌다면 모델이 너무 박한 것이다. 규칙이 선택한 것을 쓴다.
   return kept.length ? kept : candidates;
 }
@@ -941,13 +943,13 @@ async function candidatesFromUrls(urls: unknown[] | null | undefined, { describe
       out.push({ url, error: rule("ai-cand-not-youtube") });
       continue;
     }
-    const timedOut = new Error(`시간 초과(${timeoutMs / 1000}초)`);
+    const timedOut = logTextError(L.autoplay.candidateLookupTimedOut({ seconds: timeoutMs / 1000 }));
     try {
       const info = await Promise.race([youtubeSource.getInfo(url), new Promise<never>((_, no) => setTimeout(() => no(timedOut), timeoutMs))]);
       out.push({ url, title: info.title, durationSec: info.duration, thumbnail: info.thumbnail, channel: info.artist });
     } catch (error) {
       // 화면에는 호출부가 고른 안내(describe), yt-dlp 원문은 운영자 로그로
-      log.warn(`AI 판정 테스트 후보 조회 실패: ${url} | ${messageOf(error)}`);
+      log.warn(L.autoplay.judgeTestCandidateFailed({ url, error: messageOf(error) }));
       out.push({ url, error: error === timedOut ? rule("ai-cand-timeout", { sec: timeoutMs / 1000 }) : describe(error) });
     }
   }

@@ -32,6 +32,7 @@ import type { Limits, FilterConfig } from "./filter.ts";
 import type { AiPick } from "./assist/index.ts";
 import type { Judged } from "./assist/types.ts";
 import { logTitle } from "../infra/log/title.ts";
+import { L } from "../infra/log/text.ts";
 
 /** 틀 수 있는 트랙. 대기열에 추가하는 곡이다 */
 type PickedTrack = QueuedTrack & { audioUrl: string };
@@ -81,7 +82,7 @@ function markDead(urlOrTrack: string | { audioUrl?: string | null; [field: strin
   const oldest = dead.values().next().value;
   if (dead.size >= DEAD_MAX && oldest !== undefined) dead.delete(oldest);
   dead.add(id);
-  log.debug(`재생 불가 영상으로 표시: ${id}`);
+  log.debug(L.autoplay.markedUnplayable({ id }));
   return true;
 }
 
@@ -251,7 +252,7 @@ async function findOnYouTube(cand: Candidate, genre: string | undefined, { searc
 function upgradeWorthIt(cand: Candidate, confidence: string, top: { breakdown?: { title?: number } } | undefined) {
   if (!cand.audioUrl) return true;
   const ok = confidence === "high" || !!top?.breakdown?.title;
-  if (!ok) log.debug(`음원을 그대로 씀(유튜브 매칭 근거 부족: ${confidence}) [${cand.sourceKey}]: ${cand.title}`);
+  if (!ok) log.debug(L.autoplay.sourceAudioKept({ confidence, sourceKey: cand.sourceKey, title: cand.title }));
   return ok;
 }
 

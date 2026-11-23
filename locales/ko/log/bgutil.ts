@@ -9,6 +9,11 @@ const bgutil = {
   lockDevOverlap: ({ names }: { names: string }) => `이름이 같은 개발 의존성에도 설치 스크립트가 있어 이름으로 다시 빌드할 수 없습니다: ${names}`,
   /** 체크아웃이 고정한 커밋 그대로가 아니다. head: 지금 HEAD, changed: 바뀐 파일 수(없으면 0) */
   checkoutNotPinned: ({ commit, head, changed }: { commit: string; head: string; changed: number }) => `체크아웃 상태가 고정된 커밋(${commit}) 그대로가 아닙니다(HEAD ${head}${changed ? `, 바뀐 파일 ${changed}개` : ""})`,
+  serverFolderMissing: () => `체크아웃에 server 폴더가 없음`,
+  rootInstallScripts: ({ scripts }: { scripts: string }) => `server/package.json에 설치 스크립트(${scripts})가 생김. 무엇을 하는지 확인한 뒤 설치 스크립트를 고쳐야 함`,
+  serverVersionMissing: () => `server/package.json에 버전이 없음`,
+  trialFailed: ({ reason }: { reason: string }) => `실행 테스트 실패: ${reason}`,
+  trialServerNotExited: ({ pid }: { pid: string }) => `실행 테스트로 띄운 POToken 서버(PID ${pid})가 끝나지 않음`,
 };
 
 export { bgutil };

@@ -29,6 +29,7 @@ import { logRuleLine } from "../rules/text/index.ts";
 import { PROJECT } from "../infra/project-paths.ts";
 import { isShuttingDown } from "../infra/shutdown-state.ts";
 import type { YtdlpCardStatus, YtdlpPeek } from "./ytdlp-status-types.ts";
+import { L } from "../infra/log/text.ts";
 
 const log = logger.child({ category: "ytdlp" });
 
@@ -123,7 +124,7 @@ async function emptyTrash(folders: string[]) {
     try {
       await fs.promises.rm(full, { recursive: true, force: true, maxRetries: 2 });
     } catch (error) {
-      log.warn(`yt-dlp 옛 폴더 삭제 실패(${path.basename(full)}): ${messageOf(error)}`);
+      log.warn(L.ytdlp.oldFolderRemoveFailed({ folder: path.basename(full), error: messageOf(error) }));
     }
   }
 }
@@ -295,7 +296,7 @@ class YtdlpBinary {
         checkedChannel: isChannel(raw.checkedChannel) ? raw.checkedChannel : null,
       };
     } catch (error) {
-      if (codeOf(error) !== "ENOENT") log.warn(`yt-dlp 버전 기록 읽기 실패: ${messageOf(error)}`);
+      if (codeOf(error) !== "ENOENT") log.warn(L.ytdlp.versionRecordReadFailed({ error: messageOf(error) }));
       return null;
     }
   }
@@ -509,7 +510,7 @@ class YtdlpBinary {
     let gone: string | null;
     try {
       const state = this._read();
-      if (!state && fs.existsSync(this.stateFile)) throw codedError("state-broken", "yt-dlp 버전 기록을 읽지 못함");
+      if (!state && fs.existsSync(this.stateFile)) throw codedError("state-broken", L.ytdlp.stateUnreadable());
       go?.();
       gone = state?.previous ?? null;
       if (state && gone) this._write({ ...state, previous: null, previousChannel: null });
@@ -670,7 +671,7 @@ class YtdlpBinary {
       try {
         fs.renameSync(dest, path.join(this.io.dir, `.trash-${target}-${this.io.pid}-${this.io.now()}`));
       } catch (error) {
-        log.debug(`yt-dlp 옛 버전 폴더 옮기기 실패(${target}): ${messageOf(error)}`);
+        log.debug(L.ytdlp.oldVersionFolderMoveFailed({ target, error: messageOf(error) }));
         return { failed: rule("ytdlp-trash-failed", { error: String(codeOf(error) ?? messageOf(error)) }) };
       }
     }
@@ -687,7 +688,7 @@ class YtdlpBinary {
           await sleep(RENAME_GAP_MS);
           continue;
         }
-        log.debug(`yt-dlp 버전 폴더로 옮기기 실패: ${messageOf(error)}`);
+        log.debug(L.ytdlp.versionFolderMoveFailed({ error: messageOf(error) }));
         return { failed: rule("ytdlp-place-failed", { attempt, error: String(codeOf(error) ?? messageOf(error)) }) };
       }
     }
@@ -699,7 +700,7 @@ class YtdlpBinary {
     try {
       fs.rmSync(staging, { recursive: true, force: true, maxRetries: 2 });
     } catch (error) {
-      log.warn(`yt-dlp 스테이징 폴더 삭제 실패(다음 정리 시 재시도): ${staging} | ${codeOf(error) ?? messageOf(error)}`);
+      log.warn(L.ytdlp.stagingRemoveFailed({ staging, error: codeOf(error) ?? messageOf(error) }));
     }
   }
 
@@ -711,7 +712,7 @@ class YtdlpBinary {
   async cleanup() {
     if (!fs.existsSync(this.io.dir)) return;
     const unlock = await this._lock();
-    if (!unlock) return void log.warn(`yt-dlp 정리 건너뜀(${this._holderText()}가 yt-dlp 폴더를 사용 중)`);
+    if (!unlock) return void log.warn(L.ytdlp.cleanupSkippedInUse({ holder: this._holderText() }));
     const trash: string[] = [];
     try {
       const state = this._read();
@@ -731,7 +732,7 @@ class YtdlpBinary {
           fs.renameSync(full, to);
           trash.push(to);
         } catch (error) {
-          log.warn(`yt-dlp 옛 폴더 옮기기 실패(${entry.name}): ${messageOf(error)}`);
+          log.warn(L.ytdlp.oldFolderMoveFailed({ folder: entry.name, error: messageOf(error) }));
         }
       }
     } finally {
@@ -782,7 +783,7 @@ class YtdlpBinary {
       log.info(`yt-dlp ${version ?? "없음"} | 채널=${channel}${pin ? ` | 고정=${pin}` : ""} | 업데이트=${updateText(mode, Boolean(pin))}${outcome?.kind === "installed" ? " | 처음 설치" : ""}`);
       this._report(outcome);
     } catch (error) {
-      log.warn(`yt-dlp 바이너리 준비 실패: ${messageOf(error)}`);
+      log.warn(L.ytdlp.binaryPrepareFailed({ error: messageOf(error) }));
       this.pending ??= "transient";
     }
     if (this.pending) return this._schedule(this.pending === "lasting" ? DAY_MS : RETRY_MS);
@@ -839,7 +840,7 @@ class YtdlpBinary {
       this._report(outcome);
     } catch (error) {
       threw = true;
-      log.warn(`yt-dlp 업데이트 조회 실패: ${messageOf(error)}`);
+      log.warn(L.ytdlp.updateCheckFailed({ error: messageOf(error) }));
     } finally {
       await this.cleanup();
     }
@@ -858,7 +859,7 @@ class YtdlpBinary {
     this.nextAt = this.io.now() + wait;
     this.timer = setTimeout(() => {
       this.nextAt = null;
-      void this._tick().catch((error: unknown) => log.warn(`yt-dlp 업데이트 및 설치 타이머 작업 실패(이후 확인 예약 중단): ${messageOf(error)}`));
+      void this._tick().catch((error: unknown) => log.warn(L.ytdlp.updateTimerFailed({ error: messageOf(error) })));
     }, wait);
     this.timer.unref?.();
   }

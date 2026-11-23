@@ -10,6 +10,7 @@ import { codedError, codeOf } from "../../rules/error-kind.ts";
 import type { RunYtDlp, YtDlpFlags } from "../ytdlp-spawn.ts";
 import logger from "../../infra/log/logger.ts";
 import { record } from "../../infra/link-status.ts";
+import { L } from "../../infra/log/text.ts";
 const log = logger.child({ category: "track" });
 
 /**
@@ -103,7 +104,7 @@ async function call(url: string, formats: Formats, what: What, extra: YtDlpFlags
             .filter((line) => /^ERROR/.test(line)),
         ),
       ];
-      log.debug(`사운드클라우드 세트에서 제외한 곡 사유: ${reasons.join(" / ")}`);
+      log.debug(L.track.soundcloudSetSkipReasons({ reasons: reasons.join(" / ") }));
       return partial;
     }
     if (!name) throw error;

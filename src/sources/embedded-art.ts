@@ -21,6 +21,7 @@ import type { Tags } from "./file-tags.ts";
 import { checkCover, bakeCover, type Cover } from "./cover.ts";
 import { openFollowing, refusedByResponse, OPEN_ACCEPT } from "./direct-open.ts";
 import logger from "../infra/log/logger.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "track" });
 
 /** 태그 읽기의 상한(앨범아트가 든 헤더, 끝 moov 포함) */
@@ -70,7 +71,7 @@ function versionOf(audioKey: string): { version: string; file: string | null } {
     const stat = fs.statSync(row.file_path);
     return { version: `file:${row.downloaded_at ?? `${stat.size}-${stat.mtimeMs}`}`, file: row.file_path };
   } catch (error) {
-    if (codeOf(error) !== "ENOENT") log.warn(`캐시 파일 확인 실패(원본 사용): ${audioKey} | ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(L.track.embeddedArtCacheCheckFailed({ audioKey, error: messageOf(error) }));
     return { version: "source", file: null };
   }
 }

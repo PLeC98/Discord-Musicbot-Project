@@ -3,6 +3,7 @@
 
 import { z } from "zod";
 import logger from "../infra/log/logger.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "youtube" });
 
 const reported = new Set<string>();
@@ -11,7 +12,7 @@ function field<T extends z.ZodType>(name: string, schema: T) {
   return schema.nullish().catch((ctx: { input: unknown }) => {
     if (!reported.has(name)) {
       reported.add(name);
-      log.warn(`yt-dlp 응답의 ${name} 필드 형식이 예상과 다름(받은 타입: ${typeof ctx.input}). 이 필드를 제외하고 계속`);
+      log.warn(L.youtube.infoFieldTypeMismatch({ field: name, type: typeof ctx.input }));
     }
     return undefined;
   });

@@ -10,6 +10,7 @@ import { currentJob } from "../../infra/guild-context.ts";
 import { rankCandidates, searchCandidates, type Target } from "./match.ts";
 import { logTitle } from "../../infra/log/title.ts";
 import type { AudioFoundBy } from "../../rules/audio-found-by.ts";
+import { L } from "../../infra/log/text.ts";
 
 /** 동등물을 찾을 곡. 찾으면 audioUrl, audioFoundBy를 적는다 */
 type Seeking = { title?: string | null; artist?: string | null; duration?: unknown; requestKey?: string | null; audioUrl?: string | null; audioFoundBy?: AudioFoundBy; [field: string]: unknown };
@@ -64,7 +65,7 @@ async function findYouTubeEquivalent(track: Seeking, { search = (query, limit) =
   if (known && links.isYouTubeURL(known)) {
     track.audioUrl = known;
     track.audioFoundBy = "ledger"; // 소비 시 unavailable이면 재검색 트리거
-    log.debug(`유튜브 매칭 음원(링크 데이터 재사용, 검색 생략): "${logTitle(track.title)}" → ${known}`);
+    log.debug(L.track.youtubeMatchReused({ title: logTitle(track.title), url: known }));
     return known;
   }
 
@@ -76,8 +77,8 @@ async function findYouTubeEquivalent(track: Seeking, { search = (query, limit) =
 
   track.audioUrl = url;
   track.audioFoundBy = "search";
-  if (joined) log.debug(`유튜브 매칭 음원(진행 중인 요청 결과 공유): "${logTitle(track.title)}" → ${url}`);
-  else log.info(`유튜브 매칭 음원(검색): "${logTitle(track.title)}" → ${url}`);
+  if (joined) log.debug(L.track.youtubeMatchShared({ title: logTitle(track.title), url }));
+  else log.info(L.track.youtubeMatchSearched({ title: logTitle(track.title), url }));
   return url;
 }
 

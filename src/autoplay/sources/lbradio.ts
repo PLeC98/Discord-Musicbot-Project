@@ -7,6 +7,8 @@ import type { GenreSource } from "../../config/genres.ts";
 import type { Candidate } from "./candidate.ts";
 import { messageOf } from "../../rules/error-kind.ts";
 import logger from "../../infra/log/logger.ts";
+import { L } from "../../infra/log/text.ts";
+import { logTextError } from "../../infra/log/log-text.ts";
 const log = logger.child({ category: "autoplay" });
 
 // 여기서 읽는 필드만
@@ -19,7 +21,7 @@ const SLOW_MS = 30000;
 // 호출마다 50곡을 새로 짠다. 길이를 주므로 youtubeMatch의 길이 신호가 켜진다.
 async function lbradio(source: GenreSource): Promise<Candidate[]> {
   const token = config.sources?.listenbrainzToken;
-  if (!token) throw new Error("ListenBrainz 토큰 없음");
+  if (!token) throw logTextError(L.autoplay.listenbrainzTokenMissing());
   // 기본은 hard다. 이름과 반대로 hard 쪽이 더 알려진 곡을 준다. 모드는 태그 폭을 바꾼다
   // (easy는 적은 태그만, hard는 비슷한 태그까지 끌어와서 그만큼 큰 아티스트가 섞인다).
   const modes = ([] as string[]).concat(source.mode || "hard");
@@ -71,7 +73,7 @@ async function checkListenbrainzToken(): Promise<KeyCheck> {
   const res = await probe("listenbrainz", "https://api.listenbrainz.org/1/validate-token", { Authorization: `Token ${token}` });
   if (!res) return { ok: false, reason: "unreachable" };
   const body = (await res.json().catch((error: unknown) => {
-    log.warn(`ListenBrainz 토큰 확인 응답 파싱 실패(HTTP ${res.status}): ${messageOf(error)}`);
+    log.warn(L.autoplay.listenbrainzTokenCheckParseFailed({ status: res.status, error: messageOf(error) }));
     return null;
   })) as { valid?: boolean } | null;
   if (res.ok && body?.valid === true) return { ok: true };

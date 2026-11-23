@@ -42,12 +42,12 @@ const sameBuild = (dir: string, build: BgutilBuild | null, tag: string, commit: 
 
 /** 체크아웃한 server 폴더에서 설치, 빌드, 실행 테스트까지. 서버 버전을 반환한다. 실패하면 예외를 던진다 */
 async function build(serverDir: string, io: InstallIo): Promise<string> {
-  if (!fs.existsSync(serverDir)) throw new Error("체크아웃에 server 폴더가 없음");
+  if (!fs.existsSync(serverDir)) throw logTextError(L.bgutil.serverFolderMissing());
   const pkg = JSON.parse(fs.readFileSync(path.join(serverDir, "package.json"), "utf8")) as { version?: unknown; scripts?: Record<string, unknown> };
   // npm ci --ignore-scripts가 건너뛰는 루트 설치 스크립트가 생겼으면 사람이 무엇을 하는지 본다
   const rootScripts = rootInstallScripts(pkg);
-  if (rootScripts.length) throw new Error(`server/package.json에 설치 스크립트(${rootScripts.join(", ")})가 생김. 무엇을 하는지 확인한 뒤 설치 스크립트를 고쳐야 함`);
-  if (typeof pkg.version !== "string" || !pkg.version) throw new Error("server/package.json에 버전이 없음");
+  if (rootScripts.length) throw logTextError(L.bgutil.rootInstallScripts({ scripts: rootScripts.join(", ") }));
+  if (typeof pkg.version !== "string" || !pkg.version) throw logTextError(L.bgutil.serverVersionMissing());
   const targets = rebuildTargets(JSON.parse(fs.readFileSync(path.join(serverDir, "package-lock.json"), "utf8")));
   if (!targets.ok) throw logTextError(targets.why === "bad-name" ? L.bgutil.lockBadName({ key: targets.key }) : L.bgutil.lockDevOverlap({ names: targets.names.join(", ") }));
   const rebuild = targets.names;
@@ -61,7 +61,7 @@ async function build(serverDir: string, io: InstallIo): Promise<string> {
   await io.tsc(serverDir);
   io.log(`실행 테스트(/ping이 ${pkg.version}${josa(pkg.version, "으로")} 응답하는지)`);
   const tried = await io.trial(serverDir, pkg.version);
-  if (!tried.ok) throw new Error(`실행 테스트 실패: ${tried.reason}`);
+  if (!tried.ok) throw logTextError(L.bgutil.trialFailed({ reason: tried.reason }));
   return pkg.version;
 }
 

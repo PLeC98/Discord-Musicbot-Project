@@ -12,6 +12,7 @@ import type { Seeking } from "./youtube/equivalent.ts";
 import { logTitle } from "../infra/log/title.ts";
 import { leaveDeadPin } from "./pinned-fallback.ts";
 import { audioKeyOf } from "../rules/audio-key-of.ts";
+import { L } from "../infra/log/text.ts";
 
 /** 스트림 서술자. 재생 쪽이 읽는 필드만 둔다 */
 type StreamInfo = {
@@ -75,7 +76,7 @@ const keyed = (stream: StreamInfo, audioUrl: string): StreamInfo => ({ ...stream
 async function streamOf(track: Seeking & { platform?: string | null }, { youtube, soundcloud, equivalent, canPlayHls, fresh }: StreamOptions): Promise<StreamInfo> {
   const audioUrl = track.audioUrl || (await equivalent.findYouTubeEquivalent(track));
   if (!audioUrl) {
-    throw codedError("sp-no-youtube-match", `유튜브에서 같은 곡을 찾지 못함: ${logTitle(track.title)}`);
+    throw codedError("sp-no-youtube-match", L.track.streamYoutubeMatchNotFound({ title: logTitle(track.title) }));
   }
 
   switch (inputKind(audioUrl)) {
@@ -85,7 +86,7 @@ async function streamOf(track: Seeking & { platform?: string | null }, { youtube
       } catch (err) {
         // 링크 데이터에서 가져온 영상이 내려간 경우(프리로드, 즉시재생 스트리밍이 여기서 먼저 실패) → 재검색 후 1회 재시도.
         if (youtube.isVideoUnavailableError(err) && track.audioFoundBy === "ledger") {
-          log.warn({ tags: ["retry"] }, `캐시된 유튜브 영상 접근 불가 (${logTitle(track.title)}). 재검색 후 재시도`);
+          log.warn({ tags: ["retry"] }, L.track.cachedYoutubeVideoUnavailable({ title: logTitle(track.title) }));
           const ytUrl = await equivalent.reresolveYouTube(track);
           if (ytUrl) return keyed(await youtube.getStream(ytUrl, { fresh }), ytUrl);
         }

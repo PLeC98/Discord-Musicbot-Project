@@ -8,6 +8,8 @@ import { messageOf } from "../../rules/error-kind.ts";
 import type { GenreSource } from "../../config/genres.ts";
 import type { Candidate } from "./candidate.ts";
 import { rand, getJson, query } from "./http.ts";
+import { L } from "../../infra/log/text.ts";
+import { logTextError } from "../../infra/log/log-text.ts";
 
 // 유튜브 주소를 직접 준다. 검색도 매칭도 없다. 셋이 같은 소프트웨어라 코드도 같다.
 const VOCA_HOSTS: Record<Site, string> = { vocadb: "vocadb.net", utaitedb: "utaitedb.net", touhoudb: "touhoudb.com" };
@@ -58,10 +60,10 @@ function someLanguages(list: string[] | undefined): Array<string | null> {
 async function vocaFamily(source: GenreSource): Promise<Candidate[]> {
   const site = source.type;
   // 레지스트리가 셋에만 이 함수를 준다
-  if (!isSite(site)) throw new Error(`VocaDB 계열이 아님: ${site}`);
+  if (!isSite(site)) throw logTextError(L.autoplay.notVocaSite({ site }));
   const base = `https://${VOCA_HOSTS[site]}/api/songs`;
   const artistTypes = source.artistTypes || [];
-  if (artistTypes.length && !VOCA_ARTIST_TYPES[site]) throw new Error(`${site}에는 가수 분류가 없음`);
+  if (artistTypes.length && !VOCA_ARTIST_TYPES[site]) throw logTextError(L.autoplay.vocaNoArtistTypes({ site }));
   const common = await filtersOf(source, site);
   const depth = windowDepth(VOCA_WINDOW, source);
 
@@ -126,7 +128,7 @@ async function tagId(site: Site, name: string) {
   if (known !== undefined) return known;
   // 별칭, 대소문자도 풀린다(ロック → rock). 없으면 null
   const tag = await getJson<Tag>(site, `https://${VOCA_HOSTS[site]}/api/tags/byName/${encodeURIComponent(name)}`);
-  if (!tag?.id) throw new Error(`${site}에 없는 태그: ${name}`);
+  if (!tag?.id) throw logTextError(L.autoplay.vocaTagNotFound({ site, name }));
   ids.set(key, tag.id);
   return tag.id;
 }
@@ -139,7 +141,7 @@ async function artistId(site: Site, name: string) {
   const types = VOCA_ARTIST_TYPES[site];
   const page = await getJson<{ items?: Artist[] } | null>(site, `https://${VOCA_HOSTS[site]}/api/artists?${query({ query: name, nameMatchMode: "Exact", fields: "Names", sort: "SongCount", maxResults: 20, artistTypes: types?.join(",") })}`);
   const found = sameName(page?.items || [], name);
-  if (!found?.id) throw new Error(`${site}에서 찾지 못한 이름: ${name}`);
+  if (!found?.id) throw logTextError(L.autoplay.vocaArtistNotFound({ site, name }));
   log.debug(`${site} 이름 조회: ${name} → ${found.name ?? "없음"} (${found.id})`);
   ids.set(key, found.id);
   return found.id;
@@ -187,7 +189,7 @@ async function vocaWindow(base: string, filters: Record<string, unknown>, type: 
   const total = Number(head?.totalCount) || 0;
   if (!total) return [];
 
-  if (total > depth) log.debug(`${type}: 조건에 맞는 ${total.toLocaleString("en-US")}곡 중 상위 ${depth.toLocaleString("en-US")}곡에서 선택`);
+  if (total > depth) log.debug(L.autoplay.vocaWindowPicked({ type, total: total.toLocaleString("en-US"), depth: depth.toLocaleString("en-US") }));
   const span = Math.min(total, depth);
   const start = span > VOCA_PAGE ? rand(span - VOCA_PAGE) : 0;
   // fields=Names로 원어, 로마자, 영문이 한 번에 온다. 표기를 선택할 일이 없다

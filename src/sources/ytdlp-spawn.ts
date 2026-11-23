@@ -17,6 +17,8 @@ import { ytdlpBinary } from "./ytdlp-binary.ts";
 import { execWith, isJSON, isolated, type Exec, type YtDlpFlags } from "./ytdlp-exec.ts";
 import { sec } from "../infra/log/seconds.ts";
 import { repeatingFailure } from "../infra/repeating-failure.ts";
+import { L } from "../infra/log/text.ts";
+import { logTextError } from "../infra/log/log-text.ts";
 const log = logger.child({ category: "ytdlp" });
 
 const IS_WIN = process.platform === "win32";
@@ -99,14 +101,14 @@ async function enter(lane: Lane, rank: number, signal: AbortSignal | undefined):
   const waited = Date.now() - asked;
   if (waited > WAIT_NOTE_MS[lane]) {
     const { running, size, waiting } = lanes[lane].stats();
-    log.debug(`yt-dlp 실행 슬롯을 ${sec(waited)}초 대기(${LANE_NAME[lane]} ${running}/${size}, 대기 ${waiting})`);
+    log.debug(L.ytdlp.slotWaited({ seconds: sec(waited), lane: LANE_NAME[lane], running, limit: size, waiting }));
   }
   return leave;
 }
 
 /** 줄을 닫는다(봇을 끌 때). 기다리던 호출은 거절되고 새로 띄우지 않는다 */
 function closeLanes() {
-  const closed = new Error("봇을 끄는 중이라 yt-dlp를 실행하지 않음");
+  const closed = logTextError(L.ytdlp.shuttingDownNoSpawn());
   for (const lane of [...Object.values(lanes), cpuGate]) lane.close(closed);
 }
 
@@ -130,7 +132,7 @@ function countExtraction(url: string, flags: YtDlpFlags) {
   }
   if (extractionWarned) return;
   extractionWarned = true;
-  log.warn(`지난 1시간 동안 유튜브 영상 정보를 ${count}번 읽음. 로그인 없는 세션은 시간당 약 300편에서 막히기 시작함`);
+  log.warn(L.ytdlp.infoReadsPerHour({ count }));
 }
 
 /** 봇 상태 탭: 줄마다 도는 수, 크기, 기다리는 수와 지난 1시간 영상 정보 추출 수(nearLimit: 알리는 수를 넘었다) */
@@ -166,7 +168,7 @@ function clearOutput(output: string): number {
   try {
     names = fs.readdirSync(dir).filter(has);
   } catch (error) {
-    if (codeOf(error) !== "ENOENT") log.warn(`임시 조각 파일 조회 실패: ${dir} | ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(L.ytdlp.fragmentListFailed({ dir, error: messageOf(error) }));
     return 0;
   }
   let removed = 0;
@@ -176,7 +178,7 @@ function clearOutput(output: string): number {
       removed++;
     } catch (error) {
       // 잠겨 있음. 호출부의 정리가 받는다
-      log.warn(`임시 조각 파일 삭제 실패: ${name} | ${messageOf(error)}`);
+      log.warn(L.ytdlp.fragmentRemoveFailed({ file: name, error: messageOf(error) }));
     }
   }
   return removed;
@@ -185,14 +187,14 @@ function clearOutput(output: string): number {
 type WatchLog = { listWarned: boolean; size: ReturnType<typeof repeatingFailure> };
 
 function watchLog(): WatchLog {
-  return { listWarned: false, size: repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "yt-dlp 다운로드 파일 크기 읽기") };
+  return { listWarned: false, size: repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.ytdlp.downloadSizeRead()) };
 }
 
 async function snapshotOf({ dir, has }: ReturnType<typeof familyOf>, watch: WatchLog): Promise<string> {
   const listed = await fs.promises.readdir(dir).catch((error: unknown) => {
     if (codeOf(error) !== "ENOENT" && !watch.listWarned) {
       watch.listWarned = true;
-      log.warn(`yt-dlp 다운로드 정체 감시 readdir 실패(진행 확인 불가): ${dir} | ${codeOf(error) ?? messageOf(error)}`);
+      log.warn(L.ytdlp.stallWatchReaddirFailed({ dir, error: codeOf(error) ?? messageOf(error) }));
     }
     return [] as string[];
   });
@@ -277,7 +279,7 @@ function execNow(): Exec {
   if (fake) return fake;
   const file = ytdlpBinary.path();
   // 설치 전이거나 실행 파일이 사라졌다(ytdlpBinary가 설치를 예약한다). 띄우지 못한 것과 같은 코드로 알린다
-  if (!file) throw Object.assign(new Error("yt-dlp가 설치되지 않음(pnpm run update:ytdlp)"), { code: "ENOENT" }) satisfies YtDlpError;
+  if (!file) throw Object.assign(logTextError(L.ytdlp.binaryMissing()), { code: "ENOENT" }) satisfies YtDlpError;
   if (bound?.file !== file) bound = { file, exec: isolated(execWith(file)) };
   return bound.exec;
 }
@@ -338,8 +340,8 @@ async function spawnOnce(url: string, flags: YtDlpFlags, opts: SpawnOptions, job
     return out;
   } catch (error) {
     // 한도에서 내렸다. 플랫폼이 응답하지 않은 것으로 보고 다른 클라이언트로 재시도하지 않는다(stderr를 싣지 않아 클라이언트 탓으로 읽히지 않는다)
-    if (timedOut) throw Object.assign(new Error(`yt-dlp가 ${infoTimeoutMs / 1000}초 안에 끝나지 않아 내림`), { code: "network-error" }) satisfies YtDlpError;
-    if (stalled) throw Object.assign(new Error(`yt-dlp 다운로드가 ${stall.limitMs / 60_000}분 동안 진행되지 않아 중단`), { code: "network-error" }) satisfies YtDlpError;
+    if (timedOut) throw Object.assign(logTextError(L.ytdlp.infoTimedOut({ seconds: infoTimeoutMs / 1000 })), { code: "network-error" }) satisfies YtDlpError;
+    if (stalled) throw Object.assign(logTextError(L.ytdlp.downloadStalled({ minutes: stall.limitMs / 60_000 })), { code: "network-error" }) satisfies YtDlpError;
     // 실행 래퍼(ytdlp-exec)의 오류를 message = stderr 모양으로 맞춘다.
     // spawn 자체가 실패하면(ENOENT 등) stderr가 없으므로 원래 message를 쓴다.
     // 어떤 실패인지는 여기서 한 번 구분해 code로 붙인다. 호출부는 메시지 텍스트가 아니라 code를 본다.

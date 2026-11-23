@@ -13,6 +13,7 @@ import { inputKind } from "../rules/input-kind.ts";
 import { errorKind } from "../rules/error-kind.ts";
 import type { Code } from "../rules/problems.ts";
 import logger from "../infra/log/logger.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "track" });
 
 /** 결과. 실패면 문제 코드(라이브면 live) */
@@ -49,7 +50,7 @@ async function probeSource(audioUrl: string, open: Openers = REAL): Promise<Prob
     }
   } catch (error) {
     // 직접 링크는 여는 쪽(direct)이 원인을 로그로 남긴다
-    if (kind !== "direct") log.debug(`재생 테스트 실패: ${audioUrl} | ${youtubeSource.briefError(error, 1)}`);
+    if (kind !== "direct") log.debug(L.track.sourceProbeFailed({ audioUrl, error: youtubeSource.briefError(error, 1) }));
     return { ok: false, code: errorKind(error) };
   }
 }

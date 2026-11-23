@@ -4,6 +4,7 @@
 import config from "../../config/index.ts";
 import logger from "../../infra/log/logger.ts";
 import { bgutilBundle, type BgutilBundle } from "./bundle.ts";
+import { L } from "../../infra/log/text.ts";
 const log = logger.child({ category: "core", sub: "bgutil" });
 
 /** installed: 이 봇이 쓰는 빌드의 태그, target: 설정한 태그, same: 태그와 커밋이 둘 다 같다. 설치돼 있지 않으면 null */
@@ -17,7 +18,7 @@ function warnOffTarget(bundle: BgutilBundle | null = bgutilBundle()) {
   if (!bundle || !now || now.same) return;
   // 태그가 같으면 커밋이 다르다(옮겨진 태그를 다시 고정했다)
   const [installed, target] = now.installed === now.target ? [`${now.installed}(${bundle.commit.slice(0, 7)})`, `${now.target}(${config.bgutil.commit.slice(0, 7)})`] : [now.installed, now.target];
-  log.warn(`bgutil 설치 버전이 설정값과 다름: 설치 ${installed}, 설정 ${target}. 대시보드 업데이트 탭의 bgutil 카드에서 설치하거나 pnpm run install:bgutil로 맞춘 뒤 봇을 다시 시작하세요`);
+  log.warn(L.core.bgutilVersionMismatch({ installed, target }));
 }
 
 export { bgutilVersions, warnOffTarget };

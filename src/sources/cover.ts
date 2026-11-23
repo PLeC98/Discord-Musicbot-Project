@@ -4,6 +4,7 @@
 import sharp from "sharp";
 import { messageOf } from "../rules/error-kind.ts";
 import logger from "../infra/log/logger.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "track" });
 
 /** 긴 변 상한(px, 작으면 키우지 않는다), JPEG 품질 */
@@ -23,7 +24,7 @@ async function bakeCover(data: Uint8Array): Promise<Cover | null> {
     const { data: jpeg, info } = await sharp(data, { limitInputPixels: MAX_PIXELS, pages: 1 }).rotate().flatten().resize(SIDE, SIDE, { fit: "inside", withoutEnlargement: true }).jpeg({ quality: QUALITY, mozjpeg: true }).toBuffer({ resolveWithObject: true });
     return { jpeg, width: info.width, height: info.height };
   } catch (error) {
-    log.debug(`앨범아트를 불러오지 못함(앨범아트 없이 진행): ${messageOf(error)}`);
+    log.debug(L.track.coverLoadFailed({ error: messageOf(error) }));
     return null;
   }
 }
@@ -39,7 +40,7 @@ async function checkCover(data: Uint8Array, file: string): Promise<Cover | null>
     const { format, width = 0, height = 0 } = await sharp(data, { limitInputPixels: MAX_PIXELS }).metadata();
     if (isJpeg && format === "jpeg" && width > 0 && height > 0 && width <= SIDE && height <= SIDE) return { jpeg: Buffer.from(data), width, height };
   } catch (error) {
-    log.warn(`캐시 파일 앨범아트 sharp 메타데이터 읽기 실패(앨범아트 무시): ${file} | ${messageOf(error)}`);
+    log.warn(L.track.cachedCoverMetadataFailed({ file, error: messageOf(error) }));
     return null;
   }
   return bakeCover(data);
