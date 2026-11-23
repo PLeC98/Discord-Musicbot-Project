@@ -7,6 +7,7 @@ import { codedError } from "../rules/error-kind.ts";
 import { useAppId } from "../infra/app-id.ts";
 import type { AppFlags } from "../infra/gateway-intents.ts";
 import { untilDiscordAnswers, type Retry } from "./login.ts";
+import { L } from "../infra/log/text.ts";
 
 /** 조회 한 번의 타임아웃. 재시도는 간격을 두고 따로 한다 */
 const READ_TIMEOUT_MS = 5000;
@@ -20,7 +21,7 @@ function readApp(token: string): Promise<AppFlags> {
 /** 앱 설정을 읽어 앱 ID를 넣고 돌려준다. 앱 ID가 없는 답은 빈 값으로 넣지 않고 예외를 던진다. read, retry: 테스트가 넘긴다 */
 async function loadApp(read: () => Promise<AppFlags>, retry: Retry = {}): Promise<AppFlags> {
   const app = await untilDiscordAnswers("디스코드 앱 설정 불러오기", read, retry);
-  if (typeof app.id !== "string" || !app.id) throw codedError("app-id-missing", "디스코드 앱 설정에 앱 ID(id)가 없음");
+  if (typeof app.id !== "string" || !app.id) throw codedError("app-id-missing", L.core.appIdMissing());
   useAppId(app.id);
   return app;
 }

@@ -15,6 +15,7 @@ import { rule, tuneKeyOf, tuneProblem, type RuleProblem } from "../rules/rule-pr
 import * as docs from "./settings-docs.ts";
 import { L } from "../infra/log/text.ts";
 import { logRuleLine, ruleLogText } from "../rules/text/index.ts";
+import { logTextError } from "../infra/log/log-text.ts";
 
 const DOC = "tunables";
 
@@ -110,11 +111,11 @@ function save(values: Record<string, unknown>, revision: number): TunablesView {
 function saveCard(changes: Record<string, string | null>, expect: Record<string, string> = {}): TunablesView {
   // 카드 값과 함께라면 그 값이 잠그는 이름도 바꾼다(이전 버전으로 되돌릴 때 고정과 채널을 함께)
   const stray = [...Object.keys(changes), ...Object.keys(expect)].filter((key) => !CARD_KEYS.has(key) && !(TUNABLE_KEYS.has(key) && tunable(key).lockedBy && tunable(key).lockedBy! in changes));
-  if (stray.length) throw new Error(`도구 카드의 값이 아님: ${stray.join(", ")}`);
+  if (stray.length) throw logTextError(L.config.toolCardKeysUnknown({ names: stray.join(", ") }));
   const doc = docs.read(DOC);
   const now = shape(doc.data);
   const moved = Object.entries(expect).filter(([key, value]) => (now[key] ?? "") !== value);
-  if (moved.length) throw codedError("CARD_CONFLICT", `그사이 바뀐 값: ${moved.map(([key]) => key).join(", ")}`);
+  if (moved.length) throw codedError("CARD_CONFLICT", L.config.toolCardConflict({ names: moved.map(([key]) => key).join(", ") }));
   const saved = shape({ ...now, ...changes });
   const problems = about(root.loadConfig(process.env, { tunables: saved }).tuneProblems, (key) => key in changes);
   if (problems.length) throw invalidError(problems);

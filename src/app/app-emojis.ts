@@ -18,6 +18,7 @@ import { FORMER_EMOJIS, iconEntries, isManagedEmojiName, useUploaded } from "../
 import { appEmojis, useAppEmojis, useIconFallbacks } from "../store/app-emoji-book.ts";
 import { imageOf } from "../ui/icon-images.ts";
 import { APP_EMOJI_LIMIT as EMOJI_LIMIT } from "../dashboard/contract/app-emojis.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "core", sub: "emoji" });
 
 // 찾지 못한 아이콘 토큰(동기화 전, 옛 이름)을 대신할 유니코드. store 층은 ui를 부르지 못해 여기서 넣는다
@@ -89,7 +90,7 @@ async function sameImage(local: Image, remote: Buffer) {
 
 /** 올라가 있는 것이 그 이미지인가. CDN에서 못 받으면 아니라고 본다 */
 async function uploadedAs(api: Api, remote: Remote, image: Image) {
-  const there = await api.download(remote).catch((error: unknown) => (log.warn(`앱 이모지 ${remote.name} 이미지 다운로드 실패: ${messageOf(error)}`), null));
+  const there = await api.download(remote).catch((error: unknown) => (log.warn(L.core.appEmojiImageDownloadFailed({ name: remote.name, error: messageOf(error) })), null));
   return there !== null && (await sameImage(image, there));
 }
 
@@ -149,9 +150,9 @@ async function publish(api: Api, remote: Remote[], { added, removed, total, skip
   const now = added || removed ? await api.list() : remote;
   useAppEmojis(now);
   forget?.(new Set(now.map((one) => one.id)));
-  if (skipped.length) log.warn(`운영자가 올린 동명 앱 이모지가 있어 해당 아이콘은 유니코드로 둠: ${skipped.join(", ")}. 운영자 패널이나 개발자 포털에서 이모지 이름을 바꾸거나 삭제하세요`);
-  if (added || removed) log.info(`앱 이모지 동기화: ${total}개 중 ${added}개 추가, ${removed}개 삭제`);
-  else log.debug(`앱 이모지 동기화: ${total}개 변경 없음`);
+  if (skipped.length) log.warn(L.core.appEmojiNamesTaken({ names: skipped.join(", ") }));
+  if (added || removed) log.info(L.core.appEmojiSyncDone({ total, added, removed }));
+  else log.debug(L.core.appEmojiSyncUnchanged({ total }));
 }
 
 /**
@@ -186,7 +187,7 @@ async function sync(api: Api, { onChanged, stale = () => false, protectedIds = N
       continue;
     }
     if (stale()) {
-      log.debug(`앱 이모지 동기화 중단(재동기화): ${added}개 등록 후`);
+      log.debug(L.core.appEmojiSyncStopped({ added }));
       return;
     }
     const name = existing ? tempName(entry.name, taken) : entry.name;
@@ -296,9 +297,9 @@ class AppEmojis {
   async loadKnown() {
     try {
       const count = await loadKnown(this.api, this.protectedIds);
-      log.debug(`앱 이모지 ${count}개를 불러옴`);
+      log.debug(L.core.appEmojisLoaded({ count }));
     } catch (error) {
-      log.warn(`앱 이모지 목록 불러오기 실패(아이콘은 유니코드로 둠): ${messageOf(error)}`);
+      log.warn(L.core.appEmojiListLoadFailed({ error: messageOf(error) }));
     }
   }
 
@@ -323,7 +324,7 @@ class AppEmojis {
       do {
         this.again = false;
         // 실패하면 그때까지 실은 것(목록에서 불러온 id, 유니코드)으로 돈다. 아이콘이 옛 이미지, 유니코드로 남으므로 알린다
-        await this.serial(() => sync(this.api, { onChanged: this.onChanged, stale: () => this.again, protectedIds: this.protectedIds, forget: this.forget })).catch((error: unknown) => log.warn(`앱 이모지 동기화 실패(기존 상태로 계속 실행): ${messageOf(error)}`));
+        await this.serial(() => sync(this.api, { onChanged: this.onChanged, stale: () => this.again, protectedIds: this.protectedIds, forget: this.forget })).catch((error: unknown) => log.warn(L.core.appEmojiSyncFailed({ error: messageOf(error) })));
       } while (this.again);
     })().finally(() => (this.running = null));
   }

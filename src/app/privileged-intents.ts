@@ -5,6 +5,7 @@
 import { GatewayIntentBits } from "discord.js";
 import logger from "../infra/log/logger.ts";
 import { APPROVAL_SERVERS, INTENT_NAMES as NAMES, needsApproval, switchesOf, useLoggedIn, type AppFlags, type Privileged, type Switches } from "../infra/gateway-intents.ts";
+import { L } from "../infra/log/text.ts";
 
 const log = logger.child({ category: "core" });
 
@@ -24,10 +25,10 @@ const howToEnable = (app: AppFlags | null) => (needsApproval(app) ? `서버가 $
 function choosePrivilegedIntents(app: AppFlags): GatewayIntentBits[] {
   lastApp = app;
   const switches = switchesOf(app);
-  if (!switches) log.warn("앱 설정에 인텐트 플래그(flags)가 없어 특권 인텐트를 모두 요청함");
+  if (!switches) log.warn(L.core.intentFlagsMissing());
   const chosen = switches ?? ALL_ON;
   for (const name of ["messageContent", "guildMembers"] as const) {
-    if (!chosen[name]) log.warn(`특권 인텐트 ${NAMES[name]} 꺼짐: ${TURNED_OFF[name]}을 끄고 기동 | ${howToEnable(app)}`);
+    if (!chosen[name]) log.warn(L.core.privilegedIntentOff({ intent: NAMES[name], feature: TURNED_OFF[name], howTo: howToEnable(app) }));
   }
   useLoggedIn(chosen);
   return intentsFor(chosen);
@@ -49,11 +50,11 @@ function refusedAtLogin() {
  */
 function onRefusedWhileRunning(restart: ((why: string) => void) | null) {
   if (restart) {
-    log.error("게이트웨이가 꺼진 특권 인텐트를 거절해 연결이 끊김(4014) | 다시 시작해 켜진 특권 인텐트만 요청함");
+    log.error(L.core.intentsRejectedRestarting());
     restart("특권 인텐트 거절");
     return;
   }
-  log.error(`게이트웨이가 꺼진 특권 인텐트를 거절해 연결이 끊김(4014), 재연결하지 않음 | 봇을 다시 시작하면 꺼진 인텐트가 필요한 기능만 끄고 기동, 켜려면 ${PORTAL}`);
+  log.error(L.core.intentsRejectedStopped({ portal: PORTAL }));
 }
 
 /** 테스트: 마지막으로 읽은 앱 설정을 비운다 */

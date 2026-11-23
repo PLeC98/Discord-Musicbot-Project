@@ -9,6 +9,7 @@ import Database from "better-sqlite3";
 import { codedError } from "../rules/error-kind.ts";
 import { DbFile } from "./sqlite.ts";
 import type { Db } from "./sqlite.ts";
+import { L } from "../infra/log/text.ts";
 
 const VERSION = 1;
 
@@ -51,14 +52,14 @@ function applyStagedUsers(dir: string): boolean {
       db.close();
     }
   })();
-  if (found !== VERSION) throw Object.assign(codedError("RESTORE_FAILED", `풀어 둔 사용자 데이터 DB 교체 건너뜀: 구조가 이 봇과 맞지 않음(DB v${found}, 봇 v${VERSION}). 그 버전의 봇으로 시작하거나 database/${STAGED_USERS}를 삭제하세요`), { dbFile: "users.db" });
+  if (found !== VERSION) throw Object.assign(codedError("RESTORE_FAILED", L.core.stagedUsersDbSkipped({ version: found, botVersion: VERSION, stagedFile: STAGED_USERS })), { dbFile: "users.db" });
   const current = path.join(dir, "users.db");
   try {
     for (const leftover of [current, `${current}-wal`, `${current}-shm`]) fs.rmSync(leftover, { force: true });
     fs.renameSync(staged, current);
     for (const leftover of [`${staged}-wal`, `${staged}-shm`]) fs.rmSync(leftover, { force: true });
   } catch (error) {
-    throw Object.assign(codedError("RESTORE_FAILED", `풀어 둔 사용자 데이터 DB 교체 실패: ${(error as Error).message}. users.db를 연 프로그램을 닫고 다시 시작하세요`, { cause: error }), { dbFile: "users.db" });
+    throw Object.assign(codedError("RESTORE_FAILED", L.core.stagedUsersDbApplyFailed({ error: (error as Error).message }), { cause: error }), { dbFile: "users.db" });
   }
   return true;
 }

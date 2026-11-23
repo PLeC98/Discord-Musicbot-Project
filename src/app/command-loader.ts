@@ -17,6 +17,7 @@ import { localizeCommand, type CommandsText } from "../ui/command-localizations.
 import type { BotContext } from "./bot-context.ts";
 import { PROJECT } from "../infra/project-paths.ts";
 import logger from "../infra/log/logger.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "core" });
 
 /** 명령 정의. 배포는 JSON으로 */
@@ -86,7 +87,7 @@ function readDeployed(hashPath: string): Deployed {
     const saved = JSON.parse(fs.readFileSync(hashPath, "utf8")) as { fingerprint?: string; guildId?: string | null };
     return { fingerprint: saved.fingerprint || null, guildId: saved.guildId === null || typeof saved.guildId === "string" ? saved.guildId : undefined };
   } catch (error) {
-    if (codeOf(error) !== "ENOENT") log.warn(`명령어 배포 해시 읽기 실패: ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(L.core.commandHashReadFailed({ error: messageOf(error) }));
     return { fingerprint: null, guildId: undefined };
   }
 }
@@ -97,7 +98,7 @@ function writeDeployed(hashPath: string, fingerprint: string, guildId: string | 
     fs.mkdirSync(path.dirname(hashPath), { recursive: true });
     fs.writeFileSync(hashPath, JSON.stringify({ fingerprint, guildId, deployedAt: new Date().toISOString() }));
   } catch (error) {
-    log.warn(`명령어 배포 해시 저장 실패: ${messageOf(error)}`);
+    log.warn(L.core.commandHashSaveFailed({ error: messageOf(error) }));
   }
 }
 
@@ -128,7 +129,7 @@ async function deployCommands({ force = false, hashPath = HASH_PATH, put = putCo
     try {
       rememberCommandIds(await get(route), guildId);
     } catch (error) {
-      log.warn(`등록된 슬래시 명령어 읽기 실패(도움말의 명령어가 클릭할 수 없는 일반 텍스트로 보임): ${messageOf(error)}`);
+      log.warn(L.core.registeredCommandsReadFailed({ error: messageOf(error) }));
     }
     return { ok: true, skipped: true, count: commands.length, scope, guildId, names: commands.map((c) => c.name) };
   }
@@ -152,15 +153,15 @@ async function deployCommands({ force = false, hashPath = HASH_PATH, put = putCo
 async function tidyOldTarget(was: string | null | undefined, now: string | null, { put, get }: { put: PutCommands; get: GetCommands }) {
   if (was && was !== now) {
     const cleared = await clearCommands(was, put);
-    if (cleared.ok) log.info(`등록 대상이 바뀌어 옛 서버 ${was}의 슬래시 명령어를 비움`);
-    else log.warn(`옛 서버 ${was}의 슬래시 명령어 비우기 실패(그 서버에서 명령어가 두 개씩 보일 수 있음. 지우려면 pnpm commands --clear-guild ${was}): ${messageOf(cleared.error)}`);
+    if (cleared.ok) log.info(L.core.oldGuildCommandsCleared({ guildId: was }));
+    else log.warn(L.core.oldGuildCommandsClearFailed({ guildId: was, clearGuildId: was, error: messageOf(cleared.error) }));
   }
   if (!now) return;
   try {
     const left = await get(Routes.applicationCommands(appIdOf()));
-    if (left.length) log.warn(`전역 슬래시 명령어 ${left.length}개가 남아 있어 서버 ${now}에서는 같은 명령어가 두 개씩 보임. 다른 서버는 이 전역 명령어로 동작함. 지우려면 pnpm commands --clear-global`);
+    if (left.length) log.warn(L.core.globalCommandsLeft({ count: left.length, guildId: now }));
   } catch (error) {
-    log.debug(`전역 슬래시 명령어 읽기 실패(남은 명령어 확인 생략): ${messageOf(error)}`);
+    log.debug(L.core.globalCommandsReadFailed({ error: messageOf(error) }));
   }
 }
 

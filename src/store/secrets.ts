@@ -12,6 +12,7 @@ const log = logger.child({ category: "config" });
 import config from "../config/index.ts";
 import { codedError } from "../rules/error-kind.ts";
 import { settingsDb } from "./settings-db.ts";
+import { L } from "../infra/log/text.ts";
 
 // 암호문 모양. 바꾸면 올리고 읽는 쪽이 옛 형식을 다시 입력하라고 한다
 const FORMAT = 1;
@@ -41,7 +42,7 @@ const expand = (ikm: Buffer, info: string, bytes: number) => Buffer.from(crypto.
 
 function keys(purpose = "secrets") {
   const raw = keyOverride ?? config.secrets.key;
-  if (!raw) throw codedError("SECRETS_KEY_MISSING", "SECRETS_KEY가 없어 비밀값을 다룰 수 없음");
+  if (!raw) throw codedError("SECRETS_KEY_MISSING", L.config.secretsUnavailable());
   if (derived?.raw !== raw) {
     const ikm = Buffer.from(raw, "base64");
     derived = { raw, ikm, id: expand(ikm, "musicbot secrets v1 key-id", 8).toString("hex"), enc: new Map() };
@@ -74,7 +75,7 @@ const conn = () => settingsDb.get();
 /** 저장(덮어쓰기). 값은 1바이트 이상 1MB 이하 */
 function put(name: string, value: string, binding: Binding = {}) {
   const bytes = Buffer.from(value, "utf8");
-  if (!value.trim() || bytes.length > MAX_BYTES) throw codedError("SECRET_INVALID", `비밀값 ${name}: 비어 있으면 안 되고 1MB 이하여야 함`);
+  if (!value.trim() || bytes.length > MAX_BYTES) throw codedError("SECRET_INVALID", L.config.secretValueInvalid({ name }));
   const { enc, id } = keys();
   const provider = binding.provider ?? "";
   const endpoint = originOf(binding.endpoint);
@@ -109,7 +110,7 @@ function read(name: string, binding: Binding = {}): Read {
     decipher.setAuthTag(row.tag);
     return { state: "ok", value: Buffer.concat([decipher.update(row.ciphertext), decipher.final()]).toString("utf8") };
   } catch {
-    log.warn(`비밀값 ${name} 복호화 실패(저장된 행이 변경되었거나 손상됨). 대시보드에서 다시 입력하세요`);
+    log.warn(L.config.secretDecryptFailed({ name }));
     return { state: "broken" };
   }
 }

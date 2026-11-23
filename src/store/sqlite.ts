@@ -8,6 +8,7 @@ import { ownerOnly } from "../infra/owner-only.ts";
 import logger from "../infra/log/logger.ts";
 import { messageOf } from "../rules/error-kind.ts";
 import { josa } from "../infra/josa.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "core" });
 
 type Db = Database.Database;
@@ -79,19 +80,19 @@ class DbFile {
   // 이 설정 없이 만든 파일을 VACUUM으로 바꾼다(한 번). 파일 크기만큼의 여유 공간이 더 든다. 못 바꿔도 파일은 그대로 쓴다(다음 기동에 재시도한다)
   vacuum(db: Db, file: string) {
     const bytes = fs.statSync(file).size;
-    log.info(`${this.spec.label}를 한 번 다시 씀(삭제한 공간을 돌려주는 설정, ${Math.ceil(bytes / 1024 / 1024)}MB)`);
+    log.info(L.core.dbVacuumStarted({ db: this.spec.label, sizeMb: Math.ceil(bytes / 1024 / 1024) }));
     try {
       db.exec("VACUUM");
     } catch (error) {
-      log.warn(`${this.spec.label} 다시 쓰기 실패(그대로 열고 다음 기동 시 다시 시도): ${messageOf(error)}. 그때까지 기록을 삭제해도 파일이 줄지 않음`);
+      log.warn(L.core.dbVacuumFailed({ db: this.spec.label, error: messageOf(error) }));
     }
     // VACUUM이 쓴 만큼 커진 -wal을 체크포인트해 줄인다. 실패했어도 한다(롤백된 쓰기도 -wal에 남는다).
     // 다른 연결이 읽는 중이면 예외를 던지지 않고 결과의 busy로 알린다
     try {
       const [result] = db.pragma("wal_checkpoint(TRUNCATE)") as Array<{ busy: number }>;
-      if (result?.busy) log.warn(`${this.spec.label}의 -wal 줄이기 실패(다른 프로그램이 읽는 중). 봇이 쓰는 동안 차차 줄어듦`);
+      if (result?.busy) log.warn(L.core.dbWalBusy({ db: this.spec.label }));
     } catch (error) {
-      log.warn(`${this.spec.label}의 -wal 줄이기 실패: ${messageOf(error)}`);
+      log.warn(L.core.dbWalTruncateFailed({ db: this.spec.label, error: messageOf(error) }));
     }
   }
 

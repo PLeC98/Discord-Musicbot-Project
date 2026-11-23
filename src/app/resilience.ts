@@ -14,6 +14,7 @@ import { discordRejection, rejectionLine } from "../rules/discord-rejection.ts";
 import { EXIT } from "./exit-codes.ts";
 import { runRecord } from "./run-record.ts";
 import type { GuildFault } from "./guild-fault.ts";
+import { L } from "../infra/log/text.ts";
 
 const flog = logger.child({ category: "core", sub: "fatal" });
 const coreLog = logger.child({ category: "core" });
@@ -57,7 +58,7 @@ function logRejection(error: unknown, guildId: string | null, where: string): bo
   }
   coreLog.warn(line);
   const stack = error instanceof Error ? error.stack : null;
-  if (stack) coreLog.debug(`거절된 요청의 스택 (${where}): ${stack}`);
+  if (stack) coreLog.debug(L.core.rejectionStack({ where, stack }));
   return true;
 }
 
@@ -70,7 +71,7 @@ function fatalShutdown(players: Savables | null | undefined, error: unknown, { e
     try {
       player.persistence.saveNow("shutdown");
     } catch (e) {
-      flog.error(`세션 저장 실패 (서버 ID ${guildId}): ${messageOf(e)}`);
+      flog.error(L.core.floodSessionSaveFailed({ guildId, error: messageOf(e) }));
     }
     try {
       player.voice.release("치명적 오류");
@@ -81,10 +82,7 @@ function fatalShutdown(players: Savables | null | undefined, error: unknown, { e
   record.end("global-flood");
   // 이 줄 다음에 프로세스가 죽는다. 레벨로 필터링할 때 "봇이 죽은 순간"만 추출할 수 있어야 한다
   const stack = error && typeof error === "object" && "stack" in error ? error.stack : undefined;
-  flog.fatal(
-    `특정 서버와 무관한 오류가 폭주해 봇을 종료함. 재생 세션은 저장함(다시 시작하면 이어서 재생)
-${String(stack || error)}`,
-  );
+  flog.fatal(L.core.errorFloodShutdown({ stack: String(stack || error) }));
   exit();
 }
 
@@ -99,14 +97,14 @@ function installErrorHandlers(client: WatchedClient, { players, fault, proc = pr
     const guildId = currentGuild();
     if (logRejection(error, guildId, source)) return;
     if (guildId && fault) {
-      fault(guildId, error, source).catch((e: unknown) => coreLog.error(`서버 ${guildId} 오류 처리 실패:`, e));
+      fault(guildId, error, source).catch((e: unknown) => coreLog.error(L.core.guildFaultHandleFailed({ guildId }), e));
       return;
     }
     // 서버를 모른다: 경계가 빠진 위치다. 게이트웨이, 네트워크 오류는 discord.js가 알아서 재연결한다
-    if (errorKind(error) === "network-error") coreLog.warn(`오류 경계 밖의 네트워크 오류 (${source}): ${messageOf(error)}`);
-    else coreLog.error(`오류 경계가 없는 경로에서 발생한 미처리 오류 (${source}):`, error);
+    if (errorKind(error) === "network-error") coreLog.warn(L.core.looseNetworkError({ source, error: messageOf(error) }));
+    else coreLog.error(L.core.looseUnhandledError({ source }), error);
     if (flooding()) {
-      coreLog.error(`${FLOOD_WINDOW_MS / 1000}초 동안 서버를 특정할 수 없는 오류가 ${FLOOD_MAX}회를 초과함`);
+      coreLog.error(L.core.errorFloodDetected({ seconds: FLOOD_WINDOW_MS / 1000, limit: FLOOD_MAX }));
       fatalShutdown(players, error, { exit, record });
     }
   };

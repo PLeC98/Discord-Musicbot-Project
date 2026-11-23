@@ -69,38 +69,29 @@
     "outside": 8,
     "log": 6
   },
-  "src/app/app-emojis.ts": {
-    "log": 16
-  },
   "src/app/app-info.ts": {
-    "log": 2
+    "log": 1
   },
   "src/app/command-loader.ts": {
-    "log": 11,
     "outside": 1
   },
-  "src/app/full-backup.ts": {
-    "log": 5
-  },
   "src/app/guild-fault.ts": {
-    "log": 13
+    "log": 3
   },
   "src/app/launcher.ts": {
     "outside": 2
   },
   "src/app/login.ts": {
-    "log": 4
+    "log": 1
   },
   "src/app/main.ts": {
-    "log": 71,
+    "log": 32,
     "outside": 7
   },
   "src/app/privileged-intents.ts": {
-    "outside": 9,
-    "log": 6
+    "outside": 9
   },
   "src/app/resilience.ts": {
-    "log": 9,
     "outside": 1
   },
   "src/app/run-record.ts": {
@@ -108,17 +99,14 @@
   },
   "src/app/shutdown.ts": {
     "outside": 2,
-    "log": 33
+    "log": 5
   },
   "src/app/startup-prepare.ts": {
     "outside": 5
   },
   "src/app/stay-keeper.ts": {
     "outside": 5,
-    "log": 9
-  },
-  "src/app/welcome.ts": {
-    "log": 4
+    "log": 1
   },
   "src/autoplay/assist/google-auth.ts": {
     "log": 4
@@ -713,34 +701,19 @@
     "outside": 2,
     "log": 15
   },
-  "src/store/ai-keys.ts": {
-    "log": 1
-  },
   "src/store/ai-log-db.ts": {
     "outside": 2
   },
   "src/store/audio-cache.ts": {
-    "log": 30,
+    "log": 4,
     "outside": 9
   },
   "src/store/cache-db.ts": {
     "outside": 2
   },
-  "src/store/cookie-jar.ts": {
-    "log": 5
-  },
-  "src/store/external-caches.ts": {
-    "log": 1
-  },
-  "src/store/full-reset.ts": {
-    "log": 2
-  },
   "src/store/guild-settings.ts": {
-    "log": 16,
+    "log": 5,
     "outside": 7
-  },
-  "src/store/panel-records.ts": {
-    "log": 2
   },
   "src/store/player-sessions.ts": {
     "outside": 1
@@ -748,46 +721,27 @@
   "src/store/rows.ts": {
     "log": 2
   },
-  "src/store/secrets.ts": {
-    "log": 5
-  },
-  "src/store/service-keys.ts": {
-    "log": 3
-  },
   "src/store/session-db.ts": {
     "outside": 2
   },
   "src/store/settings-db.ts": {
     "outside": 4
   },
-  "src/store/settings-docs.ts": {
-    "log": 8
-  },
   "src/store/snapshots.ts": {
-    "log": 19
+    "log": 1
   },
   "src/store/sqlite.ts": {
-    "log": 7,
-    "outside": 3
+    "outside": 3,
+    "log": 2
   },
   "src/store/state-db.ts": {
     "outside": 2
   },
-  "src/store/stores.ts": {
-    "log": 1
-  },
   "src/store/track-lookup.ts": {
     "outside": 2
   },
-  "src/store/tunables.ts": {
-    "log": 2
-  },
-  "src/store/user-settings.ts": {
-    "log": 7
-  },
   "src/store/users-db.ts": {
-    "outside": 4,
-    "log": 6
+    "outside": 4
   },
   "src/ui/card-render/render.ts": {
     "log": 7,

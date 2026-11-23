@@ -7,6 +7,7 @@ import { z } from "zod";
 import { usersDb } from "./users-db.ts";
 import { codeOf } from "../rules/error-kind.ts";
 import { KNOWN_TAGS, type Language } from "../rules/languages.ts";
+import { L } from "../infra/log/text.ts";
 
 const conn = () => usersDb.get();
 
@@ -30,7 +31,7 @@ function shapeOf(userId: string, raw: string): UserDoc {
   try {
     parsed = JSON.parse(raw);
   } catch {
-    if (!warned.has(`${userId}|${raw}`)) log.warn(`사용자 ${userId} 설정 읽기 실패(정하지 않은 것으로 읽음): 올바른 JSON 형식이 아님`);
+    if (!warned.has(`${userId}|${raw}`)) log.warn(L.user.userSettingsJsonInvalid({ userId }));
     warned.add(`${userId}|${raw}`);
     return {};
   }
@@ -46,7 +47,7 @@ function shapeOf(userId: string, raw: string): UserDoc {
   const key = `${userId}|${raw}`;
   if (wrong.length && !warned.has(key)) {
     warned.add(key);
-    log.warn(`사용자 ${userId} 설정의 ${wrong.join(", ")} 값 검증 실패(정하지 않은 것으로 읽음)`);
+    log.warn(L.user.userSettingsValueInvalid({ userId, fields: wrong.join(", ") }));
   }
   return doc as UserDoc;
 }
@@ -96,7 +97,7 @@ function announce(userId: string, fields: UserField[]) {
     try {
       fn(userId, fields);
     } catch (error) {
-      log.error("사용자 설정 변경 알림 처리 실패:", error);
+      log.error(L.user.userSettingsNotifyFailed(), error);
     }
   }
 }
@@ -133,7 +134,7 @@ function docOf(userId: string): UserDoc {
     doc = readDoc(userId);
   } catch (error) {
     if (codeOf(error) === "DB_NOT_OPEN") throw error;
-    log.error("사용자 설정 읽기 실패(정하지 않은 것으로 적용):", error);
+    log.error(L.user.userSettingsReadFailed(), error);
   }
   cache.set(userId, doc);
   return doc;

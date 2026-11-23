@@ -93,6 +93,7 @@ import { missingText } from "../ui/text/index.ts";
 import { missingRuleText } from "../rules/text/index.ts";
 import { missingLogText } from "../infra/log/text.ts";
 import { BASE_LANGUAGE } from "../rules/languages.ts";
+import { L } from "../infra/log/text.ts";
 
 const log = logger.child({ category: "core" });
 
@@ -144,7 +145,7 @@ function main() {
     .catch((error: unknown) => {
       // 클라이언트를 만들기 전에 멈췄다. 실행한 것을 내리고 나간다
       const stopped = error instanceof StartupStopped;
-      if (!stopped) log.error("봇 기동 실패:", error);
+      if (!stopped) log.error(L.core.startupFailed(), error);
       stopFailedStart(null, { potServer, logFile }, failedStartCode(error, stopped));
     });
 }
@@ -157,15 +158,15 @@ function openSettings({ potServer, logFile }: { potServer: PotServer; logFile: L
   let restored: string | null;
   try {
     // 대시보드에서 봇 전체 초기화를 예약했으면 열기 전에 지운다(스냅샷, .env, 로그, 이번 실행의 기록은 남는다)
-    if (fullReset.applyRequested()) log.warn("봇 전체 초기화 완료: DB, 캐시 파일, 디스플레이 파일 삭제(설정 스냅샷은 database/backups에 보관)");
+    if (fullReset.applyRequested()) log.warn(L.core.fullResetDone());
     // 대시보드에서 선택한 스냅샷, 풀어 둔 전체 백업이 예약되어 있으면 열기 전에 교체한다(지금 것은 backups에 남는다)
     restored = snapshots.applyStaged(PROJECT.database);
-    if (restored) log.warn(`${restored}로 설정 DB 복원 완료(기존 DB는 database/backups에 백업)`);
-    if (applyStagedUsers(PROJECT.database)) log.warn("풀어 둔 전체 백업의 사용자 데이터 DB로 교체 완료");
+    if (restored) log.warn(L.core.settingsDbRestored({ source: restored }));
+    if (applyStagedUsers(PROJECT.database)) log.warn(L.core.usersDbReplaced());
     stores.open();
   } catch (error) {
-    log.error(`기동 중단: ${messageOf(error)}`);
-    if ((error as { dbFile?: string }).dbFile === "settings.db") log.error("설정 DB 복원: database/backups의 settings-*.db 파일을 database/settings.restore.db로 복사한 뒤 다시 시작. 기동 때 기존 settings.db를 backups에 남기고 교체함(settings.db에 바로 덮으면 남은 -wal 파일과 섞여 깨질 수 있음, 같은 SECRETS_KEY여야 비밀값을 복호화할 수 있음)");
+    log.error(L.core.startupAborted({ error: messageOf(error) }));
+    if ((error as { dbFile?: string }).dbFile === "settings.db") log.error(L.core.settingsDbRestoreHowTo());
     stopFailedStart(null, { potServer, logFile }, EXIT.badSetup);
     return false;
   }
@@ -195,7 +196,7 @@ async function restoreAudioCache() {
     const done = await archive.applyStagedAudio(PROJECT.database);
     if (done) log.info(`전체 백업의 오디오 캐시 병합 완료: ${(Object.entries(done.added ?? {}) as Array<[ArchiveItem, number]>).map(([item, n]) => `${archive.ITEM_LABELS[item]} ${n}`).join(", ") || "새로 불러온 것 없음"}`);
   } catch (error) {
-    log.warn(`전체 백업의 오디오 캐시 병합 실패: ${messageOf(error)}`);
+    log.warn(L.core.backupAudioCacheMergeFailed({ error: messageOf(error) }));
   }
 }
 
@@ -214,25 +215,25 @@ function setUpLogging() {
   const logFile = config.logging.fileEnabled ? createFileDestination(config.logging) : null;
   if (logFile) {
     logSink.addDestination(logFile.write);
-    log.info({ tags: ["startup"] }, `로그 파일 저장 경로: ${logFile.path}`);
+    log.info({ tags: ["startup"] }, L.core.logFilePath({ file: logFile.path }));
   }
   // 치명적 오류로 죽을 때의 진단 보고서는 로그 파일과 같은 폴더에 남긴다
   const reportDir = path.dirname(config.logging.file);
   const reportFailure = enableFatalReport(reportDir);
-  if (reportFailure) log.warn({ tags: ["startup"] }, `치명적 오류 진단 보고서 폴더(${reportDir})를 만들지 못해 보고서를 남기지 않음: ${reportFailure}`);
+  if (reportFailure) log.warn({ tags: ["startup"] }, L.core.fatalReportDirFailed({ dir: reportDir, error: reportFailure }));
   return logFile;
 }
 
 function deploySlashCommands() {
-  log.debug("슬래시 명령어 배포 시작");
+  log.debug(L.core.commandDeployStarted());
   commandLoader
     .deployCommands()
     .then((r) => {
-      if (r.ok && r.skipped) log.info(`슬래시 명령어 ${r.count}개 변경 없음, 배포 생략(강제 재배포: pnpm commands)`);
+      if (r.ok && r.skipped) log.info(L.core.commandDeploySkipped({ count: r.count }));
       else if (r.ok) log.info(`슬래시 명령어 ${r.count}개를 ${r.scope === "guild" ? `서버 ${r.guildId ?? "없음"}에` : "전역으로"} 배포 완료`);
       else commandLoader.deployErrorLines(r).forEach((line) => log.error(line));
     })
-    .catch((error: unknown) => log.error("슬래시 명령어 배포 실패:", messageOf(error)));
+    .catch((error: unknown) => log.error(L.core.commandDeployFailed({ error: messageOf(error) })));
 }
 
 function startBot({ potServer, logFile, shutdown, skipRestore, intents }: { potServer: PotServer; logFile: LogFile | null; shutdown: Shutdown; skipRestore: boolean; intents: GatewayIntentBits[] }) {
@@ -294,12 +295,12 @@ function startBot({ potServer, logFile, shutdown, skipRestore, intents }: { potS
   const onFault: OnFault = (error, guildId, where) => {
     // 디스코드가 거절한 요청은 다시 시작해도 똑같이 거절된다. 로그만 남긴다
     if (logRejection(error, guildId, where)) return;
-    if (guildId) fault(guildId, error, where).catch((e: unknown) => log.error(`서버 ${guildId} 오류 처리 실패:`, e));
-    else log.error(`핸들러 오류 (${where}):`, error);
+    if (guildId) fault(guildId, error, where).catch((e: unknown) => log.error(L.core.guildFaultHandleFailed({ guildId }), e));
+    else log.error(L.core.handlerError({ where }), error);
   };
 
   client.once(Events.ClientReady, (ready) => {
-    onReady(ready, bot, skipRestore).catch((error: unknown) => log.error("기동 마무리(세션 복원, 패널) 실패:", error));
+    onReady(ready, bot, skipRestore).catch((error: unknown) => log.error(L.core.startupFinishFailed(), error));
   });
   // 음성 채널 상태는 REST로 읽을 수 없다. 게이트웨이 패킷에서만 알 수 있어 여기서 따라간다.
   // (기동 시 GUILD_CREATE가 현재 값을, 이후 VOICE_CHANNEL_STATUS_UPDATE가 변경을 알려 준다)
@@ -333,7 +334,7 @@ function listenToLibrary(client: Client) {
     else dlog.debug(line);
   });
   // 거절된 요청(401, 403, 429)이 10분에 1만 번을 넘으면 디스코드가 IP를 한동안 막는다
-  client.rest.on(RESTEvents.InvalidRequestWarning, ({ count, remainingTime }) => dlog.warn(`거절된 디스코드 요청 누적 ${count}회(10분 윈도우 남은 시간 ${Math.round(remainingTime / 1000)}초). 1만 회를 넘으면 디스코드에서 이 IP를 일시 차단함`));
+  client.rest.on(RESTEvents.InvalidRequestWarning, ({ count, remainingTime }) => dlog.warn(L.discord.invalidRequestWarning({ count, seconds: Math.round(remainingTime / 1000) })));
   client.rest.on(RESTEvents.Debug, (message) => dlog.trace(message));
 }
 
@@ -369,8 +370,8 @@ function listenToPlayers(panels: NowPlayingPanel, stream: ReturnType<typeof crea
 
 async function onReady(client: Client<true>, bot: BotContext, skipRestore: boolean) {
   const { players, panels, stay } = bot;
-  log.info({ tags: ["startup"] }, `${client.user.tag} 준비 완료`);
-  log.info(`서버 ${client.guilds.cache.size}개에서 대기 중`);
+  log.info({ tags: ["startup"] }, L.core.botReady({ tag: client.user.tag }));
+  log.info(L.core.guildsWaiting({ count: client.guilds.cache.size }));
   new BotPresence(client).start(); // 활동 문구
   // 대시보드 초대 화면: 누가 초대할 수 있나(공개 봇, 앱 소유자). 실패하면 초대 화면을 열 때 다시 받는다
   void loadAppInfo(client);
@@ -390,7 +391,7 @@ async function onReady(client: Client<true>, bot: BotContext, skipRestore: boole
   // 캐시 정리는 복원 앞에. 정리는 이전 실행이 남긴 것(다운로드하다 만 행, 고아 파일)을 다루는데, 복원이 곡을 틀기 시작한 뒤에 돌면
   // 이번 실행이 다운로드하기 시작한 행까지 다운로드하다 만 것으로 되돌린다. 복원될 곡은 퇴거, 고아 청소 모두 저장된 세션을 보고 지킨다
   await cleanupAudioCache();
-  log.debug("세션 복원 시작");
+  log.debug(L.core.sessionRestoreStarted());
   const touched = await restoreSessions(client, players, Player, { skip: skipRestore });
   // 세션 없이 음성 채널에 남아 있던 봇(곡 없이 끔)을 이어받는다. 복원이 손댄 서버는 건드리지 않는다
   await adoptLingeringVoice(client, players, Player, { touched });
@@ -400,7 +401,7 @@ async function onReady(client: Client<true>, bot: BotContext, skipRestore: boole
   await panels.restorePanels({ skip: skipRestore });
   // 이미지 비교, 업로드, 삭제는 백그라운드에서(운영자 색이 바뀌면 다시)
   appEmojis.start();
-  log.info({ tags: ["startup"] }, "저장된 세션 복원 완료");
+  log.info({ tags: ["startup"] }, L.core.sessionRestoreDone());
 }
 
 // 기동 시 오디오 캐시 정리(중단된 다운로드, 고아 파일, 퇴거)
@@ -408,7 +409,7 @@ async function cleanupAudioCache() {
   try {
     await audioCache.onStartup();
   } catch (error) {
-    log.error("오디오 캐시 기동 정리 실패:", messageOf(error));
+    log.error(L.core.audioCacheStartupCleanFailed({ error: messageOf(error) }));
   }
 }
 
@@ -425,7 +426,7 @@ function warnMissingText() {
 async function init(bot: BotContext, { commands, potServer, logFile, shutdown, onFault }: { commands: Map<string, SlashCommand>; potServer: PotServer; logFile: LogFile | null; shutdown: Shutdown; onFault: OnFault }) {
   const { client, players } = bot;
   try {
-    log.info({ tags: ["startup"] }, "봇 기동 시작");
+    log.info({ tags: ["startup"] }, L.core.startupStarted());
     warnMissingText();
     checkBeforeLogin();
     await startEncoding();
@@ -437,7 +438,7 @@ async function init(bot: BotContext, { commands, potServer, logFile, shutdown, o
     await loginWithRetry(client, config.discord.token);
   } catch (error) {
     const stopped = error instanceof StartupStopped;
-    if (!stopped) log.error("봇 기동 실패:", error);
+    if (!stopped) log.error(L.core.startupFailed(), error);
     if (codeOf(error) === "DisallowedIntents") log.error(refusedAtLogin());
     stopFailedStart(client, { potServer, logFile }, failedStartCode(error, stopped));
   }
@@ -466,7 +467,7 @@ function checkBeforeLogin() {
   onTunablesChanged(() => void bestEffort(log, ytdlpBinary.onSettingsChanged(), "yt-dlp 설정 반영", "warn"));
   // CPU 상한이 걸려 있으면 yt-dlp 동시 실행 수가 제한되어 곡 찾기가 차례를 기다릴 수 있다
   const cpu = ytdlpCpuLimit();
-  if (cpu) log.info({ tags: ["startup"] }, `yt-dlp 동시 실행: 최대 ${cpu.slots}개(CPU 상한 ${cpu.quota.toFixed(1)}코어)`);
+  if (cpu) log.info({ tags: ["startup"] }, L.core.ytdlpConcurrency({ slots: cpu.slots, cores: cpu.quota.toFixed(1) }));
   // bgutil이 설정한 버전과 다르게 설치돼 있으면 알린다
   warnOffTarget();
   // POToken 서버 사용을 켰는데 설치돼 있지 않으면 알아서 설치한다(기동 준비가 끝나 작업 자리가 빈 뒤라 여기서). 켜기를 저장하거나 다른 작업이 끝날 때도 다시 판정한다
@@ -486,9 +487,9 @@ async function startEncoding() {
   try {
     const { libopusVersion, max, quota } = await encodePool.start();
     const limit = quota ? `상한 ${max}, CPU quota ${quota.toFixed(1)}` : `상한 ${max}`;
-    log.info({ tags: ["startup"] }, `Opus 인코더: ${libopusVersion} (WASM, 워커 스레드 ${limit})`);
+    log.info({ tags: ["startup"] }, L.core.opusEncoderReady({ version: libopusVersion, limit }));
   } catch (error) {
-    log.error(`Opus 인코더 불러오기 실패: ${messageOf(error)}`);
+    log.error(L.core.opusEncoderLoadFailed({ error: messageOf(error) }));
     throw new StartupStopped(messageOf(error), { cause: error });
   }
 }
@@ -507,7 +508,7 @@ function loadCommands(commands: Map<string, SlashCommand>) {
   const enabled = commandLoader.enabledCommands();
   commands.clear();
   for (const command of enabled) commands.set(command.name, command);
-  log.info({ tags: ["startup"] }, `슬래시 명령어 ${enabled.length}개 준비 완료`);
+  log.info({ tags: ["startup"] }, L.core.commandsReady({ count: enabled.length }));
 }
 
 function loadEvents(bot: BotContext, onFault: OnFault) {
@@ -521,7 +522,7 @@ function loadEvents(bot: BotContext, onFault: OnFault) {
       guarded(event.name, (...args: unknown[]) => event.execute(bot, ...args), onFault),
     );
   }
-  log.info({ tags: ["startup"] }, `이벤트 핸들러 ${events.length}개 등록 완료`);
+  log.info({ tags: ["startup"] }, L.core.eventHandlersRegistered({ count: events.length }));
 }
 
 export { main };

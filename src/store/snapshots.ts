@@ -13,6 +13,7 @@ import { settingsDb, VERSION } from "./settings-db.ts";
 import { ownerOnly } from "../infra/owner-only.ts";
 import { repeatingFailure } from "../infra/repeating-failure.ts";
 import type { Snapshot, SnapshotKind } from "../rules/snapshots.ts";
+import { L } from "../infra/log/text.ts";
 
 const KEEP_DAILY = 7;
 const KEEP_OTHERS = 5;
@@ -23,7 +24,7 @@ const NAME = /^settings-(daily|before-import|before-restore|before-reset)-[0-9-]
 const STAGED = "settings.restore.db";
 
 let timer: NodeJS.Timeout | null = null;
-const listFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "설정 DB 스냅샷 폴더 읽기");
+const listFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.core.snapshotDirRead());
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const day = (at: Date) => `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
@@ -77,7 +78,7 @@ function removeQuietly(file: string) {
   try {
     fs.rmSync(file, { force: true });
   } catch (error) {
-    log.warn(`옛 스냅샷 삭제 실패(다음에 다시 삭제): ${path.basename(file)} | ${messageOf(error)}`);
+    log.warn(L.core.oldSnapshotRemoveFailed({ file: path.basename(file), error: messageOf(error) }));
   }
 }
 
@@ -100,7 +101,7 @@ function prune(dir: string, now = Date.now()) {
       if (stat && now - stat.mtimeMs > STALE_PART_MS) removeQuietly(file);
     }
   } catch (error) {
-    log.warn(`옛 스냅샷 정리 실패(다음에 다시 정리): ${messageOf(error)}`);
+    log.warn(L.core.oldSnapshotsCleanFailed({ error: messageOf(error) }));
   }
 }
 
@@ -117,7 +118,7 @@ function dropWal(file: string) {
       db.close();
     }
   } catch (error) {
-    log.warn(`DB 사본의 저널 방식 변경 실패(읽기 전용으로 열면 -wal, -shm 파일이 생길 수 있음): ${path.basename(file)} | ${messageOf(error)}`);
+    log.warn(L.core.dbCopyJournalFailed({ file: path.basename(file), error: messageOf(error) }));
   }
 }
 
@@ -159,13 +160,13 @@ function tidy() {
 async function ensureDaily(at = new Date()) {
   if (list().some((one) => one.name === `settings-daily-${day(at)}.db`)) return null;
   const name = await take("daily", at);
-  log.info(`설정 DB 스냅샷 기록: ${name}`);
+  log.info(L.core.snapshotSaved({ name }));
   return name;
 }
 
 /** 기동 시. 오늘 것을 뜨고 한 시간마다 살핀다(자정을 넘겨 돌아도 하루 한 번) */
 function startDaily() {
-  const check = () => ensureDaily().catch((error: unknown) => log.warn(`설정 DB 스냅샷 기록 실패: ${messageOf(error)}`));
+  const check = () => ensureDaily().catch((error: unknown) => log.warn(L.core.snapshotSaveFailed({ error: messageOf(error) })));
   void check();
   timer = setInterval(() => void check(), CHECK_MS);
   timer.unref();
@@ -181,7 +182,7 @@ function checkSnapshot(file: string) {
   const db = new Database(file, { readonly: true, fileMustExist: true });
   try {
     const found = db.pragma("user_version", { simple: true }) as number;
-    if (found !== VERSION) throw codedError("SNAPSHOT_MISMATCH", `구조 버전이 다른 스냅샷(v${found}, 봇 v${VERSION})`);
+    if (found !== VERSION) throw codedError("SNAPSHOT_MISMATCH", L.core.snapshotVersionMismatch({ version: found, botVersion: VERSION }));
     db.prepare("SELECT COUNT(*) FROM documents").get();
   } finally {
     db.close();
@@ -192,7 +193,7 @@ function checkSnapshot(file: string) {
 function stage(name: string) {
   const dir = dbDir();
   const found = NAME.test(name) ? list(dir).find((one) => one.name === name) : undefined;
-  if (!found) throw codedError("SNAPSHOT_NOT_FOUND", `없는 스냅샷: ${name}`);
+  if (!found) throw codedError("SNAPSHOT_NOT_FOUND", L.core.snapshotNotFound({ name }));
   const from = path.join(backupsOf(dir), found.name);
   checkSnapshot(from);
   const to = path.join(dir, STAGED);
@@ -216,7 +217,7 @@ function staged(dir = dbDir()): string | null {
     return (JSON.parse(fs.readFileSync(path.join(dir, `${STAGED}.json`), "utf8")) as { from?: string }).from ?? STAGED;
   } catch (error) {
     // 설명 파일이 없으면 예약한 파일 이름으로 부른다
-    if (codeOf(error) !== "ENOENT") log.warn(`예약한 설정 DB의 설명 읽기 실패: ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(L.core.stagedSettingsDbNoteReadFailed({ error: messageOf(error) }));
     return STAGED;
   }
 }
@@ -236,7 +237,7 @@ function keepCurrent(dir: string, current: string) {
     }
     dropWal(`${kept}.part`);
   } catch (error) {
-    log.warn(`교체할 설정 DB 읽기 실패(파일 그대로 남김): ${messageOf(error)}`);
+    log.warn(L.core.replacedSettingsDbReadFailed({ error: messageOf(error) }));
     fs.copyFileSync(current, `${kept}.part`);
   }
   fs.renameSync(`${kept}.part`, kept);
@@ -255,7 +256,7 @@ function applyStaged(dir: string): string | null {
   try {
     checkSnapshot(path.join(dir, STAGED));
   } catch (error) {
-    throw Object.assign(codedError("RESTORE_FAILED", `예약한 ${from} 교체 건너뜀: ${messageOf(error)}. 그 버전의 봇으로 시작하거나 database/${STAGED}를 삭제하세요`), { dbFile: "settings.db" });
+    throw Object.assign(codedError("RESTORE_FAILED", L.core.stagedSettingsDbSkipped({ source: from, error: messageOf(error), stagedFile: STAGED })), { dbFile: "settings.db" });
   }
   try {
     if (fs.existsSync(current)) keepCurrent(dir, current);
@@ -265,7 +266,7 @@ function applyStaged(dir: string): string | null {
     for (const leftover of [`${STAGED}-wal`, `${STAGED}-shm`]) fs.rmSync(path.join(dir, leftover), { force: true });
   } catch (error) {
     // Windows에서 다른 프로그램(SQLite 뷰어 등)이 settings.db를 열어 두면 삭제하지 못한다. 예약은 남아 다음 기동에 다시 한다
-    throw Object.assign(codedError("RESTORE_FAILED", `예약한 ${from} 교체 실패: ${messageOf(error)}. settings.db를 연 프로그램을 닫고 다시 시작하세요`), { dbFile: "settings.db" });
+    throw Object.assign(codedError("RESTORE_FAILED", L.core.stagedSettingsDbApplyFailed({ source: from, error: messageOf(error) })), { dbFile: "settings.db" });
   }
   fs.rmSync(path.join(dir, `${STAGED}.json`), { force: true });
   prune(dir);

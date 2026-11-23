@@ -9,6 +9,7 @@ import { Routes } from "discord.js";
 import logger from "../infra/log/logger.ts";
 import { codedError, messageOf } from "../rules/error-kind.ts";
 import { EXIT, failedStartCode } from "./exit-codes.ts";
+import { L } from "../infra/log/text.ts";
 
 const log = logger.child({ category: "core" });
 
@@ -31,9 +32,9 @@ async function untilDiscordAnswers<T>(what: string, call: () => Promise<T>, { wa
     try {
       return await call();
     } catch (error) {
-      if (error && typeof error === "object" && "status" in error && error.status === 401) throw codedError("TokenInvalid", "디스코드 토큰이 틀림", { cause: error });
+      if (error && typeof error === "object" && "status" in error && error.status === 401) throw codedError("TokenInvalid", L.core.discordTokenInvalid(), { cause: error });
       if (failedStartCode(error, false) === EXIT.badSetup || attempt >= waits.length) throw error;
-      log.warn(`${what} 실패: ${messageOf(error)} | ${waits[attempt] / 1000}초 뒤 재시도(${attempt + 1}/${waits.length})`);
+      log.warn(L.core.discordCallRetrying({ what, error: messageOf(error), seconds: waits[attempt] / 1000, attempt: attempt + 1, maxAttempts: waits.length }));
       await wait(waits[attempt]);
     }
   }

@@ -22,6 +22,9 @@ interface LogFn {
   (text: LogText): void;
   (bindings: LogBindings, text: LogText): void;
   (err: Error, text: LogText): void;
+  // 문구 뒤의 값 하나(대개 catch의 오류): 글 형식의 util.format처럼 inspect해 뒤에 붙인다(Error는 err로도)
+  (text: LogText, value: unknown): void;
+  (bindings: LogBindings, text: LogText, value: unknown): void;
   // 글 형식(마이그레이션 중)
   (msg: string, ...extra: unknown[]): void;
   (bindings: LogBindings, msg?: string, ...extra: unknown[]): void;

@@ -10,6 +10,7 @@ import { frame } from "../ui/frame.ts";
 import { dashboardButton } from "../ui/dashboard-link.ts";
 import { languagesNow, publicText } from "../ui/language.ts";
 import logger from "../infra/log/logger.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "core" });
 
 /** 들어온 지 이만큼 안이면 새로 들어온 서버로 본다 */
@@ -64,12 +65,12 @@ function welcomeView(guild: Guild) {
 async function welcomeGuild(guild: Guild, now = Date.now()) {
   if (!config.bot.welcomeMessage) return;
   if (!guild.joinedTimestamp || now - guild.joinedTimestamp > RECENT_MS) {
-    log.debug(`서버 ${guild.id}: 들어온 지 오래되어 안내 메시지를 올리지 않음`);
+    log.debug(L.core.welcomeSkippedOld({ guildId: guild.id }));
     return;
   }
   const channel = await welcomeChannel(guild);
   if (!channel) {
-    log.warn(`새 서버 ${guild.name}(${guild.id})에 안내 메시지를 올릴 채널이 없음(봇이 보고 쓸 수 있는 텍스트 채널 없음)`);
+    log.warn(L.core.welcomeNoChannel({ guild: guild.name, guildId: guild.id }));
     return;
   }
   await channel.send(welcomeView(guild));

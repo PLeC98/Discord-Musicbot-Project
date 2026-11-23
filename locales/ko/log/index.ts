@@ -14,3 +14,8 @@ export { link } from "./link.ts";
 export { vendor } from "./vendor.ts";
 export { player } from "./player.ts";
 export { track } from "./track.ts";
+export { discord } from "./discord.ts";
+export { cache } from "./cache.ts";
+export { youtube } from "./youtube.ts";
+export { guild } from "./guild.ts";
+export { user } from "./user.ts";

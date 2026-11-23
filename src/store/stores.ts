@@ -18,6 +18,7 @@ import { stateDb } from "./state-db.ts";
 import { cacheDb } from "./cache-db.ts";
 import { aiLogDb } from "./ai-log-db.ts";
 import { sessionDb } from "./session-db.ts";
+import { L } from "../infra/log/text.ts";
 
 // 여는 순서. 설정이 깨졌으면 다른 파일을 건드리기 전에 멈춘다
 const FILES: DbFile[] = [settingsDb, usersDb, stateDb, cacheDb, aiLogDb, sessionDb];
@@ -30,7 +31,7 @@ function open(dir = PROJECT.database) {
     close();
     throw error;
   }
-  log.info({ tags: ["startup"] }, "DB 준비 완료 (설정, 사용자 데이터, 실행 상태, 캐시, AI 리퀘스트 로그, 로그인 세션)");
+  log.info({ tags: ["startup"] }, L.core.databasesOpened());
 }
 
 // 못 열면 어느 파일인지 오류에 단다(dbFile: 그 파일의 라벨). 설정 DB면 기동이 복원하는 법을 알린다

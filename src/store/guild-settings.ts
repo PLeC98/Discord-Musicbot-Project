@@ -10,6 +10,7 @@ import { AGE_PLACES, type AgePlace } from "../rules/age-place.ts";
 import { PLAYLIST_ADD_DEFAULT, VOLUME_BASE, VOLUME_MAX } from "../rules/limits.ts";
 import { sameValue, type SettingsKey } from "../rules/guild-settings-values.ts";
 import { KNOWN_TAGS, type Language } from "../rules/languages.ts";
+import { L } from "../infra/log/text.ts";
 
 // 재생목록 한 번에 넣는 곡 수의 상한. 대기열 상한이 더 작으면 그쪽을 따른다
 const PLAYLIST_ADD_CEILING = 1000;
@@ -315,7 +316,7 @@ function announce(guildId: string, fields: GuildField[]) {
     try {
       fn(guildId, fields);
     } catch (error) {
-      log.error("서버 설정 변경 알림 처리 실패:", error);
+      log.error(L.guild.guildSettingsNotifyFailed(), error);
     }
   }
 }
@@ -371,7 +372,7 @@ async function getBotChannel(guildId: string): Promise<string | null> {
     return channelId;
   } catch (error) {
     unlessNotOpen(error);
-    log.error("전용 채널 읽기 실패:", error);
+    log.error(L.guild.dedicatedChannelReadFailed(), error);
     return null;
   }
 }
@@ -394,7 +395,7 @@ async function getDjRoles(guildId: string): Promise<string[]> {
     return roleIds;
   } catch (error) {
     unlessNotOpen(error);
-    log.error("DJ 역할 읽기 실패:", error);
+    log.error(L.guild.djRoleReadFailed(), error);
     return [];
   }
 }
@@ -422,7 +423,7 @@ async function getPlaylistAddMax(guildId: string): Promise<number | null> {
     return value;
   } catch (error) {
     unlessNotOpen(error);
-    log.error("재생목록 1회 최대 추가 곡 수 읽기 실패(기본값 사용):", error);
+    log.error(L.guild.playlistLimitReadFailed(), error);
     return null;
   }
 }
@@ -444,7 +445,7 @@ function resolvePlaylistAddMax(guildId: string): number {
       stored = table.getPlaylistAddMax(guildId);
       remember(guildId, "playlistAdd", stored);
     } catch (error) {
-      log.error("재생목록 1회 최대 추가 곡 수 읽기 실패(기본값 사용):", error);
+      log.error(L.guild.playlistLimitReadFailed(), error);
       stored = null;
     }
   }
@@ -463,7 +464,7 @@ function resolveAgePlace(guildId: string): AgePlace {
     remember(guildId, "agePlace", value);
     return value;
   } catch (error) {
-    log.error("연령 제한 콘텐츠 허용 범위 읽기 실패(연령 제한 채널만 허용으로 적용):", error);
+    log.error(L.guild.ageRestrictedReadFailed(), error);
     return "channel";
   }
 }
@@ -482,7 +483,7 @@ function resolveVolume(guildId: string): number {
       stored = table.getVolume(guildId);
       remember(guildId, "volume", stored);
     } catch (error) {
-      log.error("서버 볼륨 읽기 실패(기본 볼륨 사용):", error);
+      log.error(L.guild.volumeReadFailed(), error);
       stored = null;
     }
   }
@@ -508,7 +509,7 @@ function resolveNormalize(guildId: string): boolean {
   try {
     value = table.getNormalize(guildId);
   } catch (error) {
-    log.error("볼륨 정규화 설정 읽기 실패(끔으로 적용):", error);
+    log.error(L.guild.volumeNormalizeReadFailed(), error);
   }
   remember(guildId, "normalize", value);
   return value;
@@ -533,7 +534,7 @@ function resolveLanguage(guildId: string): Language | null {
     value = table.getLanguage(guildId);
   } catch (error) {
     unlessNotOpen(error);
-    log.error("서버 언어 읽기 실패(봇 기본 언어로 적용):", error);
+    log.error(L.guild.guildLanguageReadFailed(), error);
   }
   remember(guildId, "language", value);
   return value;
@@ -556,7 +557,7 @@ async function getSponsorBlock(guildId: string): Promise<SponsorBlockSetting> {
     return v;
   } catch (error) {
     unlessNotOpen(error);
-    log.error("SponsorBlock 설정 읽기 실패(전역 설정 적용):", error);
+    log.error(L.guild.sponsorBlockReadFailed(), error);
     return { enabled: null, categories: null };
   }
 }
@@ -578,7 +579,7 @@ function resolveSponsorBlock(guildId: string): { enabled: boolean; categories: s
     per = table.getGuildSponsorBlock(guildId);
   } catch (error) {
     unlessNotOpen(error);
-    log.error("SponsorBlock 설정 읽기 실패(전역 설정 적용):", error);
+    log.error(L.guild.sponsorBlockReadFailed(), error);
     per = { enabled: null, categories: null };
   }
   return {

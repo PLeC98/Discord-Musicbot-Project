@@ -28,6 +28,8 @@ import { cacheDb } from "../store/cache-db.ts";
 import { STAGED_USERS } from "../store/users-db.ts";
 import { dropWal } from "../store/snapshots.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
+import { L } from "../infra/log/text.ts";
+import { logTextError } from "../infra/log/log-text.ts";
 
 type PartLeft = { path: string; code: string };
 type Paths = { envFile: string; databaseDir: string; faviconDir: string; backgroundDir: string; outDir: string };
@@ -109,7 +111,7 @@ function publish(part: string, dir: string, name: string): { out: string; partLe
       }
       return { out, partLeft: removeLeftPart(part) };
     }
-    throw new Error(`백업 이름 잡기 실패: ${name}부터 ${NAME_TRIES}개가 이미 있음`);
+    throw logTextError(L.core.backupNameTaken({ name, tries: NAME_TRIES }));
   } catch (error) {
     fs.rmSync(part, { force: true });
     throw error;
@@ -152,7 +154,7 @@ async function audioBundle(databaseDir: string, withFiles: boolean): Promise<{ f
   const cache = path.join(databaseDir, "cache.db");
   if (!fs.existsSync(cache)) return null;
   const opened = cacheDb.isOpen();
-  if (opened && path.resolve(cacheDb.get().name) !== path.resolve(cache)) throw Object.assign(new Error(`다른 캐시 DB가 열려 있음: ${cacheDb.get().name}`), { code: "CACHE_DB_OPEN" });
+  if (opened && path.resolve(cacheDb.get().name) !== path.resolve(cache)) throw Object.assign(logTextError(L.core.otherCacheDbOpen({ file: cacheDb.get().name })), { code: "CACHE_DB_OPEN" });
   const copy = opened ? { file: path.join(fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-backup-")), "cache.db"), done: () => undefined } : await dbCopy(cache);
   const folder = path.dirname(copy.file);
   const done = () => {
@@ -185,7 +187,7 @@ async function audioBundle(databaseDir: string, withFiles: boolean): Promise<{ f
 async function makeFullBackup(paths: Partial<Paths> = {}, at = new Date(), { withAudio = false }: { withAudio?: boolean } = {}) {
   const { envFile, databaseDir, faviconDir, backgroundDir, outDir } = { ...REAL, ...paths };
   const settings = path.join(databaseDir, "settings.db");
-  if (!fs.existsSync(settings)) throw Object.assign(new Error(`설정 DB 없음: ${settings}`), { code: "NO_SETTINGS_DB" });
+  if (!fs.existsSync(settings)) throw Object.assign(logTextError(L.core.settingsDbMissing({ file: settings })), { code: "NO_SETTINGS_DB" });
   const name = `musicbot-full-${stamp(at)}.zip`;
   const legacyParts = sweepParts(outDir);
   // .env는 지금 한 번 읽어 ZIP의 마지막 항목으로 넣는다(평문이 .part에 머무는 시간이 짧고, 긴 백업 도중 바뀐 파일을 뒤늦게 읽지 않는다)

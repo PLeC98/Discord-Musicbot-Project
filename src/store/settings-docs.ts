@@ -6,6 +6,8 @@ import fs from "fs";
 import logger from "../infra/log/logger.ts";
 import { codedError, codeOf, messageOf } from "../rules/error-kind.ts";
 import { settingsDb } from "./settings-db.ts";
+import { L } from "../infra/log/text.ts";
+import { logTextError } from "../infra/log/log-text.ts";
 const log = logger.child({ category: "config" });
 
 /** 문서 하나. 없으면 data는 null, revision은 0 */
@@ -19,7 +21,7 @@ function parse(name: string, raw: string | undefined): unknown {
   try {
     return JSON.parse(raw);
   } catch (error) {
-    log.warn(`설정 문서 ${name}의 JSON 파싱 실패(없는 것으로 처리): ${messageOf(error)}`);
+    log.warn(L.config.settingsDocParseFailed({ name, error: messageOf(error) }));
     return null;
   }
 }
@@ -34,7 +36,7 @@ type Write = { name: string; data: unknown; revision: number };
 
 function writeOne({ name, data, revision }: Write): number {
   const now = read(name).revision;
-  if (now !== revision) throw codedError("REVISION_CONFLICT", `${name} 문서가 그사이 바뀜(읽은 번호 ${revision}, 지금 ${now})`);
+  if (now !== revision) throw codedError("REVISION_CONFLICT", L.config.settingsDocConflict({ name, readRevision: revision, currentRevision: now }));
   conn()
     .prepare(
       `INSERT INTO documents (name, data_json, revision) VALUES (?, ?, ?)
@@ -74,8 +76,8 @@ function peek(file: string, name: string, { strict = false } = {}): unknown {
     return parse(name, row?.data_json);
   } catch (error) {
     if (codeOf(error) === "SQLITE_ERROR" && /^no such table/.test(messageOf(error))) return null; // 표가 없다(옛 파일)
-    if (strict) throw new Error(`설정 DB 읽기 실패: ${file}, 문서=${name} | ${codeOf(error) ?? messageOf(error)}`, { cause: error });
-    log.warn(`설정 DB 읽기 전용 조회 실패(기본값 사용): ${file}, 문서=${name} | ${codeOf(error) ?? messageOf(error)}`);
+    if (strict) throw logTextError(L.config.settingsDbReadFailed({ file, doc: name, error: codeOf(error) ?? messageOf(error) }), { cause: error });
+    log.warn(L.config.settingsDbQueryFailed({ file, doc: name, error: codeOf(error) ?? messageOf(error) }));
     return null;
   } finally {
     db.close();

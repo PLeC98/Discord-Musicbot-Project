@@ -62,6 +62,19 @@ const config = {
   genresReadFailed: ({ problems }: { problems: string }) => `자동재생 장르 설정 읽기 실패:\n${problems}`,
   /** 활동 문구 설정을 읽지 못했다. problems: 문제(줄마다 들여 쓴 글, 줄바꿈으로 이음) */
   statusReadFailed: ({ problems }: { problems: string }) => `활동 문구 설정 읽기 실패:\n${problems}`,
+  aiKeysFileIgnored: () => `config/ai-keys.yaml은 이제 읽지 않음. 운영자 패널의 AI 보조 탭에서 키를 다시 입력하고 이 파일은 삭제하세요`,
+  secretsUnavailable: () => `SECRETS_KEY가 없어 비밀값을 다룰 수 없음`,
+  secretValueInvalid: ({ name }: { name: string }) => `비밀값 ${name}: 비어 있으면 안 되고 1MB 이하여야 함`,
+  secretDecryptFailed: ({ name }: { name: string }) => `비밀값 ${name} 복호화 실패(저장된 행이 변경되었거나 손상됨). 대시보드에서 다시 입력하세요`,
+  serviceKeyDecryptFailed: ({ service }: { service: string }) => `${service} 키 복호화 실패(SECRETS_KEY가 변경되었거나 저장된 값이 손상됨). 운영자 패널의 API 키 탭에서 다시 입력하세요`,
+  spotifyKeyMissing: () => `Spotify API 키 없음(곡, 앨범 링크는 열지 못하고 재생목록, 아티스트는 키 없이 열 수 있음). 운영자 패널의 API 키 탭에서 입력하세요`,
+  serviceKeyFieldsInvalid: ({ service }: { service: string }) => `${service} 키의 필드가 맞지 않음`,
+  settingsDocParseFailed: ({ name, error }: { name: string; error: string }) => `설정 문서 ${name}의 JSON 파싱 실패(없는 것으로 처리): ${error}`,
+  settingsDocConflict: ({ name, readRevision, currentRevision }: { name: string; readRevision: number; currentRevision: number }) => `${name} 문서가 그사이 바뀜(읽은 번호 ${readRevision}, 지금 ${currentRevision})`,
+  settingsDbReadFailed: ({ file, doc, error }: { file: string; doc: string; error: number | string }) => `설정 DB 읽기 실패: ${file}, 문서=${doc} | ${error}`,
+  settingsDbQueryFailed: ({ file, doc, error }: { file: string; doc: string; error: number | string }) => `설정 DB 읽기 전용 조회 실패(기본값 사용): ${file}, 문서=${doc} | ${error}`,
+  toolCardKeysUnknown: ({ names }: { names: string }) => `도구 카드의 값이 아님: ${names}`,
+  toolCardConflict: ({ names }: { names: string }) => `그사이 바뀐 값: ${names}`,
 };
 
 export { config };
