@@ -1,122 +1,981 @@
 {
-  "src/app/command-loader.ts": 1,
-  "src/app/launcher.ts": 2,
-  "src/app/main.ts": 7,
-  "src/app/privileged-intents.ts": 9,
-  "src/app/resilience.ts": 1,
-  "src/app/run-record.ts": 15,
-  "src/app/shutdown.ts": 2,
-  "src/app/startup-prepare.ts": 5,
-  "src/app/stay-keeper.ts": 5,
-  "src/autoplay/assist/index.ts": 15,
-  "src/autoplay/filter.ts": 9,
-  "src/config/ai-models.ts": 2,
-  "src/config/env-file.ts": 2,
-  "src/config/genres.ts": 4,
-  "src/config/index.ts": 27,
-  "src/dashboard/ai-log-stream.ts": 2,
-  "src/dashboard/bind-plan.ts": 16,
-  "src/dashboard/client-freshness.ts": 7,
-  "src/dashboard/host-check.ts": 1,
-  "src/dashboard/index.ts": 2,
-  "src/dashboard/log-file-reader.ts": 1,
-  "src/dashboard/login-background/encode.ts": 2,
-  "src/dashboard/login-background/encoders.ts": 1,
-  "src/dashboard/login-background/youtube.ts": 1,
-  "src/dashboard/old-tools.ts": 11,
-  "src/dashboard/plaintext.ts": 13,
-  "src/dashboard/reset.ts": 10,
-  "src/dashboard/routes/admin.ts": 1,
-  "src/dashboard/routes/ai-log.ts": 1,
-  "src/dashboard/routes/auth.ts": 4,
-  "src/dashboard/routes/login-devices.ts": 1,
-  "src/dashboard/routes/player-events.ts": 1,
-  "src/dashboard/routes/settings-archive.ts": 4,
-  "src/dashboard/routes/tunables.ts": 2,
-  "src/dashboard/routes/vendor.ts": 1,
-  "src/dashboard/session-requests.ts": 4,
-  "src/dashboard/session-store.ts": 9,
-  "src/dashboard/settings-archive.ts": 12,
-  "src/dashboard/status/gateway.ts": 14,
-  "src/dashboard/tls-files.ts": 24,
-  "src/dashboard/track-cache.ts": 7,
-  "src/discord/commands/search.ts": 9,
-  "src/discord/events/interaction-create.ts": 9,
-  "src/infra/disk.ts": 2,
-  "src/infra/error-text.ts": 6,
-  "src/infra/leftover-children.ts": 5,
-  "src/infra/log/file.ts": 6,
-  "src/infra/log/sink.ts": 5,
-  "src/infra/log/title.ts": 1,
-  "src/infra/process-memory.ts": 3,
-  "src/infra/process-priority.ts": 12,
-  "src/infra/process-registry.ts": 5,
-  "src/infra/process-snapshot.ts": 2,
-  "src/infra/system-upload.ts": 4,
-  "src/infra/zip.ts": 2,
-  "src/media/cache-download.ts": 9,
-  "src/media/chunked-stream.ts": 2,
-  "src/media/convert.ts": 5,
-  "src/media/direct-input.ts": 1,
-  "src/media/encode-pool.ts": 30,
-  "src/media/ffmpeg/cli-args.ts": 4,
-  "src/media/ffmpeg/exit.ts": 1,
-  "src/media/ffmpeg/install.ts": 6,
-  "src/media/ffmpeg/path.ts": 8,
-  "src/media/ffmpeg/state.ts": 3,
-  "src/media/fragment-stream.ts": 4,
-  "src/media/input-health.ts": 1,
-  "src/media/loudness-measure.ts": 16,
-  "src/media/playback-input.ts": 24,
-  "src/media/recheck-queue.ts": 3,
-  "src/media/resuming-body.ts": 2,
-  "src/media/seek-start.ts": 5,
-  "src/media/source-recheck.ts": 6,
-  "src/player/idle-leave.ts": 1,
-  "src/player/player.ts": 37,
-  "src/player/session-restore.ts": 4,
-  "src/player/start-playback.ts": 7,
-  "src/player/voice-leave.ts": 2,
-  "src/player/voice-link.ts": 11,
-  "src/rules/container-index.ts": 25,
-  "src/rules/convert-plan.ts": 5,
-  "src/rules/discord-rejection.ts": 13,
-  "src/rules/end-verdict.ts": 10,
-  "src/rules/failure-reason.ts": 13,
-  "src/rules/node-support.ts": 3,
-  "src/rules/operator-hints.ts": 3,
-  "src/rules/retry-budget.ts": 4,
-  "src/sources/bgutil/auto-install.ts": 3,
-  "src/sources/bgutil/cli-args.ts": 8,
-  "src/sources/bgutil/install.ts": 10,
-  "src/sources/bgutil/state.ts": 1,
-  "src/sources/bgutil/trial.ts": 7,
-  "src/sources/direct.ts": 1,
-  "src/sources/embedded-art.ts": 2,
-  "src/sources/file-tags.ts": 1,
-  "src/sources/hls.ts": 5,
-  "src/sources/spotify.ts": 7,
-  "src/sources/youtube/auth.ts": 9,
-  "src/sources/youtube/clients.ts": 2,
-  "src/sources/youtube/errors.ts": 7,
-  "src/sources/youtube/pot-server.ts": 2,
-  "src/sources/youtube/ytdlp-run.ts": 2,
-  "src/sources/ytdlp-binary.ts": 21,
-  "src/sources/ytdlp-cli-args.ts": 6,
-  "src/sources/ytdlp-info.ts": 2,
-  "src/sources/ytdlp-spawn.ts": 2,
-  "src/store/ai-log-db.ts": 2,
-  "src/store/audio-cache.ts": 9,
-  "src/store/cache-db.ts": 2,
-  "src/store/guild-settings.ts": 7,
-  "src/store/player-sessions.ts": 1,
-  "src/store/session-db.ts": 2,
-  "src/store/settings-db.ts": 4,
-  "src/store/sqlite.ts": 3,
-  "src/store/state-db.ts": 2,
-  "src/store/track-lookup.ts": 2,
-  "src/store/users-db.ts": 4,
-  "src/ui/card-render/render.ts": 4,
-  "src/ui/delivery.ts": 1,
-  "src/usecases/add-tracks.ts": 6
+  "scripts/backup.ts": {
+    "log": 17
+  },
+  "scripts/build-discord-icons.ts": {
+    "log": 5
+  },
+  "scripts/build-emoji-list.ts": {
+    "outside": 11,
+    "log": 10
+  },
+  "scripts/build-english-finals.ts": {
+    "log": 4
+  },
+  "scripts/build-icon-font.ts": {
+    "log": 4,
+    "outside": 2
+  },
+  "scripts/build-kanji-finals.ts": {
+    "log": 5
+  },
+  "scripts/build-mono-font.ts": {
+    "log": 10,
+    "outside": 1
+  },
+  "scripts/build-sans-font.ts": {
+    "log": 4,
+    "outside": 1
+  },
+  "scripts/build-twemoji-font.ts": {
+    "log": 9,
+    "outside": 1
+  },
+  "scripts/check-bot-stopped.ts": {
+    "log": 3
+  },
+  "scripts/check-vendor-updates.ts": {
+    "log": 5,
+    "outside": 4
+  },
+  "scripts/deploy-commands.ts": {
+    "log": 8,
+    "outside": 6
+  },
+  "scripts/download.ts": {
+    "log": 1
+  },
+  "scripts/font-names.ts": {
+    "log": 2
+  },
+  "scripts/install-bgutil.ts": {
+    "log": 25,
+    "outside": 1
+  },
+  "scripts/install-ffmpeg.ts": {
+    "log": 24,
+    "outside": 1
+  },
+  "scripts/refresh-ai-models.ts": {
+    "log": 8
+  },
+  "scripts/setup-config.ts": {
+    "log": 1
+  },
+  "scripts/update-ytdlp.ts": {
+    "outside": 13,
+    "log": 6
+  },
+  "scripts/verify-move.ts": {
+    "outside": 8,
+    "log": 6
+  },
+  "src/app/app-emojis.ts": {
+    "log": 16
+  },
+  "src/app/app-info.ts": {
+    "log": 2
+  },
+  "src/app/command-loader.ts": {
+    "log": 11,
+    "outside": 1
+  },
+  "src/app/full-backup.ts": {
+    "log": 5
+  },
+  "src/app/guild-fault.ts": {
+    "log": 13
+  },
+  "src/app/launcher.ts": {
+    "outside": 2
+  },
+  "src/app/login.ts": {
+    "log": 4
+  },
+  "src/app/main.ts": {
+    "log": 71,
+    "outside": 7
+  },
+  "src/app/privileged-intents.ts": {
+    "outside": 9,
+    "log": 6
+  },
+  "src/app/resilience.ts": {
+    "log": 9,
+    "outside": 1
+  },
+  "src/app/run-record.ts": {
+    "outside": 15
+  },
+  "src/app/shutdown.ts": {
+    "outside": 2,
+    "log": 33
+  },
+  "src/app/startup-prepare.ts": {
+    "outside": 5
+  },
+  "src/app/stay-keeper.ts": {
+    "outside": 5,
+    "log": 9
+  },
+  "src/app/welcome.ts": {
+    "log": 4
+  },
+  "src/autoplay/assist/google-auth.ts": {
+    "log": 4
+  },
+  "src/autoplay/assist/index.ts": {
+    "log": 17,
+    "outside": 15
+  },
+  "src/autoplay/assist/request-log.ts": {
+    "log": 1
+  },
+  "src/autoplay/assist/tokens.ts": {
+    "log": 16
+  },
+  "src/autoplay/filter.ts": {
+    "outside": 9
+  },
+  "src/autoplay/pool.ts": {
+    "log": 3
+  },
+  "src/autoplay/route.ts": {
+    "log": 4
+  },
+  "src/autoplay/sources/anisongdb.ts": {
+    "log": 2
+  },
+  "src/autoplay/sources/http.ts": {
+    "log": 1
+  },
+  "src/autoplay/sources/index.ts": {
+    "log": 3
+  },
+  "src/autoplay/sources/lastfm.ts": {
+    "log": 2
+  },
+  "src/autoplay/sources/lbradio.ts": {
+    "log": 2
+  },
+  "src/autoplay/sources/playlists.ts": {
+    "log": 2
+  },
+  "src/autoplay/sources/voca.ts": {
+    "log": 12
+  },
+  "src/config/ai-model-info.ts": {
+    "log": 4
+  },
+  "src/config/ai-models.ts": {
+    "log": 13,
+    "outside": 2
+  },
+  "src/config/ai-prices.ts": {
+    "log": 3
+  },
+  "src/config/ai.ts": {
+    "log": 1
+  },
+  "src/config/documents.ts": {
+    "log": 2
+  },
+  "src/config/env-file.ts": {
+    "outside": 2
+  },
+  "src/config/genres.ts": {
+    "log": 5,
+    "outside": 4
+  },
+  "src/config/index.ts": {
+    "outside": 27
+  },
+  "src/config/status.ts": {
+    "log": 3
+  },
+  "src/dashboard/ai-log-stream.ts": {
+    "log": 3,
+    "outside": 2
+  },
+  "src/dashboard/app-emoji-glyphs.ts": {
+    "log": 3
+  },
+  "src/dashboard/app-emoji-image.ts": {
+    "log": 5
+  },
+  "src/dashboard/appearance.ts": {
+    "log": 7
+  },
+  "src/dashboard/archive-uploads.ts": {
+    "log": 1
+  },
+  "src/dashboard/bind-plan.ts": {
+    "outside": 16
+  },
+  "src/dashboard/binding.ts": {
+    "log": 8
+  },
+  "src/dashboard/client-freshness.ts": {
+    "log": 3,
+    "outside": 7
+  },
+  "src/dashboard/cors.ts": {
+    "log": 3
+  },
+  "src/dashboard/discord-notice.ts": {
+    "log": 4
+  },
+  "src/dashboard/geoip.ts": {
+    "log": 16
+  },
+  "src/dashboard/guild-access.ts": {
+    "log": 4
+  },
+  "src/dashboard/host-check.ts": {
+    "outside": 1,
+    "log": 4
+  },
+  "src/dashboard/index.ts": {
+    "log": 30,
+    "outside": 2
+  },
+  "src/dashboard/invite.ts": {
+    "log": 1
+  },
+  "src/dashboard/log-file-reader.ts": {
+    "outside": 1,
+    "log": 3
+  },
+  "src/dashboard/login-background/encode.ts": {
+    "log": 21,
+    "outside": 2
+  },
+  "src/dashboard/login-background/encoders.ts": {
+    "log": 5,
+    "outside": 1
+  },
+  "src/dashboard/login-background/files.ts": {
+    "log": 1
+  },
+  "src/dashboard/login-background/memory.ts": {
+    "log": 2
+  },
+  "src/dashboard/login-background/preview.ts": {
+    "log": 8
+  },
+  "src/dashboard/login-background/runner.ts": {
+    "log": 8
+  },
+  "src/dashboard/login-background/source.ts": {
+    "log": 11
+  },
+  "src/dashboard/login-background/stills.ts": {
+    "log": 3
+  },
+  "src/dashboard/login-background/store.ts": {
+    "log": 7
+  },
+  "src/dashboard/login-background/strip.ts": {
+    "log": 3
+  },
+  "src/dashboard/login-background/tones.ts": {
+    "log": 2
+  },
+  "src/dashboard/login-background/youtube.ts": {
+    "log": 6,
+    "outside": 1
+  },
+  "src/dashboard/login-devices.ts": {
+    "log": 2
+  },
+  "src/dashboard/middleware/error-handler.ts": {
+    "log": 1
+  },
+  "src/dashboard/middleware/require-auth.ts": {
+    "log": 1
+  },
+  "src/dashboard/old-tools.ts": {
+    "outside": 11
+  },
+  "src/dashboard/plaintext.ts": {
+    "outside": 13,
+    "log": 3
+  },
+  "src/dashboard/player-stream.ts": {
+    "log": 3
+  },
+  "src/dashboard/regex-filter.ts": {
+    "log": 2
+  },
+  "src/dashboard/reset.ts": {
+    "outside": 10,
+    "log": 25
+  },
+  "src/dashboard/routes/admin.ts": {
+    "log": 50,
+    "outside": 1
+  },
+  "src/dashboard/routes/ai-log.ts": {
+    "outside": 1,
+    "log": 3
+  },
+  "src/dashboard/routes/appearance.ts": {
+    "log": 13
+  },
+  "src/dashboard/routes/auth.ts": {
+    "log": 7,
+    "outside": 4
+  },
+  "src/dashboard/routes/guild-settings.ts": {
+    "log": 11
+  },
+  "src/dashboard/routes/identity.ts": {
+    "log": 1
+  },
+  "src/dashboard/routes/invite.ts": {
+    "log": 2
+  },
+  "src/dashboard/routes/log-files.ts": {
+    "log": 2
+  },
+  "src/dashboard/routes/login-background.ts": {
+    "log": 26
+  },
+  "src/dashboard/routes/login-devices.ts": {
+    "log": 6,
+    "outside": 1
+  },
+  "src/dashboard/routes/player-events.ts": {
+    "outside": 1
+  },
+  "src/dashboard/routes/player.ts": {
+    "log": 11
+  },
+  "src/dashboard/routes/reset.ts": {
+    "log": 2
+  },
+  "src/dashboard/routes/service-keys.ts": {
+    "log": 6
+  },
+  "src/dashboard/routes/settings-archive.ts": {
+    "outside": 4,
+    "log": 9
+  },
+  "src/dashboard/routes/snapshots.ts": {
+    "log": 5
+  },
+  "src/dashboard/routes/track-cache.ts": {
+    "log": 1
+  },
+  "src/dashboard/routes/tunables.ts": {
+    "outside": 2,
+    "log": 4
+  },
+  "src/dashboard/routes/uploads.ts": {
+    "log": 3
+  },
+  "src/dashboard/routes/vendor.ts": {
+    "log": 28,
+    "outside": 1
+  },
+  "src/dashboard/session-requests.ts": {
+    "log": 7,
+    "outside": 4
+  },
+  "src/dashboard/session-store.ts": {
+    "log": 22,
+    "outside": 9
+  },
+  "src/dashboard/settings-archive.ts": {
+    "outside": 12
+  },
+  "src/dashboard/status/gateway.ts": {
+    "outside": 14,
+    "log": 6
+  },
+  "src/dashboard/status/intents.ts": {
+    "log": 1
+  },
+  "src/dashboard/tls-files.ts": {
+    "outside": 24,
+    "log": 3
+  },
+  "src/dashboard/track-cache-probe.ts": {
+    "log": 6
+  },
+  "src/dashboard/track-cache.ts": {
+    "log": 5,
+    "outside": 7
+  },
+  "src/dashboard/uploads.ts": {
+    "log": 1
+  },
+  "src/dashboard/user-guilds.ts": {
+    "log": 4
+  },
+  "src/discord/commands/dashboard.ts": {
+    "log": 2
+  },
+  "src/discord/commands/join.ts": {
+    "log": 1
+  },
+  "src/discord/commands/play.ts": {
+    "log": 1
+  },
+  "src/discord/commands/queue.ts": {
+    "log": 1
+  },
+  "src/discord/commands/search.ts": {
+    "outside": 9,
+    "log": 9
+  },
+  "src/discord/commands/setchannel.ts": {
+    "log": 2
+  },
+  "src/discord/commands/setplaylistlimit.ts": {
+    "log": 1
+  },
+  "src/discord/events/channel-delete.ts": {
+    "log": 6
+  },
+  "src/discord/events/guild-delete.ts": {
+    "log": 3
+  },
+  "src/discord/events/interaction-create.ts": {
+    "log": 11,
+    "outside": 9
+  },
+  "src/discord/events/message-handler.ts": {
+    "log": 5
+  },
+  "src/discord/gone-guilds.ts": {
+    "log": 1
+  },
+  "src/discord/interactions/autoplay.ts": {
+    "log": 1
+  },
+  "src/discord/interactions/button-handler.ts": {
+    "log": 2
+  },
+  "src/discord/interactions/language-handler.ts": {
+    "log": 2
+  },
+  "src/discord/interactions/playlist-more-handler.ts": {
+    "log": 5
+  },
+  "src/discord/interactions/queue-handler.ts": {
+    "log": 1
+  },
+  "src/discord/interactions/search-pick.ts": {
+    "log": 1
+  },
+  "src/discord/interactions/settings-panel-handler.ts": {
+    "log": 1
+  },
+  "src/index.ts": {
+    "log": 3
+  },
+  "src/infra/app-id.ts": {
+    "log": 1
+  },
+  "src/infra/best-effort.ts": {
+    "log": 1
+  },
+  "src/infra/console-text.ts": {
+    "log": 2
+  },
+  "src/infra/cpu-affinity.ts": {
+    "log": 1
+  },
+  "src/infra/disk.ts": {
+    "outside": 2,
+    "log": 2
+  },
+  "src/infra/error-text.ts": {
+    "outside": 6
+  },
+  "src/infra/leftover-children.ts": {
+    "log": 15,
+    "outside": 5
+  },
+  "src/infra/log/file.ts": {
+    "outside": 6,
+    "log": 2
+  },
+  "src/infra/log/sink.ts": {
+    "outside": 5,
+    "log": 1
+  },
+  "src/infra/log/title.ts": {
+    "outside": 1
+  },
+  "src/infra/pinned-checkout.ts": {
+    "log": 10
+  },
+  "src/infra/process-memory.ts": {
+    "log": 1,
+    "outside": 3
+  },
+  "src/infra/process-priority.ts": {
+    "outside": 12
+  },
+  "src/infra/process-registry.ts": {
+    "log": 7,
+    "outside": 5
+  },
+  "src/infra/process-snapshot.ts": {
+    "outside": 2,
+    "log": 5
+  },
+  "src/infra/safe-url.ts": {
+    "log": 24
+  },
+  "src/infra/system-upload.ts": {
+    "log": 5,
+    "outside": 4
+  },
+  "src/infra/tool-run.ts": {
+    "log": 7
+  },
+  "src/infra/version.ts": {
+    "log": 1
+  },
+  "src/infra/voice-adapter.ts": {
+    "log": 6
+  },
+  "src/infra/zip.ts": {
+    "log": 23,
+    "outside": 2
+  },
+  "src/media/cache-download.ts": {
+    "log": 34,
+    "outside": 9
+  },
+  "src/media/chunked-stream.ts": {
+    "outside": 2,
+    "log": 16
+  },
+  "src/media/convert.ts": {
+    "log": 3,
+    "outside": 5
+  },
+  "src/media/direct-input.ts": {
+    "log": 14,
+    "outside": 1
+  },
+  "src/media/encode-pool.ts": {
+    "log": 35,
+    "outside": 30
+  },
+  "src/media/encode-worker.ts": {
+    "log": 4
+  },
+  "src/media/ffmpeg/cli-args.ts": {
+    "outside": 4
+  },
+  "src/media/ffmpeg/exit.ts": {
+    "outside": 1
+  },
+  "src/media/ffmpeg/install.ts": {
+    "log": 1,
+    "outside": 6
+  },
+  "src/media/ffmpeg/job.ts": {
+    "log": 1
+  },
+  "src/media/ffmpeg/path.ts": {
+    "outside": 8,
+    "log": 27
+  },
+  "src/media/ffmpeg/process.ts": {
+    "log": 7
+  },
+  "src/media/ffmpeg/release.ts": {
+    "log": 3
+  },
+  "src/media/ffmpeg/state.ts": {
+    "outside": 3
+  },
+  "src/media/fragment-stream.ts": {
+    "log": 7,
+    "outside": 4
+  },
+  "src/media/input-health.ts": {
+    "outside": 1
+  },
+  "src/media/loudness-measure.ts": {
+    "outside": 16,
+    "log": 11
+  },
+  "src/media/opus-output.ts": {
+    "log": 1
+  },
+  "src/media/playback-input.ts": {
+    "log": 31,
+    "outside": 24
+  },
+  "src/media/recheck-queue.ts": {
+    "log": 14,
+    "outside": 3
+  },
+  "src/media/resuming-body.ts": {
+    "log": 15,
+    "outside": 2
+  },
+  "src/media/seek-start.ts": {
+    "log": 3,
+    "outside": 5
+  },
+  "src/media/source-recheck.ts": {
+    "outside": 6
+  },
+  "src/player/events.ts": {
+    "log": 2
+  },
+  "src/player/gain-control.ts": {
+    "log": 3
+  },
+  "src/player/idle-leave.ts": {
+    "log": 17,
+    "outside": 1
+  },
+  "src/player/playback-state.ts": {
+    "log": 2
+  },
+  "src/player/playback-watch.ts": {
+    "log": 12
+  },
+  "src/player/player.ts": {
+    "log": 151,
+    "outside": 37
+  },
+  "src/player/queue-warmer.ts": {
+    "log": 11
+  },
+  "src/player/registry.ts": {
+    "log": 4
+  },
+  "src/player/session-mirror.ts": {
+    "log": 20
+  },
+  "src/player/session-restore.ts": {
+    "log": 27,
+    "outside": 4
+  },
+  "src/player/sponsor-skipper.ts": {
+    "log": 6
+  },
+  "src/player/start-playback.ts": {
+    "log": 19,
+    "outside": 7
+  },
+  "src/player/voice-adopt.ts": {
+    "log": 7
+  },
+  "src/player/voice-channel-status.ts": {
+    "log": 1
+  },
+  "src/player/voice-leave.ts": {
+    "outside": 2,
+    "log": 5
+  },
+  "src/player/voice-link.ts": {
+    "outside": 11,
+    "log": 71
+  },
+  "src/rules/bgutil-install.ts": {
+    "log": 2
+  },
+  "src/rules/container-index.ts": {
+    "outside": 25
+  },
+  "src/rules/convert-plan.ts": {
+    "outside": 5
+  },
+  "src/rules/discord-rejection.ts": {
+    "outside": 13
+  },
+  "src/rules/end-verdict.ts": {
+    "outside": 10
+  },
+  "src/rules/failure-reason.ts": {
+    "outside": 13
+  },
+  "src/rules/hls-playlist.ts": {
+    "log": 1
+  },
+  "src/rules/node-support.ts": {
+    "outside": 3
+  },
+  "src/rules/operator-hints.ts": {
+    "outside": 3
+  },
+  "src/rules/retry-budget.ts": {
+    "outside": 4
+  },
+  "src/rules/tunables.ts": {
+    "log": 1
+  },
+  "src/rules/vendor-updates.ts": {
+    "log": 1
+  },
+  "src/sources/age-gate.ts": {
+    "log": 3
+  },
+  "src/sources/bgutil/auto-install.ts": {
+    "log": 22,
+    "outside": 3
+  },
+  "src/sources/bgutil/bundle.ts": {
+    "log": 5
+  },
+  "src/sources/bgutil/cli-args.ts": {
+    "outside": 8
+  },
+  "src/sources/bgutil/install.ts": {
+    "log": 5,
+    "outside": 10
+  },
+  "src/sources/bgutil/remote.ts": {
+    "log": 3
+  },
+  "src/sources/bgutil/state.ts": {
+    "outside": 1
+  },
+  "src/sources/bgutil/trial.ts": {
+    "log": 2,
+    "outside": 7
+  },
+  "src/sources/bgutil/version.ts": {
+    "log": 3
+  },
+  "src/sources/cover.ts": {
+    "log": 2
+  },
+  "src/sources/direct-open.ts": {
+    "log": 4
+  },
+  "src/sources/direct-tags.ts": {
+    "log": 2
+  },
+  "src/sources/direct.ts": {
+    "outside": 1,
+    "log": 5
+  },
+  "src/sources/embedded-art.ts": {
+    "log": 9,
+    "outside": 2
+  },
+  "src/sources/file-tags.ts": {
+    "outside": 1,
+    "log": 4
+  },
+  "src/sources/github-release.ts": {
+    "log": 2
+  },
+  "src/sources/hls.ts": {
+    "log": 20,
+    "outside": 5
+  },
+  "src/sources/lookup.ts": {
+    "log": 15
+  },
+  "src/sources/pinned-fallback.ts": {
+    "log": 4
+  },
+  "src/sources/soundcloud/api.ts": {
+    "log": 10
+  },
+  "src/sources/soundcloud/run.ts": {
+    "log": 1
+  },
+  "src/sources/source-probe.ts": {
+    "log": 1
+  },
+  "src/sources/sponsor-block.ts": {
+    "log": 10
+  },
+  "src/sources/spotify.ts": {
+    "log": 38,
+    "outside": 7
+  },
+  "src/sources/stream-url.ts": {
+    "log": 7
+  },
+  "src/sources/youtube/api.ts": {
+    "log": 9
+  },
+  "src/sources/youtube/auth.ts": {
+    "log": 8,
+    "outside": 9
+  },
+  "src/sources/youtube/clients.ts": {
+    "log": 8,
+    "outside": 2
+  },
+  "src/sources/youtube/equivalent.ts": {
+    "log": 5
+  },
+  "src/sources/youtube/errors.ts": {
+    "outside": 7
+  },
+  "src/sources/youtube/pot-server.ts": {
+    "log": 17,
+    "outside": 2
+  },
+  "src/sources/youtube/text-search.ts": {
+    "log": 4
+  },
+  "src/sources/youtube/ytdlp-run.ts": {
+    "log": 21,
+    "outside": 2
+  },
+  "src/sources/ytdlp-binary.ts": {
+    "log": 19,
+    "outside": 21
+  },
+  "src/sources/ytdlp-cli-args.ts": {
+    "outside": 6
+  },
+  "src/sources/ytdlp-exec.ts": {
+    "log": 4
+  },
+  "src/sources/ytdlp-info.ts": {
+    "log": 3,
+    "outside": 2
+  },
+  "src/sources/ytdlp-spawn.ts": {
+    "outside": 2,
+    "log": 15
+  },
+  "src/store/ai-keys.ts": {
+    "log": 1
+  },
+  "src/store/ai-log-db.ts": {
+    "outside": 2
+  },
+  "src/store/audio-cache.ts": {
+    "log": 30,
+    "outside": 9
+  },
+  "src/store/cache-db.ts": {
+    "outside": 2
+  },
+  "src/store/cookie-jar.ts": {
+    "log": 5
+  },
+  "src/store/external-caches.ts": {
+    "log": 1
+  },
+  "src/store/full-reset.ts": {
+    "log": 2
+  },
+  "src/store/guild-settings.ts": {
+    "log": 16,
+    "outside": 7
+  },
+  "src/store/panel-records.ts": {
+    "log": 2
+  },
+  "src/store/player-sessions.ts": {
+    "outside": 1
+  },
+  "src/store/rows.ts": {
+    "log": 2
+  },
+  "src/store/secrets.ts": {
+    "log": 5
+  },
+  "src/store/service-keys.ts": {
+    "log": 3
+  },
+  "src/store/session-db.ts": {
+    "outside": 2
+  },
+  "src/store/settings-db.ts": {
+    "outside": 4
+  },
+  "src/store/settings-docs.ts": {
+    "log": 8
+  },
+  "src/store/snapshots.ts": {
+    "log": 19
+  },
+  "src/store/sqlite.ts": {
+    "log": 7,
+    "outside": 3
+  },
+  "src/store/state-db.ts": {
+    "outside": 2
+  },
+  "src/store/stores.ts": {
+    "log": 1
+  },
+  "src/store/track-lookup.ts": {
+    "outside": 2
+  },
+  "src/store/tunables.ts": {
+    "log": 2
+  },
+  "src/store/user-settings.ts": {
+    "log": 7
+  },
+  "src/store/users-db.ts": {
+    "outside": 4,
+    "log": 6
+  },
+  "src/ui/card-render/render.ts": {
+    "log": 7,
+    "outside": 4
+  },
+  "src/ui/control-messages.ts": {
+    "log": 1
+  },
+  "src/ui/delivery.ts": {
+    "log": 6,
+    "outside": 1
+  },
+  "src/ui/discord-art.ts": {
+    "log": 1
+  },
+  "src/ui/error-messages.ts": {
+    "log": 2
+  },
+  "src/ui/icon-images.ts": {
+    "log": 3
+  },
+  "src/ui/language.ts": {
+    "log": 6
+  },
+  "src/ui/now-playing-panel.ts": {
+    "log": 26
+  },
+  "src/ui/panel-location.ts": {
+    "log": 4
+  },
+  "src/ui/queue-mosaic/thumbnails.ts": {
+    "log": 3
+  },
+  "src/ui/transient-messages.ts": {
+    "log": 4
+  },
+  "src/usecases/add-tracks.ts": {
+    "log": 17,
+    "outside": 6
+  },
+  "src/usecases/controls.ts": {
+    "log": 20
+  },
+  "src/usecases/join.ts": {
+    "log": 7
+  },
+  "src/usecases/normalize.ts": {
+    "log": 5
+  },
+  "src/usecases/responders.ts": {
+    "log": 3
+  },
+  "src/usecases/stay.ts": {
+    "log": 4
+  }
 }

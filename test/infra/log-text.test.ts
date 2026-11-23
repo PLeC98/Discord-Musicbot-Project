@@ -6,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import util from "node:util";
 import ts from "typescript";
-import { FAILED_MARK, isLogText, logText, plainArgs, renderLogText } from "../../src/infra/log/log-text.ts";
+import { FAILED_MARK, isLogText, logText, plainArgs, renderLogText, takeRenderFailures } from "../../src/infra/log/log-text.ts";
 import { L, missingLogText } from "../../src/infra/log/text.ts";
 import { LOG_TEST_LANGUAGE, useTestLogLanguage } from "../../src/infra/log/language.ts";
 import { TEST_LANGUAGE } from "../../src/rules/languages.ts";
@@ -30,6 +30,9 @@ test("문구 함수가 던지면 표식이 붙은 대체 글을 내고 던지지
     throw new Error("x");
   });
   assert.equal(renderLogText(text), `${FAILED_MARK} demo.broken {"name":"a"}`);
+  // 실패한 문구 코드가 남고, 꺼내면 비워진다(실행 전체 검사가 이 테스트를 실패시키지 않게)
+  assert.deepEqual(takeRenderFailures(), ["demo.broken"]);
+  assert.deepEqual(takeRenderFailures(), []);
 });
 
 test("글을 받는 자리에 잘못 넘어가도 객체 덤프 대신 글이 나온다(템플릿, util.format, inspect)", () => {

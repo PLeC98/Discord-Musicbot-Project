@@ -1,6 +1,7 @@
-// 봇 코드(src/)에 적힌 한글 문자열을 파일별로 센다(문구는 언어 폴더 locales/<언어>/에 있어 src 밖에 있다). 로그와 예외 메시지는 로그 언어라 번역하지 않으므로 세지 않고, 데이터도 세지 않는다.
-// 로그 여부는 가장 가까운 호출로 판별한다: 로거(log.warn 등, 같은 파일에서 logger.child로 만든 로거 포함), 로그 라벨을 받는 함수, repeatingFailure가 반환한 객체의 fail,
-// Error를 생성하는 곳(Error를 상속한 클래스의 super 포함), throw
+// 봇 코드(src/, scripts/)에 적힌 한글 문자열을 파일별, 종류별로 센다(문구표가 있는 언어 폴더 locales/<언어>/는 훑지 않는다). 데이터는 세지 않는다.
+// 종류: 로그 계열(log. 로그, 예외 메시지, 터미널 출력), 일어날 수 없는 일의 예외(bug. infra/bug), 그 밖(outside. 화면, 디스코드로 가거나 호출 밖에서 만든 글).
+// 로그 계열은 가장 가까운 호출로 판별한다: 로거(log.warn 등, 같은 파일에서 logger.child로 만든 로거 포함), 로그 라벨을 받는 함수, repeatingFailure가 반환한 객체의 fail,
+// 스크립트 줄(scriptLine이 만든 함수), Error를 생성하는 곳(Error를 상속한 클래스의 super 포함), throw
 
 import fs from "node:fs";
 import path from "node:path";
@@ -72,7 +73,7 @@ function namesMadeBy(source: ts.SourceFile, made: RegExp): Set<string> {
   return out;
 }
 
-type Scope = { rel: string; loggers: Set<string>; failures: Set<string> };
+type Scope = { rel: string; loggers: Set<string>; failures: Set<string>; lines: Set<string> };
 
 function isLogCall(call: ts.CallExpression, scope: Scope): boolean {
   const callee = call.expression;
@@ -83,6 +84,9 @@ function isLogCall(call: ts.CallExpression, scope: Scope): boolean {
   if (root && scope.loggers.has(root) && ((name && LEVELS.has(name)) || ts.isElementAccessExpression(callee))) return true;
   // repeatingFailure가 반환한 객체(또는 이를 감싼 failuresOf)의 fail
   if (name === "fail" && root && (scope.failures.has(root) || root === "failuresOf")) return true;
+  // 스크립트 줄: scriptLine이 만든 함수(say 등)나 scriptLine(분류)(수준, 글)
+  if (ts.isIdentifier(callee) && scope.lines.has(callee.text)) return true;
+  if (ts.isCallExpression(callee) && ts.isIdentifier(callee.expression) && callee.expression.text === "scriptLine") return true;
   if (name && (LOG_CALLS.has(name) || LOG_CALLS_IN[scope.rel]?.includes(name))) return true;
   return false;
 }
@@ -111,6 +115,15 @@ function isLogged(node: ts.Node, scope: Scope): boolean {
   return false;
 }
 
+/** bug(…)의 인자 안(가장 가까운 함수 경계까지) */
+function isBug(node: ts.Node): boolean {
+  for (let at: ts.Node | undefined = node.parent; at; at = at.parent) {
+    if (ts.isCallExpression(at) && ts.isIdentifier(at.expression) && at.expression.text === "bug") return true;
+    if (ts.isFunctionLike(at) || ts.isSourceFile(at)) return false;
+  }
+  return false;
+}
+
 /** 데이터: SQL(exec에 넘기는 문자열), 데이터로 지정한 선언 내부 */
 function isData(node: ts.Node, rel: string): boolean {
   const declared = DATA_DECLARATIONS[rel] ?? [];
@@ -121,18 +134,18 @@ function isData(node: ts.Node, rel: string): boolean {
   return false;
 }
 
-/** 한글이 든 문자열 자리 하나. kind: 로그 계열(log), 데이터(data), 그 밖(outside). start: 소스 안의 시작 위치 */
-type KoreanSite = { line: number; start: number; text: string; kind: "log" | "data" | "outside" };
+/** 한글이 든 문자열 자리 하나. kind: 로그 계열(log), 일어날 수 없는 일의 예외(bug), 데이터(data), 그 밖(outside). start: 소스 안의 시작 위치 */
+type KoreanSite = { line: number; start: number; text: string; kind: "log" | "bug" | "data" | "outside" };
 
 /** 소스 파일 하나의 모든 한글 문자열 자리(로그 계열, 데이터 포함). 로그 문구를 옮기는 도구(test/tools/log-text-move)도 이 분류를 쓴다 */
 function koreanSites(rel: string, text: string): KoreanSite[] {
   const source = ts.createSourceFile(rel, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
-  const scope: Scope = { rel, loggers: new Set(["log", "logger", "console", ...namesMadeBy(source, /\.child\(/)]), failures: namesMadeBy(source, /\brepeatingFailure\(|\bfailuresOf\(/) };
+  const scope: Scope = { rel, loggers: new Set(["log", "logger", "console", ...namesMadeBy(source, /\.child\(/)]), failures: namesMadeBy(source, /\brepeatingFailure\(|\bfailuresOf\(/), lines: namesMadeBy(source, /\bscriptLine\(/) };
   const out: KoreanSite[] = [];
   const visit = (node: ts.Node) => {
     const literal = ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node);
     if (literal && HANGUL.test(node.text)) {
-      const kind = DATA_FILES[rel] || isData(node, rel) ? "data" : isLogged(node, scope) ? "log" : "outside";
+      const kind = DATA_FILES[rel] || isData(node, rel) ? "data" : isBug(node) ? "bug" : isLogged(node, scope) ? "log" : "outside";
       out.push({ line: source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1, start: node.getStart(source), text: node.text, kind });
     }
     ts.forEachChild(node, visit);
@@ -150,15 +163,20 @@ const rowsIn = (rel: string, text: string): Array<{ line: number; text: string }
 /** 파일 하나의 로그, 데이터 밖 한글 문자열 */
 const stringsOf = (rel: string): string[] => rowsIn(rel, fs.readFileSync(path.join(ROOT, rel), "utf8")).map((one) => one.text);
 
-/** 파일마다 로그, 데이터 밖 한글 문자열 수(0인 파일은 뺀다) */
-function textOutside(): Record<string, number> {
-  const counts: Record<string, number> = {};
-  for (const rel of walk("src")) {
-    const n = stringsOf(rel).length;
-    if (n) counts[rel] = n;
+/** 지도에서 세는 종류(데이터는 세지 않는다) */
+type CountedKind = "outside" | "log" | "bug";
+type KoreanCounts = Partial<Record<CountedKind, number>>;
+
+/** 문구표 밖 한글 지도: src와 scripts의 파일마다 종류별 한글 문자열 수(0인 종류와 파일은 뺀다) */
+function koreanMap(): Record<string, KoreanCounts> {
+  const map: Record<string, KoreanCounts> = {};
+  for (const rel of [...walk("src"), ...walk("scripts")]) {
+    const counts: KoreanCounts = {};
+    for (const site of koreanSites(rel, fs.readFileSync(path.join(ROOT, rel), "utf8"))) if (site.kind !== "data") counts[site.kind] = (counts[site.kind] ?? 0) + 1;
+    if (Object.keys(counts).length) map[rel] = counts;
   }
-  return counts;
+  return map;
 }
 
-export { textOutside, stringsOf, rowsIn, koreanSites, DATA_FILES, DATA_DECLARATIONS, LOG_CALLS_IN };
-export type { KoreanSite };
+export { koreanMap, stringsOf, rowsIn, koreanSites, DATA_FILES, DATA_DECLARATIONS, LOG_CALLS_IN };
+export type { KoreanSite, KoreanCounts, CountedKind };

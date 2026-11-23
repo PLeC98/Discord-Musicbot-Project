@@ -26,14 +26,22 @@ function argsJson(args: LogArgs): string {
   }
 }
 
+// 그리기에 실패한 문구 코드(차례대로). 테스트의 실행 전체 검사(test/helpers/test-process)가 테스트마다 꺼내 본다. 운영에서는 꺼내는 쪽이 없어 상한까지만 쌓는다
+const failedEvents: string[] = [];
+const FAILED_KEEP = 100;
+
 /** 서술자를 글로. 문구 함수가 던지면 표식이 붙은 대체 글 */
 function renderLogText(text: LogText): string {
   try {
     return text[RENDER]();
   } catch {
+    if (failedEvents.length < FAILED_KEEP) failedEvents.push(text.event);
     return `${FAILED_MARK} ${text.event} ${argsJson(text.args)}`;
   }
 }
+
+/** 지금까지 그리기에 실패한 문구 코드를 꺼내고 비운다 */
+const takeRenderFailures = (): string[] => failedEvents.splice(0);
 
 /**
  * 서술자를 만든다. render는 지금 로그 언어의 문구로 그리는 함수(만드는 쪽이 넘긴다).
@@ -63,5 +71,5 @@ function logTextError(text: LogText, { code, cause }: { code?: string; cause?: u
   return Object.assign(new Error(renderLogText(text), cause === undefined ? undefined : { cause }), { logText: text }, code === undefined ? {} : { code });
 }
 
-export { FAILED_MARK, isLogText, logText, logTextError, renderLogText, plainArgs, recordArgs };
+export { FAILED_MARK, isLogText, logText, logTextError, renderLogText, takeRenderFailures, plainArgs, recordArgs };
 export type { LogArg, LogArgs, LogText, LogBindings };

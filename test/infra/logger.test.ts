@@ -9,7 +9,7 @@ import logger from "../../src/infra/log/logger.ts";
 import sink from "../../src/infra/log/sink.ts";
 import config from "../../src/config/index.ts";
 import { KEPT_LINES } from "../../src/infra/log/levels.ts";
-import { FAILED_MARK, logText, renderLogText, type LogText } from "../../src/infra/log/log-text.ts";
+import { FAILED_MARK, logText, renderLogText, takeRenderFailures, type LogText } from "../../src/infra/log/log-text.ts";
 import { logRuleLine, ruleLogText } from "../../src/rules/text/index.ts";
 import { rule } from "../../src/rules/rule-problem.ts";
 const { buildRecord, createLogger, LEVELS } = logger._internals;
@@ -102,6 +102,8 @@ test("buildRecord: 문구 함수가 던져도 던지지 않고 표식이 붙은 
   ]);
   assert.equal(r.msg, `${FAILED_MARK} demo.line {"n":1}`);
   assert.equal(r.event, "demo.line");
+  // 일부러 낸 실패라 꺼내 비운다(실행 전체 검사)
+  assert.deepEqual(takeRenderFailures(), ["demo.line"]);
 });
 
 test("레벨에 걸러지는 줄은 문구를 그리지 않는다", () => {
