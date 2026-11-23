@@ -7,7 +7,7 @@
 //   node test/tools/log-text-move.ts rebase ["<파일> <종류>"...]  문구표 밖 한글 지도의 기준표를 지금 수로(늘어난 것은 적은 것만 받는다)
 //
 // 기준은 문구표 밖 한글 집계 분류(test/helpers/text-outside 의 koreanSites)다. 도구가 옮기지 않는 한글 자리는 계획 파일의 manual, unplanned에 남긴다.
-// 자동으로 옮기는 꼴: 로그 호출의 (글), (바인딩, 글), (err, 글), 글 뒤에 문자열 값(공백으로 이어 붙는다), repeatingFailure 의 라벨, logRuleLine 을 ruleLogText 로.
+// 자동으로 옮기는 꼴: 로그 호출의 (글), (바인딩, 글), (err, 글), 글 뒤에 문자열 값(공백으로 이어 붙는다), 글 뒤에 글 아닌 값(그대로 둔다), repeatingFailure 의 라벨, logRuleLine 을 ruleLogText 로.
 // 예외: new Error(글, 옵션) 를 logTextError(문구, 옵션) 로, 예외 도우미(codedError, timeoutError 등)와 서술자를 받는 Error 클래스(SsrfError)의 글 인자를 문구로.
 // 그 밖(Error 를 이은 클래스, 다른 라벨 도우미, 글 뒤의 오류 값, 슬롯 안의 한글 조각, 변수로 만든 글)은 표시만 한다
 
@@ -166,8 +166,13 @@ function scanSource(file: string, text: string, typeOf: TypeOf, source = ts.crea
           const parsed = partsOf(msg, typeOf);
           const extrasPlain = extras.every((extra) => typeOf(extra) === "string" && !hasHangul(extra));
           if (!parsed) mark(node, "슬롯 안의 한글 조각");
-          else if (extras.length && (!extrasPlain || parsed.parts.some((part) => part.includes("%")))) mark(node, "글 뒤의 값(오류, 글 아닌 값, % 가 든 글)");
-          else {
+          else if (extras.length && parsed.parts.some((part) => part.includes("%"))) mark(node, "% 가 든 글 뒤의 값(형식 문자열)");
+          else if (extras.some((extra) => hasHangul(extra))) mark(node, "글 뒤의 한글 값");
+          else if (!extrasPlain) {
+            // 글 뒤에 글 아닌 값(오류 등)이 있으면 뒤의 값은 그대로 두고 글만 옮긴다. 로거가 문구 뒤의 값을 util.format처럼 공백으로 이어 붙인다(오류는 inspect, err 로도)
+            sites.push({ file, line: lineOf(source, msg.getStart(source)), start: msg.getStart(source), end: msg.getEnd(), kind: "log", namespace, key: null, ...parsed });
+            covered.push([msg.getStart(source), msg.getEnd()]);
+          } else {
             // 글 뒤의 문자열 값은 util.format처럼 공백 하나로 이어 붙인다
             const taken = new Set(parsed.slots.map((slot) => slot.param));
             for (const extra of extras) {
@@ -378,13 +383,15 @@ function sameCall(before: ts.CallExpression, after: ts.CallExpression, catalogs:
   if (at < 0) return "원래 호출에 글이 없음";
   const prefix = (call: ts.CallExpression) => call.arguments.slice(0, at).map((arg) => arg.getText());
   if (JSON.stringify(prefix(before)) !== JSON.stringify(prefix(after))) return "글 앞 인자(바인딩, 오류)가 다름";
-  if (after.arguments.length !== at + 1) return "글 뒤에 인자가 남음";
+  // 뒤의 값을 그대로 둔 꼴: 뒤의 값이 원문 그대로이고 글만 문구로 바뀌었다
+  const kept = after.arguments.length > at + 1;
+  if (kept && JSON.stringify(before.arguments.slice(at + 1).map((arg) => arg.getText())) !== JSON.stringify(after.arguments.slice(at + 1).map((arg) => arg.getText()))) return "글 뒤의 값이 다름";
   const old = messageOf(before.arguments[at], catalogs);
   const now = messageOf(after.arguments[at], catalogs);
   if (typeof old === "string") return old;
   if (typeof now === "string") return now;
-  // 원래 글 뒤의 값은 공백 하나로 이어 붙었다
-  for (const extra of before.arguments.slice(at + 1)) {
+  // 원래 글 뒤의 값은 공백 하나로 이어 붙었다(그대로 둔 꼴은 뒤의 값을 따로 대조했다)
+  for (const extra of kept ? [] : before.arguments.slice(at + 1)) {
     old.parts[old.parts.length - 1] += " ";
     old.exprs.push(extra.getText());
     old.parts.push("");

@@ -36,8 +36,9 @@ export interface Logger extends Record<LevelName, LogFn> {
 }
 
 // 문구(서술자)를 넘긴 호출: (문구), (바인딩, 문구), (err, 문구). 글은 여기서 그린다(레벨 검사를 지난 뒤라 걸러지는 줄은 그리지 않는다).
-// 타입이 막아도 문구 뒤에 값이 오면 형식 문자열로 쓰지 않고 inspect해서 뒤에 붙이고, Error는 err로 올린다
-function textRecord(args: unknown[]): { merge: Record<string, unknown> | null; msg: string; text: LogText } | null {
+// 문구 뒤에 값이 오면 형식 문자열로 쓰지 않고 inspect해서 뒤에 붙인다(글 형식의 util.format과 같은 글). Error는 err로도 올린다.
+// inspected: 뒤에 온 Error를 글에 이미 붙였다(코드, 원인까지. err의 스택을 다시 붙이지 않는다)
+function textRecord(args: unknown[]): { merge: Record<string, unknown> | null; msg: string; text: LogText; inspected: boolean } | null {
   const at = isLogText(args[0]) ? 0 : args.length > 1 && isLogText(args[1]) && typeof args[0] === "object" && args[0] !== null ? 1 : -1;
   if (at < 0) return null;
   const text = args[at] as LogText;
@@ -46,9 +47,10 @@ function textRecord(args: unknown[]): { merge: Record<string, unknown> | null; m
   let msg = renderLogText(text);
   const extra = args.slice(at + 1);
   const error = extra.find((value) => value instanceof Error);
-  const rest = extra.filter((value) => value !== error).map((value) => (typeof value === "string" ? value : util.inspect(value)));
+  const rest = extra.map((value) => (typeof value === "string" ? value : util.inspect(value)));
   if (rest.length) msg = `${msg} ${rest.join(" ")}`;
-  return { merge: error && !merge?.err ? { ...merge, err: error } : merge, msg, text };
+  const attach = error && !merge?.err;
+  return { merge: attach ? { ...merge, err: error } : merge, msg, text, inspected: Boolean(attach) };
 }
 
 // pino 호환 인자 → sink 레코드로 정규화.
@@ -74,15 +76,16 @@ function buildRecord(levelNum: number, bindings: Record<string, unknown>, args: 
 
   const rec: LogRecord = { level: levelNum, time: Date.now(), ...bindings, ...(merge || {}), ...(described ? { event: described.text.event, args: recordArgs(described.text.args) } : {}) };
 
-  // err는 rec.err에 stack 글로 남기고, 터미널, SSE에도 보이도록 msg 뒤에 붙인다
-  const err = rec.err || rec.error;
-  if (err instanceof Error) {
-    const stack = err.stack || err.message;
-    rec.err = stack;
-    msg = msg ? `${msg} ${stack}` : stack;
-  }
+  return Object.assign(rec, { msg: withStack(rec, msg, described?.inspected ?? false) });
+}
 
-  return Object.assign(rec, { msg });
+// err는 rec.err에 stack 글로 남기고, 터미널, SSE에도 보이도록 msg 뒤에 붙인다(inspected: 글에 이미 붙였다). 붙인 msg를 돌려준다
+function withStack(rec: LogRecord, msg: string, inspected: boolean): string {
+  const err = rec.err || rec.error;
+  if (!(err instanceof Error)) return msg;
+  const stack = err.stack || err.message;
+  rec.err = stack;
+  return inspected ? msg : msg ? `${msg} ${stack}` : stack;
 }
 
 // 루트 레벨은 공유 상태다. 파일마다 불러올 때 `child()`로 로거를 만들어 두므로, 레벨을 그때 복사하면

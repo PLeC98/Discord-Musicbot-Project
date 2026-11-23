@@ -31,7 +31,7 @@ function run(track: string, count: number, file: string, title: string, ok: bool
 const TYPES: Record<string, string> = { track: "string", count: "number", file: "string", title: "string", error: "other", ok: "boolean" };
 const typeOf: TypeOf = (expr: ts.Expression) => TYPES[expr.getText()] ?? "other";
 
-const KEYS = ["recordLabel", "cleanupFailed", "startupBegan", "saveFailed", "song", "overlap", "overlap"];
+const KEYS = ["recordLabel", "cleanupFailed", "startupBegan", "saveFailed", "playFailed", "song", "overlap", "overlap"];
 function planned() {
   const plan = scanSource(FILE, SOURCE, typeOf);
   let i = 0;
@@ -51,6 +51,7 @@ test("scan: 옮길 꼴과 손으로 볼 꼴을 가르고, 계획에 없는 한�
       ["log", "player", ["정리 실패: ", " | 곡 ", "개"], ["track=track:string", "count=count:number"]],
       ["log", "player", ["기동 시작"], []],
       ["log", "player", ["저장 실패(", ")"], ["file=file:string"]],
+      ["log", "player", ["재생 실패:"], []],
       ["log", "player", ["곡: ", ""], ["title=title:string"]],
       ["rule", "player", [], []],
       ["log", "player", ["겹침 ", ""], ["track=track:string"]],
@@ -59,7 +60,7 @@ test("scan: 옮길 꼴과 손으로 볼 꼴을 가르고, 계획에 없는 한�
   );
   assert.deepEqual(
     plan.manual.map((one) => one.why),
-    ["슬롯 안의 한글 조각", "글 뒤의 값(오류, 글 아닌 값, % 가 든 글)"],
+    ["슬롯 안의 한글 조각"],
   );
   assert.deepEqual(
     plan.unplanned.map((one) => one.text),
@@ -80,6 +81,7 @@ test("apply: 호출부를 L.<네임스페이스>.<키>로, 규칙 문제는 rule
   assert.match(after, /log\.warn\(L\.player\.cleanupFailed\(\{ track, count \}\)\);/);
   assert.match(after, /log\.info\(\{ tags: \["startup"\] \}, L\.player\.startupBegan\(\)\);/);
   assert.match(after, /log\.error\(error, L\.player\.saveFailed\(\{ file \}\)\);/);
+  assert.match(after, /log\.error\(L\.player\.playFailed\(\), error\);/, "글 뒤의 오류 값은 그대로 둔다");
   assert.match(after, /log\.info\(L\.player\.song\(\{ title \}\)\);/);
   assert.match(after, /log\.warn\(ruleLogText\(problem\)\);/);
   assert.match(after, /import \{ L \} from "\.\.\/infra\/log\/text\.ts";/);

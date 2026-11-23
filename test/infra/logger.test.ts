@@ -81,10 +81,19 @@ test("buildRecord: (바인딩, 문구), (err, 문구)", () => {
   assert.equal(failed.event, "demo.line");
 });
 
-test("buildRecord: 문구 뒤에 값이 오면 형식 문자열로 쓰지 않고 뒤에 붙이고, Error는 err로 올린다", () => {
+test("buildRecord: 문구 뒤에 값이 오면 형식 문자열로 쓰지 않고 차례대로 뒤에 붙이고(Error는 inspect), Error는 err로도 올린다", () => {
   const r = buildRecord(LEVELS.error, {}, [demo({}, () => "곡 %s 100%d"), "덧붙임", new Error("펑"), { a: 1 }]);
-  assert.match(r.msg, /^곡 %s 100%d 덧붙임 \{ a: 1 \} Error: 펑/);
+  assert.match(r.msg, /^곡 %s 100%d 덧붙임 Error: 펑[\s\S]* \{ a: 1 \}$/);
+  assert.equal(r.msg.split("Error: 펑").length, 2, "스택을 두 번 붙이지 않는다");
   assert.match(String(r.err), /^Error: 펑/);
+});
+
+test("buildRecord: 글 뒤의 오류는 글 형식(util.format)과 같은 글로 남는다(오류 코드, 원인까지)", () => {
+  const error = Object.assign(new Error("끊김"), { code: "ECONNRESET" });
+  const legacy = buildRecord(LEVELS.warn, {}, ["저장 실패:", error]);
+  const described = buildRecord(LEVELS.warn, {}, [demo({}, () => "저장 실패:"), error]);
+  assert.equal(described.msg, legacy.msg);
+  assert.match(described.msg, /ECONNRESET/);
 });
 
 test("buildRecord: 값 안의 서술자(라벨)는 레코드에 { event, args }로 싣는다", () => {
