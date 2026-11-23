@@ -4,6 +4,7 @@
 // 안 지우면 실패한다. 남은 슬롯만큼 새 위반이 숨기 때문이다(eslint 억제 파일과 같은 규칙).
 
 import fs from "node:fs";
+import { builtinModules } from "node:module";
 import path from "node:path";
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -88,9 +89,17 @@ test("실행을 시작하는 파일은 다른 무엇보다 먼저 로그 언어�
   assert.match(boot, /\nloadEnv\(\);\nchooseLogLanguage\(\);\n/, "env-bootstrap 은 .env를 읽은 바로 뒤에 고른다");
 });
 
-test("로그 언어를 고르는 모듈은 다른 프로젝트 모듈, Node 내장 모듈, 패키지를 부르지 않는다(설정, 로거보다 먼저 돌고 node_modules 없이도 돈다)", () => {
-  assert.deepEqual(now.logLanguageReach, ["src/infra/log/choose-at-start.ts", "src/infra/log/choose-language.ts", "src/infra/log/language.ts"]);
-  assert.deepEqual(now.logLanguageBareImports, []);
+test("로그 언어를 고르는 모듈은 다른 프로젝트 모듈, Node 내장 모듈, 패키지를 부르지 않는다(화면 번들까지 닿고 설정, 로거보다 먼저 돈다)", () => {
+  assert.deepEqual(now.chooseReach, ["src/infra/log/choose-language.ts", "src/infra/log/language.ts"]);
+  assert.deepEqual(now.chooseBareImports, []);
+});
+
+test(".env를 읽지 않는 진입의 첫 줄은 경로 모듈과 Node 내장 모듈만 더 부른다(node_modules 없이 돈다)", () => {
+  assert.deepEqual(now.atStartReach, ["src/infra/log/choose-at-start.ts", "src/infra/log/choose-language.ts", "src/infra/log/language.ts", "src/infra/project-paths.ts"]);
+  assert.deepEqual(
+    now.atStartBareImports.filter((spec) => !builtinModules.includes(spec.replace(/^node:/, ""))),
+    [],
+  );
 });
 
 test("저장소 루트를 맞게 가리킨다", () => {

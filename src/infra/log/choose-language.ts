@@ -10,6 +10,9 @@ type LogLanguageNotice = { kind: "malformed" | "unavailable"; value: string };
 // 언어 태그의 형식(언어 2 ~ 3자, 그 뒤 하이픈으로 이은 1 ~ 8자 조각)
 const TAG = /^[a-z]{2,3}(?:-[a-z0-9]{1,8})*$/i;
 
+/** 유닉스 로케일 형식(ko_KR.UTF-8, ko_KR@euro)을 태그 형식(ko-KR)으로. 인코딩과 modifier는 뗀다 */
+const asTag = (value: string) => value.replace(/[.@].*$/, "").replaceAll("_", "-");
+
 /** 태그와 정확히 같은 것, 그다음 언어 부분이 같은 것(en-US-u-va-posix는 en). 없으면 null */
 function logLanguageOf(tag: string): LogLanguage | null {
   const lower = tag.toLowerCase();
@@ -21,13 +24,13 @@ function logLanguageOf(tag: string): LogLanguage | null {
 function pickLogLanguage(setting: string | undefined, osLocale: string | undefined): { language: LogLanguage; notice: LogLanguageNotice | null } {
   const value = setting?.trim() ?? "";
   let notice: LogLanguageNotice | null = null;
-  if (value && !TAG.test(value)) notice = { kind: "malformed", value };
+  if (value && !TAG.test(asTag(value))) notice = { kind: "malformed", value };
   else if (value) {
-    const found = logLanguageOf(value);
+    const found = logLanguageOf(asTag(value));
     if (found) return { language: found, notice: null };
     notice = { kind: "unavailable", value };
   }
-  const os = osLocale ? logLanguageOf(osLocale) : null;
+  const os = osLocale ? logLanguageOf(asTag(osLocale)) : null;
   return { language: os ?? LOG_LANGUAGES[0], notice };
 }
 

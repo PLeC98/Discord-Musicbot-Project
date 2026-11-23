@@ -5,7 +5,8 @@
 import { setupEnv, loadEnv, madeLine } from "../config/env-file.ts";
 import { chooseLogLanguage } from "../infra/log/choose-language.ts";
 
-// 로거는 설정을 읽어야 만들어지므로 아직 없다. 콘솔로 알린다
-if (setupEnv()) console.warn(madeLine());
+const made = setupEnv();
 loadEnv();
 chooseLogLanguage();
+// 로거는 설정을 읽어야 만들어지므로 아직 없다. 고른 언어로 찍도록 고른 뒤에 콘솔로 알린다
+if (made) console.warn(madeLine());

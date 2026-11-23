@@ -42,6 +42,7 @@ const isRootConfig = (rel: string) => rel === "src/config/index.ts";
 const ENV_BOOTSTRAP = "src/app/env-bootstrap.ts";
 // .env를 읽지 않는 진입 파일의 첫 줄(로그 언어를 고른다)
 const CHOOSE_AT_START = "src/infra/log/choose-at-start.ts";
+const CHOOSE_LANGUAGE = "src/infra/log/choose-language.ts";
 
 function layerOf(rel: string) {
   // 언어 폴더(locales/<언어>/)는 자신을 부르는 진입점의 층을 따른다
@@ -322,16 +323,19 @@ function scan() {
   const staticTargets = (rel: string) => [...stripComments(rel).matchAll(/^\s*(?:import|export)\s[^;]*?["'](\.[^"']+)["']/gm)].map((m) => path.posix.join(path.posix.dirname(rel), m[1]));
   const imported = new Set([...sources, ...scripts].flatMap((f) => staticTargets(f.rel)));
   const startFiles = [...sources.filter((f) => isRootIndex(f.rel)), ...scripts.filter((f) => !f.rel.endsWith(".d.ts") && !imported.has(f.rel))];
-  // 고르는 모듈이 직간접으로 부르는 것. 설정, 로거보다 먼저 돌므로 다른 프로젝트 모듈을 끌어오면 .env를 읽기 전에 설정이 돈다
-  const logLanguageReach = new Set<string>();
-  for (const queue = [CHOOSE_AT_START]; queue.length;) {
-    const v = queue.shift() as string;
-    if (logLanguageReach.has(v)) continue;
-    logLanguageReach.add(v);
-    queue.push(...(graph.get(v) ?? []));
-  }
+  // 로그 언어 모듈이 직간접으로 부르는 것. 설정, 로거보다 먼저 돌므로 다른 프로젝트 모듈을 끌어오면 .env를 읽기 전에 설정이 돈다
+  const reachOf = (start: string) => {
+    const seen = new Set<string>();
+    for (const queue = [start]; queue.length;) {
+      const v = queue.shift() as string;
+      if (seen.has(v)) continue;
+      seen.add(v);
+      queue.push(...(graph.get(v) ?? []));
+    }
+    return [...seen].sort();
+  };
   // 그 파일들의 import 중 프로젝트 밖(Node 내장 모듈, 패키지)
-  const bareImports = [...logLanguageReach].flatMap((rel) => [...stripComments(rel).matchAll(/\bfrom\s+["']([^."'][^"']*)["']|\bimport\s+["']([^."'][^"']*)["']/g)].map((m) => `${rel}: ${m[1] ?? m[2]}`));
+  const bareImportsOf = (files: string[]) => files.flatMap((rel) => [...stripComments(rel).matchAll(/\bfrom\s+["']([^."'][^"']*)["']|\bimport\s+["']([^."'][^"']*)["']/g)].map((m) => m[1] ?? m[2]));
 
   const perFile = <T extends { rel: string }>(list: T[], pick: (f: T) => number) => Object.fromEntries(list.map((f): [string, number] => [f.rel, pick(f)]).filter(([, n]) => n > 0));
   return {
@@ -348,8 +352,11 @@ function scan() {
     withoutBootstrap: entries.filter((f) => f.deps[0]?.to !== ENV_BOOTSTRAP).map((f) => f.rel),
     startFiles: startFiles.map((f) => f.rel),
     withoutLogLanguage: startFiles.filter((f) => f.deps[0]?.to !== ENV_BOOTSTRAP && f.deps[0]?.to !== CHOOSE_AT_START).map((f) => f.rel),
-    logLanguageReach: [...logLanguageReach].sort(),
-    logLanguageBareImports: bareImports,
+    // 고르기(화면 번들까지 닿는다)와 .env를 읽지 않는 진입의 첫 줄(.env 한 줄을 읽는다)
+    chooseReach: reachOf(CHOOSE_LANGUAGE),
+    chooseBareImports: bareImportsOf(reachOf(CHOOSE_LANGUAGE)),
+    atStartReach: reachOf(CHOOSE_AT_START),
+    atStartBareImports: bareImportsOf(reachOf(CHOOSE_AT_START)),
     // .env를 process.env에 올리는 파일(주석은 뺀다)
     envFileLoad: [...sources, ...scripts].map((f) => f.rel).filter((rel) => /process\.loadEnvFile\b/.test(stripComments(rel))),
     // 실행 중 경로를 파일 위치에서 세는 파일(import.meta.dirname, 주석은 뺀다)
