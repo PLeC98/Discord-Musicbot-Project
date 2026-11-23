@@ -6,13 +6,14 @@
 import { DbFile } from "./sqlite.ts";
 import type { Db } from "./sqlite.ts";
 import type { AudioCachePart } from "../rules/audio-cache-parts.ts";
+import { L } from "../infra/log/text.ts";
 
 const cacheDb = new DbFile({
-  label: "캐시 DB",
+  label: L.core.cacheDbLabel(),
   fileName: "cache.db",
   version: 8,
   synchronous: "NORMAL",
-  onMismatch: { lost: "캐시 파일 기록, 오디오 링크 데이터, 직접 지정한 음원, 재생 테스트 결과, SponsorBlock 구간, 연령 제한 기록이 사라지고, 캐시 파일은 기동 시 정리가 삭제한 뒤 다음 재생부터 다시 다운로드함" },
+  onMismatch: { lost: L.core.cacheDbLost() },
   createTables,
 });
 

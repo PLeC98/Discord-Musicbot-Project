@@ -17,6 +17,7 @@ import { finishSessions } from "../dashboard/session-store.ts";
 import { beginShutdown } from "../infra/shutdown-state.ts";
 import { stopJob } from "../infra/script-job.ts";
 import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
 
 // 바깥 경계. 테스트는 가짜를 넘긴다
 type Boundary = {
@@ -46,7 +47,7 @@ const REAL: Boundary = {
 /** 내릴 POToken 서버, 닫을 로그 파일(없으면 null), 나머지는 바깥 경계(생략하면 실제 구현) */
 type ShutdownDeps = { potServer: { stop(): Promise<PotStop> }; logFile: { close(): unknown } | null } & Partial<Boundary>;
 /** 종료할 때 세션을 저장하고 음성 연결을 정리할 플레이어 */
-type Saver = { persistence: { save(reason: string): Promise<unknown> }; gain?: { checkpoint(): void }; voice: { release(reason: string): unknown }; updateVoiceStatus(status: string): Promise<unknown> };
+type Saver = { persistence: { save(reason: string): Promise<unknown> }; gain?: { checkpoint(): void }; voice: { release(reason: string | LogText): unknown }; updateVoiceStatus(status: string): Promise<unknown> };
 // 음성 채널 상태 문구를 지우는 데 기다리는 상한. 넘으면 그대로 끝낸다
 const STATUS_CLEAR_MS = 2000;
 // 다시 시작 공지를 보내는 데 기다리는 상한(모든 서버 합쳐). 넘으면 보낸 것만 세고 종료를 잇는다
@@ -70,14 +71,14 @@ function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
   let bot: ShutdownBot | null = null;
   let shuttingDown = false;
   // why: 로그, 연결 정리에 적는 원인. restart면 다시 시작 코드로 나간다. announce: 다시 시작 전에 재생 중인 서버에 알린다
-  const gracefulShutdown = async (why: string, restart = false, announce = false) => {
+  const gracefulShutdown = async (why: string | LogText, restart = false, announce = false) => {
     // Windows 콘솔의 Ctrl+C는 프로세스 신호와 입력 쪽 신호로 두 번 들어온다. 한 번만 한다
     if (shuttingDown) return;
     shuttingDown = true;
     // 새 음성 연결과 새 작업을 시작하지 않게 한다(막는 곳은 infra/shutdown-state)
     beginShutdown();
     const client = bot?.client ?? null;
-    const reason = restart ? `다시 시작(${why})` : `프로세스 종료(${why})`;
+    const reason = restart ? L.core.shutdownRestartReason({ why }) : L.core.shutdownExitReason({ why });
     log.info(L.core.shutdownStarted({ reason }));
     // 상주 모드가 재접속을 예약하거나 플레이어 정리 때 상주 설정을 지우지 않게 세션 저장 전에 멈춘다
     bot?.stay?.stop();
@@ -92,7 +93,7 @@ function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
   };
 
   // 종료가 중간에 예외를 던져도 나간다. 못 한 정리는 프로세스와 함께 닫힌다(다시 시작이었으면 그래도 다시 실행하게 같은 코드로)
-  const stop = (why: string, restart = false, announce = false) => {
+  const stop = (why: string | LogText, restart = false, announce = false) => {
     gracefulShutdown(why, restart, announce).catch((error: unknown) => {
       log.error(L.core.shutdownError(), error);
       exit(restart ? EXIT.restart : EXIT.stopped);
@@ -114,7 +115,7 @@ function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
       bot = next;
     },
     /** 정리하고 다시 시작 코드로 나간다. 실행기가 다시 실행한다. by: 누가(로그). announce: 재생 중인 서버에 다시 시작한다고 알린다 */
-    restart(by: string, { announce = false }: { announce?: boolean } = {}) {
+    restart(by: string | LogText, { announce = false }: { announce?: boolean } = {}) {
       stop(by, true, announce);
     },
   };
@@ -143,11 +144,11 @@ async function announceRestart(notices: (() => Promise<boolean>[]) | undefined) 
   let cap: NodeJS.Timeout | undefined;
   await Promise.race([Promise.all(counted), new Promise((done) => (cap = setTimeout(done, NOTICE_MS)))]);
   clearTimeout(cap);
-  log.info(`다시 시작 공지: 재생 중인 서버 ${sending.length}곳 중 ${sent}곳에 보냄${pending ? `(${NOTICE_MS / 1000}초 안에 끝나지 않은 ${pending}곳은 그대로 진행)` : ""}`);
+  log.info(L.core.restartNoticesSent({ total: sending.length, sent, pending, seconds: NOTICE_MS / 1000 }));
 }
 
 // 레지스트리에 없던 연결도 나가기 요청 없이 정리한다
-function destroyLeftovers(connections: ReturnType<Boundary["voiceConnections"]>, client: ShutdownBot["client"] | null, reason: string) {
+function destroyLeftovers(connections: ReturnType<Boundary["voiceConnections"]>, client: ShutdownBot["client"] | null, reason: LogText) {
   for (const [guildId, connection] of connections) {
     const name = client?.guilds.cache.get(guildId)?.name ?? guildId;
     try {
@@ -160,7 +161,7 @@ function destroyLeftovers(connections: ReturnType<Boundary["voiceConnections"]>,
 }
 
 // 플레이어의 세션을 저장하고, 음성 채널 상태 문구를 지우고, 나가기 요청 없이 연결을 정리한다
-async function savePlayers(players: ShutdownBot["players"], reason: string) {
+async function savePlayers(players: ShutdownBot["players"], reason: LogText) {
   const saves = [];
   for (const [guildId, player] of players) {
     if (!player) continue;

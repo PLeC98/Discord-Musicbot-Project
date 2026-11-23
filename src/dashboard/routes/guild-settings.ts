@@ -3,6 +3,7 @@
 import express from "express";
 import logger from "../../infra/log/logger.ts";
 import { messageOf } from "../../rules/error-kind.ts";
+import { asText } from "../../infra/log/log-text.ts";
 const log = logger.child({ category: "dashboard" });
 import { ChannelType, PermissionFlagsBits, type Guild, type GuildMember } from "discord.js";
 import type { z } from "zod";
@@ -98,7 +99,7 @@ function planLanguage(change: SettingsBody["language"], patch: guildSettings.Gui
   return null;
 }
 
-const fieldNames = (fields: guildSettings.GuildField[]) => fields.map((field) => guildSettings.FIELD_LABEL[field]).join(", ");
+const fieldNames = (fields: guildSettings.GuildField[]) => fields.map((field) => asText(guildSettings.FIELD_LABEL[field])).join(", ");
 
 // 상주 모드 카드: 켜졌는지, 머무는 채널(보는 사람이 볼 수 있는 채널만. 비공개 채널의 이름을 알리지 않는다), 지금 바꿀 수 없는 이유(켜고 끄기와 같은 확인, usecases/stay)
 async function stayCardOf(bot: BotContext, guild: Guild, member: GuildMember): Promise<StayCard> {

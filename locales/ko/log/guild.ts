@@ -12,6 +12,15 @@ const guild = {
   sponsorBlockReadFailed: () => `SponsorBlock 설정 읽기 실패(전역 설정 적용):`,
   panelPlaceReadFailed: () => `현재 재생 패널 위치 읽기 실패(이전 패널 정리 생략):`,
   panelPlaceSaveFailed: () => `현재 재생 패널 위치 저장 실패:`,
+  guildSettingsJsonInvalid: ({ guildId }: { guildId: string }) => `서버 ${guildId} 설정 읽기 실패(기본값 사용): 올바른 JSON 형식이 아님`,
+  guildSettingsValueInvalid: ({ guildId, fields }: { guildId: string; fields: string }) => `서버 ${guildId} 설정의 ${fields} 값 검증 실패(기본값 사용)`,
+  fieldBotChannel: () => `전용 채널`,
+  fieldDjRoles: () => `DJ 역할`,
+  fieldPlaylistAddMax: () => `재생목록 한 번에 넣을 곡 수`,
+  fieldAgePlace: () => `연령 제한 콘텐츠를 틀 곳`,
+  fieldVolume: () => `볼륨`,
+  fieldNormalize: () => `볼륨 정규화`,
+  fieldLanguage: () => `서버 언어`,
 };
 
 export { guild };

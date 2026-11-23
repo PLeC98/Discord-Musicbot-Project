@@ -5,10 +5,11 @@ import "../src/infra/log/choose-at-start.ts"; // 다른 import보다 먼저 로�
 import childProcess from "node:child_process";
 import path from "node:path";
 import { launch } from "../src/app/launcher.ts";
+import { asText } from "../src/infra/log/log-text.ts";
 
 launch(path.join(import.meta.dirname, "..", "src", "index.ts"), {
   spawn: (command, args, options) => childProcess.spawn(command, args, options),
   proc: process,
   exit: (code) => process.exit(code),
-  say: (line) => console.log(line),
+  say: (line) => console.log(asText(line)),
 });

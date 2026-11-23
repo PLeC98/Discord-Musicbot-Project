@@ -1,6 +1,7 @@
 import { type ButtonInteraction, type Guild, type RoleSelectMenuInteraction, type StringSelectMenuInteraction } from "discord.js";
 import logger from "../../infra/log/logger.ts";
 import { messageOf } from "../../rules/error-kind.ts";
+import { asText } from "../../infra/log/log-text.ts";
 const log = logger.child({ category: "events" });
 import * as guildSettings from "../../store/guild-settings.ts";
 import { ageContentOn } from "../../config/age-content.ts";
@@ -25,7 +26,7 @@ async function saved(guild: Guild, field: guildSettings.GuildField, work: () => 
     await work();
     return true;
   } catch (error) {
-    log.error(`서버 설정 저장 실패(/setting): ${guild.name} (${guild.id}) | ${guildSettings.FIELD_LABEL[field]} | ${messageOf(error)}`);
+    log.error(`서버 설정 저장 실패(/setting): ${guild.name} (${guild.id}) | ${asText(guildSettings.FIELD_LABEL[field])} | ${messageOf(error)}`);
     return false;
   }
 }

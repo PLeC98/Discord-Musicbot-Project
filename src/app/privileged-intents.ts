@@ -6,18 +6,19 @@ import { GatewayIntentBits } from "discord.js";
 import logger from "../infra/log/logger.ts";
 import { APPROVAL_SERVERS, INTENT_NAMES as NAMES, needsApproval, switchesOf, useLoggedIn, type AppFlags, type Privileged, type Switches } from "../infra/gateway-intents.ts";
 import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
 
 const log = logger.child({ category: "core" });
 
-const PORTAL = "개발자 포털 → 앱 → Bot → Privileged Gateway Intents";
-const TURNED_OFF: Record<Privileged, string> = { messageContent: "전용 채널에 채팅으로 곡을 넣는 기능", guildMembers: "대시보드의 서버 화면(운영자 패널은 그대로)" };
+const PORTAL = L.core.intentsPortalPath();
+const TURNED_OFF: Record<Privileged, LogText> = { messageContent: L.core.messageContentFeature(), guildMembers: L.core.guildMembersFeature() };
 const ALL_ON: Switches = { messageContent: true, guildMembers: true };
 
 // 마지막으로 읽은 앱 설정. 로그인이 거절됐을 때 승인이 필요한 규모인지 안내에 쓴다
 let lastApp: AppFlags | null = null;
 
 // 꺼진 스위치를 어떻게 켜나. 승인이 필요한 규모면 스위치가 아니라 신청
-const howToEnable = (app: AppFlags | null) => (needsApproval(app) ? `서버가 ${APPROVAL_SERVERS}개 이상이라 디스코드의 승인이 필요함(${PORTAL}에서 신청)` : `${PORTAL}에서 켜고 다시 시작`);
+const howToEnable = (app: AppFlags | null) => (needsApproval(app) ? L.core.intentsApprovalNeeded({ servers: APPROVAL_SERVERS, portal: PORTAL }) : L.core.intentsEnableHowTo({ portal: PORTAL }));
 
 /**
  * 요청할 인텐트를 고르고 이 프로세스의 인텐트로 적는다. 앱 설정에 flags가 없으면 다 요청한다(모르는 것은 꺼짐이 아니다)
@@ -41,17 +42,17 @@ function intentsFor(switches: Switches): GatewayIntentBits[] {
 
 /** 로그인이 특권 인텐트 거절(4014)로 실패했을 때의 안내. 어느 스위치인지 모르므로 둘 다 */
 function refusedAtLogin() {
-  return `로그인 거절: 개발자 포털에서 꺼진 특권 인텐트를 요청함 | ${NAMES.guildMembers}, ${NAMES.messageContent}: ${howToEnable(lastApp)}`;
+  return L.core.intentsRejectedAtLogin({ membersIntent: NAMES.guildMembers, contentIntent: NAMES.messageContent, howTo: howToEnable(lastApp) });
 }
 
 /**
  * 실행 중에 게이트웨이가 특권 인텐트 거절(4014)로 닫았다(포털에서 스위치를 끔). 다시 붙지 않는다.
  * restart: 다시 실행해 줄 실행기가 있으면 세션을 저장하고 다시 시작한다(다음 기동이 켜진 것만 요청한다). 없으면 알리고 남는다
  */
-function onRefusedWhileRunning(restart: ((why: string) => void) | null) {
+function onRefusedWhileRunning(restart: ((why: LogText) => void) | null) {
   if (restart) {
     log.error(L.core.intentsRejectedRestarting());
-    restart("특권 인텐트 거절");
+    restart(L.core.intentsRejectedReason());
     return;
   }
   log.error(L.core.intentsRejectedStopped({ portal: PORTAL }));

@@ -11,6 +11,7 @@ import { PLAYLIST_ADD_DEFAULT, VOLUME_BASE, VOLUME_MAX } from "../rules/limits.t
 import { sameValue, type SettingsKey } from "../rules/guild-settings-values.ts";
 import { KNOWN_TAGS, type Language } from "../rules/languages.ts";
 import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
 
 // 재생목록 한 번에 넣는 곡 수의 상한. 대기열 상한이 더 작으면 그쪽을 따른다
 const PLAYLIST_ADD_CEILING = 1000;
@@ -41,7 +42,7 @@ type GuildDoc = { [K in keyof typeof FIELDS]?: z.infer<(typeof FIELDS)[K]> };
 
 // 이미 알린 틀린 문서(서버, 내용). 곡마다 읽는 필드가 있어 같은 문서를 되풀이해 알리지 않는다
 const warned = new Set<string>();
-function warnOnce(guildId: string, raw: string, line: string) {
+function warnOnce(guildId: string, raw: string, line: LogText) {
   const key = `${guildId}|${raw}`;
   if (warned.has(key)) return;
   warned.add(key);
@@ -54,7 +55,7 @@ function shapeOf(guildId: string, raw: string): GuildDoc {
   try {
     parsed = JSON.parse(raw);
   } catch {
-    warnOnce(guildId, raw, `서버 ${guildId} 설정 읽기 실패(기본값 사용): 올바른 JSON 형식이 아님`);
+    warnOnce(guildId, raw, L.guild.guildSettingsJsonInvalid({ guildId }));
     return {};
   }
   const source = parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
@@ -66,7 +67,7 @@ function shapeOf(guildId: string, raw: string): GuildDoc {
     if (checked.success) doc[key] = checked.data;
     else wrong.push(key);
   }
-  if (wrong.length) warnOnce(guildId, raw, `서버 ${guildId} 설정의 ${wrong.join(", ")} 값 검증 실패(기본값 사용)`);
+  if (wrong.length) warnOnce(guildId, raw, L.guild.guildSettingsValueInvalid({ guildId, fields: wrong.join(", ") }));
   return doc as GuildDoc;
 }
 
@@ -78,16 +79,16 @@ function readDoc(guildId: string): GuildDoc {
 type GuildField = keyof GuildDoc;
 const GUILD_FIELDS = Object.keys(FIELDS) as GuildField[];
 
-/** 로그에 쓰는 필드 이름 */
-const FIELD_LABEL: Readonly<Record<GuildField, string>> = {
-  botChannelId: "전용 채널",
-  djRoleIds: "DJ 역할",
+/** 로그에 쓰는 필드 이름. 고유 이름(SponsorBlock)은 그대로 글이다 */
+const FIELD_LABEL: Readonly<Record<GuildField, string | LogText>> = {
+  botChannelId: L.guild.fieldBotChannel(),
+  djRoleIds: L.guild.fieldDjRoles(),
   sponsorBlock: "SponsorBlock",
-  playlistAddMax: "재생목록 한 번에 넣을 곡 수",
-  agePlace: "연령 제한 콘텐츠를 틀 곳",
-  volume: "볼륨",
-  normalize: "볼륨 정규화",
-  language: "서버 언어",
+  playlistAddMax: L.guild.fieldPlaylistAddMax(),
+  agePlace: L.guild.fieldAgePlace(),
+  volume: L.guild.fieldVolume(),
+  normalize: L.guild.fieldNormalize(),
+  language: L.guild.fieldLanguage(),
 };
 
 /**

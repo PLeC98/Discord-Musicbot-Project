@@ -5,6 +5,7 @@ import type { GuildCommand } from "../../app/command-loader.ts";
 import type { BotContext } from "../../app/bot-context.ts";
 import type { ChatInputCommandInteraction } from "discord.js";
 import { messageOf } from "../../rules/error-kind.ts";
+import { asText } from "../../infra/log/log-text.ts";
 import { post } from "../../ui/frame.ts";
 import * as screens from "../../ui/settings-screens.ts";
 import { noticeSelf } from "../../ui/delivery.ts";
@@ -17,7 +18,7 @@ async function saved(interaction: ChatInputCommandInteraction<"cached">, work: (
     await work();
     return true;
   } catch (error) {
-    log.error(`서버 설정 저장 실패(/setchannel): ${interaction.guild.name} (${interaction.guild.id}) | ${guildSettings.FIELD_LABEL.botChannelId} | ${messageOf(error)}`);
+    log.error(`서버 설정 저장 실패(/setchannel): ${interaction.guild.name} (${interaction.guild.id}) | ${asText(guildSettings.FIELD_LABEL.botChannelId)} | ${messageOf(error)}`);
     return false;
   }
 }

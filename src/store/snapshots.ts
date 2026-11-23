@@ -43,7 +43,7 @@ function list(dir = dbDir()): Snapshot[] {
     listFailure.ok();
   } catch (error) {
     // 폴더가 없으면 아직 뜬 것이 없다
-    if (codeOf(error) !== "ENOENT") listFailure.fail(`${folder} | ${codeOf(error) ?? messageOf(error)} (빈 목록으로 처리)`);
+    if (codeOf(error) !== "ENOENT") listFailure.fail(L.core.snapshotDirListFailed({ dir: folder, error: codeOf(error) ?? messageOf(error) }));
     return [];
   }
   return names

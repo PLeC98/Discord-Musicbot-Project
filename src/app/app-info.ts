@@ -20,7 +20,7 @@ function readApp(token: string): Promise<AppFlags> {
 
 /** 앱 설정을 읽어 앱 ID를 넣고 돌려준다. 앱 ID가 없는 답은 빈 값으로 넣지 않고 예외를 던진다. read, retry: 테스트가 넘긴다 */
 async function loadApp(read: () => Promise<AppFlags>, retry: Retry = {}): Promise<AppFlags> {
-  const app = await untilDiscordAnswers("디스코드 앱 설정 불러오기", read, retry);
+  const app = await untilDiscordAnswers(L.core.appSettingsFetch(), read, retry);
   if (typeof app.id !== "string" || !app.id) throw codedError("app-id-missing", L.core.appIdMissing());
   useAppId(app.id);
   return app;

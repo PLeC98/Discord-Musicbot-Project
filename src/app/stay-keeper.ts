@@ -27,6 +27,7 @@ import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { repeatingFailure } from "../infra/repeating-failure.ts";
 import { bestEffort } from "../infra/best-effort.ts";
 import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
 
 const BACKOFF_MS = [60_000, 120_000, 300_000, 600_000, 1_800_000];
 const BOOT_GAP_MS = 1000; // 기동 때 서버 사이. 게이트웨이 보내기 한도(60초 120번)에 넉넉하다
@@ -37,7 +38,7 @@ const RETRY = new Set<PlayerEnd>(["voice-lost", "connect-failed", "restore-faile
 
 type Why = "kicked" | "gone" | "permission";
 const NOTICE = { kicked: "stayKicked", gone: "stayChannelGone", permission: "stayNoPermission" } as const satisfies Record<Why, string>;
-const WHY_LOG: Record<Why, string> = { kicked: "강제 퇴장", gone: "채널 삭제", permission: "채널 권한 없음" };
+const WHY_LOG: Record<Why, LogText> = { kicked: L.voice.stayWhyKicked(), gone: L.voice.stayWhyChannelGone(), permission: L.voice.stayWhyNoPermission() };
 
 // 자리를 끈 알림을 서버의 전용 채널에(없으면 알리지 않는다. 로그는 남는다). 다른 경고, 오류 안내처럼 수준에 맞는 수명 뒤 지운다
 async function announce(guild: Guild, notice: Notice) {
@@ -49,14 +50,14 @@ async function announce(guild: Guild, notice: Notice) {
   });
   if (!channel) return;
   const sending = channel.send(post(noticeFrame(notice))).then((sent) => scheduleDelete(sent, noticeMs(notice)));
-  await bestEffort(log, sending, "상주 모드 해제 알림 전송", "warn");
+  await bestEffort(log, sending, L.voice.stayNoticeSend(), "warn");
 }
 
 /** join, announce, sleep은 테스트가 바꾼다 */
 type Deps = { client: Client; players: Pick<PlayerSeats, "get" | "set">; join?: typeof joinChannel; announce?: typeof announce; sleep?: (ms: number) => Promise<void> };
 
 // 상주 채널을 디스코드에서 조회한 결과: 붙을 채널, 상주 설정을 끌 원인, 조회 실패(그 원인)
-type Found = { channel: VoiceBasedChannel } | { why: Why } | { failed: string };
+type Found = { channel: VoiceBasedChannel } | { why: Why } | { failed: LogText };
 
 /** 붙는 동안 상주 설정이 바뀌었거나 상주 모드가 멈췄다(go가 예외를 던진다). 실패가 아니다 */
 class SeatChanged extends Error {}
@@ -134,7 +135,7 @@ class StayKeeper {
     } catch (error) {
       if (codeOf(error) === RESTJSONErrorCodes.UnknownChannel) return { why: "gone" };
       if (codeOf(error) === RESTJSONErrorCodes.MissingAccess) return { why: "permission" };
-      return { failed: `채널 조회 실패: ${messageOf(error)}` };
+      return { failed: L.voice.stayChannelFetchFailed({ error: messageOf(error) }) };
     }
   }
 
@@ -197,7 +198,7 @@ class StayKeeper {
       return true;
     }
     if (result.kind === "refused" || result.kind === "restore-error") {
-      this._failure(guild.id).fail(result.kind === "refused" ? result.code : "세션 복원 오류");
+      this._failure(guild.id).fail(result.kind === "refused" ? result.code : L.voice.stayRestoreError());
       this._later(guild.id);
       return false;
     }

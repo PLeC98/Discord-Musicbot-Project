@@ -5,6 +5,7 @@ import { VoiceConnectionStatus, VoiceConnectionDisconnectReason, joinVoiceChanne
 import { ChannelType, PermissionFlagsBits, RESTJSONErrorCodes, Status, type VoiceBasedChannel, type VoiceState } from "discord.js";
 import type { Player } from "./player.ts";
 import logger from "../infra/log/logger.ts";
+import { asText, type LogText } from "../infra/log/log-text.ts";
 import { holdingAdapterCreator, leavePayload } from "../infra/voice-adapter.ts";
 import { isShuttingDown } from "../infra/shutdown-state.ts";
 import { botChannelAtDiscord } from "./voice-leave.ts";
@@ -675,7 +676,7 @@ class VoiceLink {
     if (this.state === "closed") return;
     this.stop();
     this.state = "closed";
-    this.player.dispose(o).catch((error: unknown) => log.error(`정리 실패 (${o.reason}):`, error));
+    this.player.dispose(o).catch((error: unknown) => log.error(`정리 실패 (${asText(o.reason)}):`, error));
   }
 
   /**
@@ -750,14 +751,14 @@ class VoiceLink {
   }
 
   /** 나가기 요청을 보내지 않고 이 쪽 연결만 정리한다. 채널에서 빠지는 것은 게이트웨이 세션에 따른다: 정상 종료는 연결을 닫자마자, 프로세스가 죽으면 세션이 끝날 때 디스코드가 뺀다 */
-  release(reason: string) {
+  release(reason: string | LogText) {
     this.stop();
     this.state = "closed";
     const connection = this._detach();
     if (!connection || connection.state.status === VoiceConnectionStatus.Destroyed) return;
     try {
       connection.destroy(false);
-      log.info(`음성 연결 정리: ${this._label()} | 원인=${reason}`);
+      log.info(`음성 연결 정리: ${this._label()} | 원인=${asText(reason)}`);
     } catch (error) {
       log.error("음성 연결 정리 실패:", error);
     }

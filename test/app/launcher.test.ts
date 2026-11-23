@@ -6,6 +6,7 @@ import { EventEmitter } from "node:events";
 import { launch, type LauncherDeps } from "../../src/app/launcher.ts";
 import { EXIT, LAUNCHER_ENV } from "../../src/app/exit-codes.ts";
 import { fakeWith } from "../helpers/fake.ts";
+import { asText } from "../../src/infra/log/log-text.ts";
 
 function setup(platform: NodeJS.Platform = "linux") {
   const children: Array<EventEmitter & { killed: string[]; env: NodeJS.ProcessEnv | undefined }> = [];
@@ -25,7 +26,7 @@ function setup(platform: NodeJS.Platform = "linux") {
     children.push(child);
     return fakeWith<ReturnType<LauncherDeps["spawn"]>>()(child);
   };
-  launch("bot.ts", { spawn, proc, exit: (code) => void exits.push(code), say: (line) => void said.push(line) });
+  launch("bot.ts", { spawn, proc, exit: (code) => void exits.push(code), say: (line) => void said.push(asText(line)) });
   return { children, exits, said, proc };
 }
 

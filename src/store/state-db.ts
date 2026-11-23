@@ -3,16 +3,17 @@
 
 import { DbFile } from "./sqlite.ts";
 import type { Db } from "./sqlite.ts";
+import { L } from "../infra/log/text.ts";
 
 const stateDb = new DbFile({
-  label: "실행 상태 DB",
+  label: L.core.stateDbLabel(),
   fileName: "state.db",
   version: 4,
   synchronous: "NORMAL",
   // 기다리지 않는다. 재시작 때 이어 가려고 남기는 사본이라 실패해도 다음 쓰기가 메운다(위치, 세션 행은 다음 틱, 대기열은 통째로 다시 쓰기).
   // 기다리면 그동안 재생이 멎는다(DB 편집기가 수정한 뒤 저장하기 전까지 잠금을 쥔다)
   busyTimeoutMs: 0,
-  onMismatch: { lost: "저장된 대기열, 음성 채널 상태, 재생 패널 위치, 24/7 상주 채널이 사라짐" },
+  onMismatch: { lost: L.core.stateDbLost() },
   createTables,
 });
 

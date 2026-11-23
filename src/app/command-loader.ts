@@ -184,7 +184,7 @@ function deployHint(scope: string, guildId: string | null, error: unknown): Rule
 
 /** 배포 실패를 로그, 터미널에 남길 줄. 원인 안내(hint)가 있으면 둘째 줄 */
 function deployErrorLines(result: { scope: string; error: unknown; hint: RuleProblem | null }) {
-  return [`명령어 배포 실패(${result.scope}): ${messageOf(result.error)}`, ...(result.hint ? [logRuleLine(result.hint)] : [])];
+  return [L.core.commandDeployScopeFailed({ scope: result.scope, error: messageOf(result.error) }), ...(result.hint ? [logRuleLine(result.hint)] : [])];
 }
 
 export { enabledCommands, followEnabledCommands, definitions, deployCommands, clearCommands, deployErrorLines };

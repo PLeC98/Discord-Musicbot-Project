@@ -13,10 +13,24 @@ const cache = {
   orphanCacheFilesRemoved: ({ count }: { count: number }) => `고아 오디오 캐시 파일 ${count}개 삭제 완료`,
   partialCacheFilesRemoved: ({ count }: { count: number }) => `캐시 다운로드 중단으로 생성된 조각 파일 ${count}개 삭제 완료`,
   diskLowEvicting: ({ freeMb, minMb }: { freeMb: number; minMb: number }) => `디스크 여유 공간 부족 (${freeMb}MB 남음, 최소 ${minMb}MB). 오디오 캐시 정리`,
-  cacheOverCapEvicting: ({ usage, targetPercent }: { usage: string; targetPercent: number }) => `오디오 캐시가 상한을 넘음(${usage}). 상한의 ${targetPercent}%까지 정리`,
-  cacheEvicted: ({ count, remaining, sizeMb, shortfall, unremoved }: { count: number; remaining: number; sizeMb: number; shortfall: string; unremoved: string }) => `오디오 캐시 ${count}개 삭제(${remaining}개 남음, ${sizeMb}MB)${shortfall}${unremoved}`,
+  /** 오디오 캐시가 상한을 넘어 정리를 시작한다. overSize: 용량이, overFiles: 파일 수가 넘었다 */
+  cacheOverCapEvicting: ({ overSize, sizeMb, maxMb, overFiles, files, maxFiles, targetPercent }: { overSize: boolean; sizeMb: number; maxMb: number; overFiles: boolean; files: number; maxFiles: number; targetPercent: number }) => `오디오 캐시가 상한을 넘음(${[overSize ? `용량 ${sizeMb}MB / ${maxMb}MB` : "", overFiles ? `파일 ${files}개 / ${maxFiles}개` : ""].filter(Boolean).join(", ")}). 상한의 ${targetPercent}%까지 정리`,
+  /** 오디오 캐시 정리 결과. reached: 목표선까지 내려갔다, guarded: 재생 중이거나 대기열 앞이라 지킨 곡 수, failed: 삭제하지 못한 수 */
+  cacheEvicted: ({ count, remaining, sizeMb, reached, guarded, failed }: { count: number; remaining: number; sizeMb: number; reached: boolean; guarded: number; failed: number }) => {
+    const why = [guarded > 0 ? `재생 중이거나 대기열 앞에 있는 곡 ${guarded}개는 지키고` : "", failed > 0 ? `${failed}개는 삭제하지 못해` : ""].filter(Boolean).join(", ");
+    const tail = reached ? (failed > 0 ? ` - ${failed}개는 삭제하지 못함` : "") : ` - 목표선까지 내려가지 못함${why ? `(${why})` : ""}`;
+    return `오디오 캐시 ${count}개 삭제(${remaining}개 남음, ${sizeMb}MB)${tail}`;
+  },
   cacheEvictionFailed: ({ error }: { error: string }) => `오디오 캐시 정기 정리 중 오류: ${error}`,
   spotifyAnonStateParseFailed: ({ error }: { error: string }) => `저장된 스포티파이 익명 상태 JSON 파싱 실패(캐시 미스로 처리): ${error}`,
+  cacheFilesLeftOnDisk: ({ codes }: { codes: string }) => `${codes} (파일이 디스크에 남음)`,
+  startupCacheEvict: () => `기동 캐시 비우기`,
+  cacheDiskCheckFailed: ({ dir, error }: { dir: string; error: number | string }) => `${dir} | statfs ${error} (디스크 부족 시 캐시 정리 비활성화)`,
+  loudnessPrune: () => `오래된 볼륨 값 지우기`,
+  sessionTrackRow: () => `세션 트랙`,
+  linkDataRow: () => `링크 데이터`,
+  /** 읽은 행의 형식이 맞지 않아 버렸다. what: 행 종류(sessionTrackRow, linkDataRow 라벨), where: 틀린 칸, key: 요청 키(없으면 null) */
+  rowShapeInvalid: ({ what, where, key }: { what: string; where: string; key: string | null }) => `${what} 행의 형식이 올바르지 않아 무시(${where}): ${key ?? "없음"}`,
 };
 
 export { cache };

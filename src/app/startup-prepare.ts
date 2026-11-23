@@ -36,9 +36,9 @@ function runToEnd(spec: Omit<ScriptJobSpec, "onEnd">): Promise<ScriptJobInfo | n
   });
 }
 
-/** 실패한 작업을 한 줄로 요약한다. 사유, 종료 코드, 출력의 마지막 줄들 */
+/** 실패한 작업을 실패 문구의 값으로. 사유, 종료 코드, 출력의 마지막 줄들 */
 // 스크립트 출력은 봇 로그와 같은 모양(INFO  [ffmpeg] ...)이라 옮겨 적을 때 앞을 뗀다(infra/script-line)
-const failedText = (info: ScriptJobInfo) => `${info.reason ?? "?"}${info.exitCode !== null ? `, 종료 코드 ${info.exitCode}` : ""}): ${info.output.slice(-TAIL_LINES).map(stripScriptPrefix).join(" | ")}`;
+const failure = (info: ScriptJobInfo) => ({ reason: info.reason, exitCode: info.exitCode, output: info.output.slice(-TAIL_LINES).map(stripScriptPrefix).join(" | ") });
 
 /** 저장소 루트, 화면 소스 폴더, 빌드 결과 폴더 */
 type DashboardPaths = { root: string; dashboard: string; dist: string };
@@ -51,7 +51,7 @@ async function buildDashboardIfStale({ root, dashboard: dashboardDir, dist }: Da
   if (freshness.state === "fresh") return;
   const vite = path.join(dashboardDir, "node_modules", "vite", "bin", "vite.js");
   if (!fs.existsSync(vite)) return;
-  const why = freshness.state === "stale" ? `바뀐 화면 소스 ${freshness.changed.length}개` : freshness.state === "missing" ? "기존 빌드 결과물 없음" : "빌드 정보 없음";
+  const why = freshness.state === "stale" ? L.core.screenSourcesChanged({ count: freshness.changed.length }) : freshness.state === "missing" ? L.core.screenBuildMissing() : L.core.screenBuildInfoMissing();
   log.info(L.core.screenBuildStarted({ why }));
   const started = Date.now();
   const info = await runToEnd({
@@ -65,7 +65,7 @@ async function buildDashboardIfStale({ root, dashboard: dashboardDir, dist }: Da
   });
   if (!info) return;
   if (info.state === "succeeded") return void log.info(L.core.screenBuildDone({ seconds: sec(Date.now() - started) }));
-  log.warn(L.core.screenBuildFailed({ why: failedText(info) }));
+  log.warn(L.core.screenBuildFailed(failure(info)));
 }
 
 /**
@@ -80,7 +80,7 @@ async function alignFfmpegAtStartup(dir = PROJECT.ffmpeg, script = path.join(PRO
   // 바꿨는지는 기록의 지금 빌드 폴더로 본다(스크립트 출력은 로그 언어로 찍혀 글로 판단할 수 없다. 폴더 이름에 받은 시각이 붙어 교체하거나 설치할 때마다 달라진다)
   if (info?.state === "succeeded") {
     if (activeFolder(dir) !== before) log.info(L.core.ffmpegAligned({ result: stripScriptPrefix(info.output.at(-1) ?? "") }));
-  } else if (info) log.warn(L.core.ffmpegAlignFailed({ why: failedText(info) }));
+  } else if (info) log.warn(L.core.ffmpegAlignFailed(failure(info)));
   const cleaned = await cleanupFfmpeg(dir);
   if (cleaned.kind === "ok" && cleaned.removed.length) log.info(L.core.ffmpegOldFoldersRemoved({ names: cleaned.removed.map((r) => r.name).join(", ") }));
 }

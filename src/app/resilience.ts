@@ -15,12 +15,13 @@ import { EXIT } from "./exit-codes.ts";
 import { runRecord } from "./run-record.ts";
 import type { GuildFault } from "./guild-fault.ts";
 import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
 
 const flog = logger.child({ category: "core", sub: "fatal" });
 const coreLog = logger.child({ category: "core" });
 
 /** 치명적 오류로 내릴 때 세션을 저장하고 연결을 정리할 플레이어 */
-type Savable = { persistence: { saveNow(reason: string): unknown }; voice: { release(reason: string): unknown } };
+type Savable = { persistence: { saveNow(reason: string): unknown }; voice: { release(reason: string | LogText): unknown } };
 /** 서버마다의 플레이어 */
 type Savables = Pick<Map<string, Savable | null>, "forEach">;
 /** 오류 핸들러를 걸 클라이언트 */
@@ -47,7 +48,7 @@ function makeFloodGuard(windowMs = FLOOD_WINDOW_MS, max = FLOOD_MAX) {
  * 스택은 error(권한, 그 밖)면 같은 줄에, warn(상호작용 수명, 사라진 대상)이면 debug로.
  * 이벤트 경계(app/main의 onFault)와 프로세스 수준(loose)이 같이 쓴다. guildId: 그 서버(모르면 null), where: 어디서 새어 나왔나
  */
-function logRejection(error: unknown, guildId: string | null, where: string): boolean {
+function logRejection(error: unknown, guildId: string | null, where: string | LogText): boolean {
   const rejected = discordRejection(error);
   if (!rejected) return false;
   const line = rejectionLine(rejected, guildId, where);
@@ -74,7 +75,7 @@ function fatalShutdown(players: Savables | null | undefined, error: unknown, { e
       flog.error(L.core.floodSessionSaveFailed({ guildId, error: messageOf(e) }));
     }
     try {
-      player.voice.release("치명적 오류");
+      player.voice.release(L.core.fatalErrorReason());
     } catch {
       // 내리는 중이다. 연결은 프로세스와 함께 닫힌다
     }

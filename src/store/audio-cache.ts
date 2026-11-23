@@ -171,7 +171,7 @@ async function tallyRemovals<T>(run: () => Promise<T>): Promise<T> {
   try {
     return await run();
   } finally {
-    if (removals.codes.size) removeFailure.fail(`${[...removals.codes].sort().join(", ")} (파일이 디스크에 남음)`);
+    if (removals.codes.size) removeFailure.fail(L.cache.cacheFilesLeftOnDisk({ codes: [...removals.codes].sort().join(", ") }));
     else if (removals.removed) removeFailure.ok();
   }
 }
@@ -364,7 +364,7 @@ async function onStartup() {
   await tallyRemovals(cleanOrphanFiles);
 
   // 상한을 넘었으면 퇴거한다. 기다리지 않는다(복원될 곡은 저장된 세션을 보고 지킨다)
-  bestEffort(log, evictIfNeeded(), "기동 캐시 비우기", "warn");
+  bestEffort(log, evictIfNeeded(), L.cache.startupCacheEvict(), "warn");
 }
 
 // 선택한 것의 표를 비운다. survivors: 남긴 파일의 키라 audio_cache에 남길 행. 다운로드 중인 행도 남긴다(끝나면 그 행을 cached로 고친다).
@@ -515,7 +515,7 @@ function freeDiskBytes() {
     diskFailure.ok();
     return stat.bavail * stat.bsize;
   } catch (error) {
-    diskFailure.fail(`${dir} | statfs ${codeOf(error) ?? messageOf(error)} (디스크 부족 시 캐시 정리 비활성화)`);
+    diskFailure.fail(L.cache.cacheDiskCheckFailed({ dir, error: codeOf(error) ?? messageOf(error) }));
     return Infinity;
   }
 }
@@ -605,8 +605,7 @@ async function checkAndEvict() {
   if (lowDisk) {
     log.warn(L.cache.diskLowEvicting({ freeMb: MB(diskFree), minMb: MB(cfg.minFreeDiskBytes) }));
   } else {
-    const over = [overSize && `용량 ${MB(totalSize)}MB / ${MB(cfg.maxSizeBytes)}MB`, overFiles && `파일 ${fileCount}개 / ${cfg.maxFiles}개`].filter(Boolean).join(", ");
-    log.info(L.cache.cacheOverCapEvicting({ usage: over, targetPercent: cfg.evictTargetPercent }));
+    log.info(L.cache.cacheOverCapEvicting({ overSize, sizeMb: MB(totalSize), maxMb: MB(cfg.maxSizeBytes), overFiles, files: fileCount, maxFiles: cfg.maxFiles, targetPercent: cfg.evictTargetPercent }));
   }
 
   await evictLocked({ totalSize, fileCount, diskFree });
@@ -770,10 +769,7 @@ function removeCached(audioKey: string, expect?: number | null, go?: () => void)
 
 // 퇴거 결과 한 줄. 시작 줄("상한을 넘음")에는 늘 이 줄이 따른다
 function reportEviction({ evicted, failed, guarded, files, size, reached }: { evicted: number; failed: number; guarded: number; files: number; size: number; reached: boolean }) {
-  const why = [guarded > 0 && `재생 중이거나 대기열 앞에 있는 곡 ${guarded}개는 지키고`, failed > 0 && `${failed}개는 삭제하지 못해`].filter(Boolean).join(", ");
-  const short = reached ? "" : ` - 목표선까지 내려가지 못함${why ? `(${why})` : ""}`;
-  const unremoved = reached && failed > 0 ? ` - ${failed}개는 삭제하지 못함` : "";
-  log.info(L.cache.cacheEvicted({ count: evicted, remaining: files, sizeMb: MB(size), shortfall: short, unremoved }));
+  log.info(L.cache.cacheEvicted({ count: evicted, remaining: files, sizeMb: MB(size), reached, guarded, failed }));
 }
 
 /** 정기 퇴거를 건다(간격은 설정) */
@@ -786,7 +782,7 @@ function startPeriodicEviction() {
     bestEffort(
       log,
       Promise.resolve().then(() => pruneLoudness()),
-      "오래된 볼륨 값 지우기",
+      L.cache.loudnessPrune(),
       "warn",
     );
   }, evictEveryMs);

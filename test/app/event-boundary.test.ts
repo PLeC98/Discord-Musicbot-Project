@@ -4,6 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { guarded, guildOf } from "../../src/app/event-boundary.ts";
 import { currentGuild } from "../../src/infra/guild-context.ts";
+import { asText, type LogText } from "../../src/infra/log/log-text.ts";
 
 const settle = () => new Promise((done) => setImmediate(done));
 
@@ -15,7 +16,7 @@ test("인자에서 서버를 찾는다: guildId(상호작용, 메시지), guild.
 
 test("핸들러는 그 서버의 문맥에서 돈다. 예외, 거부는 서버와 함께 넘긴다", async () => {
   const faults: string[] = [];
-  const onFault = (error: unknown, guildId: string | null, where: string) => faults.push(`${where}:${guildId}:${(error as Error).message}`);
+  const onFault = (error: unknown, guildId: string | null, where: string | LogText) => faults.push(`${asText(where)}:${guildId}:${(error as Error).message}`);
   const seen: Array<string | null> = [];
 
   guarded("버튼", (_i: { guildId: string }) => void seen.push(currentGuild()), onFault)({ guildId: "g1" });

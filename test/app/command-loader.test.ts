@@ -11,6 +11,7 @@ import type { RESTPostAPIApplicationCommandsJSONBody, RESTPutAPIApplicationComma
 import type { GetCommands, PutCommands } from "../../src/app/command-loader.ts";
 import { codeOf } from "../../src/rules/error-kind.ts";
 import { fake } from "../helpers/fake.ts";
+import { asText } from "../../src/infra/log/log-text.ts";
 
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-cmdhash-"));
 let hashSeq = 0;
@@ -202,8 +203,8 @@ test("배포 실패의 원인 안내: 서버 배포의 50001은 GUILD_ID, 그 �
   assert.equal(await hintOf(50001, null), null, "전역 50001은 원인을 짐작할 근거가 없다");
   assert.equal(await hintOf(50035, "112233445566778899"), null, "형식 검사를 지난 뒤의 50035는 명령 정의 쪽이다");
 
-  assert.deepEqual(deployErrorLines({ scope: "guild", error: new Error("Missing Access"), hint: rule("deploy-guild-missing", { guildId: "1" }) }), ["명령어 배포 실패(guild): Missing Access", "GUILD_ID 서버(1)에 봇이 없음. .env의 GUILD_ID가 맞는지, 봇이 서버에서 나가지 않았는지 확인하세요"]);
-  assert.deepEqual(deployErrorLines({ scope: "global", error: new Error("boom"), hint: null }), ["명령어 배포 실패(global): boom"]);
+  assert.deepEqual(deployErrorLines({ scope: "guild", error: new Error("Missing Access"), hint: rule("deploy-guild-missing", { guildId: "1" }) }).map(asText), ["명령어 배포 실패(guild): Missing Access", "GUILD_ID 서버(1)에 봇이 없음. .env의 GUILD_ID가 맞는지, 봇이 서버에서 나가지 않았는지 확인하세요"]);
+  assert.deepEqual(deployErrorLines({ scope: "global", error: new Error("boom"), hint: null }).map(asText), ["명령어 배포 실패(global): boom"]);
 });
 
 test("등록 대상이 서버에서 전역(또는 다른 서버)으로 바뀌면 옛 서버의 명령을 비운다", async () => {

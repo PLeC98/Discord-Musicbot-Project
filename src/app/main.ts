@@ -88,10 +88,10 @@ import { welcomeGuild } from "./welcome.ts";
 import { nudgeOnSettingsChange } from "./settings-nudge.ts";
 import * as guildSettings from "../store/guild-settings.ts";
 import { AppEmojis, apiOf } from "./app-emojis.ts";
-import { josa } from "../infra/josa.ts";
 import { missingText } from "../ui/text/index.ts";
 import { missingRuleText } from "../rules/text/index.ts";
 import { missingLogText } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
 import { BASE_LANGUAGE } from "../rules/languages.ts";
 import { L } from "../infra/log/text.ts";
 
@@ -177,7 +177,7 @@ function openSettings({ potServer, logFile }: { potServer: PotServer; logFile: L
   // 장르, 상태 문구, AI 설정, 프롬프트. 설정 계층이 메모리에 들고, 저장할 때 settings.db에 쓴다
   // 예전 기본값 그대로인 AI 줄 형식, 프롬프트는 지금 기본값(영어)으로 바꿔 둔다(config/ai-upgrade)
   const upgraded = documents.attach(settingsDocs);
-  if (upgraded.length) log.info(`이전 기본값으로 남아 있던 AI 설정을 새 기본값으로 갱신: ${upgraded.map((name) => (name === "ai" ? "줄 형식" : "판정 프롬프트")).join(", ")}`);
+  if (upgraded.length) log.info(L.core.aiDefaultsUpgraded({ lineFormat: upgraded.includes("ai"), prompt: upgraded.includes("ai-prompt") }));
   // 복원한 설정이 AI를 켜 두었는데 이 폴더에 받은 모델 정보가 없을 수 있다(전체 백업은 모델 정보를 담지 않는다)
   if (restored) fetchIfMissing();
   warnLegacyConfigFiles();
@@ -194,7 +194,7 @@ function openSettings({ potServer, logFile }: { potServer: PotServer; logFile: L
 async function restoreAudioCache() {
   try {
     const done = await archive.applyStagedAudio(PROJECT.database);
-    if (done) log.info(`전체 백업의 오디오 캐시 병합 완료: ${(Object.entries(done.added ?? {}) as Array<[ArchiveItem, number]>).map(([item, n]) => `${archive.ITEM_LABELS[item]} ${n}`).join(", ") || "새로 불러온 것 없음"}`);
+    if (done) log.info(L.core.backupAudioCacheMerged({ items: (Object.entries(done.added ?? {}) as Array<[ArchiveItem, number]>).map(([item, n]) => `${archive.ITEM_LABELS[item]} ${n}`).join(", ") || null }));
   } catch (error) {
     log.warn(L.core.backupAudioCacheMergeFailed({ error: messageOf(error) }));
   }
@@ -203,7 +203,7 @@ async function restoreAudioCache() {
 // 옛 설정 파일(config/*.yaml, ai-prompt.chatml)이 남아 있으면 한 줄. 읽지도 삭제하지도 않는다(보며 옮길 수 있게)
 function warnLegacyConfigFiles() {
   const left = ["genres.yaml", "status.yaml", "ai.yaml", "ai-prompt.chatml"].filter((name) => fs.existsSync(path.join(PROJECT.config, name)));
-  if (left.length) log.warn(`config/의 ${left.join(", ")}${josa(left.join(", "), "은")} 이제 읽지 않음. 운영자 패널(자동재생, 상태 문구, AI 보조 탭)에서 다시 입력하고 이 파일들은 삭제하세요`);
+  if (left.length) log.warn(L.core.legacyConfigFilesLeft({ files: left.join(", ") }));
 }
 
 // 로그 레벨과 파일. 이보다 앞선 레코드(config 경고 등)는 sink가 모아뒀다가 파일에 재생한다.
@@ -230,7 +230,7 @@ function deploySlashCommands() {
     .deployCommands()
     .then((r) => {
       if (r.ok && r.skipped) log.info(L.core.commandDeploySkipped({ count: r.count }));
-      else if (r.ok) log.info(`슬래시 명령어 ${r.count}개를 ${r.scope === "guild" ? `서버 ${r.guildId ?? "없음"}에` : "전역으로"} 배포 완료`);
+      else if (r.ok) log.info(L.core.commandsDeployed({ count: r.count, toGuild: r.scope === "guild", guildId: r.guildId }));
       else commandLoader.deployErrorLines(r).forEach((line) => log.error(line));
     })
     .catch((error: unknown) => log.error(L.core.commandDeployFailed({ error: messageOf(error) })));
@@ -261,7 +261,7 @@ function startBot({ potServer, logFile, shutdown, skipRestore, intents }: { potS
   });
   const stream = createPlayerStream();
   // 다시 시작은 다시 실행해 줄 실행기(pnpm start)가 있을 때만 연다
-  const restart = process.env[LAUNCHER_ENV] === "1" ? (by: string, options?: { announce?: boolean }) => shutdown.restart(by, options) : null;
+  const restart = process.env[LAUNCHER_ENV] === "1" ? (by: string | LogText, options?: { announce?: boolean }) => shutdown.restart(by, options) : null;
   // 실행 중에 포털에서 특권 인텐트를 끄면 게이트웨이가 4014로 연결을 끊고 재연결하지 않는다. 실행기가 있으면 다시 시작해 켜진 것만 요청한다
   client.on(Events.ShardDisconnect, (event) => {
     if (event.code === GatewayCloseCodes.DisallowedIntents) onRefusedWhileRunning(restart);
@@ -279,12 +279,12 @@ function startBot({ potServer, logFile, shutdown, skipRestore, intents }: { potS
   nudgeOnSettingsChange(guildSettings.onChanged, playerEvents.touched);
   // 봇이 새 서버에 들면 대시보드 서버 목록 연결을 연 사람들이 그 서버의 신호도 받게 한다
   client.on(Events.GuildCreate, (guild) => {
-    bestEffort(log, botJoinedGuild(stream, guild), "새 서버의 대시보드 구독자 가져오기", "warn");
-    bestEffort(log, welcomeGuild(guild), `새 서버 ${guild.id}의 안내 메시지`, "warn");
+    bestEffort(log, botJoinedGuild(stream, guild), L.core.newGuildSubscribersFetch(), "warn");
+    bestEffort(log, welcomeGuild(guild), L.core.newGuildWelcome({ guildId: guild.id }), "warn");
   });
   // 게이트웨이에 재연결해 서버를 다시 쓸 수 있게 되면(멤버 캐시를 다시 받는다) 그 서버를 보던 연결의 사람을 다시 가져온다
   client.on(Events.GuildAvailable, (guild) => {
-    bestEffort(log, guildBack(stream, guild), "다시 쓸 수 있게 된 서버의 대시보드 구독자 가져오기", "warn");
+    bestEffort(log, guildBack(stream, guild), L.core.returnedGuildSubscribersFetch(), "warn");
     stay.onGuildAvailable(guild);
   });
   // 봇이 서버에서 나가면 그 서버 멤버였던 사람들의 서버 목록, 초대 화면이 다시 읽게 한다
@@ -308,14 +308,14 @@ function startBot({ potServer, logFile, shutdown, skipRestore, intents }: { potS
   // 음성 상태 변화: 강제 퇴장, 채널 이동, 음소거, 혼자 남음
   client.on(
     Events.VoiceStateUpdate,
-    guarded("음성 상태", (oldState: VoiceState, newState: VoiceState) => onVoiceStateUpdate(client, players, oldState, newState), onFault),
+    guarded(L.core.voiceStateEvent(), (oldState: VoiceState, newState: VoiceState) => onVoiceStateUpdate(client, players, oldState, newState), onFault),
   );
   // 새어 나온 오류, 거부, 예외를 구분해 표적 복구하거나 안전 종료한다
   installErrorHandlers(client, { players, fault });
   listenToLibrary(client);
 
   // 실패는 init이 받아 기동 실패로 내린다
-  bestEffort(log, init(bot, { commands, potServer, logFile, shutdown, onFault }), "기동", "error");
+  bestEffort(log, init(bot, { commands, potServer, logFile, shutdown, onFault }), L.core.startupInit(), "error");
 }
 
 // 라이브러리(discord.js, REST)가 알리는 경고, 진행. 게이트웨이의 끊김, 연결 오류는 dashboard/status/gateway가 끊김 하나에 한 줄로 남긴다
@@ -329,7 +329,7 @@ function listenToLibrary(client: Client) {
   client.on(Events.Debug, (message) => dlog.trace(message));
   // 경로마다의 제한은 라이브러리가 줄 세워 기다리는 정상 흐름이다. 전역 제한은 봇 전체가 멈추니 운영자가 알아야 한다
   client.rest.on(RESTEvents.RateLimited, (info) => {
-    const line = `요청 제한 대기: ${info.method.toUpperCase()} ${info.route} | ${info.timeToReset}ms${info.global ? " | 전역" : ""}`;
+    const line = L.discord.rateLimited({ method: info.method.toUpperCase(), route: info.route, ms: info.timeToReset, global: info.global });
     if (info.global) dlog.warn(line);
     else dlog.debug(line);
   });
@@ -341,7 +341,7 @@ function listenToLibrary(client: Client) {
 // 서버 언어가 바뀌면 재생 패널을 다시 그린다. 서버가 고른 언어는 그 서버만, 봇 기본 언어나 쓸 수 있는 언어(테스트 언어 스위치)가 바뀌면 모든 서버
 function followLanguages(panels: NowPlayingPanel) {
   guildSettings.onChanged((guildId, fields) => {
-    if (fields.includes("language")) void bestEffort(log, panels.redrawLanguage([guildId]), "서버 언어를 바꾼 뒤 재생 패널 다시 그리기", "warn");
+    if (fields.includes("language")) void bestEffort(log, panels.redrawLanguage([guildId]), L.core.guildLanguagePanelRedraw(), "warn");
   });
   const shapeOf = () => `${botLanguage()}|${languagesNow().length}`;
   let shape = shapeOf();
@@ -349,7 +349,7 @@ function followLanguages(panels: NowPlayingPanel) {
     const now = shapeOf();
     if (now === shape) return;
     shape = now;
-    void bestEffort(log, panels.redrawLanguage(), "봇 기본 언어를 바꾼 뒤 재생 패널 다시 그리기", "warn");
+    void bestEffort(log, panels.redrawLanguage(), L.core.botLanguagePanelRedraw(), "warn");
   });
 }
 
@@ -418,7 +418,7 @@ async function cleanupAudioCache() {
 function warnMissingText() {
   [missingText(), missingRuleText(), missingLogText()].forEach((missing, kind) => {
     for (const [language, keys] of missing) {
-      log.warn({ tags: ["startup"] }, `${language} ${["봇", "규칙", "로그"][kind]} 문구 ${keys.length}개가 없거나 형식이 맞지 않아 기준 언어(${BASE_LANGUAGE})로 표시: ${keys.slice(0, 10).join(", ")}${keys.length > 10 ? ` 외 ${keys.length - 10}개` : ""}`);
+      log.warn({ tags: ["startup"] }, L.core.textFilledFromBase({ language, kind: [L.core.textKindBot(), L.core.textKindRule(), L.core.textKindLog()][kind], count: keys.length, base: BASE_LANGUAGE, keys: keys.slice(0, 10).join(", "), rest: keys.length - 10 }));
     }
   });
 }
@@ -449,7 +449,7 @@ function checkBeforeLogin() {
   // 재생, 캐시 변환이 모두 ffmpeg에 의존하므로 여기서 확정하고 기록한다. 못 찾으면 여기서 기동을 멈춘다
   stopIfThrows(() => logResolvedFfmpeg());
   // 지금 설치본이 실행되지 않아 이전 설치본으로 떴으면 기록을 되돌린다(다음 기동 때 같은 빌드를 다시 받지 않게)
-  void bestEffort(log, settleRejectedFfmpeg(), "ffmpeg 기록 되돌리기", "warn");
+  void bestEffort(log, settleRejectedFfmpeg(), L.core.ffmpegRecordRevert(), "warn");
   // 능력 확인(spawnSync 셋)도 여기서 해 둔다. 처음 곡을 틀 때 부르면 그동안 이벤트 루프가 멈춰 다른 서버의 음성이 밀린다
   ffmpegCapabilities();
   // yt-dlp도 재생과 같은 ffmpeg를 쓴다
@@ -462,16 +462,16 @@ function checkBeforeLogin() {
   // 지금 무엇으로 유튜브에 붙는지 한 줄. 없으면 POToken 서버가 죽어 있어도 모르고 지나간다.
   youtubeSource.logAuthMode();
   // yt-dlp 버전을 한 줄 남기고 설정대로 새 버전을 본다. 기동을 막지 않는다(그동안은 설치 때 다운로드한 것으로 돈다)
-  bestEffort(log, ytdlpBinary.start(), "yt-dlp 버전 맞추기", "warn");
+  bestEffort(log, ytdlpBinary.start(), L.core.ytdlpVersionAlign(), "warn");
   // 채널, 모드, 고정이 바뀌면(yt-dlp 카드, 설정 불러오기, 초기화) 새 설정으로 다시 맞춘다
-  onTunablesChanged(() => void bestEffort(log, ytdlpBinary.onSettingsChanged(), "yt-dlp 설정 반영", "warn"));
+  onTunablesChanged(() => void bestEffort(log, ytdlpBinary.onSettingsChanged(), L.core.ytdlpSettingsApply(), "warn"));
   // CPU 상한이 걸려 있으면 yt-dlp 동시 실행 수가 제한되어 곡 찾기가 차례를 기다릴 수 있다
   const cpu = ytdlpCpuLimit();
   if (cpu) log.info({ tags: ["startup"] }, L.core.ytdlpConcurrency({ slots: cpu.slots, cores: cpu.quota.toFixed(1) }));
   // bgutil이 설정한 버전과 다르게 설치돼 있으면 알린다
   warnOffTarget();
   // POToken 서버 사용을 켰는데 설치돼 있지 않으면 알아서 설치한다(기동 준비가 끝나 작업 자리가 빈 뒤라 여기서). 켜기를 저장하거나 다른 작업이 끝날 때도 다시 판정한다
-  bestEffort(log, bgutilAutoInstall.ensure("startup"), "bgutil 자동 설치 판정", "warn");
+  bestEffort(log, bgutilAutoInstall.ensure("startup"), L.core.bgutilAutoInstallCheck(), "warn");
   onTunablesChanged(() => void bgutilAutoInstall.ensure("settings"));
   onJobIdle(() => void bgutilAutoInstall.ensure("idle"));
 
@@ -486,7 +486,7 @@ function checkBeforeLogin() {
 async function startEncoding() {
   try {
     const { libopusVersion, max, quota } = await encodePool.start();
-    const limit = quota ? `상한 ${max}, CPU quota ${quota.toFixed(1)}` : `상한 ${max}`;
+    const limit = quota ? L.core.encoderLimitWithQuota({ max, quota: quota.toFixed(1) }) : L.core.encoderLimit({ max });
     log.info({ tags: ["startup"] }, L.core.opusEncoderReady({ version: libopusVersion, limit }));
   } catch (error) {
     log.error(L.core.opusEncoderLoadFailed({ error: messageOf(error) }));

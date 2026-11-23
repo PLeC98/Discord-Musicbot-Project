@@ -9,6 +9,12 @@ const voice = {
   stayRejoined: ({ channel, guild }: { channel: string; guild: string }) => `상주 채널 재접속: "${channel}" (${guild})`,
   stayRejoinSkippedCrashes: ({ count }: { count: number }) => `단시간 내 비정상 종료가 반복되어 상주 채널 ${count}곳의 자동 재접속을 건너뜀(상주 설정은 유지)`,
   stayRejoinSkippedBlocked: ({ guild }: { guild: string }) => `동일 오류 반복으로 차단된 서버라 상주 채널 재접속을 건너뜀(봇 재시작 또는 곡 재생 시 해제): ${guild}`,
+  stayWhyKicked: () => `강제 퇴장`,
+  stayWhyChannelGone: () => `채널 삭제`,
+  stayWhyNoPermission: () => `채널 권한 없음`,
+  stayNoticeSend: () => `상주 모드 해제 알림 전송`,
+  stayChannelFetchFailed: ({ error }: { error: string }) => `채널 조회 실패: ${error}`,
+  stayRestoreError: () => `세션 복원 오류`,
 };
 
 export { voice };

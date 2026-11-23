@@ -1013,8 +1013,10 @@ class Player {
    * @param o.end  곡이 있었으면 끝 줄에 남길 원인(kicked, alone-timeout, leave 등). 기본 stop
    * @param o.stay  음성 채널에는 남는다(곧 재연결한다. 서버 하나 다시 시작). 기본은 나간다
    */
-  async dispose({ reason, session, panel, end, stay = false }: { reason: string; session: "remove" | "save" | "save-for-join" | "keep"; panel?: "stop" | "leave" | "disconnected"; end: PlayerEnd; stay?: boolean }) {
+  async dispose({ reason: given, session, panel, end, stay = false }: { reason: string | LogText; session: "remove" | "save" | "save-for-join" | "keep"; panel?: "stop" | "leave" | "disconnected"; end: PlayerEnd; stay?: boolean }) {
     if (this.lifecycle.disposed) return;
+    // 원인을 넘겨받는 곳(재생 단계, 음성 연결, 버림 알림)은 글을 받는다
+    const reason = asText(given);
     this.lifecycle.to("disposed", reason);
     try {
       clearVoiceStatus(this);
