@@ -100,7 +100,7 @@ function keepImage(audioKey: string, cover: Cover): Art {
 function settle(audioKey: string, version: string, tags: TagInfo, cover: Cover | null) {
   const art = cover ? keepImage(audioKey, cover) : null;
   keep(audioKey, { version, state: "found", tags, art });
-  log.debug(`파일 태그: ${audioKey} | 제목 ${tags.title ? "있음" : "없음"} · 앨범아트 ${art ? `${art.width}×${art.height}` : "없음"} (${version === "source" ? "원본" : "캐시 파일"})`);
+  log.debug(L.track.fileTagsFound({ audioKey, title: Boolean(tags.title), artSize: art ? `${art.width}×${art.height}` : null, source: version === "source" }));
   if (art || tags.title || tags.artist || tags.album) listener?.(audioKey, { tags, art });
 }
 
@@ -177,7 +177,7 @@ function pump() {
     running.add(next.audioKey);
     find(next.audioKey, next.url)
       .catch((error) => {
-        const line = `파일 태그 조회 실패(${Math.round(RETRY_MS / 60_000)}분 뒤 재시도): ${next.audioKey} | ${messageOf(error)}`;
+        const line = L.track.fileTagFindFailed({ minutes: Math.round(RETRY_MS / 60_000), audioKey: next.audioKey, error: messageOf(error) });
         if (linkOrCancelled(error)) log.debug(line);
         else log.warn(line);
         if (results.get(next.audioKey)?.state !== "failed") keep(next.audioKey, { version: "source", state: "failed", retryAt: Date.now() + RETRY_MS });

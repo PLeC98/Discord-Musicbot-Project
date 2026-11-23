@@ -82,11 +82,11 @@ async function vocaFamily(source: GenreSource): Promise<Candidate[]> {
       }
     } catch (error) {
       failures.push({ lang, error });
-      log.debug(`${site} ${lang || "전체"}: ${messageOf(error)}`);
+      log.debug(L.autoplay.vocaLangFailed({ site, lang, error: messageOf(error) }));
     }
   }
   if (!out.length && failures.length) throw failures[0]!.error;
-  for (const { lang, error } of failures) log.warn(`${site} 언어별 곡 조회 실패(나머지 언어 결과만 사용): 언어=${lang || "전체"} | ${messageOf(error)}`);
+  for (const { lang, error } of failures) log.warn(L.autoplay.vocaLangFailedKept({ site, lang, error: messageOf(error) }));
   return out;
 }
 
@@ -142,7 +142,7 @@ async function artistId(site: Site, name: string) {
   const page = await getJson<{ items?: Artist[] } | null>(site, `https://${VOCA_HOSTS[site]}/api/artists?${query({ query: name, nameMatchMode: "Exact", fields: "Names", sort: "SongCount", maxResults: 20, artistTypes: types?.join(",") })}`);
   const found = sameName(page?.items || [], name);
   if (!found?.id) throw logTextError(L.autoplay.vocaArtistNotFound({ site, name }));
-  log.debug(`${site} 이름 조회: ${name} → ${found.name ?? "없음"} (${found.id})`);
+  log.debug(L.autoplay.vocaArtistResolved({ site, name, resolved: found.name ?? null, id: found.id }));
   ids.set(key, found.id);
   return found.id;
 }

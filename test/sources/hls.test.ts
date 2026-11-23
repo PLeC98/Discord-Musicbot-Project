@@ -6,6 +6,7 @@ import { Readable } from "node:stream";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { openHls, type HlsFragments } from "../../src/sources/hls.ts";
+import { asText } from "../../src/infra/log/log-text.ts";
 import { codeOf, messageOf } from "../../src/rules/error-kind.ts";
 import * as directSource from "../../src/sources/direct.ts";
 import type { AudioStream, OpenOptions } from "../../src/sources/direct-open.ts";
@@ -181,7 +182,7 @@ test("라이브: 끝 가까이부터, 목록을 다시 받아 순번으로 잇�
   const fragments = hls.fragments(30_000);
   assert.deepEqual(await drain(fragments), ["s3", "s4", "s5", "s6", "s7", "s8"], "위치는 보지 않고 끝에서 셋 앞부터, 순번으로 이어서");
   assert.deepEqual(waits, [2000, 2000, 1000], "바뀌지 않았으면 목표 길이의 절반 뒤");
-  assert.match(fragments.describe(6), /라이브 · 세그먼트 6개 내보냄 · 마지막 순번 8 · 목록 다시 받음 3회/);
+  assert.match(asText(fragments.describe(6)), /라이브 · 세그먼트 6개 내보냄 · 마지막 순번 8 · 목록 다시 받음 3회/);
 });
 
 test("라이브: 목록을 연달아 받지 못하면 오류로 끝나고(방송이 끝남과 다르다), 닫으면 멈춘다", async () => {

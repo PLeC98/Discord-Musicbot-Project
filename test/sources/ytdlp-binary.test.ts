@@ -10,6 +10,7 @@ import config from "../../src/config/index.ts";
 import { YtdlpBinary, describe, updateText, lockFolder, type YtdlpBinaryIo, type YtdlpRan } from "../../src/sources/ytdlp-binary.ts";
 import { plain, rule } from "../../src/rules/rule-problem.ts";
 import { logRuleLine } from "../../src/rules/text/index.ts";
+import { asText } from "../../src/infra/log/log-text.ts";
 
 const DAY = 24 * 60 * 60 * 1000;
 const HOUR = 60 * 60 * 1000;
@@ -165,7 +166,7 @@ test("notify: 하루 한 번 최신 버전을 확인만 하고 다운로드하�
   assert.deepEqual(bin.status().seen, { latest: "2026.09.27.232849", at: w.clock }, "카드에 업데이트 버튼을 띄울 최신 버전");
   assert.equal(await bin.check(), null, "하루가 지나기 전에는 다시 확인하지 않는다");
   assert.equal(w.asks, 1);
-  assert.match(describe({ kind: "available", from: "2026.08.19", to: "2026.09.27.232849", channel: "nightly" }).line, /업데이트 있음: 2026\.08\.19 → 2026\.09\.27\.232849/);
+  assert.match(asText(describe({ kind: "available", from: "2026.08.19", to: "2026.09.27.232849", channel: "nightly" }).line), /업데이트 있음: 2026\.08\.19 → 2026\.09\.27\.232849/);
 
   const started = bin.update("nightly", "2026.09.27.232849");
   assert.ok(started instanceof Promise);
@@ -321,9 +322,9 @@ test("다운로드 실패는 지금 버전 그대로. 연결, 체크섬은 일�
   w.release = () => ({ error: { kind: "signature", message: "서명 확인 실패: 다른 키가 서명함(AB)" } });
   const signed = await bin.check({ force: true });
   assert.equal(signed?.kind === "failed" && signed.retry, "lasting");
-  assert.match(describe(signed!).line, /서명 키가 바뀌었을 수 있음.*--skip-signature/);
+  assert.match(asText(describe(signed!).line), /서명 키가 바뀌었을 수 있음.*--skip-signature/);
   w.release = () => ({ error: { kind: "missing", message: "2026.09.27.232849는 서명 파일이 없는 옛 릴리스라 받지 않음(…)" } });
-  assert.doesNotMatch(describe((await bin.check({ force: true }))!).line, /서명 키가 바뀌었을 수 있음/, "서명 파일이 없는 것은 키가 바뀐 것이 아니다");
+  assert.doesNotMatch(asText(describe((await bin.check({ force: true }))!).line), /서명 키가 바뀌었을 수 있음/, "서명 파일이 없는 것은 키가 바뀐 것이 아니다");
   assert.equal(rel(), "bin/yt-dlp/2026.08.19/yt-dlp.exe");
   assert.deepEqual(staged(), []);
 });
@@ -600,7 +601,7 @@ test("결과 한 줄", () => {
     describe({ kind: "failed", current: "a", target: "b", reason: plain("연결 끊김"), channel: "nightly", retry: "transient" }),
     describe({ kind: "failed", current: null, target: "b", reason: plain("연결 끊김"), channel: "nightly", retry: "transient" }),
     describe({ kind: "unusable", current: "a", target: "c", reason: plain("GLIBC_2.17 not found"), channel: "nightly" }),
-  ];
+  ].map(({ level, line }) => ({ level, line: asText(line) }));
   assert.deepEqual(lines, [
     { level: "info", line: "yt-dlp 버전이 목표와 같음(a)" },
     { level: "info", line: "yt-dlp 업데이트 완료: a → b" },
@@ -614,7 +615,7 @@ test("결과 한 줄", () => {
 });
 
 test("기동 줄의 업데이트 방식. 버전을 고정하면 하루 한 번 확인하지 않는다", () => {
-  assert.deepEqual([updateText("auto", false), updateText("auto", true), updateText("notify", false), updateText("notify", true), updateText("manual", false), updateText("manual", true)], ["자동 (1일 1회 확인)", "자동", "알림 (1일 1회 확인)", "알림", "꺼짐", "꺼짐"]);
+  assert.deepEqual([updateText("auto", false), updateText("auto", true), updateText("notify", false), updateText("notify", true), updateText("manual", false), updateText("manual", true)].map(asText), ["자동 (1일 1회 확인)", "자동", "알림 (1일 1회 확인)", "알림", "꺼짐", "꺼짐"]);
 });
 
 test("설치된 버전이 있어도 새 버전을 다운로드하지 못했으면 다시 해 본다: 일시적이면 한 시간, 서명처럼 오래가는 것은 하루 뒤. 고정이어도 같다", async (t) => {

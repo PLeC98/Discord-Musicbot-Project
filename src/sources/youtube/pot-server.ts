@@ -17,6 +17,7 @@ import { bgutilBundle } from "../bgutil/bundle.ts";
 import { ENTRY, HOST, pickFreePort, serverArgs, versionOf } from "../bgutil/launch.ts";
 import { messageOf } from "../../rules/error-kind.ts";
 import { L } from "../../infra/log/text.ts";
+import type { LogText } from "../../infra/log/log-text.ts";
 
 const RESTART_MS = 5000; // 비정상 종료 뒤 다시 실행하기까지
 const BIND_TRIES = 3; // 받은 빈 포트를 그 사이 남이 잡아 실행하지 못한 일이 연달아 이만큼이면 멈춘다
@@ -139,7 +140,7 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
         return;
       }
       bindFailures = 0;
-      log.warn({ sub: "bgutil" }, `POToken 서버 비정상 종료 (code=${code ?? "없음"}), 5초 후 다시 시작`);
+      log.warn({ sub: "bgutil" }, L.core.potServerExited({ code }));
       setTimeout(() => void run(false), RESTART_MS);
     });
     log.debug({ sub: "bgutil" }, L.core.potServerStarting({ port }));
@@ -170,7 +171,7 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
     await starting;
     if (!proc) return true;
     const deadline = Date.now() + timeoutMs;
-    let lastError = "";
+    let lastError: string | LogText = "";
     while (Date.now() < deadline) {
       const url = current;
       try {
@@ -181,7 +182,7 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
             log.info({ sub: "bgutil" }, L.core.potServerReady({ url: String(url) }));
             return true;
           }
-          lastError = `다른 버전(${answered})의 서버가 응답함`;
+          lastError = L.core.potServerOtherVersion({ answered });
         }
       } catch (error) {
         // 아직 준비 안 됨. 재시도
@@ -189,7 +190,7 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
       }
       await new Promise((resolve) => setTimeout(resolve, 250));
     }
-    log.warn({ sub: "bgutil" }, `POToken 서버가 ${timeoutMs / 1000}초 안에 응답하지 않아 POToken 없이 봇 기동.${lastError ? ` 마지막 확인: ${lastError}` : ""}`);
+    log.warn({ sub: "bgutil" }, L.core.potServerNoAnswer({ seconds: timeoutMs / 1000, lastError }));
     return false;
   }
 

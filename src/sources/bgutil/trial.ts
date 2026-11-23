@@ -7,7 +7,7 @@ import { toolEnv } from "../../config/tool-env.ts";
 import { killTrees } from "../../infra/kill-tree.ts";
 import { HOST, pickFreePort, serverArgs, versionOf } from "./launch.ts";
 import { L } from "../../infra/log/text.ts";
-import { logTextError } from "../../infra/log/log-text.ts";
+import { logTextError, type LogText } from "../../infra/log/log-text.ts";
 
 /** 응답을 기다리는 상한(ms). 따뜻할 때 bgutil의 모듈을 불러오는 데 1.6초쯤 걸린다 */
 const READY_MS = 30_000;
@@ -16,7 +16,7 @@ const EXIT_MS = 5_000;
 /** 실패 사유에 붙일 서버 출력(stderr) 끝부분의 길이 */
 const TAIL_CHARS = 600;
 
-type TrialResult = { ok: true } | { ok: false; reason: string };
+type TrialResult = { ok: true } | { ok: false; reason: string | LogText };
 
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
 
@@ -56,23 +56,24 @@ async function trialRun(serverDir: string, expected: string): Promise<TrialResul
   child.once("error", (error) => {
     spawnError = error;
   });
-  let result: TrialResult = { ok: false, reason: `${READY_MS / 1000}초 안에 응답하지 않음` };
+  let result: TrialResult = { ok: false, reason: L.bgutil.trialNoAnswer({ seconds: READY_MS / 1000 }) };
   try {
     const deadline = Date.now() + READY_MS;
     while (Date.now() < deadline) {
-      if (spawnError) return (result = { ok: false, reason: `실행 실패: ${(spawnError as Error).message}` });
-      if (child.exitCode !== null) return (result = { ok: false, reason: `응답하기 전에 끝남(code=${child.exitCode})` });
+      if (spawnError) return (result = { ok: false, reason: L.bgutil.trialSpawnFailed({ error: (spawnError as Error).message }) });
+      if (child.exitCode !== null) return (result = { ok: false, reason: L.bgutil.trialExitedEarly({ code: child.exitCode }) });
       const res = await fetch(url, { signal: AbortSignal.timeout(1000) }).catch(() => null);
       if (res?.ok) {
         const version = await versionOf(res);
-        return (result = version === expected ? { ok: true } : { ok: false, reason: `다른 버전으로 응답함(기대 ${expected}, 응답 ${version ?? "없음"})` });
+        return (result = version === expected ? { ok: true } : { ok: false, reason: L.bgutil.trialOtherVersion({ expected, version: version ?? null }) });
       }
       await sleep(250);
     }
     return result;
   } finally {
     await shutDown(child);
-    if (!result.ok && stderr.trim()) result.reason += ` | 서버 출력: ${stderr.trim().split("\n").slice(-3).join(" / ")}`;
+    // 안에서 돌려준 객체가 곧 result라 새로 만들지 않고 고친다
+    if (!result.ok && stderr.trim()) result.reason = L.bgutil.trialWithOutput({ reason: result.reason, output: stderr.trim().split("\n").slice(-3).join(" / ") });
   }
 }
 

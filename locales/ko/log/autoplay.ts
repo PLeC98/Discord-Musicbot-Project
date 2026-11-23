@@ -35,6 +35,34 @@ const autoplay = {
   vocaTagNotFound: ({ site, name }: { site: string; name: string }) => `${site}에 없는 태그: ${name}`,
   vocaArtistNotFound: ({ site, name }: { site: string; name: string }) => `${site}에서 찾지 못한 이름: ${name}`,
   vocaWindowPicked: ({ type, total, depth }: { type: string; total: string; depth: string }) => `${type}: 조건에 맞는 ${total}곡 중 상위 ${depth}곡에서 선택`,
+  aiAssistCallsFailed: ({ calls }: { calls: number }) => `(${calls}번 불러 모두 실패)`,
+  verdictUnreadable: () => `판정을 읽지 못함`,
+  verdictAnswerPreview: ({ length, preview }: { length: number; preview: string }) => `답 ${length}자: ${preview}`,
+  judgeTotalTimedOut: () => `판정 상한 초과`,
+  secondsText: ({ seconds }: { seconds: number }) => `${seconds}초`,
+  callTimedOut: () => `시간 초과`,
+  networkError: () => `네트워크 오류`,
+  verdictNotJson: ({ error }: { error: string }) => `JSON이 아닌 응답(${error})`,
+  retryAdviceTooLong: ({ advice, max }: { advice: number; max: number }) => `서버가 ${advice}초 뒤라고 함, 대기 상한 ${max}초`,
+  totalTimeTooShort: () => `판정 상한까지 남은 시간이 모자람`,
+  anthropicCountHttp: ({ status, typeSuffix, model }: { status: number; typeSuffix: string; model: string }) => `HTTP ${status}${typeSuffix} | 모델=${model} | tik 추산으로 대체`,
+  mixYears: () => `연도 둘 이상`,
+  mixCommas: () => `쉼표 셋 이상`,
+  mixEmojis: () => `이모지 둘 이상`,
+  mixHours: () => `시간 표기`,
+  filterNoDuration: () => `길이 없음`,
+  filterTooShort: () => `너무 짧음`,
+  filterTooLong: () => `너무 긺`,
+  filterBlockedKeyword: () => `제외 키워드`,
+  filterMixShape: () => `믹스 생김새`,
+  /** reason, detail: 필터의 이유와 그 내용(없으면 빈 글) */
+  candidateFiltered: ({ reason, detail, source, title }: { reason: string; detail: string; source: string; title: string }) => `필터링됨(${reason || "없음"}${detail ? `: ${detail}` : ""}) [${source}]: ${title}`,
+  /** song: 곡 하나는 맞다(장르가 다름), genre: 장르(없으면 빈 글) */
+  aiAssistRejected: ({ song, genre, title }: { song: boolean; genre: string; title: string }) => `AI 보조가 필터링함(${song ? "장르가 다름" : "곡 하나가 아님"})${genre ? ` [${genre}]` : ""}: ${title}`,
+  /** lang: 언어(전체면 null이나 빈 글) */
+  vocaLangFailed: ({ site, lang, error }: { site: string; lang: string | null; error: string }) => `${site} ${lang || "전체"}: ${error}`,
+  vocaLangFailedKept: ({ site, lang, error }: { site: string; lang: string | null; error: string }) => `${site} 언어별 곡 조회 실패(나머지 언어 결과만 사용): 언어=${lang || "전체"} | ${error}`,
+  vocaArtistResolved: ({ site, name, resolved, id }: { site: string; name: string; resolved: string | null; id: number }) => `${site} 이름 조회: ${name} → ${resolved ?? "없음"} (${id})`,
 };
 
 export { autoplay };

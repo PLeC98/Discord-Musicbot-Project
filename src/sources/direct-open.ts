@@ -160,7 +160,7 @@ const refusedByResponse = (error: unknown) => ["unsupported-link", "shoutcast-v1
 async function openFollowing(url: string, options: Parameters<typeof openLink>[1], depth = 0): Promise<Exclude<Opened, { kind: "list" }>> {
   const opened = await openLink(url, options);
   if (opened.kind !== "list") return opened;
-  if (!opened.target || depth >= LIST_DEPTH) throw codedError("unsupported-link", `음원이 아닌 링크(${opened.target ? "목록이 너무 깊음" : "빈 목록"})`);
+  if (!opened.target || depth >= LIST_DEPTH) throw codedError("unsupported-link", L.link.notAudioLink({ kind: opened.target ? L.link.listTooDeep() : L.link.listEmpty() }));
   return openFollowing(opened.target, options, depth + 1);
 }
 

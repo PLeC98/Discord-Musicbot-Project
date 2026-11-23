@@ -138,7 +138,7 @@ async function ask(query: string): Promise<TextSearchResult> {
       return [trackOf(found)];
     });
     // 항목은 왔는데 읽은 영상이 없으면 유튜브 쪽 응답 모양이 바뀐 것이다
-    if (!gated && nodes.length > 0 && tracks.length === 0) failures.fail(`결과 ${nodes.length}개를 읽지 못함(${[...new Set(nodes.map((node) => node.type))].join(", ")})`);
+    if (!gated && nodes.length > 0 && tracks.length === 0) failures.fail(L.youtube.searchResultsUnread({ count: nodes.length, types: [...new Set(nodes.map((node) => node.type))].join(", ") }));
     else failures.ok();
     return { tracks, gated: gated && tracks.length === 0 };
   } catch (error) {

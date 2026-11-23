@@ -15,7 +15,7 @@ import { cancelJob, startJob, type ScriptJobInfo, type ScriptJobSpec, type Start
 import { stripScriptPrefix } from "../../infra/script-line.ts";
 import { toolEnv } from "../../config/tool-env.ts";
 import { rule, type RuleProblem } from "../../rules/rule-problem.ts";
-import { logRuleLine } from "../../rules/text/index.ts";
+import { ruleLogText } from "../../rules/text/index.ts";
 import config from "../../config/index.ts";
 import * as tunables from "../../store/tunables.ts";
 import { readState } from "./state.ts";
@@ -23,6 +23,7 @@ import { ENTRY } from "./launch.ts";
 import { missingNeeds } from "./tools.ts";
 import type { BgutilNeed } from "./status-types.ts";
 import { L } from "../../infra/log/text.ts";
+import { asText, type LogText } from "../../infra/log/log-text.ts";
 const log = logger.child({ category: "core", sub: "bgutil" });
 
 /** 설치 스크립트의 시간 상한(ms). 체크아웃(11분)과 npm ci(10분), 다시 빌드(5분), tsc(3분)를 더한 것 */
@@ -143,7 +144,7 @@ class BgutilAutoInstall {
     this.attempted.add(key);
     this.wanted = false;
     this.failure = { reason: rule("bgutil-needs-missing", { tools: missing.join(", ") }), at: this.deps.now() };
-    log.error(`bgutil 설치 못 함(${had ? "지금 쓰는 bgutil 그대로" : "POToken 없이 진행"}): ${missing.map(needText).join(", ")}. 설치한 뒤 대시보드 업데이트 탭에서 재시도하거나 봇을 다시 시작하세요`);
+    log.error(L.core.bgutilCannotInstall({ had, needs: missing.map((need) => asText(needText(need))).join(", ") }));
   }
 
   // 설치할 일이 있나. 이미 목표면 없다. 혼자서는 목표와 다른 설치를 바꾸지 않고, 꺼져 있고 설치된 것이 없으면 켤 때 설치한다
@@ -162,7 +163,7 @@ class BgutilAutoInstall {
   async _stopAuto() {
     // 미뤄 두기만 한 설치는 작업이 끝나는 일이 없으니 여기서 예약을 푼다(도는 설치는 중단하면 끝에서 풀린다)
     if (this.queued && this.running === null && !this.wanted) {
-      this.unreserve("POToken 서버 사용을 끔");
+      this.unreserve(L.core.bgutilUnreservePotOff());
       this.queued = false;
     }
     // 중단한 목표는 시도 기록에 남는다
@@ -179,7 +180,7 @@ class BgutilAutoInstall {
       if (this.queued) log.info(L.core.bgutilInstallQueued({ job: started.running?.name ?? "?" }));
       else {
         this.wanted = false;
-        this.unreserve("봇 종료 중");
+        this.unreserve(L.core.bgutilUnreserveShutdown());
       }
       return;
     }
@@ -188,7 +189,7 @@ class BgutilAutoInstall {
     this.wanted = false;
     this.running = started.id;
     this.failure = null;
-    log.info(active ? `bgutil ${target.tag} 설치 시작(설치된 ${active.tag}에서 설정한 버전으로)` : `bgutil ${target.tag} 설치 시작(POToken 서버 사용이 켜져 있는데 설치돼 있지 않음)`);
+    log.info(active ? L.core.bgutilInstallFrom({ tag: target.tag, from: active.tag }) : L.core.bgutilInstallMissing({ tag: target.tag }));
   }
 
   _ended(info: ScriptJobInfo, key: string, tag: string, had: boolean) {
@@ -200,17 +201,17 @@ class BgutilAutoInstall {
       this.failure = null;
       const restart = this.reserved;
       this.reserved = null;
-      log.info(restart ? `bgutil ${tag} 설치 완료. 예약한 다시 시작 실행` : `bgutil ${tag} 설치 완료. 다시 시작하면 적용`);
+      log.info(restart ? L.core.bgutilInstalledRestarting({ tag }) : L.core.bgutilInstalledApplyLater({ tag }));
       restart?.();
       return;
     }
-    this.unreserve(info.reason === "cancelled" ? "설치 중단" : "설치 실패");
+    this.unreserve(info.reason === "cancelled" ? L.core.bgutilUnreserveCancelled() : L.core.bgutilUnreserveFailed());
     this.attempted.add(key);
     const tail = info.output.slice(-TAIL_LINES).map(stripScriptPrefix).join(" | ");
     const reason = info.reason === "cancelled" ? rule("bgutil-install-cancelled") : rule("bgutil-install-failed", { why: info.reason ?? "?", ...(info.exitCode !== null ? { code: info.exitCode } : {}), ...(tail ? { tail } : {}) });
     this.failure = { reason, at: this.deps.now() };
     if (info.reason === "cancelled") log.info(L.core.bgutilInstallCancelled());
-    else log.error(`bgutil 설치 실패(${had ? "지금 쓰는 bgutil 그대로" : "POToken 없이 진행"}): ${logRuleLine(reason)}. 대시보드 업데이트 탭에서 재시도하세요`);
+    else log.error(L.core.bgutilInstallFailed({ had, reason: ruleLogText(reason) }));
   }
 
   /** 설치가 끝나면 restart를 부르도록 예약한다. 설치 작업이 돌거나 미뤄져 있지 않으면 예약하지 않는다 */
@@ -221,7 +222,7 @@ class BgutilAutoInstall {
   }
 
   /** 예약을 푼다. 예약이 있었으면 true */
-  unreserve(why: string): boolean {
+  unreserve(why: string | LogText): boolean {
     if (!this.reserved) return false;
     this.reserved = null;
     log.info(L.core.bgutilRestartUnreserved({ why }));
@@ -235,7 +236,7 @@ class BgutilAutoInstall {
   }
 }
 
-const NEED_TEXT: Record<BgutilNeed, string> = { git: "git 없음", npm: "npm 없음", folder: "vendor/bgutil에 쓸 수 없음" };
+const NEED_TEXT: Record<BgutilNeed, LogText> = { git: L.core.bgutilNeedGit(), npm: L.core.bgutilNeedNpm(), folder: L.core.bgutilNeedFolder() };
 const needText = (need: BgutilNeed) => NEED_TEXT[need];
 
 const bgutilAutoInstall = new BgutilAutoInstall();

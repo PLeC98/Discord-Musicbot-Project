@@ -12,9 +12,8 @@ import { withLock } from "../../infra/folder-lock.ts";
 import { renameRetry } from "../../infra/version-folders.ts";
 import { EMPTY_STATE, readState, setAsideBroken, writeState, type BgutilBuild, type BgutilState } from "./state.ts";
 import { ENTRY } from "./launch.ts";
-import { josa } from "../../infra/josa.ts";
 import { L } from "../../infra/log/text.ts";
-import { logTextError } from "../../infra/log/log-text.ts";
+import { logTextError, type LogText } from "../../infra/log/log-text.ts";
 
 /**
  * checkout: repoDir(아직 없는 경로)에 태그의 커밋을 받는다. npmCi, npmRebuild, tsc: serverDir에서 실행한다.
@@ -25,17 +24,17 @@ type InstallIo = {
   npmCi(serverDir: string): Promise<void>;
   npmRebuild(serverDir: string, names: string[]): Promise<void>;
   tsc(serverDir: string): Promise<void>;
-  trial(serverDir: string, expected: string): Promise<{ ok: true } | { ok: false; reason: string }>;
+  trial(serverDir: string, expected: string): Promise<{ ok: true } | { ok: false; reason: string | LogText }>;
   now(): number;
   pid: number;
-  log(line: string): void;
+  log(line: string | LogText): void;
 };
 
 /**
  * unchanged: 이미 그 태그와 커밋이다(다른 프로세스가 먼저 옮긴 경우 포함). installed: 받아서 가리킴을 바꿨다.
  * failed: 받거나 빌드하지 못했거나 실행 테스트를 통과하지 못했다(가리킴은 그대로). busy: 다른 프로세스가 폴더 잠금을 풀지 않았다. notes: 운영자에게 알릴 줄(깨진 기록을 옮긴 경우)
  */
-type InstallOutcome = ({ kind: "unchanged"; tag: string; version: string } | { kind: "installed"; tag: string; version: string; from: string | null } | { kind: "failed"; tag: string; reason: string } | { kind: "busy"; holder: number | null }) & { notes: string[] };
+type InstallOutcome = ({ kind: "unchanged"; tag: string; version: string } | { kind: "installed"; tag: string; version: string; from: string | null } | { kind: "failed"; tag: string; reason: string | LogText } | { kind: "busy"; holder: number | null }) & { notes: Array<string | LogText> };
 
 /** 기록의 빌드가 이 태그와 커밋이고 실행 파일이 있으면 그 빌드, 아니면 null */
 const sameBuild = (dir: string, build: BgutilBuild | null, tag: string, commit: string): BgutilBuild | null => (build && build.tag === tag && build.commit === commit && fs.existsSync(path.join(dir, build.folder, "server", ENTRY)) ? build : null);
@@ -51,29 +50,29 @@ async function build(serverDir: string, io: InstallIo): Promise<string> {
   const targets = rebuildTargets(JSON.parse(fs.readFileSync(path.join(serverDir, "package-lock.json"), "utf8")));
   if (!targets.ok) throw logTextError(targets.why === "bad-name" ? L.bgutil.lockBadName({ key: targets.key }) : L.bgutil.lockDevOverlap({ names: targets.names.join(", ") }));
   const rebuild = targets.names;
-  io.log("의존성 설치(npm ci --ignore-scripts)");
+  io.log(L.bgutil.stepNpmCi());
   await io.npmCi(serverDir);
   if (rebuild.length) {
-    io.log(`설치 스크립트가 있는 실행 의존성만 다시 빌드(npm rebuild ${rebuild.join(" ")})`);
+    io.log(L.bgutil.stepRebuild({ names: rebuild.join(" ") }));
     await io.npmRebuild(serverDir, rebuild);
   }
-  io.log("서버 빌드(tsc)");
+  io.log(L.bgutil.stepTsc());
   await io.tsc(serverDir);
-  io.log(`실행 테스트(/ping이 ${pkg.version}${josa(pkg.version, "으로")} 응답하는지)`);
+  io.log(L.bgutil.stepTrial({ version: pkg.version }));
   const tried = await io.trial(serverDir, pkg.version);
   if (!tried.ok) throw logTextError(L.bgutil.trialFailed({ reason: tried.reason }));
   return pkg.version;
 }
 
 /** 잠금 안에서 기록을 새로 읽고, 같은 것이 이미 있으면 버리고, 아니면 버전 폴더로 옮겨 가리킴을 쓴다 */
-async function publish({ dir, tag, commit, version, repoDir, io, notes, force, lockWaitMs }: { dir: string; tag: string; commit: string; version: string; repoDir: string; io: InstallIo; notes: string[]; force: boolean; lockWaitMs?: number }): Promise<InstallOutcome> {
+async function publish({ dir, tag, commit, version, repoDir, io, notes, force, lockWaitMs }: { dir: string; tag: string; commit: string; version: string; repoDir: string; io: InstallIo; notes: Array<string | LogText>; force: boolean; lockWaitMs?: number }): Promise<InstallOutcome> {
   const held = await withLock(
     dir,
     async (): Promise<InstallOutcome> => {
       const read = readState(dir);
       if (read.kind === "broken") {
         const aside = setAsideBroken(dir, io.now());
-        notes.push(`bgutil 기록(state.json)을 읽지 못해(${read.error}) ${path.basename(aside)} 파일로 옮기고 새로 기록했습니다`);
+        notes.push(L.bgutil.stateSetAside({ error: read.error, file: path.basename(aside) }));
       }
       const state: BgutilState = read.kind === "ok" ? read.state : EMPTY_STATE;
       // 받는 사이 다른 프로세스(터미널과 봇의 받기)가 같은 것을 먼저 옮겼다. 이전 빌드가 지금 빌드의 쌍둥이가 되지 않게 내 것을 버린다
@@ -81,7 +80,7 @@ async function publish({ dir, tag, commit, version, repoDir, io, notes, force, l
       const same = force ? null : sameBuild(dir, state.active, tag, commit);
       if (same) return { kind: "unchanged", tag, version: same.version, notes };
       const folder = `${tag}-${io.now()}`;
-      if (!(await renameRetry(repoDir, path.join(dir, folder)))) return { kind: "failed", tag, reason: "체크아웃한 폴더를 버전 폴더로 옮기지 못함(안의 파일이 열려 있음)", notes };
+      if (!(await renameRetry(repoDir, path.join(dir, folder)))) return { kind: "failed", tag, reason: L.bgutil.publishRenameFailed(), notes };
       writeState(dir, { active: { folder, tag, commit, version }, previous: state.active ?? state.previous });
       return { kind: "installed", tag, version, from: state.active?.tag ?? null, notes };
     },
@@ -95,7 +94,7 @@ async function publish({ dir, tag, commit, version, repoDir, io, notes, force, l
  * force: 이미 그 태그와 커밋이어도 새 폴더에 다시 받는다(망가진 설치를 고칠 때). lockWaitMs: 옮길 때 다른 프로세스의 잠금을 기다리는 상한(테스트용, 기본 15분)
  */
 async function installBgutil({ dir, tag, commit, force = false, io, lockWaitMs }: { dir: string; tag: string; commit: string; force?: boolean; io: InstallIo; lockWaitMs?: number }): Promise<InstallOutcome> {
-  const notes: string[] = [];
+  const notes: Array<string | LogText> = [];
   const read = readState(dir);
   const same = !force && read.kind === "ok" ? sameBuild(dir, read.state.active, tag, commit) : null;
   if (same) return { kind: "unchanged", tag, version: same.version, notes };
@@ -104,7 +103,7 @@ async function installBgutil({ dir, tag, commit, force = false, io, lockWaitMs }
   const repoDir = path.join(staging, "repo");
   try {
     fs.mkdirSync(staging, { recursive: true });
-    io.log(`체크아웃(${tag}, ${commit.slice(0, 12)})`);
+    io.log(L.bgutil.stepCheckout({ tag, commit: commit.slice(0, 12) }));
     await io.checkout(repoDir, tag, commit);
     const version = await build(path.join(repoDir, "server"), io);
     return await publish({ dir, tag, commit, version, repoDir, io, notes, force, lockWaitMs });

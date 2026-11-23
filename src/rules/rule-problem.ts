@@ -212,6 +212,13 @@ const RULE_CODES = [
   "ytdlp-folders-crossed",
   "ytdlp-trash-failed",
   "ytdlp-place-failed",
+  "ytdlp-bad-release-tag",
+  // GitHub 최신 릴리스 조회(sources/github-release). status: 응답 상태, repo: 저장소
+  "github-release-status",
+  "github-release-no-tag",
+  // bgutil 저장소 조회(sources/bgutil/remote). git-ls-remote-failed: git 오류 첫 줄(detail)
+  "git-ls-remote-timeout",
+  "git-ls-remote-failed",
   // bgutil 설치(sources/bgutil/auto-install). bgutil-install-failed: 종료 원인(why), 종료 코드(code), 스크립트 마지막 출력(tail)
   "bgutil-needs-missing",
   "bgutil-install-cancelled",
@@ -239,6 +246,15 @@ const RULE_CODES = [
   "ai-verdict-not-json",
   "ai-cand-not-youtube",
   "ai-cand-timeout",
+  // AI 보조의 구글 토큰 받기, 토큰 세기, 판정 상한(autoplay/assist). ai-google-token-http: HTTP 상태(status), 이유는 응답 본문 앞부분(plain)
+  "ai-google-sign-failed",
+  "ai-google-token-http",
+  "ai-google-token-unreadable",
+  "ai-google-token-missing",
+  "ai-token-count-failed",
+  "ai-token-worker-exited",
+  "ai-token-count-timeout",
+  "ai-judge-total-limit",
   // IP 위치 DB 다운로드(dashboard/geoip)
   "geoip-not-city",
   // 외부 도구 실행 종료 상태(시간 초과, 실행 실패, 시그널, 종료 코드)

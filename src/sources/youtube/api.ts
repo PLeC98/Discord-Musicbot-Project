@@ -147,7 +147,7 @@ async function getStream(url: string, { exec, fresh = false }: { exec?: RunYtDlp
   const { raw, known } = await streamSource(url, exec, fresh);
   const info = readInfo(raw);
   if (!info) throw codedError("stream-failed", L.youtube.streamInfoNotJson({ shape: answerShape(raw) }));
-  if (!info.url) throw codedError("stream-failed", `유튜브 재생용 스트림: yt-dlp 응답에 스트림 URL이 없음 | _type=${info._type ?? "없음"}`);
+  if (!info.url) throw codedError("stream-failed", L.youtube.streamNoUrl({ type: info._type ?? null }));
 
   // 위치는 주소에 싣지 않는다. ffmpeg의 -ss가 정한다
   return {

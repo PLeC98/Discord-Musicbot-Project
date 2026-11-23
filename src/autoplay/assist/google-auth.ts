@@ -8,8 +8,8 @@
 // 그래서 여기서 던지는 오류는 우리가 쓴 문구뿐이고, 저쪽 응답은 본문 앞부분만 싣는다.
 
 import crypto from "crypto";
-import { rule, type RuleCode } from "../../rules/rule-problem.ts";
-import { logRuleLine } from "../../rules/text/index.ts";
+import { plain, rule, type RuleCode } from "../../rules/rule-problem.ts";
+import { ruleError } from "../../rules/text/index.ts";
 
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const SCOPE = "https://www.googleapis.com/auth/cloud-platform";
@@ -26,11 +26,8 @@ const b64url = (input: string) => Buffer.from(input).toString("base64url");
  * 서비스 계정 JSON을 읽는다. 내용을 통째로 받는다(비밀 표에 암호화해 둔 것).
  * 파일 경로는 받지 않는다. 경로만 감추면 private_key가 디스크에 그대로 남는다
  */
-// 서비스 계정을 읽지 못한 이유. 메시지는 로그 언어 문장, problem은 화면이 사용자 언어로 그린다
-function accountError(code: RuleCode) {
-  const problem = rule(code);
-  return Object.assign(new Error(logRuleLine(problem)), { problem });
-}
+// 서비스 계정을 읽지 못하거나 토큰을 받지 못한 이유. 메시지는 로그 언어 문장, problem은 화면이 사용자 언어로 그린다
+const accountError = (code: RuleCode) => ruleError(rule(code));
 
 function readAccount(where: unknown): Account {
   const raw = String(where || "").trim();
@@ -76,7 +73,7 @@ async function accessToken(where: unknown, { timeoutMs = 15000, fetch: send = fe
     signature = crypto.createSign("RSA-SHA256").update(signing).sign(account.private_key, "base64url");
   } catch {
     // 오류에 키가 섞여 나올 수 있다. 저쪽 문구를 그대로 싣지 않는다
-    throw new Error("서비스 계정 키로 서명 실패. private_key를 확인하세요");
+    throw accountError("ai-google-sign-failed");
   }
 
   const res = await send(account.token_uri || TOKEN_URL, {
@@ -87,15 +84,16 @@ async function accessToken(where: unknown, { timeoutMs = 15000, fetch: send = fe
   });
 
   const text = await res.text();
-  if (!res.ok) throw new Error(`토큰 발급 실패: HTTP ${res.status} ${text.slice(0, 200)}`);
+  // 응답 본문은 바깥 글이라 이유(plain)로 싣는다. 화면에 내보내는 쪽(assist/mask)이 바깥 글에서 키를 가린다
+  if (!res.ok) throw ruleError(rule("ai-google-token-http", { status: res.status }, plain(text.slice(0, 200))));
 
   let token: { access_token?: string; expires_in?: unknown } | null;
   try {
     token = JSON.parse(text);
   } catch {
-    throw new Error("토큰 응답 읽기 실패");
+    throw accountError("ai-google-token-unreadable");
   }
-  if (!token?.access_token) throw new Error("토큰 응답에 access_token이 없음");
+  if (!token?.access_token) throw accountError("ai-google-token-missing");
 
   cache.set(account.client_email, {
     token: token.access_token,

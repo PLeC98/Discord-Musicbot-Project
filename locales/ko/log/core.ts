@@ -218,6 +218,13 @@ const core = {
   bgutilAutoInstallCheckFailed: ({ error }: { error: string }) => `bgutil 자동 설치 판정 실패: ${error}`,
   bgutilInstallQueued: ({ job }: { job: string }) => `bgutil 설치를 다른 작업(${job}) 뒤로 미룸`,
   bgutilInstallCancelled: () => `bgutil 설치 중단(POToken 서버 사용을 끔)`,
+  /** had: 설치된 것이 있다(그것을 그대로 쓴다), needs: 없는 도구들(쉼표로 이음) */
+  bgutilCannotInstall: ({ had, needs }: { had: boolean; needs: string }) => `bgutil 설치 못 함(${had ? "지금 쓰는 bgutil 그대로" : "POToken 없이 진행"}): ${needs}. 설치한 뒤 대시보드 업데이트 탭에서 재시도하거나 봇을 다시 시작하세요`,
+  bgutilInstallFrom: ({ tag, from }: { tag: string; from: string }) => `bgutil ${tag} 설치 시작(설치된 ${from}에서 설정한 버전으로)`,
+  bgutilInstallMissing: ({ tag }: { tag: string }) => `bgutil ${tag} 설치 시작(POToken 서버 사용이 켜져 있는데 설치돼 있지 않음)`,
+  bgutilInstalledRestarting: ({ tag }: { tag: string }) => `bgutil ${tag} 설치 완료. 예약한 다시 시작 실행`,
+  bgutilInstalledApplyLater: ({ tag }: { tag: string }) => `bgutil ${tag} 설치 완료. 다시 시작하면 적용`,
+  bgutilInstallFailed: ({ had, reason }: { had: boolean; reason: string }) => `bgutil 설치 실패(${had ? "지금 쓰는 bgutil 그대로" : "POToken 없이 진행"}): ${reason}. 대시보드 업데이트 탭에서 재시도하세요`,
   bgutilRestartUnreserved: ({ why }: { why: string }) => `설치 뒤 다시 시작 예약 취소(${why})`,
   bgutilStateReadFailed: ({ file, error }: { file: string; error: string }) => `bgutil 기록(${file}) 읽기 실패(${error}): 설치되지 않은 것으로 봄. pnpm run install:bgutil로 다시 설치하세요`,
   bgutilBuildEntryMissing: ({ folder }: { folder: string }) => `bgutil 기록이 가리키는 빌드(${folder})에 서버 실행 파일이 없음: 설치되지 않은 것으로 봄. pnpm run install:bgutil로 다시 설치하세요`,
@@ -231,6 +238,18 @@ const core = {
   potServerPortRetry: ({ port }: { port: string }) => `포트 ${port}번을 열지 못해 새 포트로 POToken 서버 다시 실행`,
   potServerStarting: ({ port }: { port: number }) => `POToken 서버 시작(포트 ${port})`,
   potServerReady: ({ url }: { url: string }) => `POToken 서버 준비 완료 (${url})`,
+  bgutilUnreservePotOff: () => `POToken 서버 사용을 끔`,
+  bgutilUnreserveShutdown: () => `봇 종료 중`,
+  bgutilUnreserveCancelled: () => `설치 중단`,
+  bgutilUnreserveFailed: () => `설치 실패`,
+  bgutilNeedGit: () => `git 없음`,
+  bgutilNeedNpm: () => `npm 없음`,
+  bgutilNeedFolder: () => `vendor/bgutil에 쓸 수 없음`,
+  potServerOtherVersion: ({ answered }: { answered: string }) => `다른 버전(${answered})의 서버가 응답함`,
+
+  potServerExited: ({ code }: { code: number | null }) => `POToken 서버 비정상 종료 (code=${code ?? "없음"}), 5초 후 다시 시작`,
+  /** lastError: 마지막 확인의 실패(없으면 빈 글) */
+  potServerNoAnswer: ({ seconds, lastError }: { seconds: number; lastError: string }) => `POToken 서버가 ${seconds}초 안에 응답하지 않아 POToken 없이 봇 기동.${lastError ? ` 마지막 확인: ${lastError}` : ""}`,
 };
 
 export { core };

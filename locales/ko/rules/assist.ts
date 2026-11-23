@@ -1,4 +1,4 @@
-// AI 보조 연결 확인, 키 입력, 판정 테스트 후보의 실패 이유
+// AI 보조 연결 확인, 키 입력, 판정 테스트 후보, 구글 토큰 받기, 토큰 세기, 판정 상한의 실패 이유
 
 import type { RuleSentences } from "../../../src/rules/rule-problem.ts";
 
@@ -21,6 +21,14 @@ const assist = {
   "ai-verdict-not-json": () => "판정을 읽지 못함(JSON이 아닌 응답)",
   "ai-cand-not-youtube": () => "유튜브 URL이 아니라 건너뛰었어요.",
   "ai-cand-timeout": (p) => `시간 초과(${p.sec}초)로 곡 정보를 불러오지 못했어요.`,
+  "ai-google-sign-failed": () => "서비스 계정 키로 서명 실패. private_key를 확인하세요",
+  "ai-google-token-http": (p, cause) => `토큰 발급 실패: HTTP ${p.status} ${cause}`,
+  "ai-google-token-unreadable": () => "토큰 응답 읽기 실패",
+  "ai-google-token-missing": () => "토큰 응답에 access_token이 없음",
+  "ai-token-count-failed": () => "토큰 계산 실패",
+  "ai-token-worker-exited": () => "토큰 계산 워커가 종료됨",
+  "ai-token-count-timeout": (p) => `토큰 세기가 ${p.sec}초를 넘김`,
+  "ai-judge-total-limit": () => "판정 상한",
 } satisfies Partial<RuleSentences>;
 
 export { assist };

@@ -22,8 +22,8 @@ import * as recentInfo from "./recent-info.ts";
 import fs from "node:fs";
 import path from "node:path";
 import { clearOutput, familyOf } from "../ytdlp-spawn.ts";
-import { josa } from "../../infra/josa.ts";
 import { L } from "../../infra/log/text.ts";
+import { logTextError } from "../../infra/log/log-text.ts";
 // 어긋난 미디어 주소를 다시 받기 전에 잠깐 쉰다. 곧바로 다시 요청하면 같은 것을 받기 쉽다.
 const STALE_RETRY_MS = 700;
 
@@ -118,13 +118,13 @@ async function _runWithClients(url: string, buildOptions: BuildOptions, forceCoo
       const next = clients[i + 1];
       if (errors.isSkippedClientError(error)) {
         lastError = error;
-        log.debug(`${client}${josa(client, "은")} 쿠키를 받지 않아 yt-dlp가 건너뜀${next ? `. ${next}${josa(next, "으로")} 전환` : ""}`);
+        log.debug(L.youtube.clientSkippedNoCookies({ client, next: next ?? null }));
         continue;
       }
       if (!errors.isClientFault(error)) throw error; // 영상, 네트워크 문제. 클라이언트 바꿔봐야 소용없다
       lastError = error;
       table.record(client, false);
-      log.warn({ tags: ["fallback"] }, `${client} 실패 (${errors.faultReason(error)})${next ? `. ${next}${josa(next, "으로")} 전환` : ""}`);
+      log.warn({ tags: ["fallback"] }, L.youtube.clientFailed({ client, reason: errors.faultReason(error), next: next ?? null }));
     }
   }
 
@@ -156,7 +156,7 @@ function requireAudioOnly(result: unknown, options: Flags) {
   const info = result as { vcodec?: string | null; format_id?: string; is_live?: boolean; live_status?: string } | null;
   if (!info?.vcodec || info.vcodec === "none") return;
   if (info.is_live || info.live_status === "is_live" || info.live_status === "is_upcoming") return;
-  throw Object.assign(new Error(`오디오 전용 포맷이 없음(선택한 포맷 ${info.format_id ?? "모름"})`), { code: errors.NO_AUDIO_ONLY });
+  throw Object.assign(logTextError(L.youtube.noAudioOnlyFormat({ formatId: info.format_id ?? null })), { code: errors.NO_AUDIO_ONLY });
 }
 
 /**
@@ -193,7 +193,7 @@ function _inspectWarnings(stderr: unknown, client: string | null) {
     // 그러면 폴백 루프가 첫 항목에서 끝나 뒤 목록이 모두 쓸모없어지므로 알린다.
     const skipped = line.match(/Skipping unsupported client "?([\w-]+)"?/i);
     if (skipped) {
-      log.warn(`${skipped[1]}${josa(skipped[1], "은")} 이 yt-dlp가 모르는 클라이언트임(건너뛰고 yt-dlp 기본값으로 재생). 유튜브 탭의 "유튜브 클라이언트 순서"에서 고치세요`);
+      log.warn(L.youtube.clientUnsupported({ client: skipped[1] }));
       continue;
     }
     if (/require[sd]? a .*PO Token|PO Token which was not provided/i.test(line)) {
@@ -202,7 +202,7 @@ function _inspectWarnings(stderr: unknown, client: string | null) {
       // yt-dlp 판단으로 끼어들기 때문에, 지정값으로 찍으면 엉뚱한 이름이 남는다.
       const named = line.match(/\b([a-z][\w-]*) client\b/i);
       const asked = named ? named[1] : client;
-      const who = asked || "기본 클라이언트";
+      const who = asked || L.youtube.defaultClient();
       if (asked && NEEDS_POT.includes(asked)) log.debug(L.youtube.potRequiredKnown({ who }));
       else log.warn({ tags: ["youtube-change"] }, L.youtube.potRequiredUnexpected({ who }));
       continue;
@@ -246,7 +246,7 @@ async function fromInfo(info: unknown, options: Flags, output: string, exec: Run
     return { result: await exec("", { ...flags, loadInfoJson: file }) };
   } catch (error) {
     if (!FETCH_FAILED.has(String((error as { code?: unknown } | null)?.code))) throw error;
-    const line = `캐시된 영상 정보로 다운로드 실패(정보 추출부터 다시 시도): ${errors.briefError(error, 1)}`;
+    const line = L.youtube.cachedInfoDownloadFailed({ error: errors.briefError(error, 1) });
     if (codeOf(error) === "stale-media") log.debug(line);
     else log.warn(line);
     clearOutput(output);

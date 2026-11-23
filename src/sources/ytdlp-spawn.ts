@@ -18,7 +18,7 @@ import { execWith, isJSON, isolated, type Exec, type YtDlpFlags } from "./ytdlp-
 import { sec } from "../infra/log/seconds.ts";
 import { repeatingFailure } from "../infra/repeating-failure.ts";
 import { L } from "../infra/log/text.ts";
-import { logTextError } from "../infra/log/log-text.ts";
+import { logTextError, type LogText } from "../infra/log/log-text.ts";
 const log = logger.child({ category: "ytdlp" });
 
 const IS_WIN = process.platform === "win32";
@@ -93,7 +93,7 @@ function cpuLimit(): { quota: number; slots: number } | null {
 const RANK = { retry: 0, now: 1, prefetch: 2 };
 // 이보다 오래 기다렸으면 debug 로그를 남긴다(ms)
 const WAIT_NOTE_MS: Record<Lane, number> = { lookup: 5_000, background: 30_000 };
-const LANE_NAME: Record<Lane, string> = { lookup: "곡 찾기", background: "다운로드 및 미리 받기" };
+const LANE_NAME: Record<Lane, LogText> = { lookup: L.ytdlp.laneLookup(), background: L.ytdlp.laneBackground() };
 
 async function enter(lane: Lane, rank: number, signal: AbortSignal | undefined): Promise<() => void> {
   const asked = Date.now();

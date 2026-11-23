@@ -17,6 +17,8 @@ import { readBody } from "./retry.ts";
 import { GEMMA_FILE, readPieces } from "./tokenizers.ts";
 import type { Counted } from "./tokenizers.ts";
 import { L } from "../../infra/log/text.ts";
+import { rule } from "../../rules/rule-problem.ts";
+import { ruleError } from "../../rules/text/index.ts";
 
 const log = logger.child({ category: "autoplay" });
 const anthropicFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.autoplay.anthropicCountTokens());
@@ -60,7 +62,8 @@ function spawn() {
     waiting.delete(id);
     clearTimeout(job.timer);
     if (counted) job.resolve(counted);
-    else job.reject(new Error(error || "토큰 계산 실패"));
+    // 세기 실패는 대시보드의 토큰 세기 응답까지 간다. 워커가 메시지를 보내지 않았으면 규칙 문제를 싣는다
+    else job.reject(error ? new Error(error) : ruleError(rule("ai-token-count-failed")));
   });
   one.on("error", (error) => {
     log.warn(L.autoplay.tokenWorkerFailed({ error: messageOf(error) }));
@@ -68,7 +71,7 @@ function spawn() {
   });
   one.on("exit", (code) => {
     if (thread === one) log.warn(L.autoplay.tokenWorkerExited({ code, waiting: waiting.size }));
-    stop(one, new Error("토큰 계산 워커가 종료됨"));
+    stop(one, ruleError(rule("ai-token-worker-exited")));
   });
   one.unref(); // 봇이 끝날 때 붙잡지 않는다. message를 들으면 다시 붙잡으므로 들은 뒤에 푼다
   return one;
@@ -98,7 +101,7 @@ function countAll(texts: unknown[], tokenizer = "tik", { timeoutMs = COUNT_TIMEO
     const timer = setTimeout(() => {
       const chars = bodies.reduce((sum, one) => sum + one.length, 0);
       log.warn(L.autoplay.tokenCountTimedOut({ seconds: timeoutMs / 1000, tokenizer, chars }));
-      stop(worker, new Error(`토큰 세기가 ${timeoutMs / 1000}초를 넘김`));
+      stop(worker, ruleError(rule("ai-token-count-timeout", { sec: timeoutMs / 1000 })));
     }, timeoutMs);
     waiting.set(id, { resolve, reject, timer });
     worker.postMessage({ id, texts: bodies, tokenizer });
@@ -164,7 +167,7 @@ async function countByAnthropic(messages: Message[] | null | undefined, { model,
   if (!res.ok) {
     // 본문을 읽지 못하면 오류 유형 없이 남기고 추산으로 넘어간다
     const type = readBody(await res.text().catch(() => ""))?.type;
-    anthropicFailure.fail(`HTTP ${res.status}${typeof type === "string" && type ? ` (${type})` : ""} | 모델=${model} | tik 추산으로 대체`);
+    anthropicFailure.fail(L.autoplay.anthropicCountHttp({ status: res.status, typeSuffix: typeof type === "string" && type ? ` (${type})` : "", model }));
     return null;
   }
   anthropicFailure.ok();

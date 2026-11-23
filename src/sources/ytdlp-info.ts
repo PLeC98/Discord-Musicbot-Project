@@ -4,6 +4,7 @@
 import { z } from "zod";
 import logger from "../infra/log/logger.ts";
 import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
 const log = logger.child({ category: "youtube" });
 
 const reported = new Set<string>();
@@ -71,9 +72,9 @@ function readInfo(raw: unknown): YtInfo | null {
 }
 
 /** readInfo가 읽지 못한 답이 무엇이었나(오류 문장에 싣는다). JSON이 아닌 출력은 글자로 오므로 길이도 */
-function answerShape(raw: unknown): string {
-  if (typeof raw === "string") return `타입=string, 길이=${raw.length}`;
-  return `타입=${raw === null ? "null" : Array.isArray(raw) ? "array" : typeof raw}`;
+function answerShape(raw: unknown): LogText {
+  if (typeof raw === "string") return L.youtube.infoShapeString({ length: raw.length });
+  return L.youtube.infoShapeType({ type: raw === null ? "null" : Array.isArray(raw) ? "array" : typeof raw });
 }
 
 export { readInfo, answerShape };

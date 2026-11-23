@@ -25,6 +25,33 @@ const ytdlp = {
   binaryMissing: () => `yt-dlp가 설치되지 않음(pnpm run update:ytdlp)`,
   infoTimedOut: ({ seconds }: { seconds: number }) => `yt-dlp가 ${seconds}초 안에 끝나지 않아 내림`,
   downloadStalled: ({ minutes }: { minutes: number }) => `yt-dlp 다운로드가 ${minutes}분 동안 진행되지 않아 중단`,
+  updateModeOff: () => `꺼짐`,
+  updateModeNotify: () => `알림`,
+  updateModeAuto: () => `자동`,
+  updateModeDaily: ({ name }: { name: string }) => `${name} (1일 1회 확인)`,
+  versionCurrent: ({ version }: { version: string }) => `yt-dlp 버전이 목표와 같음(${version})`,
+  binaryUpdated: ({ from, to }: { from: string; to: string }) => `yt-dlp 업데이트 완료: ${from} → ${to}`,
+  binaryInstalled: ({ to, channel }: { to: string; channel: string }) => `yt-dlp 설치 완료: ${to} (${channel})`,
+  savedVersionReplaced: ({ from, to }: { from: string; to: string }) => `yt-dlp를 저장된 버전으로 교체: ${from} → ${to}`,
+  savedVersionInstalled: ({ to }: { to: string }) => `yt-dlp를 저장된 버전으로 설치: ${to}`,
+  downloadSuperseded: ({ target }: { target: string }) => `yt-dlp ${target} 다운로드 취소: 다운로드 중 설정이 바뀜`,
+  updateUnusable: ({ current, target, channel, reason }: { current: string; target: string; channel: string; reason: string }) => `yt-dlp 업데이트 불가(기존 버전 유지): ${current} → ${target} (${channel}) - 이 환경에서 실행되지 않음: ${reason}`,
+  installUnusable: ({ target, channel, reason }: { target: string; channel: string; reason: string }) => `yt-dlp 설치 불가(yt-dlp를 쓰는 기능이 동작하지 않음): ${target} (${channel}) - 이 환경에서 실행되지 않음: ${reason}`,
+  signatureHint: () => `. yt-dlp 서명 키가 바뀌었을 수 있음. 봇을 업데이트하거나, 확인했으면 pnpm run update:ytdlp --skip-signature`,
+  updateFailed: ({ current, target, channel, reason, hint }: { current: string; target: string; channel: string; reason: string; hint: string }) => `yt-dlp 업데이트 실패(기존 버전 유지): ${current} → ${target} (${channel}) - ${reason}${hint}`,
+  installFailed: ({ target, channel, reason, hint }: { target: string; channel: string; reason: string; hint: string }) => `yt-dlp 설치 실패(yt-dlp를 쓰는 기능이 동작하지 않음): ${target} (${channel}) - ${reason}${hint}`,
+  argsChannelMissing: ({ channels, valueSuffix }: { channels: string; valueSuffix: string }) => `--channel 뒤에 채널을 넣으세요(${channels} 중 하나)${valueSuffix}`,
+  argsPinUnpin: () => `--pin과 --unpin은 함께 쓸 수 없습니다`,
+  argsPinMissing: () => `--pin 뒤에 고정할 버전을 넣으세요(예: --pin 2026.11.16.232655)`,
+  argsNotTag: ({ tag }: { tag: string }) => `yt-dlp 릴리스 태그 모양이 아닙니다: ${tag}(예: 2026.10.26, 2026.11.16.232655)`,
+  laneLookup: () => `곡 찾기`,
+  laneBackground: () => `다운로드 및 미리 받기`,
+  versionCheckProcess: () => `yt-dlp 버전 확인`,
+  /** pid: 잠금을 쥔 프로세스(모르면 null) */
+  otherProcess: ({ pid }: { pid: number | null }) => `다른 프로세스${pid ? `(PID ${pid})` : ""}`,
+  /** 기동 줄. pin: 고정 버전(없으면 null), mode: 업데이트 방식, firstInstall: 이번 기동에 처음 설치했다 */
+  binaryReady: ({ version, channel, pin, mode, firstInstall }: { version: string | null; channel: string; pin: string | null; mode: string; firstInstall: boolean }) => `yt-dlp ${version ?? "없음"} | 채널=${channel}${pin ? ` | 고정=${pin}` : ""} | 업데이트=${mode}${firstInstall ? " | 처음 설치" : ""}`,
+  updateAvailable: ({ from, to, channel }: { from: string | null; to: string; channel: string }) => `yt-dlp 업데이트 있음: ${from ?? "없음"} → ${to} (${channel}, 업데이트: 운영자 패널 업데이트 탭의 yt-dlp 카드)`,
 };
 
 export { ytdlp };

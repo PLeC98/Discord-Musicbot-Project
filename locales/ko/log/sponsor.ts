@@ -12,6 +12,7 @@ const sponsor = {
   segmentFetchFailed: ({ videoId, reason }: { videoId: string; reason: string }) => `SponsorBlock 조회 실패: ${videoId} | ${reason}`,
   segmentRefetchFailed: ({ videoId, error }: { videoId: string; error: string }) => `SponsorBlock 구간 다시 받기 실패: ${videoId} | ${error}`,
   segmentLookupFailed: ({ videoId, error }: { videoId: string; error: string }) => `SponsorBlock 구간 조회 실패: ${videoId} | ${error}`,
+  notSegmentApi: ({ apiBase, failed }: { apiBase: string; failed: string }) => `${apiBase}의 응답이 SponsorBlock 구간 API 응답이 아님(${failed}). SponsorBlock API 주소와 해시 접두어 길이 설정을 확인하세요`,
 };
 
 export { sponsor };

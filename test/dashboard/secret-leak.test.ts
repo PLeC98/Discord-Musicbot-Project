@@ -158,6 +158,17 @@ test("AI 미리보기, 모델 묻기, 테스트 응답에 키가 없다", async 
   }
 });
 
+// 거절 응답에 보낸 키를 되비추는 서비스가 있다. 버텍스의 토큰 발급 실패는 응답 본문을 규칙 문제의 이유로 싣는다
+test("거절 응답이 키를 되비춰도 AI 모델 묻기, 테스트 응답에 키가 없다", async () => {
+  const echo = `echo ${Object.values(AI).join(" ")}`;
+  assist.useFetch(fake<typeof fetch>(async () => ({ ok: false, status: 400, headers: new Headers(), text: async () => echo, json: async () => ({}) })));
+  const post = (path: string, body: unknown) => fetch(base + path, { method: "POST", headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf }, body: JSON.stringify(body) });
+  for (const provider of ["openai", "custom", "vertex"]) {
+    const data = { enabled: true, provider, baseUrl: "http://127.0.0.1:1/v1", model: "m", location: "global", project: "p" };
+    for (const path of ["/api/admin/ai/models", "/api/admin/ai/ping"]) leaksIn(`POST ${path} (${provider}, 되비춤)`, await (await post(path, { data })).text());
+  }
+});
+
 // 암호화된 설정까지 내보내도 값은 암호문으로만 나간다(끝 네 글자도 담지 않는다)
 test("내보내기 파일(모든 종류, ZIP의 모든 항목)에 비밀값이 없다", async () => {
   for (const kind of ARCHIVE_KINDS) {

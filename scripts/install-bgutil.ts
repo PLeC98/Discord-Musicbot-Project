@@ -29,6 +29,7 @@ import { acquireInstanceLock } from "../src/infra/instance-lock.ts";
 import { installBgutil, type InstallIo, type InstallOutcome } from "../src/sources/bgutil/install.ts";
 import { trialRun } from "../src/sources/bgutil/trial.ts";
 import { scriptLine, type ScriptLevel } from "../src/infra/script-line.ts";
+import { asText, type LogText } from "../src/infra/log/log-text.ts";
 import { parseInstallArgs, type InstallMode } from "../src/sources/bgutil/cli-args.ts";
 
 const REPO = `https://github.com/${BGUTIL_REPO}.git`;
@@ -45,7 +46,7 @@ const show = (dir: string) => path.relative(PROJECT.root, dir);
 
 const SETTINGS_DB = path.join(PROJECT.database, "settings.db");
 
-let say: (level: ScriptLevel, line: string) => void = scriptLine("bgutil");
+let say: (level: ScriptLevel, line: string | LogText) => void = scriptLine("bgutil");
 
 // 설정 DB를 읽는 모듈을 부른 뒤로는 로거로 찍는다(같은 모양)
 async function sayWithLogger() {
@@ -98,7 +99,7 @@ function report(outcome: InstallOutcome, bot: "none" | "parent" | "other"): numb
       if (bot !== "none") say("warn", "켜져 있는 봇을 다시 시작하세요(다시 시작해야 새 버전 적용)");
       return 0;
     case "failed":
-      say("error", `${outcome.tag} 설치 실패(지금 쓰는 bgutil 그대로): ${outcome.reason}`);
+      say("error", `${outcome.tag} 설치 실패(지금 쓰는 bgutil 그대로): ${asText(outcome.reason)}`);
       say("error", "git, node, canvas 네이티브 모듈용 빌드 도구가 있는지, 네트워크와 태그를 확인하세요");
       return 1;
     case "busy":

@@ -15,6 +15,7 @@
 import "../src/app/env-bootstrap.ts"; // 설정을 읽기 전에 .env를 읽는다(없으면 만든다)
 import path from "node:path";
 import logger from "../src/infra/log/logger.ts";
+import { asText, type LogText } from "../src/infra/log/log-text.ts";
 import config from "../src/config/index.ts";
 import { PROJECT } from "../src/infra/project-paths.ts";
 import { acquireInstanceLock } from "../src/infra/instance-lock.ts";
@@ -26,7 +27,7 @@ import { messageOf } from "../src/rules/error-kind.ts";
 const SETTINGS_DB = path.join(PROJECT.database, "settings.db");
 
 const log = logger.child({ category: "ytdlp" });
-const say = (level: "info" | "warn", line: string) => log[level](line);
+const say = (level: "info" | "warn", line: string | LogText) => log[level](line);
 
 // 설정 DB의 채널과 버전 고정을 설정 객체에 올린다. 읽지 못했으면 false
 async function loadTarget(): Promise<boolean> {
@@ -88,7 +89,7 @@ async function changeSettings(change: Change, skipSignature: boolean): Promise<b
 
 try {
   const args = parseUpdateArgs(process.argv);
-  if ("error" in args) throw new Error(args.error);
+  if ("error" in args) throw new Error(asText(args.error));
   if (args.skipSignature) say("warn", "이번 실행은 yt-dlp 릴리스의 서명을 확인하지 않습니다(--skip-signature, 체크섬은 확인)");
   if (args.pin !== undefined || args.channel !== undefined) {
     if (!(await changeSettings({ pin: args.pin, channel: args.channel }, args.skipSignature))) process.exitCode = 1;

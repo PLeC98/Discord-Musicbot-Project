@@ -18,7 +18,7 @@ import { parsePlaylist, chooseMedia, lengthOf, type MediaPlaylist, type Segment,
 import type { AudioStream, StreamNet } from "./direct-open.ts";
 import logger from "../infra/log/logger.ts";
 import { L } from "../infra/log/text.ts";
-import { logTextError } from "../infra/log/log-text.ts";
+import { logTextError, type LogText } from "../infra/log/log-text.ts";
 const log = logger.child({ category: "link" });
 
 /** 받을 것 하나: 세그먼트거나, 초기화 세그먼트가 바뀌었을 때의 초기화 세그먼트 */
@@ -46,7 +46,7 @@ type HlsFragments = {
   next(): Promise<HlsPart | null>;
   fetch(part: HlsPart, signal: AbortSignal, progress?: () => void): Promise<Buffer | HlsPour>;
   startedAtMs: number;
-  describe(sent: number): string;
+  describe(sent: number): string | LogText;
   close(): void;
 };
 type Hls = {
@@ -148,7 +148,7 @@ function gather(body: Readable, signal: AbortSignal, progress: () => void): Prom
       const piece = Buffer.isBuffer(chunk) ? chunk : typeof chunk === "string" ? Buffer.from(chunk) : null;
       if (!piece) {
         body.destroy();
-        return onError(new TypeError(`세그먼트 본문의 청크가 바이트가 아님(${typeof chunk})`));
+        return onError(logTextError(L.link.hlsChunkNotBytes({ type: typeof chunk })));
       }
       chunks.push(piece);
       length += piece.length;
@@ -364,7 +364,7 @@ function fragmentsOf(first: { playlist: MediaPlaylist; url: string }, { net, sle
     },
     fetch: (part, signal, progress = ignore) => fetchPart(parts, part, signal, progress),
     startedAtMs,
-    describe: (sent) => `HLS ${startMs === null ? "라이브" : "VOD"} · 세그먼트 ${sent}개 내보냄 · 마지막 순번 ${lastSequence}${startMs === null ? ` · 목록 다시 받음 ${reloads}회` : ""}`,
+    describe: (sent) => L.link.hlsProgress({ live: startMs === null, sent, lastSequence, reloads }),
     close() {
       closed = true;
     },
@@ -421,7 +421,8 @@ async function fetchRange(ctx: PartNet, part: HlsPart, range: ByteRange, at: Fet
   const start = SafeUrl.servedFrom({ status: body.status ?? 200, headers }) ?? (range.offset === 0 ? 0 : null);
   if (start === null || start > range.offset) {
     body.destroy();
-    throw permanent(new Error(`HLS 서버가 요청한 구간(${range.offset}부터)이 아닌 곳을 보냄(${String(headers["content-range"] ?? "Content-Range 없음")})`));
+    const served = headers["content-range"];
+    throw permanent(logTextError(L.link.hlsRangeMismatch({ offset: range.offset, contentRange: served == null ? null : String(served) })));
   }
   const slice = { offset: range.offset - start, length: range.length };
   if (slice.offset + slice.length > PART_ACCEPT.maxBytes) {

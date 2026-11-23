@@ -52,7 +52,7 @@ async function getInfo(url: string, { tags, net = { getStream: SafeUrl.getStream
         if (read) tags(track, read);
       },
       (error) => {
-        const line = `직접 링크 태그 읽기 실패(파일 이름 사용): ${messageOf(error)}`;
+        const line = L.link.directTagReadFailed({ error: messageOf(error) });
         if (embeddedArt.linkOrCancelled(error)) log.debug(line);
         else log.warn(line);
       },

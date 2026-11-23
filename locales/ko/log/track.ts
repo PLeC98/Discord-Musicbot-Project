@@ -74,6 +74,16 @@ const track = {
   youtubeMatchReused: ({ title, url }: { title: string; url: string }) => `유튜브 매칭 음원(링크 데이터 재사용, 검색 생략): "${title}" → ${url}`,
   youtubeMatchShared: ({ title, url }: { title: string; url: string }) => `유튜브 매칭 음원(진행 중인 요청 결과 공유): "${title}" → ${url}`,
   youtubeMatchSearched: ({ title, url }: { title: string; url: string }) => `유튜브 매칭 음원(검색): "${title}" → ${url}`,
+  fileTagFindFailed: ({ minutes, audioKey, error }: { minutes: number; audioKey: string; error: string }) => `파일 태그 조회 실패(${minutes}분 뒤 재시도): ${audioKey} | ${error}`,
+  fileTagReadFailed: ({ file, error }: { file: string; error: string }) => `파일 태그 읽기 실패: ${file} | ${error}`,
+
+  /** title: 제목 태그가 있다, artSize: 앨범아트 크기(없으면 null), source: 원본에서 읽었다(아니면 캐시 파일) */
+  fileTagsFound: ({ audioKey, title, artSize, source }: { audioKey: string; title: boolean; artSize: string | null; source: boolean }) => `파일 태그: ${audioKey} | 제목 ${title ? "있음" : "없음"} · 앨범아트 ${artSize ?? "없음"} (${source ? "원본" : "캐시 파일"})`,
+  pinnedLookupSkipped: ({ title, audioUrl }: { title: string; audioUrl: string | null }) => `직접 지정한 음원(조회 생략): "${title}" → ${audioUrl ?? "없음"}`,
+  pinnedSearchSkipped: ({ title, audioUrl }: { title: string; audioUrl: string | null }) => `직접 지정한 음원(검색 생략): "${title}" → ${audioUrl ?? "없음"}`,
+  pinnedRefind: ({ title, audioUrl, code }: { title: string; audioUrl: string | null; code: string }) => `직접 지정한 음원을 재생할 수 없어 이번에는 다시 찾음(지정은 그대로): "${title}" | ${audioUrl ?? "없음"} | ${code}`,
+  pinnedLive: ({ audioUrl }: { audioUrl: string | null }) => `직접 지정한 음원이 라이브임: ${audioUrl ?? "없음"}`,
+  unsupportedAudioUrl: ({ platform }: { platform: string | null }) => `지원되지 않는 음원 주소: ${platform ?? "없음"}`,
 };
 
 export { track };

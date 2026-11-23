@@ -28,13 +28,15 @@ import { SAMPLE_CANDIDATES } from "./sample.ts";
 import type { ModelField } from "../../config/ai-model-types.ts";
 import { vertexBase as vertexBaseOf, vertexChatUrl, vertexHost } from "../../rules/vertex-url.ts";
 import { httpFor } from "../../infra/http.ts";
-import { REDACTED, mask, safeHeaders } from "./mask.ts";
+import { REDACTED, mask, maskProblem, safeHeaders } from "./mask.ts";
 import { sendLogged, type Call } from "./request-log.ts";
 import { sec } from "../../infra/log/seconds.ts";
 import { UNSAFE_KEYS, delPath, setPath } from "../../rules/dot-path.ts";
 import { readExtra, type Extra } from "../../rules/ai-extra.ts";
 import { L } from "../../infra/log/text.ts";
-import { logTextError } from "../../infra/log/log-text.ts";
+import { asText, logTextError, type LogText } from "../../infra/log/log-text.ts";
+import { ruleError } from "../../rules/text/index.ts";
+import { bug } from "../../infra/bug.ts";
 
 // 바깥으로 나가는 요청은 공유 HTTP 클라이언트로(부른 결과가 남는다). 테스트는 useFetch로 가짜를 넘긴다(null이면 진짜 fetch)
 const http = httpFor("ai");
@@ -162,10 +164,10 @@ const live = (one: Partial<AiSettings> | null | undefined) => !!one?.provider &&
 /** 화면의 테스트가 요청을 보낼 수 없는 이유(프로바이더를 고르지 않았거나 모르는 이름). 보낼 수 있으면 null */
 const notLive = (one: Partial<AiSettings>): RuleProblem | null => (live(one) ? null : !one.provider || one.provider === "off" ? rule("ai-no-provider") : rule("ai-unknown-provider", { provider: String(one.provider) }));
 
-// 확인이 실패한 이유. 오류에 규칙 문제가 없으면 키와 주소를 가린 메시지를 plain으로 담는다
+// 확인이 실패한 이유. 오류에 규칙 문제가 없으면 키와 주소를 가린 메시지를 plain으로 담는다. 규칙 문제 안의 바깥 글도 가린다
 function checkFailure(error: unknown): RuleProblem {
   const problem = errorProblem(error);
-  return problem.code === "plain" ? plain(mask(messageOf(error))) : problem;
+  return problem.code === "plain" ? plain(mask(messageOf(error))) : maskProblem(problem);
 }
 
 // 끝의 슬래시를 뗀다. `/\/+$/`로 하면 끝에 없는 슬래시 더미에 역추적이 붙어 O(n²)가 된다.
@@ -615,17 +617,17 @@ function arraysIn(text: string): string[] {
  * 켜 둔 기능이 한도, 서버 오류로 죽어 있으면 평소 로그 수준에서 보여야 한다
  */
 function skipped(error: unknown) {
-  const calls = error instanceof AskFailure && error.calls > 1 ? `(${error.calls}번 불러 모두 실패)` : "";
+  const calls = error instanceof AskFailure && error.calls > 1 ? L.autoplay.aiAssistCallsFailed({ calls: error.calls }) : "";
   log.warn(L.autoplay.aiAssistFailed({ callsSuffix: calls, error: messageOf(error) }));
 }
 
 /** 판정 하나(재시도, 다시 묻기까지 끝낸 것)의 실패. reason은 원인, detail은 저쪽 문구, calls는 부른 수 */
 class AskFailure extends Error {
-  reason: string;
+  reason: string | LogText;
   detail: string;
   calls: number;
-  constructor(reason: string, detail: string, calls: number) {
-    super(detail ? `${reason} (${detail})` : reason);
+  constructor(reason: string | LogText, detail: string, calls: number) {
+    super(detail ? `${asText(reason)} (${detail})` : asText(reason));
     this.reason = reason;
     this.detail = detail;
     this.calls = calls;
@@ -633,10 +635,10 @@ class AskFailure extends Error {
 }
 
 /** 부르기 한 번의 결과. 실패면 다시 해도 되는지와 저쪽이 기다리라고 한 시간 */
-type Attempt = { ok: true; verdicts: Array<Verdict | null> } | { ok: false; reason: string; detail: string; retry: boolean; adviceMs?: number | null; unreadable?: boolean };
+type Attempt = { ok: true; verdicts: Array<Verdict | null> } | { ok: false; reason: string | LogText; detail: string | LogText; retry: boolean; adviceMs?: number | null; unreadable?: boolean };
 
 // 판정 하나의 상한(totalTimeoutMs)으로 끊었을 때의 원인. 부르기 한 번의 시간 초과와 구분한다
-const OVER_TOTAL = new Error("판정 상한");
+const overTotal = () => ruleError(rule("ai-judge-total-limit"));
 
 /** 리퀘스트 로그에 적을 것: 응답의 토큰, 2xx인데 판정을 읽지 못한 원인 */
 function judgeCall(one: AiSettings, size: number): Pick<Call, "provider" | "model" | "tokensOf" | "explain"> {
@@ -674,25 +676,25 @@ async function attempt(one: AiSettings, request: Awaited<ReturnType<typeof build
     const text = dialectOf(one).answerOf(JSON.parse(raw) as Reply) || "";
     const verdicts = readVerdicts(text, request.size);
     if (verdicts) return { ok: true, verdicts };
-    return { ok: false, reason: "판정을 읽지 못함", detail: `답 ${text.length}자: ${text.slice(0, 160)}`, retry: false, unreadable: true };
+    return { ok: false, reason: L.autoplay.verdictUnreadable(), detail: L.autoplay.verdictAnswerPreview({ length: text.length, preview: text.slice(0, 160) }), retry: false, unreadable: true };
   } catch (error) {
-    if (total?.aborted) return { ok: false, reason: "판정 상한 초과", detail: `${Number(one.totalTimeoutMs) / 1000}초`, retry: false };
-    if (perCall.aborted) return { ok: false, reason: "시간 초과", detail: `${Number(one.timeoutMs) / 1000}초`, retry: !!one.retryTimeouts };
-    if (errorKind(error) === "network-error") return { ok: false, reason: "네트워크 오류", detail: messageOf(error), retry: true };
+    if (total?.aborted) return { ok: false, reason: L.autoplay.judgeTotalTimedOut(), detail: L.autoplay.secondsText({ seconds: Number(one.totalTimeoutMs) / 1000 }), retry: false };
+    if (perCall.aborted) return { ok: false, reason: L.autoplay.callTimedOut(), detail: L.autoplay.secondsText({ seconds: Number(one.timeoutMs) / 1000 }), retry: !!one.retryTimeouts };
+    if (errorKind(error) === "network-error") return { ok: false, reason: L.autoplay.networkError(), detail: messageOf(error), retry: true };
     // 200인데 본문이 JSON이 아니다(앞에 둔 프록시의 안내 페이지 등). 판정을 못 읽은 응답과 같이 한 번 더 묻는다
-    if (error instanceof SyntaxError) return { ok: false, reason: "판정을 읽지 못함", detail: `JSON이 아닌 응답(${messageOf(error)})`, retry: false, unreadable: true };
+    if (error instanceof SyntaxError) return { ok: false, reason: L.autoplay.verdictUnreadable(), detail: L.autoplay.verdictNotJson({ error: messageOf(error) }), retry: false, unreadable: true };
     return { ok: false, reason: messageOf(error), detail: "", retry: false };
   }
 }
 
 /** 다음 재시도 전의 대기 시간(ms). 재시도하지 않으면 stop에 이유(재시도 대상이 아니거나 횟수를 다 썼으면 빈 문자열) */
-function waitBefore(one: AiSettings, used: number, failed: Attempt & { ok: false }, endsAt: number | null): { ms: number } | { stop: string } {
+function waitBefore(one: AiSettings, used: number, failed: Attempt & { ok: false }, endsAt: number | null): { ms: number } | { stop: string | LogText } {
   if (!failed.retry) return { stop: "" };
   if (used >= Number(one.retries)) return { stop: "" };
   const maxMs = Number(one.retryDelayMaxMs);
-  if (failed.adviceMs != null && failed.adviceMs > maxMs) return { stop: `서버가 ${Math.ceil(failed.adviceMs / 1000)}초 뒤라고 함, 대기 상한 ${maxMs / 1000}초` };
+  if (failed.adviceMs != null && failed.adviceMs > maxMs) return { stop: L.autoplay.retryAdviceTooLong({ advice: Math.ceil(failed.adviceMs / 1000), max: maxMs / 1000 }) };
   const ms = failed.adviceMs ?? retry.backoffMs(used + 1, Number(one.retryDelayMs), maxMs);
-  if (endsAt !== null && Date.now() + ms >= endsAt) return { stop: "판정 상한까지 남은 시간이 모자람" };
+  if (endsAt !== null && Date.now() + ms >= endsAt) return { stop: L.autoplay.totalTimeTooShort() };
   return { ms };
 }
 
@@ -704,7 +706,7 @@ async function askBatch(one: AiSettings, cands: Judged[], genre: string | undefi
   const request = { ...(await buildRequest(one, cands, genre)), size: cands.length };
   const totalMs = Number(one.totalTimeoutMs);
   const total = totalMs > 0 ? new AbortController() : null;
-  const timer = total ? setTimeout(() => total.abort(OVER_TOTAL), totalMs) : null;
+  const timer = total ? setTimeout(() => total.abort(overTotal()), totalMs) : null;
   const endsAt = total ? Date.now() + totalMs : null;
   const limited = { ...one, retries };
   try {
@@ -715,11 +717,11 @@ async function askBatch(one: AiSettings, cands: Judged[], genre: string | undefi
       if (got.ok) return got.verdicts;
       if (got.unreadable && !reasked) {
         reasked = true;
-        log.debug(L.autoplay.verdictParseRetry({ detail: got.detail.slice(0, 80) }));
+        log.debug(L.autoplay.verdictParseRetry({ detail: asText(got.detail).slice(0, 80) }));
         continue;
       }
       const wait = waitBefore(limited, used, got, endsAt);
-      if ("stop" in wait) throw new AskFailure(got.reason, [got.detail, wait.stop].filter(Boolean).join(". "), calls);
+      if ("stop" in wait) throw new AskFailure(got.reason, [got.detail, wait.stop].filter(Boolean).map(asText).join(". "), calls);
       used++;
       log.debug(L.autoplay.aiAssistRetry({ used, retries, reason: got.reason, seconds: sec(wait.ms) }));
       await sleep(wait.ms);
@@ -779,7 +781,7 @@ async function accepts(candidate: Judged | null | undefined, about: About = {}):
     const [verdict] = await askBatch(one, [candidate], about.genre, { retries: retriesIn(about) });
     if (!verdict) return true; // 판정을 못 읽었다. 버릴 근거가 없다
     if (verdict.song && verdict.fits) return true;
-    log.debug(`AI 보조가 필터링함(${verdict.song ? "장르가 다름" : "곡 하나가 아님"})${about.genre ? ` [${about.genre}]` : ""}: ${logTitle(candidate.title)}`);
+    log.debug(L.autoplay.aiAssistRejected({ song: verdict.song, genre: about.genre ?? "", title: logTitle(candidate.title) }));
     return false;
   } catch (error) {
     failedIn(about);
@@ -843,7 +845,8 @@ async function askModels(urls: string[], headers: Record<string, string>, one: A
     const text = mask(raw);
     if (last(res)) return { res, text };
   }
-  throw new Error("요청할 주소가 없음");
+  // 부르는 쪽이 늘 주소를 하나 이상 넘기고, 마지막 주소의 답은 그대로 돌려준다
+  throw bug("요청할 주소가 없음");
 }
 
 // 가릴 것을 뺀 목록과 뺀 수

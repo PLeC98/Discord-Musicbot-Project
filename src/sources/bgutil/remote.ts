@@ -7,6 +7,8 @@ import { toolEnv } from "../../config/tool-env.ts";
 import { register } from "../../infra/process-registry.ts";
 import { BGUTIL_REPO, taggedCommit } from "../../rules/bgutil-install.ts";
 import { latestReleaseTag } from "../github-release.ts";
+import { rule } from "../../rules/rule-problem.ts";
+import { ruleError } from "../../rules/text/index.ts";
 
 /** git ls-remote의 상한(ms) */
 const LS_REMOTE_MS = 30_000;
@@ -25,7 +27,8 @@ function lsRemote(refs: string[]): Promise<string> {
     const child = childProcess.execFile("git", args, { env, timeout: LS_REMOTE_MS, windowsHide: true, maxBuffer: 1 << 20 }, (error, stdout) => {
       unregister();
       if (!error) return resolve(stdout);
-      reject(new Error(error.killed ? `git ls-remote 시간 초과(${LS_REMOTE_MS / 1000}초)` : `git ls-remote 실패: ${error.message.split("\n")[0]}`));
+      // 실패는 업데이트 탭의 bgutil 카드까지 간다
+      reject(ruleError(error.killed ? rule("git-ls-remote-timeout", { sec: LS_REMOTE_MS / 1000 }) : rule("git-ls-remote-failed", { detail: error.message.split("\n")[0] })));
     });
     child.stdin?.end();
     unregister = register(child, "git ls-remote");

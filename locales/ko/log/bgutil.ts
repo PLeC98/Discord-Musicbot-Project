@@ -1,4 +1,6 @@
-// 로그 문구: bgutil(POToken 서버) 설치(bgutil 분류). 고정한 태그와 커밋의 git 체크아웃
+// 로그 문구: bgutil(POToken 서버) 설치(bgutil 분류). 고정한 태그와 커밋의 git 체크아웃, 설치 인자, 설치 단계, 기록, 실행 테스트
+
+import { josa } from "../../../src/infra/josa.ts";
 
 const bgutil = {
   checkoutNotGit: ({ dir }: { dir: string }) => `경로(${dir})가 git 체크아웃이 아닙니다. 지우고 다시 설치하세요`,
@@ -14,6 +16,29 @@ const bgutil = {
   serverVersionMissing: () => `server/package.json에 버전이 없음`,
   trialFailed: ({ reason }: { reason: string }) => `실행 테스트 실패: ${reason}`,
   trialServerNotExited: ({ pid }: { pid: string }) => `실행 테스트로 띄운 POToken 서버(PID ${pid})가 끝나지 않음`,
+  argsTagMissing: ({ name }: { name: string }) => `${name} 뒤에 태그를 넣으세요(예: ${name} 2.0.2)`,
+  argsNotTag: ({ value }: { value: string }) => `태그 이름이 아닙니다: ${value}`,
+  argsCommitInvalid: ({ valueSuffix }: { valueSuffix: string }) => `--commit 뒤에 커밋 해시 40자를 넣으세요${valueSuffix}`,
+  argsModesExclusive: () => `--pin, --unpin, --tag는 함께 쓸 수 없습니다`,
+  argsUnpinWithCommit: () => `--unpin에는 --commit을 쓰지 않습니다`,
+  argsTagNeedsCommit: () => `--tag에는 --commit을 함께 넣으세요`,
+  argsCommitAlone: () => `--commit은 --pin이나 --tag와 함께 씁니다`,
+  argsUnknown: ({ arg }: { arg: string }) => `모르는 인자입니다: ${arg}`,
+  stepNpmCi: () => `의존성 설치(npm ci --ignore-scripts)`,
+  stepRebuild: ({ names }: { names: string }) => `설치 스크립트가 있는 실행 의존성만 다시 빌드(npm rebuild ${names})`,
+  stepTsc: () => `서버 빌드(tsc)`,
+  stateSetAside: ({ error, file }: { error: string; file: string }) => `bgutil 기록(state.json)을 읽지 못해(${error}) ${file} 파일로 옮기고 새로 기록했습니다`,
+  publishRenameFailed: () => `체크아웃한 폴더를 버전 폴더로 옮기지 못함(안의 파일이 열려 있음)`,
+  stepCheckout: ({ tag, commit }: { tag: string; commit: string }) => `체크아웃(${tag}, ${commit})`,
+  stateBuildInvalid: () => `빌드 기록 형식이 올바르지 않음`,
+  trialNoAnswer: ({ seconds }: { seconds: number }) => `${seconds}초 안에 응답하지 않음`,
+  trialSpawnFailed: ({ error }: { error: string }) => `실행 실패: ${error}`,
+  trialExitedEarly: ({ code }: { code: number }) => `응답하기 전에 끝남(code=${code})`,
+  stepTrial: ({ version }: { version: string }) => `실행 테스트(/ping이 ${version}${josa(version, "으로")} 응답하는지)`,
+  /** version: 응답한 버전(없으면 null) */
+  trialOtherVersion: ({ expected, version }: { expected: string; version: string | null }) => `다른 버전으로 응답함(기대 ${expected}, 응답 ${version ?? "없음"})`,
+  /** output: 서버 출력(stderr)의 마지막 세 줄 */
+  trialWithOutput: ({ reason, output }: { reason: string; output: string }) => `${reason} | 서버 출력: ${output}`,
 };
 
 export { bgutil };

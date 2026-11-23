@@ -142,7 +142,7 @@ async function _fetchRaw(videoId: string, apiBase: string): Promise<RawSegment[]
     return null;
   }
   if ("failed" in answer) {
-    if (answer.notApi) wrongAnswer.fail(`${apiBase}의 응답이 SponsorBlock 구간 API 응답이 아님(${answer.failed}). SponsorBlock API 주소와 해시 접두어 길이 설정을 확인하세요`);
+    if (answer.notApi) wrongAnswer.fail(L.sponsor.notSegmentApi({ apiBase, failed: answer.failed }));
     else {
       log.debug(L.sponsor.segmentFetchFailed({ videoId, reason: answer.failed }));
       apiFailure.fail(`${answer.failed} (${apiBase})`);

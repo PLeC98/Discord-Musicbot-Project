@@ -45,7 +45,6 @@ function bgutilPluginDirs(): string | null {
 }
 import * as cookieJar from "../../store/cookie-jar.ts";
 import { ageContentOn } from "../../config/age-content.ts";
-import { josa } from "../../infra/josa.ts";
 
 // 유튜브용 yt-dlp 옵션. 공통(baseOptions) 위에 유튜브 전용을 얹는다
 function getYtDlpOptions(extraOptions: Flags = {}, { forceCookies = false } = {}): Flags {
@@ -87,23 +86,23 @@ function potEnabled() {
  */
 function logAuthMode() {
   const clients = config.ytdlp.playerClients;
-  const pot = potEnabled() ? "사용" : config.bgutil.enabled ? "설정됨(설치 없음)" : "미사용";
+  const pot = potEnabled() ? L.youtube.authPotOn() : config.bgutil.enabled ? L.youtube.authPotNotInstalled() : L.youtube.authPotOff();
   // 파일 방식인데 아직 입력하지 않았으면 그렇다고 적는다. 연령 제한 영상이 나오고서야 아는 것보다 낫다
-  const cookie = !ageContentOn() ? "쓰지 않음(연령 제한 콘텐츠 꺼짐)" : config.ytdlp.cookiesFromBrowser ? `브라우저 ${config.ytdlp.cookiesFromBrowser}(연령 제한 폴백 전용)` : config.ytdlp.useCookieFile ? (cookieJar.ready() ? "대시보드에 입력한 쿠키(연령 제한 폴백 전용)" : "대시보드에 입력한 쿠키(아직 없음. 연령 제한 탭에서 입력하세요)") : "없음";
-  log.info({ tags: ["startup"] }, `재생 인증: 클라이언트=${clients.length ? clients.join(",") : "yt-dlp 기본값"} | POToken=${pot} | 쿠키=${cookie}`);
+  const cookie = !ageContentOn() ? L.youtube.authCookieAgeOff() : config.ytdlp.cookiesFromBrowser ? L.youtube.authCookieBrowser({ browser: config.ytdlp.cookiesFromBrowser }) : config.ytdlp.useCookieFile ? (cookieJar.ready() ? L.youtube.authCookieFile() : L.youtube.authCookieFileMissing()) : L.youtube.authCookieNone();
+  log.info({ tags: ["startup"] }, L.youtube.authMode({ clients: clients.length ? clients.join(",") : null, pot, cookieSource: cookie }));
 
   // POToken이 있어야 제대로 도는 클라이언트를 설정했는데 POToken 서버가 꺼져 있으면 알린다.
   // 막지는 않는다. NEEDS_POT은 지금의 유튜브 기준일 뿐이고, 실제 판정은 실행 결과가 한다.
   const needy = clients.filter((c) => NEEDS_POT.includes(c));
   if (needy.length && !potEnabled()) {
-    log.warn(`${needy.join(", ")}${josa(needy.join(", "), "은")} POToken이 있어야 제대로 동작함. 유튜브 탭의 "POToken 서버 사용"을 켜거나 "유튜브 클라이언트 순서"에서 빼세요`);
+    log.warn(L.youtube.clientsNeedPot({ clients: needy.join(", ") }));
   }
 
   // KNOWN에 없는 이름. 필터링하지 않는다. yt-dlp가 새로 추가한 것일 수 있고,
   // 유효한지는 yt-dlp가 판단한다. 오타를 찾을 수 있게 경고 한 줄만 남긴다.
   const unknown = clients.filter((c) => !KNOWN.includes(c));
   if (unknown.length) {
-    log.warn(`${unknown.join(", ")}${josa(unknown.join(", "), "은")} 확인된 클라이언트 목록에 없음(yt-dlp가 받아들이면 그대로 동작하고, 아니면 아래에 경고가 나옴)`);
+    log.warn(L.youtube.clientsUnknown({ clients: unknown.join(", ") }));
   }
 }
 

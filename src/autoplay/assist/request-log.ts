@@ -10,10 +10,10 @@ import * as prices from "../../config/ai-prices.ts";
 import * as models from "../../config/ai-models.ts";
 import { PROVIDER_SPECS } from "../../config/schema/ai-providers.ts";
 import { currentGuild } from "../../infra/guild-context.ts";
-import { messageOf } from "../../rules/error-kind.ts";
+import { errorProblem, messageOf } from "../../rules/error-kind.ts";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
-import { mask, safeHeaders } from "./mask.ts";
+import { mask, maskProblem, safeHeaders } from "./mask.ts";
 import * as retry from "./retry.ts";
 import type { AiLogSource, AiTokens } from "../../dashboard/contract/ai-log.ts";
 import type { Usage } from "./types.ts";
@@ -101,7 +101,7 @@ function write(call: Call, url: string, init: RequestInit, got: Outcome) {
         ...(call.candidates ? { candidates: call.candidates } : {}),
         tokens,
         costUsd,
-        ...(got.error ? { error: masked(got.error) } : {}),
+        ...(got.error ? { error: maskProblem(got.error) } : {}),
         requestHeaders: JSON.stringify(safeHeaders(init.headers as Record<string, string> | undefined)),
         requestBody: mask(typeof init.body === "string" ? init.body : ""),
         response: mask(got.text),
@@ -114,9 +114,6 @@ function write(call: Call, url: string, init: RequestInit, got: Outcome) {
     warned = true;
   }
 }
-
-// 바깥 글(plain)은 키를 가려서 남긴다
-const masked = (error: RuleProblem): RuleProblem => (error.code === "plain" ? plain(mask(String(error.params?.text ?? ""))) : error);
 
 /** 실패 응답의 원인 한 줄(HTTP 상태와 저쪽 문구) */
 function failureOf(status: number, text: string): RuleProblem {
@@ -136,7 +133,8 @@ async function sendLogged(send: Send, call: Call, url: string, init: RequestInit
     return { res, text };
   } catch (error) {
     const aborted = Boolean(init.signal?.aborted);
-    write(call, url, init, { status: res?.status ?? null, ok: false, aborted, tookMs: Date.now() - started, firstMs: null, text: "", error: plain(messageOf(error)) });
+    // 규칙 문제를 가진 오류(판정 상한)는 그 문제로 남긴다. 화면이 보는 사람의 언어로 그린다
+    write(call, url, init, { status: res?.status ?? null, ok: false, aborted, tookMs: Date.now() - started, firstMs: null, text: "", error: errorProblem(error) });
     throw error;
   }
 }

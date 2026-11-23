@@ -44,6 +44,14 @@ const link = {
   hlsPartRangeOverMax: ({ maxBytes }: { maxBytes: number }) => `HLS 세그먼트 구간이 최대 크기(${maxBytes} bytes)를 넘음`,
   aesKeyLengthInvalid: ({ length }: { length: number }) => `AES-128 키가 16바이트가 아님(${length})`,
   hlsRangeIgnoredOverMax: ({ maxBytes }: { maxBytes: number }) => `HLS 서버가 구간을 무시해 세그먼트가 최대 크기(${maxBytes} bytes)를 넘음`,
+  directTagReadFailed: ({ error }: { error: string }) => `직접 링크 태그 읽기 실패(파일 이름 사용): ${error}`,
+
+  listTooDeep: () => `목록이 너무 깊음`,
+  listEmpty: () => `빈 목록`,
+  hlsChunkNotBytes: ({ type }: { type: string }) => `세그먼트 본문의 청크가 바이트가 아님(${type})`,
+  /** contentRange: 서버가 보낸 Content-Range(없으면 null) */
+  hlsRangeMismatch: ({ offset, contentRange }: { offset: number; contentRange: string | null }) => `HLS 서버가 요청한 구간(${offset}부터)이 아닌 곳을 보냄(${contentRange ?? "Content-Range 없음"})`,
+  hlsProgress: ({ live, sent, lastSequence, reloads }: { live: boolean; sent: number; lastSequence: number; reloads: number }) => `HLS ${live ? "라이브" : "VOD"} · 세그먼트 ${sent}개 내보냄 · 마지막 순번 ${lastSequence}${live ? ` · 목록 다시 받음 ${reloads}회` : ""}`,
 };
 
 export { link };

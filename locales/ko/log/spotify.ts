@@ -27,6 +27,19 @@ const spotify = {
   anonPrepareFailed: ({ error }: { error: string }) => `익명 경로 준비 실패(쓸 때 다시 시도): ${error}`,
   apiKeyCheckHttp: ({ status }: { status: number }) => `API 키 확인 실패: HTTP ${status}`,
   apiKeyCheckFailed: ({ error }: { error: string }) => `API 키 확인 실패: ${error}`,
+  collectionEmpty: () => `결과 없음`,
+  collectionRange: ({ total, start }: { total: number; start: number }) => ` (전체 ${total}곡 중 ${start}번째부터)`,
+  searchPrepareFailed: ({ error }: { error: string }) => `준비 실패: ${error}`,
+
+  /** 400, 401이면 키가 틀린 것이다 */
+  tokenIssueFailed: ({ status }: { status: number }) => `토큰 발급 실패 ${status}${status === 400 || status === 401 ? "(키가 틀림. 운영자 패널의 API 키 탭)" : ""}`,
+  /** kept: 직전 값이 있어 그것을 쓴다 */
+  searchHashFailed: ({ kept, error }: { kept: boolean; error: string }) => `곡 검색 해시 추출 실패(${kept ? "직전 값 사용" : "검색을 쓰지 못함"}): ${error}`,
+  /** primary: 주 경로(아니면 폴백), last: 남은 폴백이 없다 */
+  routeFailed: ({ primary, error, last }: { primary: boolean; error: string; last: boolean }) => `${primary ? "주 경로" : "폴백"} 실패: ${error}${last ? "" : ", 폴백 전환"}`,
+  /** more: 첫 곡 밖의 곡 수 */
+  collectionHead: ({ title, artist, more }: { title: string; artist: string; more: number }) => `"${title}" - ${artist}${more > 0 ? ` 외 ${more}곡` : ""}`,
+  graphqlError: () => `GraphQL 오류`,
 };
 
 export { spotify };

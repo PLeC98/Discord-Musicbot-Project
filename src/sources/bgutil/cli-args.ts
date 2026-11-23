@@ -7,10 +7,12 @@
 // pnpm이 -- 를 넘겨도 맞게 인자 어디에 있든 본다
 
 import { isCommitSha, isPlainTag } from "../../rules/bgutil-install.ts";
+import { L } from "../../infra/log/text.ts";
+import type { LogText } from "../../infra/log/log-text.ts";
 
 /** settings: 설정대로, pin: 고정(commit이 null이면 저장소에서 확인), unpin: 고정 해제, exact: 그 짝만 설치한다 */
 type InstallMode = { kind: "settings" } | { kind: "pin"; tag: string; commit: string | null } | { kind: "unpin" } | { kind: "exact"; tag: string; commit: string };
-type InstallArgs = { mode: InstallMode; force: boolean } | { error: string };
+type InstallArgs = { mode: InstallMode; force: boolean } | { error: LogText };
 
 const KNOWN = ["--pin", "--unpin", "--tag", "--commit", "--force"];
 
@@ -21,15 +23,15 @@ function valueOf(argv: string[], name: string): string | undefined {
   return (argv[at].startsWith(`${name}=`) ? argv[at].slice(name.length + 1) : (argv[at + 1] ?? "")).trim();
 }
 
-function parseTag(name: string, value: string): string | { error: string } {
-  if (!value) return { error: `${name} 뒤에 태그를 넣으세요(예: ${name} 2.0.2)` };
-  return isPlainTag(value) ? value : { error: `태그 이름이 아닙니다: ${value}` };
+function parseTag(name: string, value: string): string | { error: LogText } {
+  if (!value) return { error: L.bgutil.argsTagMissing({ name }) };
+  return isPlainTag(value) ? value : { error: L.bgutil.argsNotTag({ value }) };
 }
 
-function parseCommit(value: string | undefined): string | null | { error: string } {
+function parseCommit(value: string | undefined): string | null | { error: LogText } {
   if (value === undefined) return null;
   const commit = value.toLowerCase();
-  return isCommitSha(commit) ? commit : { error: `--commit 뒤에 커밋 해시 40자를 넣으세요${value ? `: ${value}` : ""}` };
+  return isCommitSha(commit) ? commit : { error: L.bgutil.argsCommitInvalid({ valueSuffix: value ? `: ${value}` : "" }) };
 }
 
 // 값을 받는 이름 뒤의 값이 아닌데 아는 이름도 아닌 것
@@ -38,14 +40,14 @@ function strayArg(argv: string[]): string | undefined {
   return argv.find((arg, at) => arg !== "--" && !KNOWN.some((name) => arg === name || arg.startsWith(`${name}=`)) && !takesValue.has(argv[at - 1] ?? ""));
 }
 
-function parseMode(argv: string[]): InstallMode | { error: string } {
+function parseMode(argv: string[]): InstallMode | { error: LogText } {
   const pin = valueOf(argv, "--pin");
   const tag = valueOf(argv, "--tag");
   const unpin = argv.includes("--unpin");
   const commit = parseCommit(valueOf(argv, "--commit"));
   if (typeof commit === "object" && commit !== null) return commit;
-  if ([pin !== undefined, tag !== undefined, unpin].filter(Boolean).length > 1) return { error: "--pin, --unpin, --tag는 함께 쓸 수 없습니다" };
-  if (unpin) return commit ? { error: "--unpin에는 --commit을 쓰지 않습니다" } : { kind: "unpin" };
+  if ([pin !== undefined, tag !== undefined, unpin].filter(Boolean).length > 1) return { error: L.bgutil.argsModesExclusive() };
+  if (unpin) return commit ? { error: L.bgutil.argsUnpinWithCommit() } : { kind: "unpin" };
   if (pin !== undefined) {
     const parsed = parseTag("--pin", pin);
     return typeof parsed === "string" ? { kind: "pin", tag: parsed, commit } : parsed;
@@ -53,16 +55,16 @@ function parseMode(argv: string[]): InstallMode | { error: string } {
   if (tag !== undefined) {
     const parsed = parseTag("--tag", tag);
     if (typeof parsed !== "string") return parsed;
-    return commit ? { kind: "exact", tag: parsed, commit } : { error: "--tag에는 --commit을 함께 넣으세요" };
+    return commit ? { kind: "exact", tag: parsed, commit } : { error: L.bgutil.argsTagNeedsCommit() };
   }
-  return commit ? { error: "--commit은 --pin이나 --tag와 함께 씁니다" } : { kind: "settings" };
+  return commit ? { error: L.bgutil.argsCommitAlone() } : { kind: "settings" };
 }
 
 /** argv: process.argv 그대로(앞의 node, 스크립트 경로는 건너뛴다) */
 function parseInstallArgs(argv: string[]): InstallArgs {
   const args = argv.slice(2);
   const stray = strayArg(args);
-  if (stray !== undefined) return { error: `모르는 인자입니다: ${stray}` };
+  if (stray !== undefined) return { error: L.bgutil.argsUnknown({ arg: stray }) };
   const mode = parseMode(args);
   return "error" in mode ? mode : { mode, force: args.includes("--force") };
 }

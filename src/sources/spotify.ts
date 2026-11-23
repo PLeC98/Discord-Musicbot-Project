@@ -238,7 +238,7 @@ const official = {
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     // 400, 401은 자격증명이 틀린 것이다(운영자 설정). 라우팅이 익명 GraphQL로 넘기고 이 줄은 운영자 로그에 남는다
-    if (!r.ok) throw codedError("spotify-failed", `토큰 발급 실패 ${r.status}${r.status === 400 || r.status === 401 ? "(키가 틀림. 운영자 패널의 API 키 탭)" : ""}`);
+    if (!r.ok) throw codedError("spotify-failed", L.spotify.tokenIssueFailed({ status: r.status }));
     const j = (await r.json()) as { access_token: string; expires_in?: number };
     this._token = { value: j.access_token, expiresAt: Date.now() + (j.expires_in || 3600) * 1000, auth };
     return this._token.value;
@@ -303,7 +303,7 @@ async function searchHash(js: string, bundleUrl: string, previous: AnonState | n
   try {
     return { searchTracks: await searchChunkHash(js, bundleUrl) };
   } catch (e) {
-    log.warn(`곡 검색 해시 추출 실패(${previous?.hashes.searchTracks ? "직전 값 사용" : "검색을 쓰지 못함"}): ${messageOf(e)}`);
+    log.warn(L.spotify.searchHashFailed({ kept: Boolean(previous?.hashes.searchTracks), error: messageOf(e) }));
     return {};
   }
 }
@@ -477,8 +477,9 @@ const graphql = {
         throw logTextError(L.spotify.graphqlParseFailed({ status: r.status }));
       }
       if (j.errors) {
-        const msg = j.errors[0]?.message || "GraphQL 오류";
-        throw Object.assign(new Error(msg), { retry: /persistedquery/i.test(msg) && /not.?found/i.test(msg) ? "hash" : null });
+        // 저쪽 문구가 없으면 우리 문구로. 해시 만료는 저쪽 문구로만 알아본다
+        const msg = j.errors[0]?.message || "";
+        throw Object.assign(msg ? new Error(msg) : logTextError(L.spotify.graphqlError()), { retry: /persistedquery/i.test(msg) && /not.?found/i.test(msg) ? "hash" : null });
       }
       return j.data;
     };
@@ -597,7 +598,7 @@ async function resolveType(type: string, id: string, options: Range, over: Parti
     } catch (e) {
       // 없는 곡, 앨범, 가수다. 다른 경로도 같은 답이라 조회하지 않는다
       if (codeOf(e) === "not-found") return empty;
-      log.warn({ sub: type }, `${i === 0 ? "주 경로" : "폴백"} 실패: ${messageOf(e)}${last ? "" : ", 폴백 전환"}`);
+      log.warn({ sub: type }, L.spotify.routeFailed({ primary: i === 0, error: messageOf(e), last }));
       failure = e;
     }
   }
@@ -614,8 +615,8 @@ async function getCollection(url: string, { offset = 0, limit = PLAYLIST_ADD_DEF
   const { type, id } = link;
   const result = await resolveType(type, id, { offset, limit }, over);
   const { tracks, total } = result;
-  const head = tracks[0] ? `"${tracks[0].title}" - ${tracks[0].artist ?? "?"}${tracks.length > 1 ? ` 외 ${tracks.length - 1}곡` : ""}` : "결과 없음";
-  const range = total != null && total > tracks.length ? ` (전체 ${total}곡 중 ${offset + 1}번째부터)` : "";
+  const head = tracks[0] ? L.spotify.collectionHead({ title: tracks[0].title, artist: tracks[0].artist ?? "?", more: tracks.length - 1 }) : L.spotify.collectionEmpty();
+  const range = total != null && total > tracks.length ? L.spotify.collectionRange({ total, start: offset + 1 }) : "";
   log.info(L.spotify.collectionLoaded({ type, id, count: tracks.length, range, head }));
   return result;
 }
@@ -632,7 +633,7 @@ const searchKey = (query: string) => query.trim().toLowerCase();
  */
 function searchReady(): boolean {
   if (graphql._reusable(false, graphql._state)?.hashes.searchTracks) return true;
-  graphql._ensureState(false).catch((e: unknown) => searchFailures.fail(`준비 실패: ${messageOf(e)}`));
+  graphql._ensureState(false).catch((e: unknown) => searchFailures.fail(L.spotify.searchPrepareFailed({ error: messageOf(e) })));
   return false;
 }
 

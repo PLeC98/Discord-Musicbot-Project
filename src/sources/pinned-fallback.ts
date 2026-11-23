@@ -39,7 +39,7 @@ async function leaveDeadPin(track: Seeking, error: unknown, equivalent: Refind):
       log.warn(L.track.pinnedCheckRecordFailed({ key, code, error: messageOf(recordError) }));
     }
   }
-  log.warn(`직접 지정한 음원을 재생할 수 없어 이번에는 다시 찾음(지정은 그대로): "${logTitle(track.title)}" | ${track.audioUrl ?? "없음"} | ${code}`);
+  log.warn(L.track.pinnedRefind({ title: logTitle(track.title), audioUrl: track.audioUrl ?? null, code }));
 
   const requestKey = track.requestKey ?? "";
   const kind = inputKind(requestKey);

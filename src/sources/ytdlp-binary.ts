@@ -25,11 +25,13 @@ import { warmExecutable } from "../infra/warm-exe.ts";
 import { isYtdlpTag } from "../rules/ytdlp-tag.ts";
 import { codedError, codeOf, errorProblem, messageOf } from "../rules/error-kind.ts";
 import { plain, rule, type RuleProblem } from "../rules/rule-problem.ts";
-import { logRuleLine } from "../rules/text/index.ts";
 import { PROJECT } from "../infra/project-paths.ts";
 import { isShuttingDown } from "../infra/shutdown-state.ts";
 import type { YtdlpCardStatus, YtdlpPeek } from "./ytdlp-status-types.ts";
 import { L } from "../infra/log/text.ts";
+import { logRuleLine, ruleError, ruleLogText } from "../rules/text/index.ts";
+import { asText, type LogText } from "../infra/log/log-text.ts";
+import { reasonKey } from "../infra/repeating-failure.ts";
 
 const log = logger.child({ category: "ytdlp" });
 
@@ -140,7 +142,8 @@ function realRun(file: string, args: string[], timeoutMs: number): Promise<Ran> 
       release();
       return resolve({ kind: "spawn-failed", code: String(codeOf(error) ?? messageOf(error)) });
     }
-    const unregister = procRegistry.register(child, "yt-dlp 버전 확인", { job: "ytdlp-update" });
+    // 이름은 자식 프로세스 기록 파일(JSON)에 남아 그린 글로 넘긴다
+    const unregister = procRegistry.register(child, asText(L.ytdlp.versionCheckProcess()), { job: "ytdlp-update" });
     // 사용권은 프로세스가 실제로 끝날 때 놓는다(시간 초과로 먼저 돌아가도)
     child.once("exit", release);
     let stdout = "";
@@ -238,7 +241,7 @@ class YtdlpBinary {
   pending: Retry | null = null;
   // 봇이 돌리는 중(start 뒤). 실행 파일이 사라졌을 때 설치를 예약하는 것은 봇뿐이다
   started = false;
-  // 마지막으로 warn한 lasting 실패 줄. 같은 줄이 또 오면 warn 대신 debug
+  // 마지막으로 warn한 lasting 실패 줄의 비교 키(문구 코드와 값). 같은 줄이 또 오면 warn 대신 debug
   warned: string | null = null;
   // 진행 중인 설치의 목표. 목표가 같은 요청만 그 결과를 공유한다
   busyTarget: string | null = null;
@@ -336,8 +339,8 @@ class YtdlpBinary {
   }
 
   // 잠금을 쥐지 못한 다른 프로세스. PID를 알면 함께
-  _holderText(): string {
-    return `다른 프로세스${this.holder ? `(PID ${this.holder})` : ""}`;
+  _holderText(): LogText {
+    return L.ytdlp.otherProcess({ pid: this.holder });
   }
 
   _busy(): RuleProblem {
@@ -380,7 +383,7 @@ class YtdlpBinary {
   // 받은 태그는 설치 폴더 이름과 실행 경로가 된다. 형식이 다르면 쓰지 않는다
   async _latestTag(channel: Channel) {
     const tag = await this.io.latestTag(channel);
-    if (!isYtdlpTag(tag)) throw new Error(`yt-dlp 릴리스 태그 형식이 아님: ${tag.slice(0, 40)}`);
+    if (!isYtdlpTag(tag)) throw ruleError(rule("ytdlp-bad-release-tag", { tag: tag.slice(0, 40) }));
     return tag;
   }
 
@@ -780,7 +783,7 @@ class YtdlpBinary {
     try {
       const { version, outcome } = await this.prepare();
       await this.cleanup();
-      log.info(`yt-dlp ${version ?? "없음"} | 채널=${channel}${pin ? ` | 고정=${pin}` : ""} | 업데이트=${updateText(mode, Boolean(pin))}${outcome?.kind === "installed" ? " | 처음 설치" : ""}`);
+      log.info(L.ytdlp.binaryReady({ version, channel, pin, mode: updateText(mode, Boolean(pin)), firstInstall: outcome?.kind === "installed" }));
       this._report(outcome);
     } catch (error) {
       log.warn(L.ytdlp.binaryPrepareFailed({ error: messageOf(error) }));
@@ -875,43 +878,44 @@ class YtdlpBinary {
     if (!outcome || outcome.kind === "current") return;
     const { level, line } = describe(outcome);
     const lasting = outcome.kind === "unusable" || (outcome.kind === "failed" && outcome.retry === "lasting");
-    if (lasting && this.warned === line) return void log.debug(line);
-    this.warned = lasting ? line : null;
+    const key = reasonKey(line);
+    if (lasting && this.warned === key) return void log.debug(line);
+    this.warned = lasting ? key : null;
     log[level](line);
   }
 }
 
 // 기동 줄의 업데이트 방식. 버전을 고정하면 하루 한 번 확인하지 않는다(기동 시 한 번 맞춘다)
 function updateText(mode: Mode, pinned: boolean) {
-  if (mode === "manual") return "꺼짐";
-  const name = mode === "notify" ? "알림" : "자동";
-  return pinned ? name : `${name} (1일 1회 확인)`;
+  if (mode === "manual") return L.ytdlp.updateModeOff();
+  const name = mode === "notify" ? L.ytdlp.updateModeNotify() : L.ytdlp.updateModeAuto();
+  return pinned ? name : L.ytdlp.updateModeDaily({ name });
 }
 
 /** 결과를 한 줄로. 봇은 로그로, update:ytdlp는 콘솔로 남긴다 */
-function describe(outcome: Outcome): { level: "info" | "warn"; line: string } {
+function describe(outcome: Outcome): { level: "info" | "warn"; line: LogText } {
   switch (outcome.kind) {
     case "current":
-      return { level: "info", line: `yt-dlp 버전이 목표와 같음(${outcome.version})` };
+      return { level: "info", line: L.ytdlp.versionCurrent({ version: outcome.version }) };
     case "installed":
-      return { level: "info", line: outcome.from ? `yt-dlp 업데이트 완료: ${outcome.from} → ${outcome.to}` : `yt-dlp 설치 완료: ${outcome.to} (${outcome.channel})` };
+      return { level: "info", line: outcome.from ? L.ytdlp.binaryUpdated({ from: outcome.from, to: outcome.to }) : L.ytdlp.binaryInstalled({ to: outcome.to, channel: outcome.channel }) };
     case "reused":
-      return { level: "info", line: outcome.from ? `yt-dlp를 저장된 버전으로 교체: ${outcome.from} → ${outcome.to}` : `yt-dlp를 저장된 버전으로 설치: ${outcome.to}` };
+      return { level: "info", line: outcome.from ? L.ytdlp.savedVersionReplaced({ from: outcome.from, to: outcome.to }) : L.ytdlp.savedVersionInstalled({ to: outcome.to }) };
     case "superseded":
-      return { level: "info", line: `yt-dlp ${outcome.target} 다운로드 취소: 다운로드 중 설정이 바뀜` };
+      return { level: "info", line: L.ytdlp.downloadSuperseded({ target: outcome.target }) };
     case "available":
-      return { level: "info", line: `yt-dlp 업데이트 있음: ${outcome.from ?? "없음"} → ${outcome.to} (${outcome.channel}, 업데이트: 운영자 패널 업데이트 탭의 yt-dlp 카드)` };
+      return { level: "info", line: L.ytdlp.updateAvailable({ from: outcome.from, to: outcome.to, channel: outcome.channel }) };
     case "unusable":
-      return outcome.current ? { level: "warn", line: `yt-dlp 업데이트 불가(기존 버전 유지): ${outcome.current} → ${outcome.target} (${outcome.channel}) - 이 환경에서 실행되지 않음: ${logRuleLine(outcome.reason)}` } : { level: "warn", line: `yt-dlp 설치 불가(yt-dlp를 쓰는 기능이 동작하지 않음): ${outcome.target} (${outcome.channel}) - 이 환경에서 실행되지 않음: ${logRuleLine(outcome.reason)}` };
+      return outcome.current ? { level: "warn", line: L.ytdlp.updateUnusable({ current: outcome.current, target: outcome.target, channel: outcome.channel, reason: ruleLogText(outcome.reason) }) } : { level: "warn", line: L.ytdlp.installUnusable({ target: outcome.target, channel: outcome.channel, reason: ruleLogText(outcome.reason) }) };
     case "failed":
       return { level: "warn", line: failedLine(outcome) };
   }
 }
 
-function failedLine(outcome: Extract<Outcome, { kind: "failed" }>): string {
+function failedLine(outcome: Extract<Outcome, { kind: "failed" }>): LogText {
   // 서명이 맞지 않을 때만(서명 파일이 없는 옛 릴리스는 이유에 받는 법을 실었다)
-  const hint = outcome.signature ? ". yt-dlp 서명 키가 바뀌었을 수 있음. 봇을 업데이트하거나, 확인했으면 pnpm run update:ytdlp --skip-signature" : "";
-  return outcome.current ? `yt-dlp 업데이트 실패(기존 버전 유지): ${outcome.current} → ${outcome.target ?? "?"} (${outcome.channel}) - ${logRuleLine(outcome.reason)}${hint}` : `yt-dlp 설치 실패(yt-dlp를 쓰는 기능이 동작하지 않음): ${outcome.target ?? "?"} (${outcome.channel}) - ${logRuleLine(outcome.reason)}${hint}`;
+  const hint = outcome.signature ? L.ytdlp.signatureHint() : "";
+  return outcome.current ? L.ytdlp.updateFailed({ current: outcome.current, target: outcome.target ?? "?", channel: outcome.channel, reason: ruleLogText(outcome.reason), hint }) : L.ytdlp.installFailed({ target: outcome.target ?? "?", channel: outcome.channel, reason: ruleLogText(outcome.reason), hint });
 }
 
 /** 봇과 update:ytdlp가 쓰는 하나 */

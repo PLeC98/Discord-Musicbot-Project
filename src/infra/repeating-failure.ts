@@ -35,5 +35,5 @@ function repeatingFailure(log: FailureLog, what: string | LogText) {
   };
 }
 
-export { repeatingFailure };
+export { repeatingFailure, reasonKey };
 export type { FailureLog };

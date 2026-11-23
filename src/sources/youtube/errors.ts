@@ -1,6 +1,9 @@
 // yt-dlp 오류를 구분한다(영상 없음, 연령 제한, 클라이언트 탓, 낡은 미디어 주소).
 
 // 오류에서 읽을 텍스트. yt-dlp 오류는 stderr에, 나머지는 message에 담긴다
+
+import { L } from "../../infra/log/text.ts";
+import { asText } from "../../infra/log/log-text.ts";
 function textOf(error: unknown): string {
   const e = error && typeof error === "object" ? (error as { stderr?: unknown; message?: unknown }) : null;
   const found = e && (e.stderr || e.message);
@@ -27,7 +30,8 @@ function briefError(error: unknown, maxLines = 4) {
     lines.push(line);
   }
   if (lines.length <= maxLines) return lines.join("\n");
-  return `${lines.slice(0, maxLines).join("\n")}\n(외 ${lines.length - maxLines}줄)`;
+  // 돌려주는 값은 줄인 글 하나라 접은 줄 표시도 그려서 붙인다
+  return asText(L.youtube.briefMoreLines({ lines: lines.slice(0, maxLines).join("\n"), more: lines.length - maxLines }));
 }
 
 /** yt-dlp 오류가 연령 제한(로그인 필요)인지 판별. yt-dlp의 연령 제한 판정(_is_agegated)처럼 "inappropriate"가 들어 있으면 연령 제한으로 본다 */
@@ -153,11 +157,11 @@ function codeOf(error: unknown) {
 
 function faultReason(error: unknown) {
   const msg = textOf(error);
-  if (isNoAudioOnly(error)) return "오디오 전용 포맷 없음";
-  if (/PO Token/i.test(msg)) return "POToken 필요";
-  if (/only images are available/i.test(msg)) return "재생 가능한 포맷 없음";
-  if (/requested format is not available/i.test(msg)) return "요청한 포맷 없음";
-  return "포맷 획득 실패";
+  if (isNoAudioOnly(error)) return L.youtube.faultNoAudioOnly();
+  if (/PO Token/i.test(msg)) return L.youtube.faultPotRequired();
+  if (/only images are available/i.test(msg)) return L.youtube.faultImagesOnly();
+  if (/requested format is not available/i.test(msg)) return L.youtube.faultFormatUnavailable();
+  return L.youtube.faultFormatFailed();
 }
 
 export { NO_AUDIO_ONLY, briefError, isAgeRestrictedError, isCookiesInvalidError, isVideoUnavailableError, isUpcomingError, isSkippedClientError, isClientFault, isStaleMediaError, codeOf, faultReason };
