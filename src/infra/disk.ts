@@ -6,13 +6,14 @@ import path from "node:path";
 import logger from "./log/logger.ts";
 import { messageOf } from "./error-text.ts";
 import { repeatingFailure, type FailureLog } from "./repeating-failure.ts";
+import type { LogText } from "./log/log-text.ts";
 const log = logger.child({ category: "core" });
 
 const failureLog: FailureLog = { error: (line) => log.warn(line), info: (line) => log.info(line) };
 const driveFailures = new Map<string, ReturnType<typeof repeatingFailure>>();
 const freeFailures = new Map<string, ReturnType<typeof repeatingFailure>>();
 
-function failuresOf(byTarget: Map<string, ReturnType<typeof repeatingFailure>>, target: string, what: string) {
+function failuresOf(byTarget: Map<string, ReturnType<typeof repeatingFailure>>, target: string, what: string | LogText) {
   let failures = byTarget.get(target);
   if (!failures) byTarget.set(target, (failures = repeatingFailure(failureLog, what)));
   return failures;

@@ -2,8 +2,8 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { errorFacts, messageOf, messageWithCode } from "../../src/infra/error-text.ts";
-import { errorProblem } from "../../src/rules/error-kind.ts";
+import { codeOf, errorFacts, messageOf, messageWithCode, timeoutError } from "../../src/infra/error-text.ts";
+import { codedError, errorProblem } from "../../src/rules/error-kind.ts";
 import { errorText, logRuleLine, ruleError, ruleLogText, ruleTextFor } from "../../src/rules/text/index.ts";
 import { rule, ruleLine } from "../../src/rules/rule-problem.ts";
 import { isLogText, logTextError, renderLogText } from "../../src/infra/log/log-text.ts";
@@ -53,7 +53,7 @@ test("로그의 오류 글은 메시지 뒤에 오류 코드. 메시지가 없�
   assert.equal(messageWithCode(new Error("코드 없음")), "코드 없음");
 });
 
-test("화면까지 가는 예외: 규칙 문제를 들고, 메시지는 로그 언어의 문장, 로그에는 같은 문제의 서술자로 남는다", () => {
+test("화면까지 가는 예외: 규칙 문제를 갖고, 메시지는 로그 언어의 문장, 로그에는 같은 문제의 서술자로 남는다", () => {
   const problem = rule("tune-value", { key: "LOG_LEVEL", value: "x" }, rule("one-of", { allowed: "a, b" }));
   const cause = new Error("원인");
   const error = ruleError(problem, { code: "TUNABLE_INVALID", cause });
@@ -77,4 +77,14 @@ test("서술자가 없는 오류의 로그 값: 바깥 글은 그 글, 메시지
   const thrown = errorText(42);
   assert.ok(isLogText(thrown));
   assert.deepEqual([thrown.event, thrown.args], ["rule.error-thrown", { value: "42" }]);
+});
+
+test("codedError, timeoutError도 서술자를 받는다: 메시지는 그린 글, 서술자를 갖고, 코드와 이름은 그대로", () => {
+  const text = L.config.tunablesApplyFailed({ error: "끊김" });
+  const cause = new Error("원인");
+  const coded = codedError("APPLY_FAILED", text, { cause });
+  assert.deepEqual([coded.message, coded.code, coded.cause, errorText(coded)], [renderLogText(text), "APPLY_FAILED", cause, text]);
+  const timedOut = timeoutError(text, { code: "STREAM_STALL" });
+  assert.deepEqual([timedOut.message, timedOut.name, codeOf(timedOut), errorText(timedOut)], [renderLogText(text), "TimeoutError", "STREAM_STALL", text]);
+  assert.deepEqual([codedError("X", "글").message, timeoutError("글").message], ["글", "글"]);
 });

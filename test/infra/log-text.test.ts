@@ -1,4 +1,4 @@
-// src/infra/log/log-text.ts, text.ts: 로그 문구 서술자와 진입점. 문구 코드와 값을 들고 그릴 때의 로그 언어로 그리며, 그리기는 던지지 않는다
+// src/infra/log/log-text.ts, text.ts: 로그 문구 서술자와 진입점. 문구 코드와 값을 갖고 그릴 때의 로그 언어로 그리며, 그리기는 던지지 않는다
 
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
@@ -14,7 +14,7 @@ import sink from "../../src/infra/log/sink.ts";
 
 afterEach(() => useTestLogLanguage(false));
 
-test("서술자는 코드와 값을 들고, 글은 그릴 때 만든다", () => {
+test("서술자는 코드와 값을 갖고, 글은 그릴 때 만든다", () => {
   let calls = 0;
   const text = logText("demo.line", { n: 1 }, () => `줄 ${++calls}`);
   assert.equal(calls, 0, "만들 때는 그리지 않는다");

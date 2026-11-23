@@ -1,4 +1,4 @@
-// 로그 문구 서술자: 로그, 예외 메시지의 글 대신 넘기는 것. 언어와 상관없는 문구 코드(event)와 값(args)을 들고, 글은 쓰는 쪽이 필요할 때 그린다(renderLogText).
+// 로그 문구 서술자: 로그, 예외 메시지의 글 대신 넘기는 것. 언어와 상관없는 문구 코드(event)와 값(args)을 갖고, 글은 쓰는 쪽이 필요할 때 그린다(renderLogText).
 // 그리기는 절대 던지지 않는다: 문구 함수가 던지면 표식(FAILED_MARK)과 코드, 값을 적은 대체 글을 낸다. catch 블록 안에서 로그를 찍다 원래 오류가 묻히지 않게.
 // 아무 모듈도 부르지 않는다(화면 번들에 들어가는 모듈도 서술자를 알아본다)
 
@@ -64,7 +64,7 @@ const plainArgs = (args: LogArgs): Record<string, string | number | boolean | nu
 const recordArgs = (args: LogArgs): Record<string, unknown> => Object.fromEntries(Object.entries(args).map(([name, value]) => [name, isLogText(value) ? { event: value.event, args: recordArgs(value.args) } : value]));
 
 /**
- * 로그로만 가는 예외: 메시지는 서술자를 로그 언어로 그린 글이고, 서술자(logText)를 함께 든다(rules/text의 errorText가 꺼내 바깥 줄의 값 안에 남긴다).
+ * 로그로만 가는 예외: 메시지는 서술자를 로그 언어로 그린 글이고, 서술자(logText)를 함께 갖는다(rules/text의 errorText가 꺼내 바깥 줄의 값 안에 남긴다).
  * code: 종류 판정(rules/error-kind)이 보는 이름
  */
 function logTextError(text: LogText, { code, cause }: { code?: string; cause?: unknown } = {}): Error {

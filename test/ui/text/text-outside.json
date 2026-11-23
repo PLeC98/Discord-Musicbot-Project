@@ -477,9 +477,6 @@
   "src/infra/app-id.ts": {
     "log": 1
   },
-  "src/infra/best-effort.ts": {
-    "log": 1
-  },
   "src/infra/console-text.ts": {
     "log": 2
   },

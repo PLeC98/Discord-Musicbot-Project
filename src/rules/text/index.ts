@@ -22,7 +22,7 @@ function ruleLogText(problem: RuleProblem): LogText {
 }
 
 /**
- * 화면까지 가는 예외: 규칙 문제를 들고(problem, 화면이 보는 사람의 언어로 그린다), 메시지는 로그 언어의 문장, 로그에는 같은 문제의 서술자(logText)로 남는다.
+ * 화면까지 가는 예외: 규칙 문제를 갖고(problem, 화면이 보는 사람의 언어로 그린다), 메시지는 로그 언어의 문장, 로그에는 같은 문제의 서술자(logText)로 남는다.
  * code: 종류 판정(rules/error-kind)이 보는 이름
  */
 function ruleError(problem: RuleProblem, { code, cause }: { code?: string; cause?: unknown } = {}): Error {

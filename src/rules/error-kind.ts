@@ -5,6 +5,7 @@
 import { isCode, type Code } from "./problems.ts";
 import { codeOf, errorFacts, messageOf, messageWithCode, timeoutError, type ErrorFacts } from "../infra/error-text.ts";
 import { isRuleCode, plain, rule, type RuleProblem } from "./rule-problem.ts";
+import { isLogText, logTextError, type LogText } from "../infra/log/log-text.ts";
 
 // 이름이 곧 종류인 것. 오류를 만든 곳이 붙인다
 const KINDS = new Set<Code>(["yt-age-cookies-invalid", "yt-age-no-cookies", "age-content-off", "age-channel-only", "yt-bot-check", "unavailable-contents", "sc-preview-only", "unavailable-playlist", "geo-blocked", "rate-limited", "sp-no-youtube-match", "direct-unavailable", "network-error", "stream-failed", "voice-failed", "encoder-unavailable"]);
@@ -16,9 +17,9 @@ const STREAM_FAILED = new Set(["no-audio-only", "client-fault", "stale-media", "
 // 디스코드 API 오류 번호. 50001 접근 없음, 50013 권한 없음
 const PERMISSION_CODES = new Set([50001, 50013]);
 
-/** 코드를 단 오류. 만든 곳이 무엇이 안 됐는지 안다 */
-function codedError(code: string, message: string, options?: { cause?: unknown }) {
-  return Object.assign(new Error(message, options), { code });
+/** 코드를 단 오류. 만든 곳이 무엇이 안 됐는지 안다. message가 로그 문구 서술자면 로그로만 가는 예외(infra/log/log-text의 logTextError)다 */
+function codedError(code: string, message: string | LogText, options?: { cause?: unknown }) {
+  return Object.assign(isLogText(message) ? logTextError(message, { cause: options?.cause }) : new Error(message, options), { code });
 }
 
 /**

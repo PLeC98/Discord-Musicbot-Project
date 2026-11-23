@@ -1,5 +1,7 @@
 // 던져진 값에서 이름(code)과 메시지를 꺼낸다. 오류가 아닌 값도 받는다. 화면도 rules를 거쳐 부르므로 Node 타입을 쓰지 않는다
 
+import { isLogText, logTextError, type LogText } from "./log/log-text.ts";
+
 /** 오류 코드(code)를 꺼낸다. 문자열도 숫자도 온다(디스코드 API는 숫자). DOMException의 옛 숫자 code(TimeoutError 23 등)는 뜻이 이름(name)에 있어 보지 않는다 */
 function codeOf(error: unknown): string | number | undefined {
   if (typeof DOMException !== "undefined" && error instanceof DOMException) return undefined;
@@ -9,10 +11,11 @@ function codeOf(error: unknown): string | number | undefined {
 
 /**
  * 기다려도 응답이 오지 않아 끊은 오류다(무응답, 응답 헤더 시간 초과). 이름이 TimeoutError라 실패 범위, 종류를 AbortSignal.timeout과 같게 네트워크 탓으로 본다.
- * 일반 Error에 name만 붙인다(DOMException은 code를 덮어쓰면 예외가 난다). extra는 함께 붙일 필드(code 등)다
+ * 일반 Error에 name만 붙인다(DOMException은 code를 덮어쓰면 예외가 난다). extra는 함께 붙일 필드(code 등)다.
+ * message가 로그 문구 서술자면 메시지는 로그 언어로 그린 글이고 서술자(logText)를 함께 갖는다(infra/log/log-text의 logTextError와 같다)
  */
-function timeoutError(message: string, extra: object = {}) {
-  return Object.assign(new Error(message), { name: "TimeoutError" }, extra);
+function timeoutError(message: string | LogText, extra: object = {}) {
+  return Object.assign(isLogText(message) ? logTextError(message) : new Error(message), { name: "TimeoutError" }, extra);
 }
 
 // 이름만으로는 무슨 오류인지 모르는 것
