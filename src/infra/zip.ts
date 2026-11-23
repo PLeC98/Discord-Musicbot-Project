@@ -11,7 +11,7 @@ import { pipeline as pipelineAsync } from "node:stream/promises";
 import { Readable, Transform, pipeline, type Writable } from "node:stream";
 import zlib from "node:zlib";
 import { L } from "./log/text.ts";
-import { logTextError } from "./log/log-text.ts";
+import { logTextError, type LogText } from "./log/log-text.ts";
 
 /** 항목 하나. name은 / 로 나눈 경로 */
 type ZipEntry = { name: string; data: Buffer };
@@ -196,7 +196,7 @@ async function writeZip(inputs: ZipInput[], sink: Sink, { at = new Date(), zip64
 // ── 읽기 ──
 
 // 기반 층이라 오류 도구(rules)를 부르지 않는다. 코드는 같은 형식(code 필드)
-const bad = (why: string) => Object.assign(logTextError(L.zip.readFailed({ why })), { code: "BAD_ZIP" });
+const bad = (why: string | LogText) => Object.assign(logTextError(L.zip.readFailed({ why })), { code: "BAD_ZIP" });
 
 /** 읽을 곳: 크기, 그 위치의 바이트, 그 위치부터 스트림 읽기 */
 type Source = { size: number; read(at: number, length: number): Buffer; stream(at: number, length: number): Readable };
@@ -232,7 +232,7 @@ const S_IFREG = 0o100000;
 
 /** 중앙 디렉터리의 위치, 크기, 항목 수. 끝 레코드(EOCD)는 맨 뒤 22바이트에 주석(최대 65535)이 붙을 수 있고, ZIP64면 그 앞의 로케이터가 ZIP64 끝 레코드를 가리킨다 */
 function directoryOf(src: Source): { at: number; count: number } {
-  if (src.size < 22) throw bad("ZIP이 아님");
+  if (src.size < 22) throw bad(L.zip.notZip());
   const tail = src.read(Math.max(0, src.size - 22 - MAX16), Math.min(src.size, 22 + MAX16));
   const tailAt = src.size - tail.length;
   let end = -1;
@@ -242,23 +242,23 @@ function directoryOf(src: Source): { at: number; count: number } {
       break;
     }
   }
-  if (end < 0) throw bad("ZIP이 아님");
+  if (end < 0) throw bad(L.zip.notZip());
   const count = tail.readUInt16LE(end + 10);
   const at = tail.readUInt32LE(end + 16);
   if (count !== MAX16 && at !== MAX32) return { at, count };
   // ZIP64: 끝 레코드 바로 앞 20바이트가 로케이터
   const locatorAt = tailAt + end - 20;
   const locator = locatorAt >= 0 ? src.read(locatorAt, 20) : Buffer.alloc(0);
-  if (locator.length < 20 || locator.readUInt32LE(0) !== SIG.locator64) throw bad("ZIP64 로케이터가 없음");
+  if (locator.length < 20 || locator.readUInt32LE(0) !== SIG.locator64) throw bad(L.zip.zip64NoLocator());
   const end64 = src.read(Number(locator.readBigUInt64LE(8)), 56);
-  if (end64.length < 56 || end64.readUInt32LE(0) !== SIG.end64) throw bad("ZIP64 끝 레코드가 깨짐");
+  if (end64.length < 56 || end64.readUInt32LE(0) !== SIG.end64) throw bad(L.zip.zip64EndBroken());
   return { at: Number(end64.readBigUInt64LE(48)), count: Number(end64.readBigUInt64LE(32)) };
 }
 
 /** 중앙 디렉터리 레코드 하나를 읽고 받을 수 없는 형식을 거절한다(ZIP64 확장 필드에서 큰 값을 읽는다). 다음 레코드의 위치도 */
 function centralAt(src: Source, at: number): { entry: Central; next: number } {
   const head = src.read(at, 46);
-  if (head.length < 46 || head.readUInt32LE(0) !== SIG.central) throw bad("중앙 디렉터리가 깨짐");
+  if (head.length < 46 || head.readUInt32LE(0) !== SIG.central) throw bad(L.zip.directoryBroken());
   const nameLength = head.readUInt16LE(28);
   const extraLength = head.readUInt16LE(30);
   const rest = src.read(at + 46, nameLength + extraLength);
@@ -287,8 +287,8 @@ function centralAt(src: Source, at: number): { entry: Central; next: number } {
     }
     x += 4 + length;
   }
-  if (flags & ENCRYPTED) throw bad(`암호가 걸린 항목(${name})`);
-  if (!safeName(name)) throw bad(`받을 수 없는 경로(${name})`);
+  if (flags & ENCRYPTED) throw bad(L.zip.entryEncrypted({ name }));
+  if (!safeName(name)) throw bad(L.zip.badPath({ name }));
   const mode = head.readUInt16LE(4) >> 8 === UNIX_HOST ? head.readUInt32LE(38) >>> 16 : null;
   return { entry: { name, flags, method, crc, packed, size, localAt, mode }, next: at + 46 + nameLength + extraLength + head.readUInt16LE(32) };
 }
@@ -296,7 +296,7 @@ function centralAt(src: Source, at: number): { entry: Central; next: number } {
 /** 중앙 디렉터리(폴더 항목은 뺀다). maxEntries를 넘으면 BAD_ZIP */
 function entriesOf(src: Source, maxEntries: number): Central[] {
   const { at, count } = directoryOf(src);
-  if (count > maxEntries) throw bad(`항목이 너무 많음(${count}개)`);
+  if (count > maxEntries) throw bad(L.zip.tooManyEntries({ count }));
   const out: Central[] = [];
   let cursor = at;
   for (let i = 0; i < count; i++) {
@@ -310,7 +310,7 @@ function entriesOf(src: Source, maxEntries: number): Central[] {
 /** 항목 본문의 위치 */
 function bodyAt(src: Source, { name, localAt }: Central): number {
   const local = src.read(localAt, 30);
-  if (local.length < 30 || local.readUInt32LE(0) !== SIG.local) throw bad(`항목이 깨짐(${name})`);
+  if (local.length < 30 || local.readUInt32LE(0) !== SIG.local) throw bad(L.zip.entryBroken({ name }));
   return localAt + 30 + local.readUInt16LE(26) + local.readUInt16LE(28);
 }
 
@@ -318,24 +318,24 @@ function bodyAt(src: Source, { name, localAt }: Central): number {
 function bodyOf(src: Source, entry: Central): Buffer {
   const { name, method, crc, packed, size } = entry;
   const body = src.read(bodyAt(src, entry), packed);
-  if (body.length !== packed) throw bad(`항목이 잘림(${name})`);
+  if (body.length !== packed) throw bad(L.zip.entryTruncated({ name }));
   let data: Buffer;
   if (method === STORE) data = Buffer.from(body);
   else if (method === DEFLATE) {
     try {
       data = zlib.inflateRawSync(body, { maxOutputLength: size });
     } catch {
-      throw bad(`압축 해제 실패(${name})`);
+      throw bad(L.zip.inflateFailed({ name }));
     }
-  } else throw bad(`모르는 압축 방식(${name})`);
-  if (data.length !== size || zlib.crc32(data) !== crc) throw bad(`내용이 맞지 않음(${name})`);
+  } else throw bad(L.zip.unknownMethod({ name }));
+  if (data.length !== size || zlib.crc32(data) !== crc) throw bad(L.zip.contentMismatch({ name }));
   return data;
 }
 
 /** 항목을 스트림으로 읽는다(큰 항목). 끝에서 크기, CRC가 맞지 않으면 BAD_ZIP으로 끊는다 */
 function bodyStream(src: Source, entry: Central): Readable {
   const { name, method, crc, packed, size } = entry;
-  if (method !== STORE && method !== DEFLATE) throw bad(`모르는 압축 방식(${name})`);
+  if (method !== STORE && method !== DEFLATE) throw bad(L.zip.unknownMethod({ name }));
   const raw = src.stream(bodyAt(src, entry), packed);
   let sum = 0;
   let seen = 0;
@@ -343,10 +343,10 @@ function bodyStream(src: Source, entry: Central): Readable {
     transform(chunk: Buffer, _encoding, done) {
       sum = zlib.crc32(chunk, sum);
       seen += chunk.length;
-      done(seen > size ? bad(`압축을 푼 크기가 맞지 않음(${name})`) : null, chunk);
+      done(seen > size ? bad(L.zip.sizeMismatch({ name })) : null, chunk);
     },
     flush(done) {
-      done(seen !== size || sum !== crc ? bad(`내용이 맞지 않음(${name})`) : null);
+      done(seen !== size || sum !== crc ? bad(L.zip.contentMismatch({ name })) : null);
     },
   });
   // 어느 쪽의 오류든 받는 쪽(check)으로 전달되고, 받는 쪽이 끊으면 원본 읽기와 압축 해제 스트림도 닫는다
@@ -361,7 +361,7 @@ function unzip(buf: Buffer, { maxEntries = 64, maxBytes = 64 * 1024 * 1024 }: { 
   const src = bufferSource(buf);
   let left = maxBytes;
   return entriesOf(src, maxEntries).map((entry) => {
-    if (entry.size > left) throw bad("풀린 크기가 너무 큼");
+    if (entry.size > left) throw bad(L.zip.unpackedTooBig());
     left -= entry.size;
     return { name: entry.name, data: bodyOf(src, entry) };
   });
@@ -376,7 +376,7 @@ function openZip(file: string, { maxEntries = 100_000 }: { maxEntries?: number }
     return {
       entries,
       read(entry: Central, maxBytes: number): Buffer {
-        if (entry.size > maxBytes) throw bad(`항목이 너무 큼(${entry.name})`);
+        if (entry.size > maxBytes) throw bad(L.zip.entryTooBig({ name: entry.name }));
         return bodyOf(src, entry);
       },
       stream: (entry: Central) => bodyStream(src, entry),
@@ -402,18 +402,18 @@ async function extractZip(file: string, dir: string, { maxEntries, maxBytes }: {
     let total = 0;
     for (const { name, mode, size } of zip.entries) {
       const type = mode === null ? 0 : mode & S_IFMT;
-      if (type !== 0 && type !== S_IFREG) throw bad(`일반 파일이 아닌 항목(${name})`);
-      if (name.split("/").some((part) => DEVICE_NAME.test(part))) throw bad(`받을 수 없는 이름(${name})`);
+      if (type !== 0 && type !== S_IFREG) throw bad(L.zip.notRegularFile({ name }));
+      if (name.split("/").some((part) => DEVICE_NAME.test(part))) throw bad(L.zip.badName({ name }));
       total += size;
     }
     // 스트림이 항목마다 선언한 크기를 넘지 않게 끊으므로 선언한 크기의 합이 쓰는 양의 상한이다
-    if (total > maxBytes) throw bad("풀린 크기가 너무 큼");
+    if (total > maxBytes) throw bad(L.zip.unpackedTooBig());
     fs.mkdirSync(dir);
     const root = path.resolve(dir);
     for (const entry of zip.entries) {
       const to = path.resolve(root, ...entry.name.split("/"));
       const inside = path.relative(root, to);
-      if (!inside || inside === ".." || inside.startsWith(`..${path.sep}`) || path.isAbsolute(inside)) throw bad(`받을 수 없는 경로(${entry.name})`);
+      if (!inside || inside === ".." || inside.startsWith(`..${path.sep}`) || path.isAbsolute(inside)) throw bad(L.zip.badPath({ name: entry.name }));
       fs.mkdirSync(path.dirname(to), { recursive: true });
       const runnable = entry.mode !== null && (entry.mode & 0o111) !== 0;
       await pipelineAsync(zip.stream(entry), fs.createWriteStream(to, { flags: "wx", mode: runnable ? 0o755 : 0o644 }));

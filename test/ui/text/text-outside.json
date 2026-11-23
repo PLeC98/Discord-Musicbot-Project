@@ -497,15 +497,8 @@
   "src/infra/process-snapshot.ts": {
     "outside": 2
   },
-  "src/infra/safe-url.ts": {
-    "log": 14
-  },
   "src/infra/system-upload.ts": {
     "outside": 4
-  },
-  "src/infra/zip.ts": {
-    "log": 21,
-    "outside": 2
   },
   "src/media/cache-download.ts": {
     "log": 34,

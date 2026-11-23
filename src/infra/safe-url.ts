@@ -23,7 +23,7 @@ import { isPublicIp } from "./public-address.ts";
 import { codeOf, messageOf, timeoutError } from "./error-text.ts";
 import config from "../config/index.ts";
 import { L } from "./log/text.ts";
-import { logTextError } from "./log/log-text.ts";
+import { isLogText, logTextError, renderLogText, type LogText } from "./log/log-text.ts";
 
 // 보안 상수. 잘못 설정해 방어가 꺼지지 않게 설정으로 빼지 않는다
 const ALLOWED_SCHEMES = new Set(["http:", "https:"]);
@@ -48,10 +48,13 @@ type Accept = { contentType: RegExp; maxBytes: number; timeoutMs: number; allowU
 /** 직접 링크(음원)의 조건 */
 const DIRECT_LINK: Accept = { contentType: ALLOWED_CONTENT_TYPE, maxBytes: MAX_BYTES, timeoutMs: GET_TIMEOUT_MS };
 
+/** 받지 않는 주소, 응답이라 막은 요청. message가 로그 문구 서술자면 메시지는 로그 언어로 그린 글이고 서술자(logText)를 함께 갖는다 */
 class SsrfError extends Error {
-  constructor(message: string) {
-    super(message);
+  readonly logText?: LogText;
+  constructor(message: string | LogText) {
+    super(isLogText(message) ? renderLogText(message) : message);
     this.name = "SsrfError";
+    if (isLogText(message)) this.logText = message;
   }
 }
 
@@ -77,10 +80,10 @@ function parseAllowed(rawUrl: string, allowUrl?: (url: URL) => boolean): URL {
   try {
     url = new URL(rawUrl);
   } catch {
-    throw new SsrfError(`잘못된 URL: ${rawUrl}`);
+    throw new SsrfError(L.net.badUrl({ rawUrl }));
   }
-  if (!ALLOWED_SCHEMES.has(url.protocol)) throw new SsrfError(`허용되지 않는 스키마: ${url.protocol}`);
-  if (allowUrl && !allowUrl(url)) throw new SsrfError(`받지 않는 주소: ${url.host}`);
+  if (!ALLOWED_SCHEMES.has(url.protocol)) throw new SsrfError(L.net.schemeNotAllowed({ protocol: url.protocol }));
+  if (allowUrl && !allowUrl(url)) throw new SsrfError(L.net.hostNotAllowed({ host: url.host }));
   return url;
 }
 
@@ -99,7 +102,7 @@ async function validateAndResolve(rawUrl: string, lookup: LookupFn = dns.lookup.
 
   // 호스트가 IP 리터럴이면 net이 DNS lookup을 건너뛰므로(=핀 에이전트 우회) 여기서 직접 검사
   if (net.isIP(host)) {
-    if (isBlockedIp(host)) throw new SsrfError(`차단된 IP(리터럴): ${host}`);
+    if (isBlockedIp(host)) throw new SsrfError(L.net.blockedIpLiteral({ host }));
     return { url, pinnedIp: host, family: net.isIPv6(host) ? 6 : 4 };
   }
 
@@ -107,11 +110,11 @@ async function validateAndResolve(rawUrl: string, lookup: LookupFn = dns.lookup.
   try {
     addrs = await lookup(host, { all: true, verbatim: true });
   } catch (error) {
-    throw new SsrfError(`DNS 해석 실패: ${host} (${dnsReason(error)})`);
+    throw new SsrfError(L.net.dnsFailed({ host, reason: dnsReason(error) }));
   }
-  if (!addrs || addrs.length === 0) throw new SsrfError(`DNS 결과 없음: ${host}`);
+  if (!addrs || addrs.length === 0) throw new SsrfError(L.net.dnsEmpty({ host }));
   for (const a of addrs) {
-    if (isBlockedIp(a.address)) throw new SsrfError(`차단된 IP: ${a.address} (${host})`);
+    if (isBlockedIp(a.address)) throw new SsrfError(L.net.blockedIp({ address: a.address, host }));
   }
   const chosen = addrs[0];
   return { url, pinnedIp: chosen.address, family: chosen.family };
@@ -198,7 +201,7 @@ async function guardedRequest(method: "HEAD" | "GET", rawUrl: string, { request 
       response.body.destroy();
       agent.destroy();
       const location = response.headers.location;
-      if (!location) throw new SsrfError("리다이렉트 응답에 Location 헤더 없음");
+      if (!location) throw new SsrfError(L.net.redirectNoLocation());
       currentUrl = new URL(String(location), url).href; // 상대 주소는 이 홉의 주소를 기준으로 푼다
       continue;
     }
@@ -212,7 +215,7 @@ async function guardedRequest(method: "HEAD" | "GET", rawUrl: string, { request 
     return { response, agent, finalUrl: url.href };
   }
 
-  throw new SsrfError(`리다이렉트 횟수 초과(>${MAX_REDIRECTS})`);
+  throw new SsrfError(L.net.tooManyRedirects({ max: MAX_REDIRECTS }));
 }
 
 /** 최대 크기를 넘으면 오류로 스트림을 끊는 통과 Transform이다. 재시도해도 같으니 permanent를 단다 */
@@ -235,11 +238,11 @@ function assertResponseAllowed(responseHeaders: object, accept = DIRECT_LINK) {
   const headers = responseHeaders as Record<string, unknown>;
   const ct = headers["content-type"] || "";
   if (!isAllowedContentType(ct, accept.contentType)) {
-    throw new SsrfError(`허용되지 않는 Content-Type: ${String(ct)}`);
+    throw new SsrfError(L.net.contentTypeNotAllowed({ type: String(ct) }));
   }
   const len = headers["content-length"];
   if (len && Number(len) > accept.maxBytes) {
-    throw tooLarge(new SsrfError(`파일이 최대 크기(${accept.maxBytes} bytes)를 초과: ${String(len)}`));
+    throw tooLarge(new SsrfError(L.net.tooBigDeclared({ maxBytes: accept.maxBytes, length: String(len) })));
   }
 }
 
@@ -322,7 +325,7 @@ async function getBuffer(rawUrl: string, accept: Accept, deps: RequestDeps = {})
     let total = 0;
     for await (const chunk of source as AsyncIterable<Buffer>) {
       total += chunk.length;
-      if (total > accept.maxBytes) throw tooLarge(new SsrfError(`파일이 최대 크기(${accept.maxBytes} bytes)를 초과함`));
+      if (total > accept.maxBytes) throw tooLarge(new SsrfError(L.net.tooBig({ maxBytes: accept.maxBytes })));
       chunks.push(chunk);
     }
     return Buffer.concat(chunks);
