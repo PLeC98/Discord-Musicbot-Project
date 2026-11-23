@@ -11,6 +11,7 @@ import { PROJECT } from "../infra/project-paths.ts";
 import logger from "../infra/log/logger.ts";
 import { repeatingFailure } from "../infra/repeating-failure.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "core" });
 
 type Ending = "shutdown" | "restart" | "startup-failed" | "global-flood";
@@ -37,7 +38,7 @@ class RunRecord {
   now: () => number;
   run: Run | null = null;
   timer: NodeJS.Timeout | null = null;
-  aliveFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "실행 기록 갱신");
+  aliveFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.core.runRecordUpdate());
 
   constructor(file = FILE, now = () => Date.now()) {
     this.file = file;
@@ -50,7 +51,7 @@ class RunRecord {
       return typeof run.startedAt === "number" && typeof run.aliveAt === "number" ? run : null;
     } catch (error) {
       // 파일이 없는 것은 첫 기동이다
-      if (codeOf(error) !== "ENOENT") log.warn(`실행 기록 읽기 실패: ${messageOf(error)}`);
+      if (codeOf(error) !== "ENOENT") log.warn(L.core.runRecordReadFailed({ error: messageOf(error) }));
       return null;
     }
   }
@@ -110,7 +111,7 @@ class RunRecord {
       this._write();
     } catch (error) {
       // 끝나는 중이다. 못 적으면 다음 기동이 "기록 없이 끊김"으로 본다
-      log.warn(`실행 기록에 종료 사유 기록 실패: ${messageOf(error)}`);
+      log.warn(L.core.exitReasonWriteFailed({ error: messageOf(error) }));
     }
   }
 }

@@ -80,9 +80,16 @@ function partsOf(node: ts.Expression, typeOf: TypeOf): { parts: string[]; slots:
   const slots: Slot[] = [];
   for (const span of node.templateSpans) {
     if (hasHangul(span.expression)) return null;
+    const text = span.expression.getText();
+    // 규칙 문제의 글(logRuleLine(문제))은 규칙 문제 서술자로 넘겨 그 코드가 값 안에 남게 한다(글은 같다)
+    const rule = ts.isCallExpression(span.expression) && span.expression.expression.getText() === "logRuleLine" && span.expression.arguments.length === 1;
+    if (rule) {
+      slots.push({ expr: `ruleLogText(${(span.expression as ts.CallExpression).arguments[0].getText()})`, param: paramName((span.expression as ts.CallExpression).arguments[0], taken), type: "string" });
+      parts.push(span.literal.text);
+      continue;
+    }
     const type = typeOf(span.expression);
     const plain = type.split("|").every((one) => PLAIN_TYPES.has(one));
-    const text = span.expression.getText();
     slots.push({ expr: plain ? text : `String(${text})`, param: paramName(span.expression, taken), type: plain ? type : "string" });
     parts.push(span.literal.text);
   }
@@ -233,10 +240,11 @@ function applySource(file: string, text: string, sites: Site[]): string {
     out = `${out.slice(0, site.start)}L.${site.namespace}.${site.key}(${args})${out.slice(site.end)}`;
   }
   if (sites.some((site) => site.kind !== "rule")) out = withImport(file, out, "L", "src/infra/log/text.ts");
-  if (sites.some((site) => site.kind === "rule")) {
+  if (sites.some((site) => site.kind === "rule" || site.slots.some((slot) => slot.expr.startsWith("ruleLogText(")))) {
     out = withImport(file, out, "ruleLogText", "src/rules/text/index.ts");
-    // logRuleLine 을 더 쓰지 않으면 import 에서 뺀다
-    if (!/\blogRuleLine\(/.test(out)) out = out.replace(/(import\s*\{[^}]*?)\blogRuleLine\b,?\s*/, "$1").replace(/import\s*\{\s*\}\s*from\s*"[^"]+";\n?/, "");
+    // logRuleLine 을 더 쓰지 않으면 import 에서 뺀다(부르지 않고 값으로 넘기는 곳도 쓰는 곳이다: problems.map(logRuleLine))
+    const uses = out.replace(/import\s*\{[^}]*\}\s*from\s*"[^"]+";/g, "").match(/\blogRuleLine\b/g)?.length ?? 0;
+    if (!uses) out = out.replace(/(import\s*\{[^}]*?)\blogRuleLine\b,?\s*/, "$1").replace(/import\s*\{\s*\}\s*from\s*"[^"]+";\n?/, "");
   }
   return out;
 }
@@ -262,7 +270,8 @@ function callsOf(file: string, text: string): ts.CallExpression[] {
 }
 
 // String(식)은 안쪽 식으로 본다(옮길 때 그것만 감쌀 수 있다)
-const unwrap = (expr: string) => /^String\(([\s\S]*)\)$/.exec(expr)?.[1] ?? expr;
+// ruleLogText(문제)는 logRuleLine(문제)와 같은 글이다
+const unwrap = (expr: string) => (/^String\(([\s\S]*)\)$/.exec(expr)?.[1] ?? expr).replace(/^ruleLogText\(/, "logRuleLine(");
 
 /** 글 인자가 그리는 것: 고정 글과 값 식(문자열, 템플릿, L.ns.key({ ... })) */
 function messageOf(arg: ts.Expression, catalogs: (namespace: string) => string | null): { parts: string[]; exprs: string[] } | string {

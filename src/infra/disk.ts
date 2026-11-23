@@ -5,10 +5,10 @@ import fs from "node:fs";
 import path from "node:path";
 import logger from "./log/logger.ts";
 import { messageOf } from "./error-text.ts";
-import { repeatingFailure } from "./repeating-failure.ts";
+import { repeatingFailure, type FailureLog } from "./repeating-failure.ts";
 const log = logger.child({ category: "core" });
 
-const failureLog = { error: (line: string) => log.warn(line), info: (line: string) => log.info(line) };
+const failureLog: FailureLog = { error: (line) => log.warn(line), info: (line) => log.info(line) };
 const driveFailures = new Map<string, ReturnType<typeof repeatingFailure>>();
 const freeFailures = new Map<string, ReturnType<typeof repeatingFailure>>();
 

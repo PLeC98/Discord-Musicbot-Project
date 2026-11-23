@@ -4,7 +4,7 @@
 import type { Request } from "express";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
-import { repeatingFailure } from "../infra/repeating-failure.ts";
+import { repeatingFailure, type FailureLog } from "../infra/repeating-failure.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { DISCORD_API, discordHttp, type DiscordHttp } from "./discord-api.ts";
 import { tokenStoreOf } from "./session-store.ts";
@@ -35,7 +35,7 @@ const failures = new Map<string, { refresh: ReturnType<typeof repeatingFailure>;
 const failuresOf = (key: string) => {
   let one = failures.get(key);
   if (!one) {
-    const to = { error: (line: string) => log.warn(line), info: (line: string) => log.info(line) };
+    const to: FailureLog = { error: (line) => log.warn(line), info: (line) => log.info(line) };
     failures.set(key, (one = { refresh: repeatingFailure(to, "사용자 서버 목록 백그라운드 갱신"), list: repeatingFailure(to, "사용자 서버 목록 조회") }));
   }
   return one;

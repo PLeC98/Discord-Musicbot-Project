@@ -16,6 +16,7 @@ import { TARGETS } from "../media/ffmpeg/release.ts";
 import { cleanupFfmpeg } from "../media/ffmpeg/cleanup.ts";
 import { cleanupBgutil } from "../sources/bgutil/cleanup.ts";
 import { bgutilBundle } from "../sources/bgutil/bundle.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "core" });
 
 /** 화면 빌드, ffmpeg 맞추기(다운로드, 압축 풀기, 실행 확인)의 시간 상한(ms) */
@@ -29,7 +30,7 @@ function runToEnd(spec: Omit<ScriptJobSpec, "onEnd">): Promise<ScriptJobInfo | n
   return new Promise((resolve) => {
     const started = startJob({ ...spec, onEnd: resolve });
     if (started.ok) return;
-    if (started.reason === "busy") log.warn(`${spec.name} 건너뜀: 다른 작업(${started.running?.name ?? "?"})이 도는 중`);
+    if (started.reason === "busy") log.warn(L.core.startupJobSkipped({ job: spec.name, running: started.running?.name ?? "?" }));
     resolve(null);
   });
 }
@@ -50,7 +51,7 @@ async function buildDashboardIfStale({ root, dashboard: dashboardDir, dist }: Da
   const vite = path.join(dashboardDir, "node_modules", "vite", "bin", "vite.js");
   if (!fs.existsSync(vite)) return;
   const why = freshness.state === "stale" ? `바뀐 화면 소스 ${freshness.changed.length}개` : freshness.state === "missing" ? "기존 빌드 결과물 없음" : "빌드 정보 없음";
-  log.info(`대시보드 화면 빌드 시작: ${why}`);
+  log.info(L.core.screenBuildStarted({ why }));
   const started = Date.now();
   const info = await runToEnd({
     name: "dashboard-build",
@@ -62,8 +63,8 @@ async function buildDashboardIfStale({ root, dashboard: dashboardDir, dist }: Da
     succeeded: () => clientFreshness(dist, root).state === "fresh",
   });
   if (!info) return;
-  if (info.state === "succeeded") return void log.info(`대시보드 화면 빌드 완료: ${sec(Date.now() - started)}초`);
-  log.warn(`대시보드 화면 빌드 실패(${failedText(info)}. 기존 화면 유지`);
+  if (info.state === "succeeded") return void log.info(L.core.screenBuildDone({ seconds: sec(Date.now() - started) }));
+  log.warn(L.core.screenBuildFailed({ why: failedText(info) }));
 }
 
 /**
@@ -76,16 +77,16 @@ async function alignFfmpegAtStartup(dir = PROJECT.ffmpeg, script = path.join(PRO
   if (info?.state === "succeeded") {
     // 이미 맞으면(대부분의 기동) 조용히 넘어가고, 바꿨으면 스크립트의 결과 줄을 남긴다
     const last = stripScriptPrefix(info.output.at(-1) ?? "");
-    if (!last.includes("이미 ")) log.info(`ffmpeg 맞추기: ${last}`);
-  } else if (info) log.warn(`ffmpeg 맞추기 실패(${failedText(info)}. 받아 둔 ffmpeg로 뜸`);
+    if (!last.includes("이미 ")) log.info(L.core.ffmpegAligned({ result: last }));
+  } else if (info) log.warn(L.core.ffmpegAlignFailed({ why: failedText(info) }));
   const cleaned = await cleanupFfmpeg(dir);
-  if (cleaned.kind === "ok" && cleaned.removed.length) log.info(`ffmpeg 옛 폴더 정리: ${cleaned.removed.map((r) => r.name).join(", ")}`);
+  if (cleaned.kind === "ok" && cleaned.removed.length) log.info(L.core.ffmpegOldFoldersRemoved({ names: cleaned.removed.map((r) => r.name).join(", ") }));
 }
 
 /** vendor/bgutil 정리: 기록에 없는 버전 폴더, 끝난 받기의 임시 폴더. 돌고 있는 POToken 서버의 빌드(기동 시 읽은 것)는 남긴다 */
 async function cleanupBgutilAtStartup(dir = PROJECT.bgutil): Promise<void> {
   const cleaned = await cleanupBgutil(dir, { inUse: bgutilBundle()?.entry ?? null });
-  if (cleaned.kind === "ok" && cleaned.removed.length) log.info(`bgutil 옛 폴더 정리: ${cleaned.removed.map((r) => r.name).join(", ")}`);
+  if (cleaned.kind === "ok" && cleaned.removed.length) log.info(L.core.bgutilOldFoldersRemoved({ names: cleaned.removed.map((r) => r.name).join(", ") }));
 }
 
 /** 기동 준비 전체. 작업 실행기의 자리가 하나라 차례로 실행한다 */

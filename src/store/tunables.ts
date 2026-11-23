@@ -12,8 +12,9 @@ import { codedError, messageOf } from "../rules/error-kind.ts";
 import { tunablesChanged } from "../config/tunables-changed.ts";
 import { TUNABLES, TUNABLE_KEYS, RETIRED_TUNABLES, RESTART_KEYS, CARD_KEYS, tunable, tunableValue, type TunablesView } from "../rules/tunables.ts";
 import { rule, tuneKeyOf, tuneProblem, type RuleProblem } from "../rules/rule-problem.ts";
-import { logRuleLine } from "../rules/text/index.ts";
 import * as docs from "./settings-docs.ts";
+import { L } from "../infra/log/text.ts";
+import { logRuleLine, ruleLogText } from "../rules/text/index.ts";
 
 const DOC = "tunables";
 
@@ -51,7 +52,7 @@ function apply(values: Record<string, string>) {
 
 // 기동 시 올린다. 틀린 필드는 기동을 멈추지 않고 그 필드만 기본값(DB를 외부에서 고쳤을 때 등. 고칠 화면이 떠야 한다)
 function boot(values: Record<string, string>) {
-  for (const problem of apply(values)) log.warn(`운영 설정값 ${logRuleLine(problem)}. 해당 값은 기본값으로 적용. 운영자 패널에서 수정하세요`);
+  for (const problem of apply(values)) log.warn(L.config.tunableInvalid({ problem: ruleLogText(problem) }));
   booted = values;
 }
 
@@ -142,7 +143,7 @@ function problemsOf(values: Record<string, unknown>): RuleProblem[] {
 // 저장한 값을 설정 객체에 올리고 알린다(다시 시작해야 적용되는 값은 기동 시 값으로)
 function use(saved: Record<string, string>) {
   apply(effective(saved));
-  for (const error of tunablesChanged()) log.error(`운영 설정값을 저장했지만 적용하지 못한 곳이 있음: ${messageOf(error)}`);
+  for (const error of tunablesChanged()) log.error(L.config.tunablesApplyFailed({ error: messageOf(error) }));
 }
 
 /** 문서를 외부(불러오기)가 바꿨다. DB에서 다시 읽어 저장할 때처럼 올린다 */

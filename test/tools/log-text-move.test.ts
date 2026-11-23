@@ -115,6 +115,29 @@ test("verify: 옮긴 판은 원래 판과 같다고 보고, 고정 글이나 값
   assert.match(verifySource(FILE, SOURCE, dropped, () => catalog).join("\n"), /로그 호출 수가 다름/);
 });
 
+test("규칙 문제의 글 슬롯은 ruleLogText 값으로 옮기고, logRuleLine 과 같은 글로 대조한다", () => {
+  const before = `import { logRuleLine } from "../rules/text/index.ts";\nconst log = logger.child({ category: "config" });\nlog.warn(\`운영 설정값 \${logRuleLine(problem)}. 기본값으로\`);\n`;
+  const plan = scanSource("src/store/x.ts", before, () => "string");
+  assert.deepEqual(plan.sites[0].slots, [{ expr: "ruleLogText(problem)", param: "problem", type: "string" }]);
+  const after = applySource("src/store/x.ts", before, [{ ...plan.sites[0], key: "invalid" }]);
+  assert.match(after, /log\.warn\(L\.config\.invalid\(\{ problem: ruleLogText\(problem\) \}\)\);/);
+  assert.match(after, /import \{ ruleLogText \} from "\.\.\/rules\/text\/index\.ts";/);
+  assert.doesNotMatch(after, /logRuleLine/);
+  const catalog = withEntries("config", null, [entryOf({ ...plan.sites[0], key: "invalid" })]);
+  assert.deepEqual(
+    verifySource("src/store/x.ts", before, after, () => catalog),
+    [],
+  );
+});
+
+test("apply: logRuleLine 을 부르지 않고 값으로 넘기는 곳이 남으면 import 를 지우지 않는다", () => {
+  const before = `import { logRuleLine } from "../rules/text/index.ts";\nconst log = logger.child({ category: "config" });\nlog.warn(\`값 \${logRuleLine(problem)}\`);\nconst lines = problems.map(logRuleLine);\n`;
+  const plan = scanSource("src/store/x.ts", before, () => "string");
+  const after = applySource("src/store/x.ts", before, [{ ...plan.sites[0], key: "invalid" }]);
+  assert.match(after, /import \{ logRuleLine \} from "\.\.\/rules\/text\/index\.ts";/);
+  assert.match(after, /import \{ ruleLogText \} from/);
+});
+
 test("verify: String(식)으로 감싼 값은 원래 식으로 본다", () => {
   const before = `const log = logger.child({ category: "core" });\nlog.warn(\`실패: \${error}\`);\n`;
   const after = `const log = logger.child({ category: "core" });\nlog.warn(L.core.failed({ error: String(error) }));\n`;
