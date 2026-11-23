@@ -9,6 +9,9 @@ import logger from "../../src/infra/log/logger.ts";
 import sink from "../../src/infra/log/sink.ts";
 import config from "../../src/config/index.ts";
 import { KEPT_LINES } from "../../src/infra/log/levels.ts";
+import { FAILED_MARK, logText, renderLogText, type LogText } from "../../src/infra/log/log-text.ts";
+import { logRuleLine, ruleLogText } from "../../src/rules/text/index.ts";
+import { rule } from "../../src/rules/rule-problem.ts";
 const { buildRecord, createLogger, LEVELS } = logger._internals;
 const { LogSink } = sink;
 // 터미널 소음 억제
@@ -36,6 +39,87 @@ test("buildRecord: (err). err는 필드로 남고 stack이 msg에 접붙음", ()
   assert.match(r.msg, /펑/);
   assert.equal(typeof r.err, "string"); // Error → stack 문자열로 치환
   assert.match(String(r.err), /펑/);
+});
+
+test("buildRecord: (err, msg). err는 필드로, msg 뒤에 stack을 붙인다", () => {
+  const e = new Error("펑");
+  const r = buildRecord(LEVELS.error, {}, [e, "저장 실패"]);
+  assert.match(r.msg, /^저장 실패 Error: 펑/);
+  assert.match(String(r.err), /^Error: 펑/);
+});
+
+test("buildRecord: (msg, 덧붙인 값). util.format으로 이어 붙이고 Error는 err 필드가 아니다", () => {
+  const e = new Error("펑");
+  const r = buildRecord(LEVELS.error, {}, ["재생 실패:", e]);
+  assert.match(r.msg, /^재생 실패: Error: 펑/);
+  assert.equal(r.err, undefined);
+});
+
+test("buildRecord: (obj, msg, ...interp). 병합하고 util.format", () => {
+  const r = buildRecord(LEVELS.info, {}, [{ tags: ["a"] }, "곡 %d개", 3]);
+  assert.equal(r.msg, "곡 3개");
+  assert.deepEqual(r.tags, ["a"]);
+});
+
+// ── facade: 문구(서술자) 형식 ─────────────────────────────
+const demo = (args: Record<string, string | number | boolean | null | LogText> = {}, render = () => "문구 글") => logText("demo.line", args, render);
+
+test("buildRecord: (문구). msg는 그린 글, event와 args를 싣는다", () => {
+  const r = buildRecord(LEVELS.warn, { category: "player" }, [demo({ track: "곡", n: 2 })]);
+  assert.equal(r.msg, "문구 글");
+  assert.equal(r.event, "demo.line");
+  assert.deepEqual(r.args, { track: "곡", n: 2 });
+  assert.equal(r.category, "player");
+});
+
+test("buildRecord: (바인딩, 문구), (err, 문구)", () => {
+  const bound = buildRecord(LEVELS.info, {}, [{ tags: ["a"] }, demo()]);
+  assert.deepEqual([bound.msg, bound.event, bound.tags], ["문구 글", "demo.line", ["a"]]);
+  const failed = buildRecord(LEVELS.error, {}, [new Error("펑"), demo()]);
+  assert.match(failed.msg, /^문구 글 Error: 펑/);
+  assert.match(String(failed.err), /^Error: 펑/);
+  assert.equal(failed.event, "demo.line");
+});
+
+test("buildRecord: 문구 뒤에 값이 오면 형식 문자열로 쓰지 않고 뒤에 붙이고, Error는 err로 올린다", () => {
+  const r = buildRecord(LEVELS.error, {}, [demo({}, () => "곡 %s 100%d"), "덧붙임", new Error("펑"), { a: 1 }]);
+  assert.match(r.msg, /^곡 %s 100%d 덧붙임 \{ a: 1 \} Error: 펑/);
+  assert.match(String(r.err), /^Error: 펑/);
+});
+
+test("buildRecord: 값 안의 서술자(라벨)는 레코드에 { event, args }로 싣는다", () => {
+  const label = logText("demo.label", { id: 1 }, () => "라벨");
+  const r = buildRecord(LEVELS.info, {}, [demo({ label })]);
+  assert.deepEqual(r.args, { label: { event: "demo.label", args: { id: 1 } } });
+  assert.deepEqual(JSON.parse(JSON.stringify(r.args)), r.args, "그대로 직렬화된다");
+});
+
+test("buildRecord: 문구 함수가 던져도 던지지 않고 표식이 붙은 대체 글을 남긴다", () => {
+  const r = buildRecord(LEVELS.warn, {}, [
+    demo({ n: 1 }, () => {
+      throw new Error("x");
+    }),
+  ]);
+  assert.equal(r.msg, `${FAILED_MARK} demo.line {"n":1}`);
+  assert.equal(r.event, "demo.line");
+});
+
+test("레벨에 걸러지는 줄은 문구를 그리지 않는다", () => {
+  let renders = 0;
+  const got: LogRecord[] = [];
+  const l = createLogger({}, "warn", (rec) => got.push(rec));
+  l.debug(demo({}, () => `글 ${++renders}`));
+  assert.deepEqual([got.length, renders], [0, 0]);
+  l.warn(demo({}, () => `글 ${++renders}`));
+  assert.deepEqual([got.length, renders], [1, 1]);
+});
+
+test("규칙 문제를 로그 문구로: event는 rule.<코드>, 감싼 이유는 값 안의 서술자, 글은 logRuleLine과 같다", () => {
+  const problem = rule("tune-value", { key: "LOG_LEVEL", value: "x" }, rule("one-of", { allowed: "a, b" }));
+  const text = ruleLogText(problem);
+  assert.equal(text.event, "rule.tune-value");
+  assert.deepEqual(buildRecord(LEVELS.warn, {}, [text]).args, { key: "LOG_LEVEL", value: "x", cause: { event: "rule.one-of", args: { allowed: "a, b" } } });
+  assert.equal(renderLogText(text), logRuleLine(problem));
 });
 
 test("buildRecord: (obj) 단독. msg 빈 문자열", () => {
@@ -131,6 +215,23 @@ test("레드액션: 메시지 패턴은 msg 밖의 글 값에도 건다(Error의
   assert.equal(bound.body, '{"error":"x","token":"[REDACTED]"}');
   assert.equal(bound.status, 401);
   assert.equal(bound.category, "test", "패턴에 걸리지 않는 글은 그대로");
+});
+
+test("레드액션: 문구 값(args)은 모든 깊이에서 키 이름과 글 값을 가리고, 원본 서술자는 바꾸지 않는다", () => {
+  const lm = new LogSink({ intercept: false, terminal: quiet });
+  const got: LogRecord[] = [];
+  lm.destinations.push((r) => got.push(r));
+  const log = createLogger({}, null, (rec) => lm.record(rec));
+  const label = logText("demo.label", { token: "inner-secret-1", note: "Bearer abcDEF123456ghized" }, () => "라벨");
+  const text = logText("demo.line", { label, status: 401, long: "가".repeat(20_000) }, () => "글");
+  log.warn(text);
+  const args = got[0].args as { label: { args: { token: string; note: string } }; status: number; long: string };
+  assert.equal(args.label.args.token, "[REDACTED]");
+  assert.equal(args.label.args.note, "Bearer [REDACTED]");
+  assert.equal(args.status, 401);
+  assert.ok(args.long.length < 20_000, "글 값 길이 상한도 건다");
+  assert.equal(label.args.token, "inner-secret-1", "원본 서술자는 그대로");
+  assert.equal((text.args.long as string).length, 20_000);
 });
 
 // ── sink: 글 값의 길이 상한 ──────────────────────────────────

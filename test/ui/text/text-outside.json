@@ -45,7 +45,7 @@
   "src/infra/disk.ts": 2,
   "src/infra/error-text.ts": 6,
   "src/infra/leftover-children.ts": 5,
-  "src/infra/log/file.ts": 13,
+  "src/infra/log/file.ts": 6,
   "src/infra/log/sink.ts": 5,
   "src/infra/log/title.ts": 1,
   "src/infra/process-memory.ts": 3,

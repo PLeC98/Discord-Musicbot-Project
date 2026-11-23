@@ -6,7 +6,8 @@
 //
 // 지켜야 할 표면:
 //   - 레벨: trace/debug/info/warn/error/fatal (10~60). logger.level을 바꿀 수 있고 그보다 낮은 레벨은 찍지 않는다
-//   - 호출: fn(mergingObj?, msg?, ...interp) | fn(err) | fn(msg, ...interp)
+//   - 호출: fn(문구) | fn(바인딩, 문구) | fn(err, 문구). 문구는 서술자(infra/log/text의 L)이고 레코드에 msg(그린 글), event, args로 나눠 싣는다.
+//     마이그레이션 중의 글 형식: fn(mergingObj?, msg?, ...interp) | fn(err) | fn(msg, ...interp)
 //   - child(bindings): bindings 병합된 자식 (카테고리도 그냥 바인딩이다)
 //   - pino에 없는 logger.log()는 노출하지 않는다 (서드파티의 console.* 는 sink의 console 브리지가 받는다)
 
@@ -14,8 +15,18 @@ import util from "util";
 import sink from "./sink.ts";
 import type { LogRecord } from "./sink.ts";
 import { LEVELS, isLevel, levelNameOf, type LevelName } from "./levels.ts";
+import { isLogText, recordArgs, renderLogText, type LogBindings, type LogText } from "./log-text.ts";
 
-type LogFn = (...args: unknown[]) => void;
+/** 레벨마다 찍는 함수. 문구(서술자) 뒤에 값을 덧붙이는 형식은 받지 않는다(글이 형식 문자열이 되지 않게) */
+interface LogFn {
+  (text: LogText): void;
+  (bindings: LogBindings, text: LogText): void;
+  (err: Error, text: LogText): void;
+  // 글 형식(마이그레이션 중)
+  (msg: string, ...extra: unknown[]): void;
+  (bindings: LogBindings, msg?: string, ...extra: unknown[]): void;
+  (err: unknown, msg?: string, ...extra: unknown[]): void;
+}
 
 /** 레벨마다 찍는 함수, 자식 만들기, 레벨(읽으면 이름, 쓸 때는 레벨 이름 글자를 받고 모르는 이름은 무시한다) */
 export interface Logger extends Record<LevelName, LogFn> {
@@ -24,12 +35,31 @@ export interface Logger extends Record<LevelName, LogFn> {
   child(bindings: Record<string, unknown>): Logger;
 }
 
+// 문구(서술자)를 넘긴 호출: (문구), (바인딩, 문구), (err, 문구). 글은 여기서 그린다(레벨 검사를 지난 뒤라 걸러지는 줄은 그리지 않는다).
+// 타입이 막아도 문구 뒤에 값이 오면 형식 문자열로 쓰지 않고 inspect해서 뒤에 붙이고, Error는 err로 올린다
+function textRecord(args: unknown[]): { merge: Record<string, unknown> | null; msg: string; text: LogText } | null {
+  const at = isLogText(args[0]) ? 0 : args.length > 1 && isLogText(args[1]) && typeof args[0] === "object" && args[0] !== null ? 1 : -1;
+  if (at < 0) return null;
+  const text = args[at] as LogText;
+  const lead = at === 1 ? args[0] : null;
+  const merge: Record<string, unknown> | null = lead instanceof Error ? { err: lead } : lead ? { ...(lead as Record<string, unknown>) } : null;
+  let msg = renderLogText(text);
+  const extra = args.slice(at + 1);
+  const error = extra.find((value) => value instanceof Error);
+  const rest = extra.filter((value) => value !== error).map((value) => (typeof value === "string" ? value : util.inspect(value)));
+  if (rest.length) msg = `${msg} ${rest.join(" ")}`;
+  return { merge: error && !merge?.err ? { ...merge, err: error } : merge, msg, text };
+}
+
 // pino 호환 인자 → sink 레코드로 정규화.
 function buildRecord(levelNum: number, bindings: Record<string, unknown>, args: unknown[]): LogRecord & { msg: string } {
   let merge: Record<string, unknown> | null = null;
   let msg: string; // 아래 if/else-if/else 세 분기가 모두 할당(exhaustive)
+  const described = textRecord(args);
 
-  if (args.length && args[0] instanceof Error) {
+  if (described) {
+    ({ merge, msg } = described);
+  } else if (args.length && args[0] instanceof Error) {
     // logger.error(err) / logger.error(err, "msg", ...)
     merge = { err: args[0] };
     msg = args.length > 1 ? util.format(args[1], ...args.slice(2)) : args[0].message;
@@ -42,7 +72,7 @@ function buildRecord(levelNum: number, bindings: Record<string, unknown>, args: 
     msg = util.format(...args);
   }
 
-  const rec: LogRecord = { level: levelNum, time: Date.now(), ...bindings, ...(merge || {}) };
+  const rec: LogRecord = { level: levelNum, time: Date.now(), ...bindings, ...(merge || {}), ...(described ? { event: described.text.event, args: recordArgs(described.text.args) } : {}) };
 
   // err는 rec.err에 stack 글로 남기고, 터미널, SSE에도 보이도록 msg 뒤에 붙인다
   const err = rec.err || rec.error;

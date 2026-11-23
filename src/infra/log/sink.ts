@@ -74,7 +74,7 @@ function catColor(name: string) {
 }
 
 // 가리기(redact). 레코드가 터미널, 버퍼, SSE, 파일로 나가기 전 한 곳에서 한다.
-// 맨 위 키 이름과 맨 위 글 값의 메시지 패턴만 본다(중첩된 필드는 보지 않는다).
+// 최상위 키 이름과 최상위 글 값의 메시지 패턴을 본다. 문구 값(args)만 모든 깊이에서 본다(safeArgs).
 const REDACT_KEYS = new Set(["authorization", "cookie", "password", "secret", "client_secret", "clientsecret", "access_token", "accesstoken", "refresh_token", "refreshtoken", "token", "totp", "totpserver", "apikey", "api_key"]);
 const MSG_PATTERNS = [
   { re: /(Bearer\s+)[A-Za-z0-9._~+/=-]{6,}/gi, repl: "$1[REDACTED]" },
@@ -103,6 +103,14 @@ function clipText(text: string): string {
   if (/[\ud800-\udbff]/.test(text[head - 1]!)) head--;
   if (/[\udc00-\udfff]/.test(text[tail]!)) tail++;
   return `${text.slice(0, head)}…(가운데 ${tail - head}자 생략)…${text.slice(tail)}`;
+}
+
+/** 문구 값(args): 모든 깊이에서 키 이름과 글 값을 가리고 자른 새 객체. 원본(freeze된 서술자의 값)은 그대로 둔다 */
+function safeArgs(value: unknown): unknown {
+  if (typeof value === "string") return clipText(redactText(value));
+  if (Array.isArray(value)) return value.map(safeArgs);
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([key, inner]) => [key, REDACT_KEYS.has(key.toLowerCase()) ? "[REDACTED]" : safeArgs(inner)]));
+  return value;
 }
 
 /** 지난 1시간 경고, 오류. fatal은 오류로 */
@@ -250,7 +258,7 @@ class LogSink {
         continue;
       }
       // 메시지 패턴은 글 값 모두에 건다. Error는 stack이 msg와 err 둘에 실린다(logger.ts)
-      out[k] = typeof v === "string" ? clipText(redactText(v)) : v;
+      out[k] = k === "args" ? safeArgs(v) : typeof v === "string" ? clipText(redactText(v)) : v;
     }
     return out as LogRecord;
   }

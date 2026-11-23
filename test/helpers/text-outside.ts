@@ -17,8 +17,6 @@ const LOG_CALLS_IN: Readonly<Record<string, readonly string[]>> = {
   "src/dashboard/routes/appearance.ts": ["changing"],
   "src/dashboard/routes/vendor.ts": ["saveCard"],
   "src/player/voice-link.ts": ["release", "disconnect", "recover"],
-  // 설정 검사의 출력(로거나 console)
-  "src/app/config-check.ts": ["warn"],
 };
 // 요청 객체의 로그 라벨 속성(요청 로그와 조회 로그의 라벨, 정리 로그의 사유)
 const LABEL_PROPS = new Set(["source", "reason"]);

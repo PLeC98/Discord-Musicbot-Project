@@ -13,6 +13,8 @@ import path from "path";
 import { repeatingFailure } from "../repeating-failure.ts";
 import { codeOf, messageOf } from "../error-text.ts";
 import type { LogRecord } from "./sink.ts";
+import { L } from "./text.ts";
+import { renderLogText } from "./log-text.ts";
 
 const ANSI_RE = /\x1B(?:[@-Z\-_]|\[[0-?]*[ -/]*[@-~])/g;
 
@@ -72,8 +74,11 @@ function stripAnsi(s: unknown): unknown {
 
 /** 파일에 쓰는 한 줄의 상한(바이트, 줄바꿈 포함). 로그 파일 보기는 이보다 긴 줄을 깨진 줄로 보고 건너뛴다 */
 const LINE_MAX = 1024 * 1024;
-// 줄인 레코드에 남기는 필드: 로그 파일 보기가 쓰는 것. 글 값은 싱크가 16K자로 잘라 두고 뺀 필드 이름은 몇 개만 적어, 줄인 레코드는 상한 안이다
-const KEPT_ON_REDUCE = ["category", "sub", "msg"];
+// 줄인 레코드에 남기는 필드: 로그 파일 보기가 쓰는 것과 문구 코드(event). 글 값은 싱크가 16K자로 잘라 두고 뺀 필드 이름은 몇 개만 적어, 줄인 레코드는 상한 안이다
+const KEPT_ON_REDUCE = ["category", "sub", "event", "msg"];
+
+/** 최상위 글 필드 가운데 줄여도 남기는 것 */
+const keptFields = (rec: LogRecord): Record<string, unknown> => Object.fromEntries(KEPT_ON_REDUCE.filter((key) => typeof rec[key] === "string").map((key) => [key, stripAnsi(rec[key])]));
 // 줄인 레코드에 적는 뺀 필드 이름의 수와 이름 하나의 글자 수
 const DROPPED_NAMES = 10;
 const DROPPED_NAME_CHARS = 40;
@@ -84,19 +89,18 @@ function lineOf(rec: LogRecord): string {
   try {
     line = `${JSON.stringify({ ...rec, msg: stripAnsi(rec.msg) })}\n`;
   } catch {
-    // 순환 참조 등으로 직렬화가 안 되면 최소한 메시지는 남긴다.
-    return `${JSON.stringify({ time: rec.time, level: rec.level, msg: String(stripAnsi(rec.msg)) })}\n`;
+    // 순환 참조 등으로 직렬화가 안 되면 메시지와 분류, 문구 코드는 남긴다.
+    return `${JSON.stringify({ time: rec.time, level: rec.level, ...keptFields(rec), msg: String(stripAnsi(rec.msg)) })}\n`;
   }
   // UTF-8은 UTF-16 한 단위에 3바이트를 넘지 않는다. 그 안이면 바이트를 세지 않는다
   if (line.length * 3 <= LINE_MAX) return line;
   const bytes = Buffer.byteLength(line);
   if (bytes <= LINE_MAX) return line;
-  const kept: Record<string, unknown> = { time: rec.time, level: rec.level };
-  for (const key of KEPT_ON_REDUCE) if (typeof rec[key] === "string") kept[key] = stripAnsi(rec[key]);
+  const kept: Record<string, unknown> = { time: rec.time, level: rec.level, ...keptFields(rec) };
   const dropped = Object.keys(rec).filter((key) => !(key in kept));
   const names = dropped.slice(0, DROPPED_NAMES).map((key) => key.slice(0, DROPPED_NAME_CHARS));
-  const more = dropped.length > DROPPED_NAMES ? ` 외 ${dropped.length - DROPPED_NAMES}개` : "";
-  kept.msg = `${(kept.msg as string | undefined) ?? ""} | 로그 줄이 상한을 넘어(${bytes}바이트) 뺀 필드: ${names.join(", ")}${more}`;
+  const note = renderLogText(L.log.lineReduced({ bytes, names: names.join(", "), extra: Math.max(0, dropped.length - DROPPED_NAMES) }));
+  kept.msg = `${(kept.msg as string | undefined) ?? ""} | ${note}`;
   return `${JSON.stringify(kept)}\n`;
 }
 
@@ -158,7 +162,8 @@ function createFileDestination({ file, maxBytes, keep, notice = (line: string) =
     lastTry = now();
     if (!open()) return false;
     failures.ok();
-    const gap = `${JSON.stringify({ time: now(), level: 40, category: "log", msg: `파일 로그가 ${Math.round((now() - down) / 1000)}초 동안 멈췄다가 재개됨. 그동안 ${lost}줄을 남기지 못함` })}\n`;
+    const resumed = L.log.fileResumed({ seconds: Math.round((now() - down) / 1000), lost });
+    const gap = `${JSON.stringify({ time: now(), level: 40, category: "log", msg: renderLogText(resumed), event: resumed.event, args: resumed.args })}\n`;
     down = null;
     lost = 0;
     writeLine(gap);
