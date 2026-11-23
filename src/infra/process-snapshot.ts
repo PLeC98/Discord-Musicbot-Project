@@ -9,6 +9,7 @@ import logger from "./log/logger.ts";
 import { consoleText } from "./console-text.ts";
 import { codeOf, messageOf } from "./error-text.ts";
 import { L } from "./log/text.ts";
+import type { LogText } from "./log/log-text.ts";
 const log = logger.child({ category: "proc" });
 
 /**
@@ -43,10 +44,10 @@ function linuxBootMs() {
 }
 
 const PROC_GONE_OR_HIDDEN = new Set<unknown>(["ENOENT", "ESRCH", "EACCES", "EPERM"]);
-const SKIP_IDENTITY = "프로세스 식별 검증 생략";
-const SKIP_PROCESS = "해당 프로세스 확인 건너뜀";
+const SKIP_IDENTITY = L.proc.snapshotSkipIdentity();
+const SKIP_PROCESS = L.proc.snapshotSkipProcess();
 
-function readText(file: string, action: string, perPid = false) {
+function readText(file: string, action: string | LogText, perPid = false) {
   try {
     return fs.readFileSync(file, "utf8");
   } catch (error) {

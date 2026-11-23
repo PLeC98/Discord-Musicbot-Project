@@ -461,44 +461,11 @@
   "src/index.ts": {
     "log": 3
   },
-  "src/infra/cpu-affinity.ts": {
-    "log": 1
-  },
-  "src/infra/disk.ts": {
-    "outside": 2,
-    "log": 2
-  },
   "src/infra/error-text.ts": {
     "outside": 6
   },
-  "src/infra/leftover-children.ts": {
-    "outside": 5
-  },
-  "src/infra/log/file.ts": {
-    "outside": 6,
-    "log": 1
-  },
-  "src/infra/log/sink.ts": {
-    "outside": 5
-  },
-  "src/infra/log/title.ts": {
-    "outside": 1
-  },
   "src/infra/pinned-checkout.ts": {
     "log": 4
-  },
-  "src/infra/process-memory.ts": {
-    "outside": 3
-  },
-  "src/infra/process-registry.ts": {
-    "outside": 5,
-    "log": 2
-  },
-  "src/infra/process-snapshot.ts": {
-    "outside": 2
-  },
-  "src/infra/system-upload.ts": {
-    "outside": 4
   },
   "src/media/cache-download.ts": {
     "log": 34,

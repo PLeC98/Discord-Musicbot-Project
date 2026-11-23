@@ -20,8 +20,9 @@ import logger from "../infra/log/logger.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { koPattern, koTidy } from "../rules/ko-search.ts";
 import { AT_AFTER_LINES, matchesLog, type FileLine, type FilePage, type LogFile, type LogFilter } from "./contract/log-files.ts";
+import type { LogText } from "../infra/log/log-text.ts";
 const log = logger.child({ category: "dashboard" });
-const viewerReport = { caller: "로그 뷰어", line: (text: string) => log.warn(text) };
+const viewerReport = { caller: "로그 뷰어", line: (text: LogText) => log.warn(text) };
 
 /** 짧게 읽을 때(첫 줄, 시각 찾기) 한 번에 읽는 바이트 */
 const CHUNK = 64 * 1024;

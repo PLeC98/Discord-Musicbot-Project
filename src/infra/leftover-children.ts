@@ -16,6 +16,7 @@ import { consoleText } from "./console-text.ts";
 import { snapshotProcesses, sameImage, type Proc } from "./process-snapshot.ts";
 import type { ChildRecord, ProcessIdentity } from "./process-registry.ts";
 import { L } from "./log/text.ts";
+import { asText, type LogText } from "./log/log-text.ts";
 const log = logger.child({ category: "proc" });
 
 const IS_WIN = process.platform === "win32";
@@ -98,15 +99,15 @@ function same(proc: Proc | undefined, who: ProcessIdentity): proc is Proc {
 }
 
 // 기록 파일의 내용. 모양이 틀리면 그 원인
-function parse(text: string): { record: ChildRecord } | { reason: string } {
+function parse(text: string): { record: ChildRecord } | { reason: LogText } {
   let record: ChildRecord | null;
   try {
     record = JSON.parse(text) as ChildRecord | null;
   } catch {
-    return { reason: "유효하지 않은 JSON" };
+    return { reason: L.proc.recordBadJson() };
   }
-  if (typeof record?.owner?.pid !== "number") return { reason: "owner.pid 필드 누락" };
-  if (!Array.isArray(record.children)) return { reason: "children 필드가 배열이 아님" };
+  if (typeof record?.owner?.pid !== "number") return { reason: L.proc.recordNoOwnerPid() };
+  if (!Array.isArray(record.children)) return { reason: L.proc.recordChildrenNotArray() };
   return { record };
 }
 
@@ -122,10 +123,10 @@ function targetsOf(child: ChildRecord["children"][number], procs: Proc[], byPid:
   const later = (proc: Proc) => proc.startedAt >= child.startedAt - START_SLACK_MS && [...images].some((image) => sameImage(proc.image, image));
   if (!isWin) {
     if (!child.group) return [];
-    return procs.some((proc) => proc.pgid === child.pid && later(proc)) ? [{ pid: child.pid, group: true, label: `${child.label}#${child.pid}의 그룹` }] : [];
+    return procs.some((proc) => proc.pgid === child.pid && later(proc)) ? [{ pid: child.pid, group: true, label: asText(L.proc.leftoverGroup({ label: child.label, pid: child.pid })) }] : [];
   }
   // Windows: 끝난 자식의 바로 아래 손자들. 손자의 트리는 taskkill /T가 함께 내린다
-  return procs.filter((proc) => proc.ppid === child.pid && later(proc)).map((proc) => ({ pid: proc.pid, group: false, label: `${child.label}#${child.pid}의 ${proc.image}#${proc.pid}` }));
+  return procs.filter((proc) => proc.ppid === child.pid && later(proc)).map((proc) => ({ pid: proc.pid, group: false, label: asText(L.proc.leftoverDescendant({ label: child.label, pid: child.pid, image: proc.image, child: proc.pid })) }));
 }
 
 type Found = { file: string; record: ChildRecord };

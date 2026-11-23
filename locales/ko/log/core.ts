@@ -26,6 +26,10 @@ const core = {
   rejectUnknown: () => `디스코드가 요청을 거절함`,
   /** 디스코드가 거절한 요청 한 줄. what: 거절의 뜻, code: 디스코드 오류 번호, message: 디스코드가 준 글, request: 요청(모르면 null), guild: 서버(모르면 null), where: 어디서 새어 나왔나 */
   rejectionLine: ({ what, code, message, request, guild, where }: { what: string; code: number; message: string; request: string | null; guild: string | null; where: string }) => `${what} (${code}${message ? ` ${message}` : ""}) | ${request ?? "요청 모름"} | 서버 ${guild ?? "모름"} | ${where}`,
+  diskSizeLookup: ({ target }: { target: string }) => `${target} 디스크 용량 statfs 조회`,
+  diskFreeLookup: ({ target }: { target: string }) => `${target} 디스크 여유 공간 statfs 조회`,
+  diskSizeUnknown: ({ error }: { error: string }) => `${error} (드라이브 카드에 알 수 없음으로 표시)`,
+  diskFreeZero: ({ error }: { error: string }) => `${error} (여유 공간 0바이트로 처리)`,
 };
 
 export { core };

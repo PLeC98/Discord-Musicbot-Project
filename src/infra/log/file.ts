@@ -14,7 +14,7 @@ import { repeatingFailure } from "../repeating-failure.ts";
 import { codeOf, messageOf } from "../error-text.ts";
 import type { LogRecord } from "./sink.ts";
 import { L } from "./text.ts";
-import { renderLogText } from "./log-text.ts";
+import { renderLogText, type LogText } from "./log-text.ts";
 
 const ANSI_RE = /\x1B(?:[@-Z\-_]|\[[0-?]*[ -/]*[@-~])/g;
 
@@ -50,7 +50,7 @@ function nextBackupPath(file: string, exists: (target: string) => boolean = fs.e
 }
 
 /** file에서 떼어 낸 파일들의 이름(같은 폴더). 이름순이 곧 시간순이다(파일명이 로컬 시각이라). 폴더를 못 읽으면 빈 목록 */
-function rotatedFilesOf(file: string, report?: { caller: string; line: (text: string) => unknown }): string[] {
+function rotatedFilesOf(file: string, report?: { caller: string | LogText; line: (text: LogText) => unknown }): string[] {
   const base = path.basename(file);
   const ext = path.extname(base);
   const stem = ext ? base.slice(0, -ext.length) : base;
@@ -63,7 +63,7 @@ function rotatedFilesOf(file: string, report?: { caller: string; line: (text: st
       .sort();
   } catch (error) {
     const code = codeOf(error);
-    if (report && code !== "ENOENT") report.line(`로그 폴더 읽기 실패(로테이션된 로그 파일 없음으로 처리): ${path.dirname(file)} | 작업=${report.caller} | ${messageOf(error)} (${String(code)})`);
+    if (report && code !== "ENOENT") report.line(L.log.rotatedListFailed({ dir: path.dirname(file), caller: report.caller, error: messageOf(error), code: String(code) }));
     return [];
   }
 }
@@ -129,7 +129,7 @@ function createFileDestination({ file, maxBytes, keep, notice = (line: string) =
   const failures = repeatingFailure({ error: (line) => notice(`[logFile] ${renderLogText(line)}\n`), info: (line) => notice(`[logFile] ${renderLogText(line)}\n`) }, L.log.fileLog({ file }));
 
   // 멈춘다. 그동안의 줄은 버리고 retryMs마다 다시 열어 본다. 여기서 logger를 부르면 이 destination으로 되돌아온다.
-  function fail(what: string, err: unknown) {
+  function fail(what: LogText, err: unknown) {
     if (fd !== null) {
       try {
         fs.closeSync(fd);
@@ -140,7 +140,7 @@ function createFileDestination({ file, maxBytes, keep, notice = (line: string) =
     }
     down ??= now();
     lastTry = now();
-    failures.fail(`${what}: ${messageOf(err)}`);
+    failures.fail(`${renderLogText(what)}: ${messageOf(err)}`);
   }
 
   function open() {
@@ -150,7 +150,7 @@ function createFileDestination({ file, maxBytes, keep, notice = (line: string) =
       fd = fs.openSync(file, "a");
       return true;
     } catch (err) {
-      fail("파일을 열 수 없음", err);
+      fail(L.log.openFailed(), err);
       return false;
     }
   }
@@ -172,13 +172,13 @@ function createFileDestination({ file, maxBytes, keep, notice = (line: string) =
 
   function prune() {
     if (keep <= 0) return;
-    const old = rotatedFilesOf(file, { caller: "로그 정리", line: (text) => notice(`[logFile] ${text}\n`) });
+    const old = rotatedFilesOf(file, { caller: L.log.pruneLabel(), line: (text) => notice(`[logFile] ${renderLogText(text)}\n`) });
     for (const name of old.slice(0, Math.max(0, old.length - keep))) {
       try {
         fs.unlinkSync(path.join(path.dirname(file), name));
       } catch (err) {
         // 삭제하지 못해도 기록은 계속한다. 다음 회전에서 다시 시도한다
-        if (codeOf(err) !== "ENOENT") notice(`[logFile] 지난 로그 파일 삭제 실패(${name}): ${messageOf(err)}\n`);
+        if (codeOf(err) !== "ENOENT") notice(`[logFile] ${renderLogText(L.log.oldFileDeleteFailed({ name, error: messageOf(err) }))}\n`);
       }
     }
   }
@@ -190,7 +190,7 @@ function createFileDestination({ file, maxBytes, keep, notice = (line: string) =
       fd = null;
       fs.renameSync(file, nextBackupPath(file));
     } catch (err) {
-      return fail("로그 회전 실패", err);
+      return fail(L.log.rotateFailed(), err);
     }
     prune();
     open();
@@ -201,7 +201,7 @@ function createFileDestination({ file, maxBytes, keep, notice = (line: string) =
     try {
       fs.writeSync(fd as number, line);
     } catch (err) {
-      return fail("기록 실패", err);
+      return fail(L.log.writeFailed(), err);
     }
     size += Buffer.byteLength(line);
     if (maxBytes > 0 && size >= maxBytes) rotate();

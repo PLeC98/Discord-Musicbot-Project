@@ -8,6 +8,7 @@ import { codeOf, messageOf } from "./error-text.ts";
 import { consoleText } from "./console-text.ts";
 import { repeatingFailure } from "./repeating-failure.ts";
 import { L } from "./log/text.ts";
+import type { LogText } from "./log/log-text.ts";
 const log = logger.child({ category: "proc" });
 
 const IS_WIN = process.platform === "win32";
@@ -18,10 +19,10 @@ const TIMEOUT_MS = 30_000;
 const failures = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.proc.childMemoryRead());
 
 // 출력. 실패하면 원인. done: 실패가 아닌 종료 코드(ps는 고른 pid가 다 끝났으면 1로 끝난다)
-function run(file: string, args: string[], done: number[] = []): Promise<{ out: string } | { failed: string }> {
+function run(file: string, args: string[], done: number[] = []): Promise<{ out: string } | { failed: LogText }> {
   return new Promise((resolve) => {
     execFile(file, args, { encoding: "buffer", windowsHide: true, timeout: TIMEOUT_MS }, (error, stdout, stderr) => {
-      if (error && !(typeof error.code === "number" && done.includes(error.code))) return resolve({ failed: `${file}: ${failure(error, stderr)}` });
+      if (error && !(typeof error.code === "number" && done.includes(error.code))) return resolve({ failed: L.proc.commandFailed({ file, reason: failure(error, stderr) }) });
       resolve({ out: consoleText(stdout) });
     });
   });
@@ -29,11 +30,11 @@ function run(file: string, args: string[], done: number[] = []): Promise<{ out: 
 
 // 상한을 넘겨 끊었는지, 자체 실패로 끝났으면 종료 코드와 stderr
 function failure(error: ExecFileException, stderr: Buffer) {
-  if (error.killed) return `${TIMEOUT_MS / 1000}초 초과로 강제 종료(${error.signal ?? "신호 모름"})`;
+  if (error.killed) return L.proc.memoryTimedOut({ seconds: TIMEOUT_MS / 1000, signal: error.signal ?? null });
   // 실행조차 못 했다(ENOENT 등)
   if (typeof error.code !== "number") return error.message;
   const said = consoleText(stderr).trim();
-  return `종료 코드 ${error.code}${said ? ` · ${said}` : ""}`;
+  return L.proc.memoryExitCode({ code: error.code, detail: said ? ` · ${said}` : "" });
 }
 
 /** tasklist /FO CSV /NH의 줄: "이름","PID","세션 이름","세션#","메모리 사용"(예: "31,456 K", 자릿점은 로캘마다) */
@@ -66,9 +67,9 @@ function parseProcStatus(text: string) {
 }
 
 // Linux: pid마다 /proc를 읽는다. 끝난 pid(ENOENT, ESRCH)는 빠진다
-async function fromProc(pids: number[]): Promise<{ memory: Map<number, number> } | { failed: string }> {
+async function fromProc(pids: number[]): Promise<{ memory: Map<number, number> } | { failed: string | LogText }> {
   const memory = new Map<number, number>();
-  let failed: string | null = null;
+  let failed: string | LogText | null = null;
   await Promise.all(
     pids.map(async (pid) => {
       try {
@@ -82,7 +83,7 @@ async function fromProc(pids: number[]): Promise<{ memory: Map<number, number> }
   return failed ? { failed } : { memory };
 }
 
-async function read(pids: number[]): Promise<{ memory: Map<number, number> } | { failed: string }> {
+async function read(pids: number[]): Promise<{ memory: Map<number, number> } | { failed: string | LogText }> {
   if (IS_LINUX) return fromProc(pids);
   const wanted = new Set(pids);
   const got = IS_WIN ? await run("tasklist", ["/FO", "CSV", "/NH"]) : await run("ps", ["-o", "pid=,rss=", "-p", pids.join(",")], [1]);

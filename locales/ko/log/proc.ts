@@ -43,6 +43,30 @@ const proc = {
   toolTimedOut: ({ label, seconds }: { label: string; seconds: number }) => `${label}: 시간 상한(${seconds}초)을 넘겨 강제 종료함`,
   toolOutputTooBig: ({ label, megabytes }: { label: string; megabytes: number }) => `${label}: 출력이 상한(${megabytes}MB)을 넘어 강제 종료함`,
   toolExitFailed: ({ label, code, detail }: { label: string; code: number | string; detail: string }) => `${label} 실패(종료 코드 ${code})${detail}`,
+  cpuAffinityFailed: ({ pid, reason }: { pid: number; reason: string }) => `CPU 선호도 설정 실패(pid ${pid}): ${reason}`,
+  recordBadJson: () => `유효하지 않은 JSON`,
+  recordNoOwnerPid: () => `owner.pid 필드 누락`,
+  recordChildrenNotArray: () => `children 필드가 배열이 아님`,
+  memoryExitCode: ({ code, detail }: { code: number; detail: string }) => `종료 코드 ${code}${detail}`,
+  registryStepWrite: () => `임시 파일 쓰기`,
+  registryStepRename: () => `이름 변경`,
+  registrySaveFailed: ({ file, step, error, code }: { file: string; step: string; error: string; code: string }) => `${file} | 단계=${step} | ${error} (${code}) (비정상 종료 시 잔류 프로세스 정리 불가)`,
+  childPriorityFailed: ({ label, error }: { label: string; error: string }) => `자식 프로세스 우선순위 설정 실패(${label}, 재생 중 소리가 잠깐 밀릴 수 있음): ${error}`,
+  taskkillExit: ({ code, stderr }: { code: string; stderr: string }) => `taskkill 종료 코드 ${code} · ${stderr}`,
+  snapshotSkipIdentity: () => `프로세스 식별 검증 생략`,
+  snapshotSkipProcess: () => `해당 프로세스 확인 건너뜀`,
+  uploadNoAnswer: ({ seconds }: { seconds: number }) => `${seconds}초 안에 응답이 없어 종료`,
+  uploadNoInterface: () => `측정할 수 있는 네트워크 인터페이스가 없음`,
+  /** 외부 명령이 실패했다. file: 명령, reason: 까닭 */
+  commandFailed: ({ file, reason }: { file: string; reason: string }) => `${file}: ${reason}`,
+  /** 메모리 읽기 명령이 시간 상한을 넘겨 끊었다. signal: 끊은 신호(모르면 null) */
+  memoryTimedOut: ({ seconds, signal }: { seconds: number; signal: string | null }) => `${seconds}초 초과로 강제 종료(${signal ?? "신호 모름"})`,
+  /** 업로드 측정 PowerShell이 끝났다. signal: 끝낸 신호(없으면 null, 그때는 종료 코드 code), stderr: 마지막 오류 출력(없으면 빈 글) */
+  uploadShellExited: ({ signal, code, stderr }: { signal: string | null; code: string; stderr: string }) => `PowerShell 종료(${signal ?? `종료 코드 ${code}`})${stderr ? ` · ${stderr}` : ""}`,
+  /** 잔류 자식 프로세스의 라벨. 프로세스 그룹 */
+  leftoverGroup: ({ label, pid }: { label: string; pid: number }) => `${label}#${pid}의 그룹`,
+  /** 잔류 자식 프로세스의 라벨. 그 자식의 자식(image: 실행 파일 이름, child: 그 pid) */
+  leftoverDescendant: ({ label, pid, image, child }: { label: string; pid: number; image: string; child: number }) => `${label}#${pid}의 ${image}#${child}`,
 };
 
 export { proc };

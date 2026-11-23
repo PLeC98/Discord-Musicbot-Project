@@ -9,7 +9,7 @@ import config from "../../config/index.ts";
 import { styleText } from "node:util";
 import { LEVELS, KEPT_LINES, levelNameOf, wireFields, type LevelName, type LogGap, type WireEntry } from "./levels.ts";
 import { repeatingFailure } from "../repeating-failure.ts";
-import { renderLogText } from "./log-text.ts";
+import { asText, renderLogText } from "./log-text.ts";
 import { messageOf } from "../error-text.ts";
 import { L } from "./text.ts";
 
@@ -104,7 +104,7 @@ function clipText(text: string): string {
   // 서로게이트 짝을 쪼개지 않는다
   if (/[\ud800-\udbff]/.test(text[head - 1]!)) head--;
   if (/[\udc00-\udfff]/.test(text[tail]!)) tail++;
-  return `${text.slice(0, head)}…(가운데 ${tail - head}자 생략)…${text.slice(tail)}`;
+  return `${text.slice(0, head)}…${asText(L.log.clipped({ count: tail - head }))}…${text.slice(tail)}`;
 }
 
 /** 문구 값(args): 모든 깊이에서 키 이름과 글 값을 가리고 자른 새 객체. 원본(freeze된 서술자의 값)은 그대로 둔다 */
@@ -225,7 +225,7 @@ class LogSink {
           failed ??= error;
         }
       }
-      if (failed) this._destFailures.fail(`${messageOf(failed).split("\n")[0]} (해당 로그 유실)`);
+      if (failed) this._destFailures.fail(L.log.destinationLost({ error: messageOf(failed).split("\n")[0] }));
       else this._destFailures.ok();
     }
   }
@@ -248,7 +248,7 @@ class LogSink {
         firstError ??= error;
       }
     }
-    if (failedCount) this.notice(`[log] 기동 초기 버퍼 로그 기록 실패(실패 건 파일에서 누락): ${failedCount}/${replay.length}건 | ${messageOf(firstError).split("\n")[0]}\n`);
+    if (failedCount) this.notice(`[log] ${asText(L.log.replayFailed({ failed: failedCount, total: replay.length, error: messageOf(firstError).split("\n")[0] }))}\n`);
   }
 
   // 가리기 뒤에 자른다. 먼저 자르면 잘린 자리에 걸린 토큰이 패턴에 맞지 않아 앞부분이 남는다

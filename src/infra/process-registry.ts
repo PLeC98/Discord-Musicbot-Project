@@ -63,14 +63,14 @@ function save() {
     owner: SELF,
     children: [...active.values()].map((e) => ({ pid: e.pid, label: e.label, image: imageOf(e.child.spawnfile), group: e.group, startedAt: e.startedAt, startKey: e.startKey })),
   };
-  let step = "임시 파일 쓰기";
+  let step = L.proc.registryStepWrite();
   try {
     const temp = `${recordFile}.${process.pid}.tmp`;
     fs.writeFileSync(temp, JSON.stringify(record));
-    step = "이름 변경";
+    step = L.proc.registryStepRename();
     fs.renameSync(temp, recordFile);
   } catch (error) {
-    saveFailures.fail(`${recordFile} | 단계=${step} | ${messageOf(error)} (${String(codeOf(error))}) (비정상 종료 시 잔류 프로세스 정리 불가)`);
+    saveFailures.fail(L.proc.registrySaveFailed({ file: recordFile, step, error: messageOf(error), code: String(codeOf(error)) }));
     return;
   }
   saveFailures.ok();
@@ -112,7 +112,7 @@ function settlePriority(pid: number, label: string, low: boolean) {
     settleChild(pid, low);
   } catch (error) {
     if (codeOf((error as { info?: unknown }).info) === "ESRCH") return; // 자식이 이미 끝났다(Node는 시스템 오류의 코드를 info에 싣는다)
-    const line = `자식 프로세스 우선순위 설정 실패(${label}, 재생 중 소리가 잠깐 밀릴 수 있음): ${messageOf(error)}`;
+    const line = L.proc.childPriorityFailed({ label, error: messageOf(error) });
     if (priorityWarned) return void log.debug(line);
     priorityWarned = true;
     log.warn(line);
@@ -159,7 +159,7 @@ function killTrees(entries: Entry[]): { killed: Entry[]; failed: Entry[] } {
   const byPid = new Map(live.map((entry) => [entry.pid, entry]));
   const names = (pids: number[]) => pids.map((pid) => `${byPid.get(pid)?.label ?? "?"}#${pid}`).join(", ");
   const failedPids = killTreesOf(live, ({ pids, error, status, stderr }) => {
-    const why = error ? messageOf(error) : `taskkill 종료 코드 ${String(status)} · ${consoleText(stderr ?? Buffer.alloc(0)).trim()}`;
+    const why = error ? messageOf(error) : L.proc.taskkillExit({ code: String(status), stderr: consoleText(stderr ?? Buffer.alloc(0)).trim() });
     log.warn(L.proc.childKillFailed({ names: names(pids), why }));
   });
   const failed = live.filter((entry) => failedPids.has(entry.pid));

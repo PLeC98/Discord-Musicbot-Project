@@ -7,6 +7,20 @@ const log = {
   fileResumed: ({ seconds, lost }: { seconds: number; lost: number }) => `파일 로그가 ${seconds}초 동안 멈췄다가 재개됨. 그동안 ${lost}줄을 남기지 못함`,
   fileLog: ({ file }: { file: string }) => `파일 로그(${file})`,
   destinationWrite: () => `로그 출력 대상 기록`,
+  rotatedListFailed: ({ dir, caller, error, code }: { dir: string; caller: string; error: string; code: string }) => `로그 폴더 읽기 실패(로테이션된 로그 파일 없음으로 처리): ${dir} | 작업=${caller} | ${error} (${code})`,
+  openFailed: () => `파일을 열 수 없음`,
+  pruneLabel: () => `로그 정리`,
+  rotateFailed: () => `로그 회전 실패`,
+  writeFailed: () => `기록 실패`,
+  destinationLost: ({ error }: { error: string }) => `${error} (해당 로그 유실)`,
+  /** 제목을 모르는 곡(로그 줄의 곡 라벨) */
+  untitled: () => `(제목 없음)`,
+  /** 너무 긴 값의 가운데를 줄였다. count: 줄인 글자 수 */
+  clipped: ({ count }: { count: number }) => `(가운데 ${count}자 생략)`,
+  /** 기동 초기에 모아 둔 줄을 첫 기록처에 다시 쓰다 실패했다. failed: 실패한 줄 수, total: 모아 둔 줄 수, error: 첫 실패의 첫 줄 */
+  replayFailed: ({ failed, total, error }: { failed: number; total: number; error: string }) => `기동 초기 버퍼 로그 기록 실패(실패 건 파일에서 누락): ${failed}/${total}건 | ${error}`,
+  /** 지난 로그 파일을 지우지 못했다 */
+  oldFileDeleteFailed: ({ name, error }: { name: string; error: string }) => `지난 로그 파일 삭제 실패(${name}): ${error}`,
 };
 
 export { log };
