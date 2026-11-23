@@ -1,4 +1,4 @@
-// 아래층(rules, config, store)과 서버가 문장 대신 내는 문제: 코드와 값. 문장은 locales/<언어>/rules/가 그린다(봇의 로그와 터미널은 LOG_LANGUAGE, 화면은 보는 사람의 언어).
+// 아래층(rules, config, store)과 서버가 문장 대신 내는 문제: 코드와 값. 문장은 locales/<언어>/rules/가 그린다(봇의 로그와 터미널은 로그 언어, 화면은 보는 사람의 언어).
 // 감싸는 문제(운영 설정값의 이름과 값, 불러오기 항목)는 이유를 cause에 담는다. 화면도 부르는 Node 없는 모듈
 
 const RULE_CODES = [

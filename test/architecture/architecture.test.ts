@@ -76,6 +76,23 @@ test(".env는 진입 파일의 첫 줄만 읽는다", () => {
   assert.deepEqual(now.withoutBootstrap, [], "설정에 닿는 진입 파일은 프로젝트 모듈 중 app/env-bootstrap을 맨 먼저 부른다");
 });
 
+// 설정 검사 글은 설정 모듈을 평가할 때 그려지므로, 로그 언어는 그보다 먼저 정해져 있어야 한다
+test("실행을 시작하는 파일은 다른 무엇보다 먼저 로그 언어를 고른다(.env를 읽는 진입은 읽은 바로 뒤에)", () => {
+  assert.ok(
+    ["src/index.ts", "scripts/setup-config.ts", "scripts/launch.ts"].every((rel) => now.startFiles.includes(rel)),
+    now.startFiles.join(", "),
+  );
+  assert.ok(!now.startFiles.includes("scripts/download.ts"), "다른 파일이 부르는 scripts 모듈은 진입이 아니다");
+  assert.deepEqual(now.withoutLogLanguage, [], "첫 부름이 app/env-bootstrap 이나 infra/log/choose-at-start");
+  const boot = fs.readFileSync(path.join(PROJECT.root, "src", "app", "env-bootstrap.ts"), "utf8");
+  assert.match(boot, /\nloadEnv\(\);\nchooseLogLanguage\(\);\n/, "env-bootstrap 은 .env를 읽은 바로 뒤에 고른다");
+});
+
+test("로그 언어를 고르는 모듈은 다른 프로젝트 모듈, Node 내장 모듈, 패키지를 부르지 않는다(설정, 로거보다 먼저 돌고 node_modules 없이도 돈다)", () => {
+  assert.deepEqual(now.logLanguageReach, ["src/infra/log/choose-at-start.ts", "src/infra/log/choose-language.ts", "src/infra/log/language.ts"]);
+  assert.deepEqual(now.logLanguageBareImports, []);
+});
+
 test("저장소 루트를 맞게 가리킨다", () => {
   assert.ok(fs.existsSync(path.join(PROJECT.root, "package.json")), PROJECT.root);
   assert.ok(fs.existsSync(path.join(PROJECT.root, "pnpm-workspace.yaml")), "다른 package.json이 아니라 이 저장소의 루트");

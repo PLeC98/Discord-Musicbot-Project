@@ -90,7 +90,8 @@ import * as guildSettings from "../store/guild-settings.ts";
 import { AppEmojis, apiOf } from "./app-emojis.ts";
 import { josa } from "../rules/josa.ts";
 import { missingText } from "../ui/text/index.ts";
-import { BASE_LANGUAGE } from "../rules/languages.ts";
+import { BASE_LANGUAGE, logLanguage } from "../rules/languages.ts";
+import { takeLogLanguageNotice } from "../infra/log/choose-language.ts";
 
 const log = logger.child({ category: "core" });
 
@@ -417,11 +418,19 @@ function warnMissingText() {
   }
 }
 
+// 적은 LOG_LANGUAGE를 쓸 수 없어 다른 언어로 찍는다. 진입 파일이 로거보다 먼저 골라 두었다(infra/log/choose-language)
+function warnLogLanguage() {
+  const notice = takeLogLanguageNotice();
+  if (!notice) return;
+  log.warn({ tags: ["startup"] }, `LOG_LANGUAGE 무시(${notice.value}): ${notice.kind === "malformed" ? "언어 태그 형식이 아님" : "그 언어의 로그 문구가 없음"}. 로그 언어: ${logLanguage()}`);
+}
+
 async function init(bot: BotContext, { commands, potServer, logFile, shutdown, onFault }: { commands: Map<string, SlashCommand>; potServer: PotServer; logFile: LogFile | null; shutdown: Shutdown; onFault: OnFault }) {
   const { client, players } = bot;
   try {
     log.info({ tags: ["startup"] }, "봇 기동 시작");
     warnMissingText();
+    warnLogLanguage();
     checkBeforeLogin();
     await startEncoding();
     loadCommands(commands);

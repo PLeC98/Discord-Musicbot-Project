@@ -5,6 +5,7 @@
 // 한자마다 읽기가 모두 ん(로마자 끝 N)으로 끝나면 "ㄴ 받침", 모두 아니면 "받침 없음"으로 나누고, 갈리면 표에 넣지 않는다
 // (그 한자로 끝나는 말은 조사를 괄호 형식으로 둔다). 실행에는 인터넷이 필요하다. 결과물은 저장소에 넣고, 출처와 라이선스는 data/NOTICE에 적는다.
 
+import "../src/infra/log/choose-at-start.ts"; // 다른 import보다 먼저 로그 언어를 고른다
 import fs from "fs";
 import path from "path";
 import zlib from "zlib";

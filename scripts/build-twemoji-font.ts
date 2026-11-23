@@ -11,6 +11,7 @@
 // iOS, iPadOS는 기기 이모지를 쓴다(디스코드 iOS 앱과 같다). @font-face를 그 WebKit에만 있는 속성으로 가려 거기서는 글꼴이 없게 한다.
 // 결과: dashboard/src/assets/twemoji/(twemoji.woff2, NOTICE.txt, build.json), dashboard/src/twemoji.css(@font-face)
 
+import "../src/infra/log/choose-at-start.ts"; // 다른 import보다 먼저 로그 언어를 고른다
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync, type SpawnSyncOptions } from "node:child_process";

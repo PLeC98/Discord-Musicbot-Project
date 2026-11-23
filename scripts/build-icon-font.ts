@@ -7,6 +7,7 @@
 // 화면은 이름 대신 코드포인트를 그리므로 합자 표는 담지 않는다. 결과물은 저장소에 넣는다.
 // 원본에 없는 라이선스 설명, 주소(name 13, 14번)를 넣고, 패키지의 라이선스를 글꼴 옆에 둔다(scripts/font-names.ts)
 
+import "../src/infra/log/choose-at-start.ts"; // 다른 import보다 먼저 로그 언어를 고른다
 import fs from "node:fs";
 import path from "node:path";
 import * as fontkit from "fontkit";

@@ -4,6 +4,7 @@
  *
  * 장르, 상태 문구, AI 설정은 파일이 아니라 settings.db의 문서다. 처음에는 기본값(src/config/defaults)으로 돌고 대시보드에서 고친다.
  */
+import "../src/infra/log/choose-at-start.ts"; // 다른 import보다 먼저 로그 언어를 고른다
 import { messageOf } from "../src/rules/error-kind.ts";
 import { setupEnv, madeLine } from "../src/config/env-file.ts";
 import { scriptLine } from "../src/infra/script-line.ts";

@@ -10,7 +10,7 @@ import config from "../config/index.ts";
 import * as trackState from "../player/track-state.ts";
 import { waitForRestore } from "../player/session-restore.ts";
 import { textFor } from "../ui/text/index.ts";
-import { LOG_LANGUAGE } from "../rules/languages.ts";
+import { logLanguage } from "../rules/languages.ts";
 import { continuation, validState, batchFor, KINDS } from "./playlist-more.ts";
 import { roomFor, roomLeft } from "../rules/queue-room.ts";
 import type { More, MoreState } from "../rules/more-choices.ts";
@@ -286,7 +286,7 @@ function logRequest({ source = "play", query, insertFirst = false }: PlaybackReq
 function whatOf({ isPlaylist, collection, tracks }: Found, asked: string | null) {
   const first = tracks[0];
   const title = first?.title ?? "?";
-  if (isPlaylist) return `${textFor(LOG_LANGUAGE).labels.collection(collection)} ${tracks.length}곡 (첫 곡 "${title}")`;
+  if (isPlaylist) return `${textFor(logLanguage()).labels.collection(collection)} ${tracks.length}곡 (첫 곡 "${title}")`;
   return first && !(asked && isUrl(asked)) ? `"${title}" (${first.pageUrl})` : `"${title}"`;
 }
 

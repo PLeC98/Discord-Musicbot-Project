@@ -93,7 +93,7 @@ function modulesCalled(file: string): string[] {
     .map((spec) => posix(path.join(path.dirname(file), spec)));
 }
 
-// 누가 보는지 모르는 층. 문구표는 로그 언어로만(textFor(LOG_LANGUAGE)) 부를 수 있다
+// 누가 보는지 모르는 층. 문구표는 로그 언어로만(textFor(logLanguage())) 부를 수 있다
 const NO_AUDIENCE = ["src/usecases", "src/player", "src/sources", "src/autoplay"];
 // 문구표를 아예 부르지 않는 층
 const NO_TEXT = ["src/rules", "src/config", "src/store"];
@@ -109,9 +109,9 @@ test("재생, 유스케이스, 소스, 자동재생은 언어를 고르지 않�
     const text = called.some((target) => TEXT_ENTRANCES.includes(target));
     const strict = NO_TEXT.some((dir) => file.startsWith(`${dir}/`));
     // 로그 언어가 아닌 인자로 문구표를 꺼낸다
-    const notLog = [...source.matchAll(/\b(?:textFor|sharedTextFor)\(([^)]*)\)/g)].some((m) => m[1].trim() !== "LOG_LANGUAGE");
+    const notLog = [...source.matchAll(/\b(?:textFor|sharedTextFor)\(([^()]*(?:\(\))?)\)/g)].some((m) => m[1].trim() !== "logLanguage()");
     // 규칙 문구표(rules/text)는 이 층들도 부르지만 로그 언어로만
-    const ruleNotLog = [...source.matchAll(/\bruleTextFor\(([^)]*)\)/g)].some((m) => m[1].trim() !== "LOG_LANGUAGE");
+    const ruleNotLog = [...source.matchAll(/\bruleTextFor\(([^()]*(?:\(\))?)\)/g)].some((m) => m[1].trim() !== "logLanguage()");
     return [picks && `${file}: ui/language`, text && (strict || notLog) && `${file}: 문구표`, ruleNotLog && `${file}: 규칙 문구표`].filter((one): one is string => Boolean(one));
   });
   assert.deepEqual(wrong, []);

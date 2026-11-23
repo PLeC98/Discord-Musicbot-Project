@@ -7,6 +7,7 @@
 // 결과: dashboard/src/assets/google-sans-flex/(서브셋마다 woff2, OFL.txt), dashboard/src/google-sans-flex.css(@font-face)
 // 원본에 없는 라이선스 설명(name 13번)을 넣어 서브셋마다 라이선스가 따라가게 한다(scripts/font-names.ts)
 
+import "../src/infra/log/choose-at-start.ts"; // 다른 import보다 먼저 로그 언어를 고른다
 import fs from "node:fs";
 import path from "node:path";
 import subsetFont from "subset-font";

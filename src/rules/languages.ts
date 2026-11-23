@@ -1,6 +1,8 @@
 // 지원 언어 목록과 언어 맞추기. 봇과 대시보드(브라우저)가 같이 쓴다(Node 없는 모듈).
 // 언어 이름은 BCP 47 태그다. 기준 언어(BASE_LANGUAGE)는 문구 계약의 기준이고, 다른 언어 번들에서 빠진 문구를 채우는 원본이다(ui/text).
-// 운영자가 고르는 봇 기본 언어와는 다르다(ui/language)
+// 운영자가 고르는 봇 기본 언어와는 다르다(ui/language). 로그 언어는 infra/log/language가 들고 여기서 다시 내보낸다
+
+import { logLanguage } from "../infra/log/language.ts";
 
 /** 언어 하나. locale: 숫자와 날짜 형식(Intl), discord: 이 언어로 받는 디스코드 로케일(정확히 같은 것만), htmlLang: 화면의 lang 속성 */
 type LanguageInfo = { tag: string; name: string; locale: string; discord: readonly string[]; htmlLang: string };
@@ -19,8 +21,6 @@ type TextLanguage = (typeof LANGUAGES)[number]["tag"];
 type Language = TextLanguage | typeof TEST_LANGUAGE;
 
 const BASE_LANGUAGE: TextLanguage = "ko";
-/** 로그와 예외 메시지를 그리는 언어. 로그 메시지는 번역하지 않는다 */
-const LOG_LANGUAGE: TextLanguage = "ko";
 
 // 테스트 언어의 언어 목록 포함 여부. 테스트에서만 켠다(useTestLanguage)
 let testLanguageOn = false;
@@ -88,5 +88,5 @@ function nameFor(names: object | undefined, language: Language): string | undefi
   return key ? table[key] : undefined;
 }
 
-export { LANGUAGES, TEST_LANGUAGE, BASE_LANGUAGE, LOG_LANGUAGE, KNOWN_TAGS, availableLanguages, useTestLanguage, isAvailable, infoOf, matchLanguage, discordLanguage, acceptedTags, nameFor };
+export { LANGUAGES, TEST_LANGUAGE, BASE_LANGUAGE, logLanguage, KNOWN_TAGS, availableLanguages, useTestLanguage, isAvailable, infoOf, matchLanguage, discordLanguage, acceptedTags, nameFor };
 export type { LanguageInfo, Language, TextLanguage };

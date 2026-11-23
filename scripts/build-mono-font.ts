@@ -9,6 +9,7 @@
 // D2Coding은 예약된 글꼴 이름(Reserved Font Name) "D2Coding", "D2Coding-Bold"를 단 SIL OFL 1.1이라 서브셋 수정본은 그 이름을 쓸 수 없다(OFL 조건 3).
 // 그래서 글꼴 안 이름(name 테이블의 패밀리, 전체, PostScript, 고유 ID)과 CSS 이름을 FAMILY로 바꾼다. 저작권(0번), 라이선스(13, 14번)는 남긴다
 
+import "../src/infra/log/choose-at-start.ts"; // 다른 import보다 먼저 로그 언어를 고른다
 import fs from "node:fs";
 import path from "node:path";
 import * as fontkit from "fontkit";

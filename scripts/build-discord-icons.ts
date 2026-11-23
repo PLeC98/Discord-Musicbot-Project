@@ -7,6 +7,7 @@
 // 쓰는 곳에 맞춘 값으로 축을 고정한 글꼴(subset-font. fontkit은 이 WOFF2의 축을 풀지 못한다)에서 윤곽을 SVG 경로로 저장한다(글꼴 단위 960, y축은 위쪽이 양수).
 // 봇은 이 파일로 그린다(ui/icon-images, ui/card-render). 글꼴 도구는 개발 의존성이라 봇 코드는 불러오지 않는다. 기호 "sponsorblock"은 글꼴이 아니라 skipIcon.svg, 로고(logo)는 이미지 파일이다
 
+import "../src/infra/log/choose-at-start.ts"; // 다른 import보다 먼저 로그 언어를 고른다
 import fs from "node:fs";
 import path from "node:path";
 import * as fontkit from "fontkit";

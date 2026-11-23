@@ -6,6 +6,7 @@
 // 설정 모듈, .env를 부르지 않는다(워크플로 실행기에는 .env가 없다. 비교하는 것은 저장소의 기본값이다).
 // GITHUB_TOKEN이 있으면 GitHub API에 실어 보낸다(요청 한도). 잠금 파일은 package.json과 함께 받아 npm audit --package-lock-only로 본다(설치하지 않는다)
 
+import "../src/infra/log/choose-at-start.ts"; // 다른 import보다 먼저 로그 언어를 고른다
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";

@@ -292,6 +292,8 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {}, env
 
   const fromEnv = Object.fromEntries(Object.entries(source).filter(([key]) => !TUNABLE_KEYS.has(key)));
   const readers = envReaders({ ...fromEnv, ...tunables }, problems, tuneProblems);
+  // 설정보다 먼저 진입 파일이 읽는 환경 변수 이름(infra/log/choose-language). .env에 적어도 읽지 않는 이름 경고에 걸리지 않게
+  readers.asked.add("LOG_LANGUAGE");
   const { env, envGuildId, envInt, envUrl, envColor, envQueueMax, envYtdlpVersion, envBgutilTarget, envClients, tuneInt, tuneBool, tuneEnum } = readers;
 
   // ── 자격증명 ──

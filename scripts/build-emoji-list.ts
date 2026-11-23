@@ -10,6 +10,7 @@
 // 그리고 Twemoji에 이미지 파일이 실제로 있는지 대조한다. 없는 것을 목록에 넣으면 그 셀만 깨져 보인다.
 // 실행에는 인터넷이 필요하다. 결과물은 저장소에 넣는다.
 
+import "../src/infra/log/choose-at-start.ts"; // 다른 import보다 먼저 로그 언어를 고른다
 import fs from "fs";
 import path from "path";
 import { z } from "zod";

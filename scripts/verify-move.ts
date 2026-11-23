@@ -11,6 +11,7 @@
 // 짝이 없는 추가된 줄(함수 헤더, 내보내기, 부르는 한 줄 같은 감싸는 줄)은 목록으로 보여 주기만 한다. 사람이 본다.
 // 삭제된 줄이 하나라도 사라졌으면 실패한다. 그것은 옮기기가 아니라 고치기다.
 
+import "../src/infra/log/choose-at-start.ts"; // 다른 import보다 먼저 로그 언어를 고른다
 import { execFileSync } from "child_process";
 
 const arg = process.argv[2];
