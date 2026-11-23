@@ -8,7 +8,7 @@ import { requireOwner } from "../middleware/require-owner.ts";
 import { requireRecentLogin } from "../middleware/recent-login.ts";
 import { sendProblem } from "../problem.ts";
 import { ranBy } from "../ran-by.ts";
-import { codeOf, messageOf } from "../../rules/error-kind.ts";
+import { codeOf, errorProblem, messageOf } from "../../rules/error-kind.ts";
 import * as snapshots from "../../store/snapshots.ts";
 import type { SnapshotsView } from "../../rules/snapshots.ts";
 
@@ -29,7 +29,8 @@ snapshotsRouter.post("/restore", requireRecentLogin, (req, res) => {
     if (codeOf(error) === "SNAPSHOT_NOT_FOUND") return sendProblem(res, "snapshot-not-found");
     if (codeOf(error) === "SNAPSHOT_MISMATCH") return sendProblem(res, "snapshot-mismatch", {}, { detail: messageOf(error) });
     log.error({ sub: "admin" }, `설정 DB 복원 예약 실패: ${messageOf(error)}`);
-    return sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
+    // 실패 상세는 규칙 문제로 보낸다(화면이 보는 사람의 언어로 그린다. 바깥 글이면 그 글 그대로)
+    return sendProblem(res, "config-save-failed", {}, { errors: [{ code: "config-save-failed", rule: errorProblem(error) }] });
   }
   log.warn({ sub: "admin" }, `대시보드에서 설정 DB 복원 예약: ${name}(다음 기동에 교체). 실행 ${ranBy(req)}`);
   res.json(view());

@@ -73,7 +73,7 @@ test("문구 한 줄이 터미널, SSE, 파일, 로그 파일 보기에 같은 �
   assert.equal(got.viewer[0].text, expected, "로그 파일 보기");
 });
 
-test("실시간 로그와 로그 파일 보기의 줄에 문구 코드가 실리고(값 안의 라벨 것까지), 문구 코드로 찾힌다", async () => {
+test("실시간 로그와 로그 파일 보기의 줄에 문구 코드가 실리고(값 안의 라벨 것까지), 문구 코드로 찾을 수 있다", async () => {
   const label = L.core.runRecordUpdate();
   const got = await throughExits((log) => {
     log.warn(L.failure.started({ what: label, reason: "x" }));

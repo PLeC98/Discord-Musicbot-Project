@@ -55,5 +55,13 @@ const plainArgs = (args: LogArgs): Record<string, string | number | boolean | nu
 /** 레코드에 싣는 값: 값 안의 서술자를 { event, args }로 풀어 쓴 새 객체(원본은 그대로) */
 const recordArgs = (args: LogArgs): Record<string, unknown> => Object.fromEntries(Object.entries(args).map(([name, value]) => [name, isLogText(value) ? { event: value.event, args: recordArgs(value.args) } : value]));
 
-export { FAILED_MARK, isLogText, logText, renderLogText, plainArgs, recordArgs };
+/**
+ * 로그로만 가는 예외: 메시지는 서술자를 로그 언어로 그린 글이고, 서술자(logText)를 함께 든다(rules/text의 errorText가 꺼내 바깥 줄의 값 안에 남긴다).
+ * code: 종류 판정(rules/error-kind)이 보는 이름
+ */
+function logTextError(text: LogText, { code, cause }: { code?: string; cause?: unknown } = {}): Error {
+  return Object.assign(new Error(renderLogText(text), cause === undefined ? undefined : { cause }), { logText: text }, code === undefined ? {} : { code });
+}
+
+export { FAILED_MARK, isLogText, logText, logTextError, renderLogText, plainArgs, recordArgs };
 export type { LogArg, LogArgs, LogText, LogBindings };

@@ -170,6 +170,10 @@ const RULE_CODES = [
   "lbg-none",
   // 데이터 글 그대로(text): 모델 이름, 주소, 바깥 서비스의 오류 글
   "plain",
+  // 메시지 없는 오류(rules/error-kind의 errorProblem). value: 던진 값, code: 오류 코드, name, at: 이름, 던진 자리(없으면 빈 글)
+  "error-thrown",
+  "error-code",
+  "error-no-message",
   // 봇 상태 탭의 연결(dashboard/status/links)
   "link-off",
   "link-no-key",

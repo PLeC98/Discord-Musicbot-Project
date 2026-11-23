@@ -5,7 +5,8 @@ import * as ko from "../../../locales/ko/rules/index.ts";
 import { BASE_LANGUAGE, TEST_LANGUAGE, logLanguage, type TextLanguage } from "../languages.ts";
 import { bundles } from "../../infra/text-bundle.ts";
 import { ruleLine, type RuleProblem } from "../rule-problem.ts";
-import { logText, type LogText } from "../../infra/log/log-text.ts";
+import { isLogText, logText, type LogText } from "../../infra/log/log-text.ts";
+import { errorProblem } from "../error-kind.ts";
 import type { RuleSource } from "./shape.ts";
 
 const SOURCES: Readonly<Record<TextLanguage, RuleSource>> = { ko };
@@ -20,8 +21,27 @@ function ruleLogText(problem: RuleProblem): LogText {
   return logText(`rule.${problem.code}`, { ...problem.params, ...(problem.cause ? { cause: ruleLogText(problem.cause) } : {}) }, () => logRuleLine(problem));
 }
 
+/**
+ * 화면까지 가는 예외: 규칙 문제를 들고(problem, 화면이 보는 사람의 언어로 그린다), 메시지는 로그 언어의 문장, 로그에는 같은 문제의 서술자(logText)로 남는다.
+ * code: 종류 판정(rules/error-kind)이 보는 이름
+ */
+function ruleError(problem: RuleProblem, { code, cause }: { code?: string; cause?: unknown } = {}): Error {
+  return Object.assign(new Error(logRuleLine(problem), cause === undefined ? undefined : { cause }), { problem, logText: ruleLogText(problem) }, code === undefined ? {} : { code });
+}
+
+/**
+ * 오류를 로그 문구의 값으로: 오류에 든 서술자(logText)가 있으면 그것, 규칙 문제나 메시지 없는 오류의 사실이면 그 규칙 문제의 서술자, 그 밖(바깥 글, 메시지)은 그 글.
+ * 값 안에 서술자가 남아 바깥 줄에서도 예외 원인의 문구 코드로 찾을 수 있다
+ */
+function errorText(error: unknown): string | LogText {
+  const attached: unknown = error && typeof error === "object" && "logText" in error ? error.logText : null;
+  if (isLogText(attached)) return attached;
+  const problem = errorProblem(error);
+  return problem.code === "plain" ? String(problem.params?.text ?? "") : ruleLogText(problem);
+}
+
 /** 소스 종류의 이름(로그 언어). 모르는 종류면 종류 이름 그대로 */
 const logSourceLabel = (type: string) => ruleTextFor(logLanguage()).sources[type]?.label ?? type;
 
-export { ruleTextFor, missingRuleText, logRuleLine, ruleLogText, logSourceLabel };
+export { ruleTextFor, missingRuleText, logRuleLine, ruleLogText, ruleError, errorText, logSourceLabel };
 export type { RuleSource };

@@ -2,7 +2,7 @@
 // 로그 레벨은 호출한 쪽이 정한다. 기본 debug는 네 가지 질문(사용자로 인함, 봇에 영향 없음, 그 사용자만, 일시적)이 다 "예"인 실패에만 쓴다.
 // 삼켜도 되는 이유가 분명해 남길 것도 없으면 빈 catch에 그 이유를 주석으로 적는다.
 
-import { codeOf, messageOf } from "./error-text.ts";
+import { messageWithCode } from "./error-text.ts";
 
 type Level = "debug" | "warn" | "error";
 
@@ -13,10 +13,7 @@ function bestEffort(log: Partial<Record<Level, (line: string) => unknown>>, work
   return Promise.resolve(work).then(
     () => undefined,
     (error: unknown) => {
-      const text = messageOf(error);
-      const code = codeOf(error);
-      // 오류 코드가 있으면 붙인다(디스코드 오류 번호 등. rules/error-kind의 describeError와 같은 모양)
-      log[level]?.(`${what} 실패: ${code === undefined || text === `오류 코드 ${code}` ? text : `${text} (${code})`}`);
+      log[level]?.(`${what} 실패: ${messageWithCode(error)}`);
     },
   );
 }

@@ -82,7 +82,6 @@
   "src/rules/convert-plan.ts": 5,
   "src/rules/discord-rejection.ts": 13,
   "src/rules/end-verdict.ts": 10,
-  "src/rules/error-kind.ts": 1,
   "src/rules/failure-reason.ts": 13,
   "src/rules/node-support.ts": 3,
   "src/rules/operator-hints.ts": 3,
