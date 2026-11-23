@@ -9,7 +9,7 @@ import path from "node:path";
 import ts from "typescript";
 import { codepointsOf } from "../../scripts/unicode-range.ts";
 import { BASE_LANGUAGE, LANGUAGES, TEST_LANGUAGE, infoOf, type Language, type TextLanguage } from "../../src/rules/languages.ts";
-import { pseudoString } from "../../src/rules/pseudo-text.ts";
+import { pseudoString } from "../../src/infra/pseudo-text.ts";
 
 const ROOT = path.join(import.meta.dirname, "..", "..");
 const posix = (p: string) => p.split(path.sep).join("/");
@@ -72,7 +72,7 @@ function formatted(language: Language): string[] {
 const outside = (texts: string[]) => [...new Set([...texts.join("")])].filter((ch) => /\S/u.test(ch) && !COVERED.has(ch.codePointAt(0)!));
 const label = (ch: string) => `${ch} U+${ch.codePointAt(0)!.toString(16).toUpperCase().padStart(4, "0")}`;
 
-// 테스트 언어는 기준 언어의 문구를 변환해 만들고(rules/pseudo-text), 날짜와 숫자는 해당 형식 로케일을 그대로 따른다
+// 테스트 언어는 기준 언어의 문구를 변환해 만들고(infra/pseudo-text), 날짜와 숫자는 해당 형식 로케일을 그대로 따른다
 function screenTexts(language: Language): string[] {
   const literals = language === TEST_LANGUAGE ? screenFiles(BASE_LANGUAGE).flatMap(stringsOf).map(pseudoString) : screenFiles(language).flatMap(stringsOf);
   return [...literals, ...formatted(language)];

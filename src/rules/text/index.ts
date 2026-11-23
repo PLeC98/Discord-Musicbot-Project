@@ -2,14 +2,14 @@
 // 아래층은 로그와 예외를 로그 언어로만 그린다(logRuleLine). 화면은 이 진입점을 부르지 않고 같은 언어의 폴더를 화면 번들로 받는다
 
 import * as ko from "../../../locales/ko/rules/index.ts";
-import { logLanguage, type TextLanguage } from "../languages.ts";
-import { bundles } from "../text-bundle.ts";
+import { BASE_LANGUAGE, TEST_LANGUAGE, logLanguage, type TextLanguage } from "../languages.ts";
+import { bundles } from "../../infra/text-bundle.ts";
 import { ruleLine, type RuleProblem } from "../rule-problem.ts";
 import type { RuleSource } from "./shape.ts";
 
 const SOURCES: Readonly<Record<TextLanguage, RuleSource>> = { ko };
 
-const { textFor: ruleTextFor, missingText: missingRuleText } = bundles(SOURCES, (text: RuleSource) => text);
+const { textFor: ruleTextFor, missingText: missingRuleText } = bundles(SOURCES, (text: RuleSource) => text, { base: BASE_LANGUAGE, test: TEST_LANGUAGE });
 
 /** 문제 하나를 로그 언어의 문장으로(로그, 예외, 터미널) */
 const logRuleLine = (problem: RuleProblem) => ruleLine(ruleTextFor(logLanguage()).problems, problem);

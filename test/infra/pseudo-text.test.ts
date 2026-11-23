@@ -1,8 +1,8 @@
-// src/rules/pseudo-text.ts: 테스트 언어. 한글 음절만 영문자로 바꾸고 글자 수를 지키며, 두 번 바꿔도 같다
+// src/infra/pseudo-text.ts: 테스트 언어. 한글 음절만 영문자로 바꾸고 글자 수를 지키며, 두 번 바꿔도 같다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { pseudoString, pseudoText } from "../../src/rules/pseudo-text.ts";
+import { pseudoString, pseudoText } from "../../src/infra/pseudo-text.ts";
 
 test("한글 음절을 초성의 영문자로 바꾸고 나머지 글자는 그대로 둔다", () => {
   assert.equal(pseudoString("가나다 ABC 123!"), "gnd ABC 123!");

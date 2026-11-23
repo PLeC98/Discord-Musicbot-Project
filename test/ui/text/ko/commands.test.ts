@@ -5,7 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { COMMANDS } from "../../../../src/discord/commands/index.ts";
 import { localizeCommand, type LocaleText } from "../../../../src/ui/command-localizations.ts";
-import { fillFrom } from "../../../../src/rules/text-fill.ts";
+import { fillFrom } from "../../../../src/infra/text-fill.ts";
 import { WHOLE_MODULES } from "../../../../src/ui/text/bundle.ts";
 import { textFor } from "../../../../src/ui/text/index.ts";
 import * as ko from "../../../../locales/ko/bot/index.ts";

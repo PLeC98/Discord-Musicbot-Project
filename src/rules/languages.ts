@@ -10,7 +10,7 @@ type LanguageInfo = { tag: string; name: string; locale: string; discord: readon
 const LANGUAGES = [{ tag: "ko", name: "한국어", locale: "ko-KR", discord: ["ko"], htmlLang: "ko" }] as const satisfies readonly LanguageInfo[];
 
 /**
- * 테스트 언어. 기준 언어의 문구를 바꿔 만든다(rules/pseudo-text). 테스트에서만 언어 목록에 넣는다(useTestLanguage).
+ * 테스트 언어. 기준 언어의 문구를 바꿔 만든다(infra/pseudo-text). 테스트에서만 언어 목록에 넣는다(useTestLanguage).
  * 태그는 실제 언어와 겹치지 않는 것이어야 한다(ko-x-test는 언어 부분 맞추기에서 ko와 겹치고, x-test는 Intl이 받지 않는다)
  */
 const TEST_LANGUAGE = "qps-ploc";

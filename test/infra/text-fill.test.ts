@@ -1,8 +1,8 @@
-// src/rules/text-fill.ts: 언어 번들에서 빠졌거나 종류가 다른 문구만 기준 언어의 것으로 채우고 그 경로를 알린다
+// src/infra/text-fill.ts: 언어 번들에서 빠졌거나 종류가 다른 문구만 기준 언어의 것으로 채우고 그 경로를 알린다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { fillFrom } from "../../src/rules/text-fill.ts";
+import { fillFrom } from "../../src/infra/text-fill.ts";
 
 const base = {
   labels: { title: "제목", count: (n: number) => `${n}곡` },

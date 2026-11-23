@@ -1,5 +1,5 @@
 // 화면 문구표. 언어마다 같은 형태의 번들(locales/<언어>/screen/index.ts)을 두고, 고른 언어의 번들로 같은 문구표 객체(text) 안의 값을 갈아 끼운다(새로고침하지 않고 그 자리에서 글자가 바뀐다).
-// 기준 언어 번들은 늘 싣는다(처음 그리는 글자이고, 다른 언어에서 빠진 문구를 채운다). 다른 언어는 고를 때 받는다. 테스트 언어는 기준 언어를 바꿔 만든다(rules/pseudo-text).
+// 기준 언어 번들은 늘 싣는다(처음 그리는 글자이고, 다른 언어에서 빠진 문구를 채운다). 다른 언어는 고를 때 받는다. 테스트 언어는 기준 언어를 바꿔 만든다(infra/pseudo-text).
 // 모듈과 그 안의 객체마다 같은 그릇을 지킨다: `const T = text.shell`, `const D = text.settings.devices`처럼 객체를 가리켜 둔 곳은 함께 바뀌고,
 // 문자열, 함수, 배열을 꺼내 둔 곳은 바뀌지 않는다(읽을 때 꺼낸다. test/dashboard/client/text-copies로 검사한다).
 // 말투는 해요체, 버튼, 제목은 명사형, 툴팁은 짧게, 화면 읽기 이름(aria-label)은 무엇인지 드러나게.
@@ -8,8 +8,8 @@
 import { ref, shallowReactive } from "vue";
 import * as base from "../../../locales/ko/screen/index.ts";
 import type { TextShape } from "../../../src/ui/text/contract.ts";
-import { fillFrom } from "../../../src/rules/text-fill.ts";
-import { pseudoText } from "../../../src/rules/pseudo-text.ts";
+import { fillFrom } from "../../../src/infra/text-fill.ts";
+import { pseudoText } from "../../../src/infra/pseudo-text.ts";
 import { withErrors } from "../../../src/ui/text/bundle.ts";
 import { BASE_LANGUAGE, TEST_LANGUAGE, type Language, type TextLanguage } from "../../../src/rules/languages.ts";
 

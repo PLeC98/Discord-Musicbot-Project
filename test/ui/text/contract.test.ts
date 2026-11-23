@@ -1,11 +1,11 @@
 // src/ui/text/contract.ts: 언어 모듈이 맞춰야 할 구조. 문구만 다른 번들은 통과하고, 뜻이 있는 값(아이콘 키)이 틀리거나 export를 빼면 타입 검사가 막는다.
-// 타입 검사를 거치지 않은 번들은 실행 중에 빠진 문구만 기준 언어로 채운다(rules/text-fill)
+// 타입 검사를 거치지 않은 번들은 실행 중에 빠진 문구만 기준 언어로 채운다(infra/text-fill)
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as ko from "../../../locales/ko/bot/index.ts";
 import type { BotSource } from "../../../src/ui/text/index.ts";
-import { fillFrom } from "../../../src/rules/text-fill.ts";
+import { fillFrom } from "../../../src/infra/text-fill.ts";
 import { WHOLE_MODULES } from "../../../src/ui/text/bundle.ts";
 
 // 문구만 다르다
