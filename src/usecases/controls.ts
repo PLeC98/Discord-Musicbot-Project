@@ -10,7 +10,7 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "control" });
 import * as perm from "./permissions.ts";
 import { bestEffort } from "../infra/best-effort.ts";
-import { asText } from "../infra/log/log-text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
 import * as playerEvents from "../player/events.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { VOLUME_MAX } from "../rules/limits.ts";
@@ -27,6 +27,7 @@ import type { PermissionDenied } from "./permissions.ts";
 import type { Code, NeedsParams, ParamsOf, Problem } from "../rules/problems.ts";
 import { clearSeat } from "./stay.ts";
 import { seatedIn } from "../player/idle-leave.ts";
+import { L } from "../infra/log/text.ts";
 
 /** 누가 시켰나: 디스코드 멤버 */
 type Actor = { member: GuildMember };
@@ -44,7 +45,7 @@ const done = <T extends object>(facts: T) => ({ ok: true as const, ...facts });
 
 // 조작 뒤 패널을 지금 상태로 다시 그린다. 기다리지 않는다(응답이 패널 REST, 썸네일 확인을 기다리지 않게. 그리기는 패널이 서버마다 순서대로 한다).
 // 패널을 갱신하지 못해도 조작은 된 것이다
-const refresh = (player: Player) => playerEvents.refresh(player).catch((error) => log.warn(`조작 뒤 패널 갱신 실패: ${messageOf(error)}`));
+const refresh = (player: Player) => playerEvents.refresh(player).catch((error) => log.warn(L.control.panelRefreshAfterControlFailed({ error: messageOf(error) })));
 
 // 권한이 있나. 막히면 실패 결과, 지나가면 null. 플레이어가 있는지는 호출부가 먼저 본다
 async function permitted(player: Player, actor: Actor, check: Check = perm.checkControl) {
@@ -89,7 +90,7 @@ async function pause(player: MaybePlayer, actor: Actor, { onAccepted }: { onAcce
   }
   player.pause.setUser(!player.pause.userPaused);
   // 휴면 중인 곡이면 스트림을 다시 연다. 몇 초 걸릴 수 있어 기다리지 않고 응답한다(여는 동안에도 화면은 곡을 보인다)
-  if (player.resting) void player.wake().catch((error: unknown) => log.warn(`휴면 스트림 다시 열기 실패: ${messageOf(error)}`));
+  if (player.resting) void player.wake().catch((error: unknown) => log.warn(L.control.dormantReopenFailed({ error: messageOf(error) })));
   void refresh(player);
   return done({ userPaused: player.pause.userPaused, heldBy: player.pause.heldBy, track });
 }
@@ -112,8 +113,8 @@ async function skip(player: MaybePlayer, actor: Actor, { onTrack }: OnTrack = {}
  * 정리를 시작해 둔 채 응답한다. 정리의 동기 부분(레지스트리에서 빠짐, 대기열 비움)은 work를 만들 때 이미 끝나, 답을 기다리는 사이 다른 명령이 정리 전의 플레이어를 보지 않는다.
  * 정리의 실패는 곧바로 잡아 warn으로 남긴다(답을 기다리는 사이 처리되지 않은 거부가 되지 않게). 답이 실패해도 정리는 끝까지 기다린 뒤 그 오류를 올린다
  */
-async function answerDuring<T>(work: Promise<unknown>, what: string, facts: T, onAccepted: ((facts: T) => unknown) | undefined) {
-  const ending = work.catch((error: unknown) => log.warn(`${what} 실패: ${messageOf(error)}`));
+async function answerDuring<T>(work: Promise<unknown>, what: string | LogText, facts: T, onAccepted: ((facts: T) => unknown) | undefined) {
+  const ending = work.catch((error: unknown) => log.warn(L.control.stopWorkFailed({ what, error: messageOf(error) })));
   try {
     await onAccepted?.(facts);
   } finally {
@@ -134,14 +135,14 @@ async function stop(player: MaybePlayer, actor: Actor, { onAccepted }: Accepting
   // 24/7 자리에서는 대기열만 비우고 남는다. 여는 중이면 그 곡이 정지 뒤에 틀어지지 않게 거절한다
   if (seatedIn(player.guild?.id ?? "", player.voiceChannel?.id)) {
     if (player.isPlayStarting) return fail("still-starting");
-    log.info(`정지(상주 모드라 채널에 남음): ${player._trackLabel()} | 대기열 ${cleared}곡 비움`);
+    log.info(L.control.stoppedStaying({ track: player._trackLabel(), cleared }));
     const facts = { track, cleared, stayed: true };
-    await answerDuring(player.stopStaying(), "상주 모드 정지", facts, onAccepted);
+    await answerDuring(player.stopStaying(), L.control.stopStayingLabel(), facts, onAccepted);
     return done(facts);
   }
-  log.info(`정지: ${player._trackLabel()} | 대기열 ${cleared}곡 비움`);
+  log.info(L.control.stopped({ track: player._trackLabel(), cleared }));
   const facts = { track, cleared, stayed: false };
-  await answerDuring(player.dispose({ reason: "정지", session: "remove", panel: "stop", end: "stop" }), "정지", facts, onAccepted);
+  await answerDuring(player.dispose({ reason: L.control.stopReason(), session: "remove", panel: "stop", end: "stop" }), L.control.stopReason(), facts, onAccepted);
   return done(facts);
 }
 
@@ -231,12 +232,12 @@ function settleVolume(player: Player, before: number, settled: Settled | undefin
     settling.delete(player);
     const changed = s.from !== player.volume;
     if (changed) {
-      log.info(`볼륨: ${s.from}% → ${player.volume}%`);
+      log.info(L.control.volumeChanged({ from: s.from, volume: player.volume }));
       s.settled?.(s.from, player.volume);
     }
-    bestEffort(log, refresh(player), "볼륨 뒤 패널 갱신");
+    bestEffort(log, refresh(player), L.control.panelRefreshAfterVolume());
     // 정지했다가 다시 틀어도 이 볼륨으로 시작한다
-    if (changed) bestEffort(log, saveServerVolume(player), `서버 볼륨 저장(서버 ${player.guild?.id})`, "error");
+    if (changed) bestEffort(log, saveServerVolume(player), L.control.serverVolumeSave({ guildId: player.guild?.id }), "error");
   }, VOLUME_SETTLE_MS);
   s.timer.unref?.();
   settling.set(player, s);
@@ -392,7 +393,7 @@ async function joinIdle(target: Player) {
     return null;
   } catch (error) {
     // VoiceLink.connect가 실패 원인을 error로 남기고 예외를 던졌다. 나간 것은 정리(dispose)가 남긴다
-    await target.dispose({ reason: "음성 채널 접속 실패", session: "keep", end: "connect-failed" });
+    await target.dispose({ reason: L.player.disposeVoiceConnectFailed(), session: "keep", end: "connect-failed" });
     return codeOf(error) === "bot-shutting-down" ? "bot-shutting-down" : "voice-failed";
   }
 }
@@ -432,7 +433,7 @@ async function answerThenStart(target: Player, starts: boolean, onAccepted: (() 
       await target.playAutoplayNow();
     } catch (error) {
       if (!answerError) throw error;
-      log.warn(`자동재생 첫 곡 선택 실패: ${messageOf(error)}`);
+      log.warn(L.control.autoplayFirstPickFailed({ error: messageOf(error) }));
     }
   } else void refresh(target);
   if (answerError) throw answerError.error;
@@ -456,13 +457,13 @@ async function leave(guild: Guild, actor: Actor, players: Pick<PlayerRegistry, "
     const how = await leaveLingeringVoice(guild, players);
     if (how === "superseded") return fail("leave-superseded");
     if (how === "failed") return fail("leave-failed");
-    log.info(`플레이어 없이 남은 음성 채널에서 나감(${asText(LEFT_BY[how])}): ${guild.name}`);
+    log.info(L.control.lingeringVoiceLeft({ how: LEFT_BY[how], guild: guild.name }));
     return done({ left: "voice-only" as const, stayOff: seated });
   }
   const track = player.currentTrack;
   const saved = { queue: player.queue.length, positionSec: Math.floor((player.getCurrentTime?.() || 0) / 1000) };
   const facts = { left: "player" as const, track, saved, stayOff: seated };
-  await answerDuring(player.dispose({ reason: "나가며 저장", session: "save-for-join", panel: track ? "leave" : "disconnected", end: "leave" }), "나가기", facts, onAccepted);
+  await answerDuring(player.dispose({ reason: L.control.disposeLeaveSaved(), session: "save-for-join", panel: track ? "leave" : "disconnected", end: "leave" }), L.control.leaveLabel(), facts, onAccepted);
   return done(facts);
 }
 

@@ -9,7 +9,7 @@ import { LIFETIME, noticeSelf, toSelf } from "../../ui/delivery.ts";
 import { privateText, publicText } from "../../ui/language.ts";
 import logger from "../../infra/log/logger.ts";
 import { messageOf } from "../../rules/error-kind.ts";
-import { asText } from "../../infra/log/log-text.ts";
+import { L } from "../../infra/log/text.ts";
 const log = logger.child({ category: "commands" });
 
 // 재생목록을 넣을 때 한 번에 들어가는 곡 수. 남은 곡은 "더 넣기"로 이어 넣고, 그쪽은 대기열 상한만 본다.
@@ -59,7 +59,7 @@ async function saved(interaction: ChatInputCommandInteraction<"cached">, work: (
     await work();
     return true;
   } catch (error) {
-    log.error(`서버 설정 저장 실패(/setplaylistlimit): ${interaction.guild.name} (${interaction.guild.id}) | ${asText(guildSettings.FIELD_LABEL.playlistAddMax)} | ${messageOf(error)}`);
+    log.error(L.commands.setplaylistlimitSaveFailed({ name: interaction.guild.name, id: interaction.guild.id, field: guildSettings.FIELD_LABEL.playlistAddMax, error: messageOf(error) }));
     return false;
   }
 }

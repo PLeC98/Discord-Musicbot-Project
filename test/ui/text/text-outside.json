@@ -292,65 +292,6 @@
   "src/dashboard/user-guilds.ts": {
     "log": 4
   },
-  "src/discord/commands/dashboard.ts": {
-    "log": 2
-  },
-  "src/discord/commands/join.ts": {
-    "log": 1
-  },
-  "src/discord/commands/play.ts": {
-    "log": 1
-  },
-  "src/discord/commands/queue.ts": {
-    "log": 1
-  },
-  "src/discord/commands/search.ts": {
-    "outside": 9,
-    "log": 9
-  },
-  "src/discord/commands/setchannel.ts": {
-    "log": 2
-  },
-  "src/discord/commands/setplaylistlimit.ts": {
-    "log": 1
-  },
-  "src/discord/events/channel-delete.ts": {
-    "log": 6
-  },
-  "src/discord/events/guild-delete.ts": {
-    "log": 3
-  },
-  "src/discord/events/interaction-create.ts": {
-    "log": 11,
-    "outside": 9
-  },
-  "src/discord/events/message-handler.ts": {
-    "log": 5
-  },
-  "src/discord/gone-guilds.ts": {
-    "log": 1
-  },
-  "src/discord/interactions/autoplay.ts": {
-    "log": 1
-  },
-  "src/discord/interactions/button-handler.ts": {
-    "log": 2
-  },
-  "src/discord/interactions/language-handler.ts": {
-    "log": 2
-  },
-  "src/discord/interactions/playlist-more-handler.ts": {
-    "log": 5
-  },
-  "src/discord/interactions/queue-handler.ts": {
-    "log": 1
-  },
-  "src/discord/interactions/search-pick.ts": {
-    "log": 1
-  },
-  "src/discord/interactions/settings-panel-handler.ts": {
-    "log": 1
-  },
   "src/infra/error-text.ts": {
     "outside": 6
   },
@@ -360,58 +301,10 @@
   "src/rules/tunables.ts": {
     "bug": 1
   },
-  "src/ui/card-render/render.ts": {
-    "log": 7,
-    "outside": 4
-  },
-  "src/ui/control-messages.ts": {
-    "log": 1
-  },
-  "src/ui/delivery.ts": {
-    "log": 6,
-    "outside": 1
-  },
-  "src/ui/discord-art.ts": {
-    "log": 1
-  },
-  "src/ui/error-messages.ts": {
-    "log": 2
-  },
   "src/ui/icon-images.ts": {
-    "log": 3
-  },
-  "src/ui/language.ts": {
-    "log": 6
-  },
-  "src/ui/now-playing-panel.ts": {
-    "log": 26
-  },
-  "src/ui/panel-location.ts": {
-    "log": 4
-  },
-  "src/ui/queue-mosaic/thumbnails.ts": {
-    "log": 3
-  },
-  "src/ui/transient-messages.ts": {
-    "log": 4
+    "bug": 1
   },
   "src/usecases/add-tracks.ts": {
-    "log": 17,
-    "outside": 6
-  },
-  "src/usecases/controls.ts": {
-    "log": 20
-  },
-  "src/usecases/join.ts": {
-    "log": 7
-  },
-  "src/usecases/normalize.ts": {
-    "log": 5
-  },
-  "src/usecases/responders.ts": {
-    "log": 3
-  },
-  "src/usecases/stay.ts": {
-    "log": 4
+    "bug": 1
   }
 }

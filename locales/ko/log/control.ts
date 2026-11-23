@@ -19,6 +19,23 @@ const control = {
   autoplayFromPinned: ({ url }: { url: string }) => `직접 지정한 음원 ${url}`,
   /** 자동재생 곡의 소리가 온 곳. kind: 음원 주소의 종류(youtube, soundcloud, direct. 그 밖은 유튜브로 적는다), ledger: 링크 데이터를 다시 써 검색을 건너뛰었다 */
   autoplayAudioFrom: ({ kind, url, ledger }: { kind: string; url: string; ledger: boolean }) => `${kind === "soundcloud" ? "사운드클라우드" : kind === "direct" ? "음원 직접" : "유튜브"}${kind === "direct" ? "" : ` ${url}`}${ledger ? " (링크 데이터 재사용, 검색 생략)" : ""}`,
+  noticeTemplateVarsMissing: ({ code, names }: { code: string; names: string }) => `안내 문구 템플릿 변수가 누락되어 기본 오류 메시지로 대체: ${code} (${names})`,
+  panelRefreshAfterControlFailed: ({ error }: { error: string }) => `조작 뒤 패널 갱신 실패: ${error}`,
+  dormantReopenFailed: ({ error }: { error: string }) => `휴면 스트림 다시 열기 실패: ${error}`,
+  stopWorkFailed: ({ what, error }: { what: string; error: string }) => `${what} 실패: ${error}`,
+  stoppedStaying: ({ track, cleared }: { track: string; cleared: number }) => `정지(상주 모드라 채널에 남음): ${track} | 대기열 ${cleared}곡 비움`,
+  stopped: ({ track, cleared }: { track: string; cleared: number }) => `정지: ${track} | 대기열 ${cleared}곡 비움`,
+  volumeChanged: ({ from, volume }: { from: number; volume: number }) => `볼륨: ${from}% → ${volume}%`,
+  autoplayFirstPickFailed: ({ error }: { error: string }) => `자동재생 첫 곡 선택 실패: ${error}`,
+  lingeringVoiceLeft: ({ how, guild }: { how: string; guild: string }) => `플레이어 없이 남은 음성 채널에서 나감(${how}): ${guild}`,
+  normalizeChanged: ({ on, guild, tag }: { on: boolean; guild: string; tag: string }) => `볼륨 정규화 ${on ? "켬" : "끔"}: ${guild} | 실행 ${tag}`,
+  normalizeSaveFailed: ({ name, id, error }: { name: string; id: string; error: string }) => `볼륨 정규화 설정 저장 실패: ${name} (${id}) | ${error}`,
+  stopStayingLabel: () => `상주 모드 정지`,
+  stopReason: () => `정지`,
+  panelRefreshAfterVolume: () => `볼륨 뒤 패널 갱신`,
+  serverVolumeSave: ({ guildId }: { guildId: string }) => `서버 볼륨 저장(서버 ${guildId})`,
+  disposeLeaveSaved: () => `나가며 저장`,
+  leaveLabel: () => `나가기`,
 };
 
 export { control };

@@ -10,14 +10,16 @@ import { repeatingFailure } from "../../infra/repeating-failure.ts";
 import { messageOf } from "../../rules/error-kind.ts";
 import type { CardData } from "../system-card/draw.ts";
 import type { MosaicData } from "../queue-mosaic/layout.ts";
+import { L } from "../../infra/log/text.ts";
+import { logTextError, type LogText } from "../../infra/log/log-text.ts";
 
 const log = logger.child({ category: "commands" });
-const failing = (what: string) => repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, what);
+const failing = (what: string | LogText) => repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, what);
 
 /** 그리는 일. 워커가 kind로 고른다 */
 type Job = { kind: "system"; data: CardData } | { kind: "queue"; data: MosaicData };
-const failures: Record<Job["kind"], ReturnType<typeof failing>> = { system: failing("/system 이미지 그리기"), queue: failing("/queue 썸네일 그리기") };
-const workerFailure = failing("이미지 그리기 워커");
+const failures: Record<Job["kind"], ReturnType<typeof failing>> = { system: failing(L.commands.systemRenderLabel()), queue: failing(L.commands.queueRenderLabel()) };
+const workerFailure = failing(L.commands.renderWorkerLabel());
 
 /** 그리기 하나의 상한(ms). 처음 그리기는 워커 띄우기, 모듈 로드, 글꼴 등록이 더해진다 */
 const RENDER_TIMEOUT_MS = 15_000;
@@ -45,17 +47,17 @@ function spawn() {
       workerFailure.ok();
       job.resolve(images.map((one) => Buffer.from(one)));
     } else {
-      failures[job.kind].fail(error || "원인 불명");
-      job.reject(new Error(error || "그리기 실패"));
+      failures[job.kind].fail(error || L.commands.renderCauseUnknown());
+      job.reject(error ? new Error(error) : logTextError(L.commands.renderFailed()));
     }
   });
   one.on("error", (error) => {
-    workerFailure.fail(`워커 중단(${messageOf(error)})`);
+    workerFailure.fail(L.commands.renderWorkerStopped({ error: messageOf(error) }));
     stop(one, error);
   });
   one.on("exit", (code) => {
-    if (thread === one) workerFailure.fail(`워커 비정상 종료(종료 코드=${code})`);
-    stop(one, new Error(`그리기 워커가 종료됨(종료 코드=${code})`));
+    if (thread === one) workerFailure.fail(L.commands.renderWorkerExitedCode({ code }));
+    stop(one, logTextError(L.commands.renderWorkerExited({ code })));
   });
   one.unref(); // 봇이 끝날 때 붙잡지 않는다
   return one;
@@ -101,8 +103,8 @@ function render(job: Job, { timeoutMs = RENDER_TIMEOUT_MS, idleMs = IDLE_MS }: O
   const id = ++lastId;
   const drawn = new Promise<Buffer[]>((resolve, reject) => {
     const timer = setTimeout(() => {
-      failures[job.kind].fail(`${timeoutMs / 1000}초 안에 끝나지 않아 워커 중단`);
-      stop(worker, new Error(`이미지 그리기 시간 초과(${timeoutMs / 1000}초)`));
+      failures[job.kind].fail(L.commands.renderWorkerTimedOut({ seconds: timeoutMs / 1000 }));
+      stop(worker, logTextError(L.commands.renderTimedOut({ seconds: timeoutMs / 1000 })));
     }, timeoutMs);
     waiting.set(id, { kind: job.kind, resolve, reject, timer });
     worker.postMessage({ id, job });

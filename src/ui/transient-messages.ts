@@ -5,6 +5,7 @@ import { RESTJSONErrorCodes } from "discord.js";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import { codeOf, describeError, errorKind, messageOf } from "../rules/error-kind.ts";
+import { L } from "../infra/log/text.ts";
 
 const SLACK_MS = 5000;
 const until = new Map<string, number>(); // messageId → 잊을 시각
@@ -47,9 +48,9 @@ function scheduleDelete(message: Deletable | null | undefined, ms: number, tries
       .then(() => remove.call(message))
       .catch((error: unknown) => {
         const retryMs = errorKind(error) === "network-error" ? RETRY_AFTER_MS[tries] : undefined;
-        if (retryMs === undefined && GONE_CODES.has(codeOf(error))) return log.debug(`잠깐 보이는 메시지를 삭제하지 못함: ${messageOf(error)}`);
-        if (retryMs === undefined) return log.warn(`잠깐 보이는 메시지를 삭제하지 못함: ${describeError(error)}`);
-        log.debug(`잠깐 보이는 메시지를 네트워크 오류로 삭제하지 못해 ${retryMs / 1000}초 뒤 다시 삭제: ${messageOf(error)}`);
+        if (retryMs === undefined && GONE_CODES.has(codeOf(error))) return log.debug(L.player.transientDeleteFailed({ error: messageOf(error) }));
+        if (retryMs === undefined) return log.warn(L.player.transientDeleteFailed({ error: describeError(error) }));
+        log.debug(L.player.transientDeleteRetry({ seconds: retryMs / 1000, error: messageOf(error) }));
         scheduleDelete(message, retryMs, tries + 1);
       });
   }, ms);

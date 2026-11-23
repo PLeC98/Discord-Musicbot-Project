@@ -13,6 +13,7 @@ import { waitForRestore } from "../player/session-restore.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { isShuttingDown } from "../infra/shutdown-state.ts";
 import { ensurePlayer, resolveFallbackTextChannel } from "./add-tracks.ts";
+import { L } from "../infra/log/text.ts";
 
 type JoinRequest = { guild: Guild; member: GuildMember; textChannel?: GuildTextBasedChannel | null };
 
@@ -81,7 +82,7 @@ async function attach(bot: { players: Pick<PlayerSeats, "get" | "set"> }, guild:
   // 붙지 않은 채 남은 플레이어(붙기 실패 등)는 정리하고 새로 만든다. 그냥 버리면 타이머, 상태 동기화, 캐시 퇴거 보호가
   // 걸린 채 새 플레이어와 같은 서버 키를 두고 경쟁한다. 저장한 세션은 그대로 두어 아래에서 복원한다
   if (existing) {
-    await existing.dispose({ reason: "다시 접속하며 교체", session: "keep", end: "replaced" });
+    await existing.dispose({ reason: L.player.disposeRejoinReplace(), session: "keep", end: "replaced" });
     go?.();
     if (isShuttingDown()) return SHUTTING_DOWN;
   }
@@ -109,7 +110,7 @@ async function connectFresh(player: Player): Promise<JoinResult> {
   try {
     await player.voice.connect();
   } catch (error) {
-    await player.dispose({ reason: "음성 채널 접속 실패", session: "keep", end: "connect-failed" });
+    await player.dispose({ reason: L.player.disposeVoiceConnectFailed(), session: "keep", end: "connect-failed" });
     return codeOf(error) === "bot-shutting-down" ? SHUTTING_DOWN : { kind: "refused", code: "voice-failed" };
   }
   waitEmpty(player);
@@ -138,11 +139,11 @@ async function restore(player: Player, saved: RestoredSession): Promise<JoinResu
     return { kind: "restored", player, track: outcome === "restored" || outcome === "parked" ? player.currentTrack : null, left: player.queue.length, parked: outcome === "parked" };
   } catch (error) {
     if (codeOf(error) === "bot-shutting-down") {
-      await player.dispose({ reason: "종료 중", session: "keep", end: "connect-failed" });
+      await player.dispose({ reason: L.player.disposeShuttingDown(), session: "keep", end: "connect-failed" });
       return SHUTTING_DOWN;
     }
-    log.error("세션 복원 실패:", messageOf(error));
-    await player.dispose({ reason: "세션 복원 실패", session: "keep", end: "restore-failed" });
+    log.error(L.player.sessionRestoreFailed({ error: messageOf(error) }));
+    await player.dispose({ reason: L.player.disposeRestoreFailed(), session: "keep", end: "restore-failed" });
     return { kind: "restore-error" };
   }
 }
@@ -150,8 +151,8 @@ async function restore(player: Player, saved: RestoredSession): Promise<JoinResu
 // 틀 것 없이 들어왔다. 곡이 끝났을 때처럼 잠시 뒤 나가고, 패널에도 그렇게 적는다
 function waitEmpty(player: Player) {
   player.showIdleVoiceStatus();
-  player.idle.scheduleEmpty("곡 없이 대기");
-  playerEvents.ended(player, "joined").catch((error) => log.warn(`참가 뒤 패널 갱신 실패: ${messageOf(error)}`));
+  player.idle.scheduleEmpty(L.player.idleWithoutTrack());
+  playerEvents.ended(player, "joined").catch((error) => log.warn(L.player.panelRefreshAfterJoinFailed({ error: messageOf(error) })));
 }
 
 /** 멤버(member)가 봇을 부를 수 없는 이유(join과 같은 판정). 부를 수 있으면 null */

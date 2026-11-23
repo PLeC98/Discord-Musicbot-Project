@@ -18,6 +18,7 @@ import { LIFETIME, keepSelf, noticeSelf } from "../../ui/delivery.ts";
 import { VOLUME_MAX } from "../../rules/limits.ts";
 import { personLanguage, privateText } from "../../ui/language.ts";
 import type { BotText } from "../../ui/text/index.ts";
+import { L } from "../../infra/log/text.ts";
 
 /** 서버 메시지의 버튼 */
 type Press = ButtonInteraction<"cached">;
@@ -84,11 +85,11 @@ async function handleSystemRefresh(interaction: Press, bot: BotContext) {
     await interaction.editReply({ ...post(view, files), attachments: [] });
     keepSelf(interaction, LIFETIME.screen);
   } catch (error) {
-    log.error("시스템 정보 새로고침 실패:", error);
+    log.error(L.events.systemRefreshFailed(), error);
     try {
       await noticeSelf(interaction, privateText(interaction).errors.notice("refresh-failed"));
     } catch (err) {
-      log.error("오류 안내 전송 실패:", err);
+      log.error(L.events.refreshNoticeFailed(), err);
     }
   }
 }

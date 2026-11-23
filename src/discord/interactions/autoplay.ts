@@ -16,6 +16,7 @@ import type { AppEmojis } from "../../app/app-emojis.ts";
 import { LIFETIME, noticeSelf, toAll, toSelf, unlessGone } from "../../ui/delivery.ts";
 import logger from "../../infra/log/logger.ts";
 import { privateText, publicText } from "../../ui/language.ts";
+import { L } from "../../infra/log/text.ts";
 
 const log = logger.child({ category: "events" });
 
@@ -82,7 +83,7 @@ async function handleAutoplayGenre(interaction: StringSelectMenuInteraction<"cac
     onAccepted: () => toAll(interaction, autoplayOn(publicText(interaction.guildId), genre, member), LIFETIME.result),
   });
   if (!r.ok) {
-    await interaction.editReply({ components: interaction.message.components }).catch(unlessGone(log, "장르 메뉴 선택 비우기"));
+    await interaction.editReply({ components: interaction.message.components }).catch(unlessGone(log, L.events.genreMenuClear()));
     return noticeSelf(interaction, controlMessage(privateText(interaction), r));
   }
 }

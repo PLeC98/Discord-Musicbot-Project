@@ -87,6 +87,8 @@ import { publicText } from "./language.ts";
 import type { BotText } from "./text/index.ts";
 import { COMPONENTS_BYTES_MAX, componentsBytes } from "./message-size.ts";
 import { canGoBack, canGoNext } from "../rules/controls.ts";
+import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
 
 // 끝난 패널의 버튼. 플레이어가 없어도 같은 모양을 그린다.
 // 자동재생만 살아 있고, 그 버튼은 쉬는 중의 표식(idle)을 세션 필드에 달고 나간다.
@@ -207,7 +209,7 @@ class NowPlayingPanel {
       return client;
     } catch (error) {
       // 채널이 삭제됐다. 그 채널로 보내는 쪽이 같은 오류를 받아 패널을 놓는다
-      if (codeOf(error) !== UNKNOWN_CHANNEL) log.error("웹훅 조회/생성 실패:", messageOf(error));
+      if (codeOf(error) !== UNKNOWN_CHANNEL) log.error(L.player.webhookFetchFailed({ error: messageOf(error) }));
       return null;
     }
   }
@@ -222,7 +224,7 @@ class NowPlayingPanel {
     try {
       scheduleDelete(await player.textChannel.send(post(view)), LIFETIME.glance);
     } catch (error) {
-      log.error("재생목록 추가 안내 전송 실패:", error);
+      log.error(L.player.playlistAddNoticeFailed(), error);
     }
   }
 
@@ -340,7 +342,7 @@ class NowPlayingPanel {
       if (webhook) await webhook.deleteMessage(messageId);
       else await channel.messages.delete(messageId);
     } catch (error) {
-      unlessGone(log, "현재 재생 메시지 삭제")(error);
+      unlessGone(log, L.player.nowPlayingDelete())(error);
     }
   }
 
@@ -351,7 +353,7 @@ class NowPlayingPanel {
    * 서버당 한 번만 돈다. 5초 갱신과 명령, 버튼 경로가 동시에 들어온다.
    * 보내는 사이에 재생이 끝나거나 다른 경로가 새 메시지를 올렸으면 방금 보낸 것을 도로 삭제한다.
    */
-  async _repostNowPlaying(player: Player, reason: string) {
+  async _repostNowPlaying(player: Player, reason: string | LogText) {
     const guildId = player.guild?.id;
     if (!guildId || this.reposting.has(guildId) || !player.currentTrack) return;
 
@@ -370,15 +372,15 @@ class NowPlayingPanel {
       player.nowPlayingMessage = message;
       player.nowPlayingWebhook = webhook;
       await this.location.commit(player.guild, channel, message, webhook);
-      log.info({ tags: ["recovered"] }, `재생 패널 다시 올림: ${reason}`);
+      log.info({ tags: ["recovered"] }, L.player.panelReposted({ reason }));
     } catch (error) {
       // 다시 올리지 못하면 참조를 버린다. 5초마다 같은 실패를 반복하면 그게 도배다
       if (codeOf(error) === UNKNOWN_CHANNEL) this._dropPanel(player);
       else {
         player.nowPlayingMessage = null;
         this.stopProgressUpdate(guildId);
-        if (errorKind(error) === "network-error") log.warn(`재생 패널 다시 올리기 실패: ${messageOf(error)}`);
-        else log.error("재생 패널 다시 올리기 실패:", messageOf(error));
+        if (errorKind(error) === "network-error") log.warn(L.player.panelRepostFailed({ error: messageOf(error) }));
+        else log.error(L.player.panelRepostFailed({ error: messageOf(error) }));
       }
     } finally {
       this.reposting.delete(guildId);
@@ -524,7 +526,7 @@ class NowPlayingPanel {
         player.nowPlayingWebhook = null;
       }
       const channelId = player.nowPlayingMessage ? channelIdOf(player.nowPlayingMessage) : null;
-      await this._repostNowPlaying(player, channelId && !player.guild.channels?.cache?.has(channelId) ? "패널이 있던 채널이 삭제됨" : "메시지가 삭제됨");
+      await this._repostNowPlaying(player, channelId && !player.guild.channels?.cache?.has(channelId) ? L.player.repostChannelDeleted() : L.player.repostMessageDeleted());
       return;
     }
     const where = player.guild.name ?? player.guild.id;
@@ -533,7 +535,7 @@ class NowPlayingPanel {
       return;
     }
     if (isRestTimeout(error)) {
-      log.warn(`재생 패널 갱신이 시간 안에 끝나지 않음(다음 갱신에서 다시 시도) (${where})`);
+      log.warn(L.player.panelEditTimedOut({ where }));
       return;
     }
     // 네트워크가 끊겼다. 5초마다 같은 실패를 찍지 않고 처음 한 번과 풀린 때만
@@ -541,14 +543,14 @@ class NowPlayingPanel {
       this._editFailure(player).fail(messageOf(error));
       return;
     }
-    log.error("재생 패널 갱신 실패:", error);
+    log.error(L.player.panelEditFailed(), error);
   }
 
   _editFailure(player: Player) {
     const guildId = player.guild.id;
     let failure = this.editFailures.get(guildId);
     if (!failure) {
-      failure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, `재생 패널 갱신(${player.guild.name ?? guildId})`);
+      failure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.player.panelEditLabel({ guild: player.guild.name ?? guildId }));
       this.editFailures.set(guildId, failure);
     }
     return failure;
@@ -556,7 +558,7 @@ class NowPlayingPanel {
 
   // 패널을 올린 텍스트 채널이 삭제됐다. 다시 올릴 곳이 없어 패널을 놓는다
   _dropPanel(player: Player) {
-    log.info(`재생 패널이 있던 텍스트 채널이 삭제되어 패널 추적 해제 (${player.guild.name ?? player.guild.id}). 재생은 계속`);
+    log.info(L.player.panelChannelDeleted({ guild: player.guild.name ?? player.guild.id }));
     this.stopProgressUpdate(player.guild.id);
     player.nowPlayingMessage = null;
     player.nowPlayingWebhook = null;
@@ -608,7 +610,7 @@ class NowPlayingPanel {
     // 사람이 멈추거나 내보낸 것(/stop, /leave)은 명령 응답이, 연달아 실패는 채널 알림이 이미 말한다
     const T = textOfPanel(player);
     const ended = reason === "queue-end" ? T.panel.ended() : cause ? T.panel.cutOff(cause) : null;
-    if (ended && live && !dedicated && canSend(textChannel)) await bestEffort(log, textChannel.send(post(frame({ icon: ended.icon, title: ended.title, body: ended.body }))), "끝 안내 보내기", "warn");
+    if (ended && live && !dedicated && canSend(textChannel)) await bestEffort(log, textChannel.send(post(frame({ icon: ended.icon, title: ended.title, body: ended.body }))), L.player.endNoticeSend(), "warn");
 
     this._releaseEnded(player, before, live);
   }
@@ -643,8 +645,8 @@ class NowPlayingPanel {
       else if (player.guild?.id) await this.location.edit(player.guild, payload);
     } catch (error) {
       // 이미 삭제된 패널을 못 바꿨다는 것은 알릴 일이 아니다
-      if (errorKind(error) === "network-error") log.warn(`재생 패널을 종료 상태로 갱신하지 못함: ${messageOf(error)}`);
-      else if (!isGone(error)) log.error("재생 패널을 종료 상태로 갱신 실패:", error);
+      if (errorKind(error) === "network-error") log.warn(L.player.endPanelEditNetworkFailed({ error: messageOf(error) }));
+      else if (!isGone(error)) log.error(L.player.endPanelEditFailed(), error);
     }
   }
 
@@ -668,7 +670,7 @@ class NowPlayingPanel {
     clearTimeout(this.repinTimers.get(guild.id));
     const timer = setTimeout(() => {
       this.repinTimers.delete(guild.id);
-      this.repinIdlePanel(guild, channelId).catch((error) => log.warn(`종료된 재생 패널을 채널 하단으로 재전송하지 못함: ${messageOf(error)}`));
+      this.repinIdlePanel(guild, channelId).catch((error) => log.warn(L.player.endedPanelRepostFailed({ error: messageOf(error) })));
     }, PIN_SETTLE_MS + 1000);
     timer.unref?.();
     this.repinTimers.set(guild.id, timer);
@@ -677,7 +679,7 @@ class NowPlayingPanel {
   async repinIdlePanel(guild: Guild, channelId: string, now = Date.now()) {
     const player = this.players.get(guild.id);
     if (player?.currentTrack && player.nowPlayingMessage) {
-      if (this.heldProgress.has(guild.id) && (await this._isBuried(player, now))) await this._repostNowPlaying(player, "전용 채널 맨 아래로");
+      if (this.heldProgress.has(guild.id) && (await this._isBuried(player, now))) await this._repostNowPlaying(player, L.player.repostBuried());
       return;
     }
     const channel = await this._dedicatedChannel(guild);
@@ -706,7 +708,7 @@ class NowPlayingPanel {
     const channel = await this._dedicatedChannel(guild);
     const player = this.players.get(guild.id);
     if (player?.currentTrack && player.nowPlayingMessage) {
-      if (channel) await this._repostNowPlaying(player, "전용 채널 변경");
+      if (channel) await this._repostNowPlaying(player, L.player.repostChannelChanged());
       return; // 풀었으면 재생 중인 패널은 그 자리에 둔다. 끝나면 전용 채널 밖 규칙을 따른다
     }
     if (canSend(channel)) await this._postIdle(guild, channel);
@@ -729,7 +731,7 @@ class NowPlayingPanel {
         if (this.players.get(guild.id)?.nowPlayingMessage) continue;
         await this._redrawIdle(guild);
       } catch (error) {
-        log.warn(`종료된 재생 패널 갱신 실패 (${guild.name ?? guild.id}): ${messageOf(error)}`);
+        log.warn(L.player.endedPanelEditFailed({ guild: guild.name ?? guild.id, error: messageOf(error) }));
       }
     }
   }
@@ -756,7 +758,7 @@ class NowPlayingPanel {
         if (player?.nowPlayingMessage) await this.updatePlaying(player);
         else await this._redrawIdle(guild);
       } catch (error) {
-        log.warn(`언어를 바꾼 뒤 재생 패널 다시 그리기 실패 (${guild.name ?? guild.id}): ${messageOf(error)}`);
+        log.warn(L.player.panelRedrawAfterLanguageFailed({ guild: guild.name ?? guild.id, error: messageOf(error) }));
       }
     }
   }
@@ -771,7 +773,7 @@ class NowPlayingPanel {
       try {
         await this._restorePanel(guild, { skip });
       } catch (error) {
-        log.warn(`패널 확인 실패 (${guild.name ?? guild.id}): ${messageOf(error)}`);
+        log.warn(L.player.panelCheckFailed({ guild: guild.name ?? guild.id, error: messageOf(error) }));
       }
     }
   }
@@ -812,9 +814,9 @@ class NowPlayingPanel {
     if (dedicated) return;
     const textChannelId = saved.session.textChannelId;
     const target = textChannelId ? guild.channels?.cache?.get(textChannelId) : null;
-    if (!canSend(target)) return void log.info(`복원을 건너뛴 안내를 보낼 글 채널 없음: ${guild.name ?? guild.id}`);
+    if (!canSend(target)) return void log.info(L.player.skipNoticeNoChannel({ guild: guild.name ?? guild.id }));
     const notice = publicText(guild.id).panel.restoreSkipped();
-    await bestEffort(log, target.send(post(frame({ title: notice.title, body: notice.body }))), "복원 건너뜀 안내 보내기", "warn");
+    await bestEffort(log, target.send(post(frame({ title: notice.title, body: notice.body }))), L.player.skipNoticeSend(), "warn");
   }
 
   // 패널의 조작 버튼 두 줄. keepAutoplay: 나머지를 죽여도 자동재생만 살린다. 끝난 패널에서 다시 틀 수 있는 유일한 길이다.
@@ -927,7 +929,7 @@ class NowPlayingPanel {
       await this._tickProgress(player);
     } catch (error) {
       // 고치기 실패는 _onEditFailed가 구분한다. 여기까지 온 것은 모르는 오류라 남기고 이 곡의 갱신을 멈춘다(5초마다 같은 줄을 찍지 않게)
-      log.error(`진행 막대 갱신 중 예외가 발생해 현재 곡의 진행 막대 갱신 중단(${player.guild.name ?? guildId}):`, error);
+      log.error(L.player.progressUpdateStopped({ guild: player.guild.name ?? guildId }), error);
       this.stopProgressUpdate(guildId);
       return;
     }
@@ -937,7 +939,7 @@ class NowPlayingPanel {
 
   // 진행 막대 한 번. 전용 채널에서 묻혔으면 맨 아래로 다시 올린다
   async _tickProgress(player: Player) {
-    if (await this._isBuried(player)) await this._repostNowPlaying(player, "전용 채널 맨 아래로");
+    if (await this._isBuried(player)) await this._repostNowPlaying(player, L.player.repostBuried());
     else await this.updatePlaying(player);
   }
 

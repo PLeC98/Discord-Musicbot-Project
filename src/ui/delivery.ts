@@ -12,6 +12,8 @@ import type { Notice } from "./text/notice.ts";
 import { canSend } from "./channels.ts";
 import { noticeReply, post, type Attachment } from "./frame.ts";
 import { scheduleDelete } from "./transient-messages.ts";
+import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
 
 /** 응답의 수명(ms). null은 삭제하지 않는다 */
 const LIFETIME = {
@@ -40,10 +42,10 @@ const GONE_CODES = new Set<unknown>([RESTJSONErrorCodes.UnknownMessage, RESTJSON
  * 응답, 메시지를 지우거나 고친 실패를 받는 catch 핸들러. 누가 이미 지웠으면 넘기고, 그 밖은 부른 쪽 로거에 warn으로 남긴다.
  * 상호작용 오류도 남긴다: 10062는 3초 안에 응답하지 못함, 답하지 않은 응답, 같은 토큰의 다른 봇, 40060은 두 번 응답함, 50027은 응답 수명이 토큰(15분)을 넘김
  */
-function unlessGone(log: { warn(line: string): unknown }, what: string) {
+function unlessGone(log: { warn(line: LogText): unknown }, what: string | LogText) {
   return (error: unknown) => {
     if (GONE_CODES.has(codeOf(error))) return;
-    log.warn(`${what} 실패: ${describeError(error)}`);
+    log.warn(L.failure.messageActionFailed({ what, reason: describeError(error) }));
   };
 }
 
@@ -59,14 +61,14 @@ const record = (interaction: object, ms: number | null) => scheduled.set(interac
 function expireSelf(interaction: RepliableInteraction, ms: number | null, messageId?: string) {
   record(interaction, ms);
   if (ms === null || ms >= TOKEN_MS) return;
-  expireMessage(messageId ?? interaction.id, () => (messageId ? interaction.deleteReply(messageId) : interaction.deleteReply()), ms, "본인 응답 삭제");
+  expireMessage(messageId ?? interaction.id, () => (messageId ? interaction.deleteReply(messageId) : interaction.deleteReply()), ms, L.events.selfReplyDelete());
 }
 
 // 삭제 예약. 키는 메시지 ID, 첫 응답은 그 상호작용 ID
 const expiries = new Map<string, NodeJS.Timeout>();
 
 /** 메시지를 ms 뒤 remove로 삭제한다. 같은 메시지에 다시 부르면 새로 센다. stopExpiry로 멈춘다 */
-function expireMessage(messageId: string, remove: () => unknown, ms: number, what = "메뉴 삭제") {
+function expireMessage(messageId: string, remove: () => unknown, ms: number, what: string | LogText = L.events.menuDelete()) {
   stopExpiry(messageId);
   const timer = setTimeout(() => {
     expiries.delete(messageId);
@@ -87,7 +89,7 @@ function keepSelf(interaction: OnMessage, ms: number) {
   record(interaction, ms);
   const firstReply = interaction.message.interactionMetadata?.id;
   if (firstReply) stopExpiry(firstReply);
-  expireMessage(interaction.message.id, () => interaction.deleteReply(), ms, "본인 응답 삭제");
+  expireMessage(interaction.message.id, () => interaction.deleteReply(), ms, L.events.selfReplyDelete());
 }
 
 /** 본인에게만 보인 화면을 고치고 삭제를 ms 뒤로 다시 센다(keepSelf) */
@@ -129,7 +131,7 @@ async function replaceSelf(interaction: RepliableInteraction, view: ContainerBui
  */
 async function noticeInstead(interaction: RepliableInteraction, notice: Notice) {
   if (!interaction.deferred && !interaction.replied && interaction.isMessageComponent()) await interaction.deferUpdate();
-  await interaction.deleteReply().catch(unlessGone(log, "안내로 바꿀 응답 삭제"));
+  await interaction.deleteReply().catch(unlessGone(log, L.events.replyToNoticeDelete()));
   const message = await interaction.followUp(noticeReply(notice));
   expireSelf(interaction, noticeMs(notice), message.id);
 }
@@ -152,7 +154,7 @@ async function toAll(interaction: RepliableInteraction, view: ContainerBuilder, 
     if (id && ms !== null) scheduleDelete({ id, delete: () => interaction.deleteReply() }, ms);
     return;
   }
-  await interaction.deleteReply().catch(unlessGone(log, "자리표시자 삭제"));
+  await interaction.deleteReply().catch(unlessGone(log, L.events.placeholderDelete()));
   return postNew(interaction, view, ms, files);
 }
 
@@ -167,7 +169,7 @@ async function postNew(interaction: RepliableInteraction, view: ContainerBuilder
       if (ms !== null) scheduleDelete(message, ms);
       return;
     } catch (error) {
-      log.warn({ tags: ["fallback"] }, `채널에 보내지 못해 후속 메시지로 보냄: ${describeError(error)}`);
+      log.warn({ tags: ["fallback"] }, L.events.channelSendFellBack({ error: describeError(error) }));
     }
   }
   const message = await interaction.followUp(post(view, files));

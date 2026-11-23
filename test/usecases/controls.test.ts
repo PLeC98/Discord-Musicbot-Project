@@ -8,6 +8,7 @@ import * as controls from "../../src/usecases/controls.ts";
 import * as playerEvents from "../../src/player/events.ts";
 import { controlMessage } from "../../src/ui/control-messages.ts";
 import sink from "../../src/infra/log/sink.ts";
+import { asText, type LogText } from "../../src/infra/log/log-text.ts";
 import { openTempStore } from "../helpers/temp-store.ts";
 import { Status, type Guild, type GuildMember } from "discord.js";
 import type { Actor } from "../../src/usecases/controls.ts";
@@ -511,10 +512,10 @@ test("자동재생 켜기: 모르는 장르는 거절. 플레이어가 없으면
     },
     setAutoplay: () => assert.fail("켜지 않는다"),
     playAutoplayNow: async () => assert.fail("뽑지 않는다"),
-    dispose: async (o: unknown) => disposed.push(o),
+    dispose: async (o: { reason: LogText }) => disposed.push({ ...o, reason: asText(o.reason), event: o.reason.event }),
   });
   assert.deepEqual(await controls.autoplay(null, DJ, genre, { create: () => stranded }), { ok: false, code: "voice-failed" });
-  assert.deepEqual(disposed, [{ reason: "음성 채널 접속 실패", session: "keep", end: "connect-failed" }]);
+  assert.deepEqual(disposed, [{ reason: "음성 채널 접속 실패", event: "player.disposeVoiceConnectFailed", session: "keep", end: "connect-failed" }]);
   // 종료 중이라 붙지 않았으면 bot-shutting-down으로 거절한다
   const stopping = fakePlayer({ currentTrack: null, connection: null, voice: { connect: async () => Promise.reject(codedError("bot-shutting-down", "종료 중")) }, setAutoplay: () => assert.fail("켜지 않는다"), dispose: async (o: (typeof disposed)[number]) => void disposed.push(o) });
   assert.deepEqual(await controls.autoplay(null, DJ, genre, { create: () => stopping }), { ok: false, code: "bot-shutting-down" });

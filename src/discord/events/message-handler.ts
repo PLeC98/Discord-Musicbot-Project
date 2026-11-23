@@ -16,6 +16,7 @@ import { isShuttingDown } from "../../infra/shutdown-state.ts";
 import { readsMessageContent } from "../../infra/gateway-intents.ts";
 import { MessageType, type Message } from "discord.js";
 import { publicText } from "../../ui/language.ts";
+import { L } from "../../infra/log/text.ts";
 
 const USER_MESSAGE_DELETE_MS = 1500; // 곡 요청 메시지를 삭제하기까지
 const UNREADABLE_REPEAT_MS = 60_000; // 메시지 내용을 읽지 못한다는 안내를 같은 사람에게 다시 하기까지
@@ -75,8 +76,8 @@ const exported: ClientEvent<Events.MessageCreate> = {
     // 종료 중이면 곡을 찾지 않고 알린다(새 재생을 시작하지 않는다). 디스코드 연결을 닫은 뒤면 알림도 못 보낸다
     if (isShuttingDown()) {
       await message.reply(post(noticeFrame(T.errors.notice("bot-shutting-down")))).catch((error: unknown) => {
-        if (message.client.token === null) log.debug(`종료 중 안내 전송 실패: ${messageOf(error)}`);
-        else log.warn(`봇 채널 종료 안내 답장 실패: 채널=${message.channel.id} | ${describeError(error)}`);
+        if (message.client.token === null) log.debug(L.events.stoppingNoticeFailed({ error: messageOf(error) }));
+        else log.warn(L.events.stoppingReplyFailed({ channelId: message.channel.id, error: describeError(error) }));
       });
       return;
     }
@@ -99,7 +100,7 @@ const exported: ClientEvent<Events.MessageCreate> = {
     const preview = content.length > 60 ? content.slice(0, 60) + "…" : content;
     const loadingMsg = await message.channel.send(post(frame({ body: T.search.searching(preview) })));
 
-    const responder = channelResponder(message.channel, () => loadingMsg.delete().catch(unlessGone(log, "자리표시자 삭제")));
+    const responder = channelResponder(message.channel, () => loadingMsg.delete().catch(unlessGone(log, L.events.placeholderDelete())));
 
     try {
       const result = await requestPlayback(bot, {
@@ -109,7 +110,7 @@ const exported: ClientEvent<Events.MessageCreate> = {
         textChannel: message.channel,
         voiceChannel: member.voice.channel ?? null,
         responder,
-        source: "전용채널",
+        source: L.events.sourceBotChannel(),
       });
 
       // 곡 찾기, 재생 시작 실패를 알린다. 알리지 않으면 왜 안 되는지 알 수 없다
@@ -122,7 +123,7 @@ const exported: ClientEvent<Events.MessageCreate> = {
         await offerOnChannel(message.channel, result.more, result.player, member.id);
       }
     } catch (error) {
-      log.error({ sub: "message" }, "메시지 처리 오류:", error);
+      log.error({ sub: "message" }, L.events.messageHandlingFailed(), error);
       await responder.dismissPlaceholder();
       const failed = T.errors.notice("processing-failed");
       const errMsg = await message.channel.send(post(noticeFrame(failed)));

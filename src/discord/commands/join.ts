@@ -7,6 +7,7 @@ import { LIFETIME, noticeMs, noticeSelf, replaceSelf, toAll, toSelf, unlessGone 
 import { acceptWith } from "../interactions/control-answers.ts";
 import logger from "../../infra/log/logger.ts";
 import { privateText, publicText } from "../../ui/language.ts";
+import { L } from "../../infra/log/text.ts";
 const log = logger.child({ category: "commands" });
 
 // 결과를 알린다. 거절, "이미 있어요"는 본인에게(받아들인 뒤면 "참가하는 중" 자리표시자를 고쳐서), 붙었거나 복원한 결과는 자리표시자를 삭제하고 모두에게 알린다
@@ -41,7 +42,7 @@ const exported: GuildCommand = {
       { guild, member, textChannel: channel },
       {
         accepted: acceptWith(interaction, replies.joining(privateText(interaction))),
-        restoring: () => interaction.editReply(post(replies.restoring(privateText(interaction)))).catch(unlessGone(log, "/join 자리표시자 갱신")),
+        restoring: () => interaction.editReply(post(replies.restoring(privateText(interaction)))).catch(unlessGone(log, L.commands.joinPlaceholderUpdate())),
       },
     );
     await answer(interaction, result);

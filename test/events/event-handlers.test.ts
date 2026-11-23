@@ -28,6 +28,7 @@ import type { Notice } from "../../src/ui/text/notice.ts";
 import * as staySeats from "../../src/store/stay-seats.ts";
 import { useLoggedIn, _resetIntents } from "../../src/infra/gateway-intents.ts";
 import { textFor } from "../../src/ui/text/index.ts";
+import { asText, type LogText } from "../../src/infra/log/log-text.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "event-handlers-"));
 const audioCache = await import("../../src/store/audio-cache.ts");
@@ -327,14 +328,14 @@ test("서버에서 나가면 그 서버의 플레이어를 내리고 저장된 �
   staySeats.set("g-left", "vc1", "u1");
   await panelRecords.setPanel("g-left", "bot-channel", "m1");
   sessions().append("g-left", [{ title: "a", pageUrl: "https://y/a", requestKey: "https://y/a" }]);
-  const disposed: Array<{ reason: string; session: string }> = [];
-  const player = { dispose: async (how: { reason: string; session: string }) => void disposed.push(how) };
+  const disposed: Array<{ reason: string; event: string; session: string }> = [];
+  const player = { dispose: async (how: { reason: LogText; session: string }) => void disposed.push({ ...how, reason: asText(how.reason), event: how.reason.event }) };
   const bot = fakeBot({ players: new Map([["g-left", player]]) });
   const guild = fake<ClientEvents["guildDelete"][0]>({ id: "g-left", name: "나간 서버", channels: { cache: new Map([["bot-channel", {}]]) } });
 
   await guildDelete.execute(bot, guild);
 
-  assert.deepEqual(disposed, [{ reason: "서버에서 나감", session: "remove", end: "guild-gone" }]);
+  assert.deepEqual(disposed, [{ reason: "서버에서 나감", event: "guild.disposeGuildLeft", session: "remove", end: "guild-gone" }]);
   assert.equal(sessions().load("g-left"), null);
   assert.equal(await panelRecords.getPanel("g-left"), null);
   assert.equal(staySeats.seatOf("g-left"), null, "다시 초대해도 저절로 들어오지 않는다");

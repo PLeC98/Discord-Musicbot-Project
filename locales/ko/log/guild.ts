@@ -1,6 +1,10 @@
 // 로그 문구: 서버 설정(guild 분류). 서버별 설정 읽기, 저장, 알림
 
+import { josa } from "../../../src/infra/josa.ts";
+
 const guild = {
+  botChannelDeletedCleared: ({ channel, guild }: { channel: string; guild: string }) => `전용 채널 "${channel}"${josa(channel, "이")} 삭제되어 전용 채널 설정을 비움(${guild})`,
+  botChannelDeletedClearFailed: ({ channel, guild, error }: { channel: string; guild: string; error: string }) => `전용 채널 "${channel}"${josa(channel, "이")} 삭제됐지만 전용 채널 설정을 비우지 못함(${guild}): ${error}`,
   guildSettingsNotifyFailed: () => `서버 설정 변경 알림 처리 실패:`,
   dedicatedChannelReadFailed: () => `전용 채널 읽기 실패:`,
   djRoleReadFailed: () => `DJ 역할 읽기 실패:`,
@@ -21,6 +25,9 @@ const guild = {
   fieldVolume: () => `볼륨`,
   fieldNormalize: () => `볼륨 정규화`,
   fieldLanguage: () => `서버 언어`,
+  guildLeft: ({ name, id }: { name: string; id: string }) => `서버에서 나감: ${name} (${id}). 저장된 대기열, 패널 위치, 음성 채널 상태 삭제`,
+  goneGuildCleaned: ({ name, id }: { name: string; id: string }) => `끊긴 동안 나간 서버 정리: ${name} (${id})`,
+  disposeGuildLeft: () => `서버에서 나감`,
 };
 
 export { guild };

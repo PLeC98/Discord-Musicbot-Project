@@ -18,6 +18,7 @@ import * as controls from "../../usecases/controls.ts";
 import { queueScreen } from "../commands/queue.ts";
 import { route, type Route } from "./route.ts";
 import { privateText, publicText } from "../../ui/language.ts";
+import { L } from "../../infra/log/text.ts";
 
 const log = logger.child({ category: "events" });
 
@@ -145,7 +146,7 @@ async function handleAction(interaction: ButtonInteraction<"cached">, bot: BotCo
   if (queueInfoOf(player, { without: result.without }).queue.length === 0) {
     stopExpiry(interaction.message.id);
     await interaction.deferUpdate();
-    await interaction.deleteReply().catch(unlessGone(log, "빈 대기열 화면 삭제"));
+    await interaction.deleteReply().catch(unlessGone(log, L.events.emptyQueueDelete()));
   } else {
     await showEdit(interaction, player, result.keep === null ? parsed.page : pageOfNow(result.keep), { picked: result.keep, without: result.without });
   }

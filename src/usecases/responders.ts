@@ -9,6 +9,7 @@ import { post } from "../ui/frame.ts";
 import { icon } from "../ui/icons.ts";
 import { LIFETIME, postNew, unlessGone } from "../ui/delivery.ts";
 import { publicText } from "../ui/language.ts";
+import { L } from "../infra/log/text.ts";
 
 /**
  * 곡 추가 결과를 사용자에게 알리는 매체별 어댑터. 코어는 매체를 모르고 아래 두 메서드만 부른다
@@ -30,7 +31,7 @@ function onceDismiss(fn: (() => unknown) | null | undefined) {
     try {
       if (fn) await fn();
     } catch (error) {
-      unlessGone(log, "자리표시자 정리")(error);
+      unlessGone(log, L.player.placeholderCleanup())(error);
     }
   };
 }
@@ -52,7 +53,7 @@ function interactionResponder(interaction: RepliableInteraction): Responder {
       try {
         await postNew(interaction, draw(publicText(interaction.guildId)), LIFETIME.glance);
       } catch (error) {
-        log.error("대기열 안내 전송 실패:", messageOf(error));
+        log.error(L.player.queueNoticeFailed({ error: messageOf(error) }));
       }
     },
 
@@ -75,7 +76,7 @@ function channelResponder(channel: GuildTextBasedChannel | null | undefined, onD
       try {
         scheduleDelete(await channel.send(post(draw(publicText(channel.guildId)))), LIFETIME.glance);
       } catch (error) {
-        log.error("대기열 안내 전송 실패:", messageOf(error));
+        log.error(L.player.queueNoticeFailed({ error: messageOf(error) }));
       }
     },
 

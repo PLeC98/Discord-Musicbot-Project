@@ -1,7 +1,6 @@
 import { type ButtonInteraction, type Guild, type RoleSelectMenuInteraction, type StringSelectMenuInteraction } from "discord.js";
 import logger from "../../infra/log/logger.ts";
 import { messageOf } from "../../rules/error-kind.ts";
-import { asText } from "../../infra/log/log-text.ts";
 const log = logger.child({ category: "events" });
 import * as guildSettings from "../../store/guild-settings.ts";
 import { ageContentOn } from "../../config/age-content.ts";
@@ -15,6 +14,7 @@ import type { AgePlace } from "../../rules/age-place.ts";
 import { isDjRoleCandidate, isServerManager } from "../../usecases/permissions.ts";
 import { privateText } from "../../ui/language.ts";
 import type { BotText } from "../../ui/text/index.ts";
+import { L } from "../../infra/log/text.ts";
 
 // /setting 한 화면(DJ 역할, SponsorBlock, 연령 제한 콘텐츠) 처리. 선택하거나 누르면 바로 저장하고 화면을 지금 값으로 다시 그린다.
 // 저장 전의 선택을 들고 있지 않는다(저장 버튼이 없다). 본인에게만 보인 화면이라 호출자만 조작한다.
@@ -26,7 +26,7 @@ async function saved(guild: Guild, field: guildSettings.GuildField, work: () => 
     await work();
     return true;
   } catch (error) {
-    log.error(`서버 설정 저장 실패(/setting): ${guild.name} (${guild.id}) | ${asText(guildSettings.FIELD_LABEL[field])} | ${messageOf(error)}`);
+    log.error(L.events.settingSaveFailed({ name: guild.name, id: guild.id, field: guildSettings.FIELD_LABEL[field], error: messageOf(error) }));
     return false;
   }
 }

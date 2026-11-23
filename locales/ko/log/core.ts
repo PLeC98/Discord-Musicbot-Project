@@ -210,6 +210,8 @@ const core = {
   snapshotDirListFailed: ({ dir, error }: { dir: string; error: number | string }) => `${dir} | ${error} (빈 목록으로 처리)`,
   dbSchemaMismatch: ({ db, dbVersion, botVersion, file, lost }: { db: string; dbVersion: number; botVersion: number; file: string; lost: string }) => `${db} 구조가 이 봇과 맞지 않음(DB v${dbVersion}, 봇 v${botVersion}): ${file}. 이 파일(같은 이름의 -wal, -shm 포함)을 삭제한 뒤 다시 시작하면 새로 만듦. 삭제하면 ${lost}`,
   /** DB 파일을 열기 전에 썼다. db: DB 라벨 */
+  /** kind: 저장한 곳(bot 봇 기본 언어, guild 서버 언어, user 개인 언어), id: 서버나 사용자 ID(봇 기본 언어면 빈 글) */
+  savedLanguageUnavailable: ({ kind, id, tag }: { kind: "bot" | "guild" | "user"; id: string; tag: string }) => `${kind === "bot" ? "봇 기본 언어" : kind === "guild" ? `서버 ${id}의 서버 언어` : `사용자 ${id}의 개인 언어`} ${tag}는 지금 쓸 수 없는 언어라 건너뜀(다음 순서의 언어로 표시)`,
   dbNotOpen: ({ db }: { db: string }) => `${db}${josa(db, "을")} 열기 전에 불렀다(store/stores.open을 먼저)`,
   stateDbLabel: () => `실행 상태 DB`,
   stateDbLost: () => `저장된 대기열, 음성 채널 상태, 재생 패널 위치, 24/7 상주 채널이 사라짐`,
@@ -250,6 +252,7 @@ const core = {
   potServerExited: ({ code }: { code: number | null }) => `POToken 서버 비정상 종료 (code=${code ?? "없음"}), 5초 후 다시 시작`,
   /** lastError: 마지막 확인의 실패(없으면 빈 글) */
   potServerNoAnswer: ({ seconds, lastError }: { seconds: number; lastError: string }) => `POToken 서버가 ${seconds}초 안에 응답하지 않아 POToken 없이 봇 기동.${lastError ? ` 마지막 확인: ${lastError}` : ""}`,
+  iconGlyphMissing: ({ name }: { name: string }) => `아이콘 SVG 패스가 없음: ${name} (node scripts/build-discord-icons.ts로 다시 만드세요)`,
 };
 
 export { core };

@@ -11,6 +11,7 @@ import type { PlayerSeats } from "../player/registry.ts";
 import type { Code } from "../rules/problems.ts";
 import { checkControl } from "./permissions.ts";
 import { join, summonRefusal } from "./join.ts";
+import { L } from "../infra/log/text.ts";
 
 type StayRefusal = Extract<Code, "stay-stage" | "must-dj" | "must-be-in-same-voice" | "must-be-in-voice" | "permission-voice" | "bot-timed-out" | "voice-full" | "bot-in-other-voice" | "voice-failed" | "restore-failed" | "bot-shutting-down">;
 /** on: 켰다(이미 켜져 있던 같은 채널이면 already), off: 껐다(이미 꺼져 있었으면 already) */
@@ -61,7 +62,7 @@ async function turnOn(bot: Bot, { guild, member, textChannel = null }: { guild: 
   const already = seatChannelOf(guild.id) === channel.id;
   if (!already) {
     staySeats.set(guild.id, channel.id, member.id);
-    log.info(`상주 모드 켬: "${channel.name}" (${guild.name}) | 실행 ${member.user.tag}`);
+    log.info(L.player.stayOn({ channel: channel.name, guild: guild.name, tag: member.user.tag }));
   }
   player.idle.reconsider();
   playerEvents.touched(guild.id);
@@ -83,7 +84,7 @@ async function turnOff(bot: Pick<Bot, "players">, { guild, member }: { guild: Gu
  */
 function clearSeat(guild: Guild, by: GuildMember) {
   if (!staySeats.clear(guild.id)) return false;
-  log.info(`상주 모드 끔: ${guild.name} | 실행 ${by.user.tag}`);
+  log.info(L.player.stayOff({ guild: guild.name, tag: by.user.tag }));
   playerEvents.touched(guild.id);
   return true;
 }

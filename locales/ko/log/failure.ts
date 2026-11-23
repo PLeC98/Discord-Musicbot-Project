@@ -7,6 +7,8 @@ const failure = {
   recovered: ({ what, count }: { what: string; count: number }) => `${what} 복구(실패 ${count}회)`,
   /** 실패해도 되는 작업이 실패했다(삼키고 한 줄만 남긴다) */
   bestEffortFailed: ({ what, reason }: { what: string; reason: string }) => `${what} 실패: ${reason}`,
+  /** 디스코드 응답, 메시지를 지우거나 고치지 못했다(ui/delivery의 unlessGone. 부른 쪽 로거에 남긴다) */
+  messageActionFailed: ({ what, reason }: { what: string; reason: string }) => `${what} 실패: ${reason}`,
 };
 
 export { failure };

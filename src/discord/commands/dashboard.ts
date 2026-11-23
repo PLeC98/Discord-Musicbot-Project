@@ -10,6 +10,7 @@ import { noticeSelf, unlessGone } from "../../ui/delivery.ts";
 import { canPostPanel } from "../../ui/channels.ts";
 import { codeOf } from "../../rules/error-kind.ts";
 import { privateText } from "../../ui/language.ts";
+import { L } from "../../infra/log/text.ts";
 
 // 채널 권한이 모자라 패널을 올리지 못한 오류(Missing Access, Missing Permissions)
 const PERMISSION_CODES = new Set<unknown>([RESTJSONErrorCodes.MissingAccess, RESTJSONErrorCodes.MissingPermissions]);
@@ -41,7 +42,7 @@ const exported: GuildCommand = {
     // 곡이 없으면 끝난 패널을 이 채널에 다시 올린다
     if (!player?.currentTrack) {
       await bot.panels.repostIdlePanel(guild, channel);
-      return interaction.deleteReply().catch(unlessGone(log, "/dashboard 응답 삭제"));
+      return interaction.deleteReply().catch(unlessGone(log, L.commands.dashboardReplyDelete()));
     }
 
     // 패널을 올릴 수 없는 채널이면 옮기지 않는다(옮긴 뒤 올리지 못하면 패널이 갈 곳을 잃는다)
@@ -55,7 +56,7 @@ const exported: GuildCommand = {
       if (PERMISSION_CODES.has(codeOf(error))) return noticeSelf(interaction, privateText(interaction).errors.notice("permission-text"));
       throw error;
     }
-    await interaction.deleteReply().catch(unlessGone(log, "/dashboard 응답 삭제"));
+    await interaction.deleteReply().catch(unlessGone(log, L.commands.dashboardReplyDelete()));
   },
 };
 export default exported;

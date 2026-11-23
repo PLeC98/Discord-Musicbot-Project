@@ -5,11 +5,11 @@ import type { GuildCommand } from "../../app/command-loader.ts";
 import type { BotContext } from "../../app/bot-context.ts";
 import type { ChatInputCommandInteraction } from "discord.js";
 import { messageOf } from "../../rules/error-kind.ts";
-import { asText } from "../../infra/log/log-text.ts";
 import { post } from "../../ui/frame.ts";
 import * as screens from "../../ui/settings-screens.ts";
 import { noticeSelf } from "../../ui/delivery.ts";
 import { privateText, publicText } from "../../ui/language.ts";
+import { L } from "../../infra/log/text.ts";
 const log = logger.child({ category: "commands" });
 
 // 저장에 실패하면 로그를 남기고 false를 돌려준다(호출부는 실패를 알리고 패널은 옮기지 않는다)
@@ -18,12 +18,12 @@ async function saved(interaction: ChatInputCommandInteraction<"cached">, work: (
     await work();
     return true;
   } catch (error) {
-    log.error(`서버 설정 저장 실패(/setchannel): ${interaction.guild.name} (${interaction.guild.id}) | ${asText(guildSettings.FIELD_LABEL.botChannelId)} | ${messageOf(error)}`);
+    log.error(L.commands.setchannelSaveFailed({ name: interaction.guild.name, id: interaction.guild.id, field: guildSettings.FIELD_LABEL.botChannelId, error: messageOf(error) }));
     return false;
   }
 }
 
-const movePanel = (interaction: ChatInputCommandInteraction<"cached">, { panels }: BotContext) => panels.onBotChannelChanged(interaction.guild).catch((error) => log.warn(`전용 채널 변경 후 패널 이동 실패: ${messageOf(error)}`));
+const movePanel = (interaction: ChatInputCommandInteraction<"cached">, { panels }: BotContext) => panels.onBotChannelChanged(interaction.guild).catch((error) => log.warn(L.commands.panelMoveAfterChannelChangeFailed({ error: messageOf(error) })));
 
 const exported: GuildCommand = {
   help: { section: "channel", tier: "server-manager" },

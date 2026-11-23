@@ -15,6 +15,8 @@ import type { ChatInputCommandInteraction, ContainerBuilder, GuildMember, String
 import type { BotContext } from "../../app/bot-context.ts";
 import { noticeMs, noticeSelf, replaceSelf, unlessGone } from "../../ui/delivery.ts";
 import { privateText } from "../../ui/language.ts";
+import { L } from "../../infra/log/text.ts";
+import type { LogText } from "../../infra/log/log-text.ts";
 
 /** 곡을 찾아 넣는 명령. /play와 /playfirst는 이름(문구도 이름으로 찾는다), 권한, 넣을 위치만 다르다 */
 type PlayOptions = {
@@ -29,7 +31,7 @@ type PlayOptions = {
  * 찾을 것(검색어, 링크)으로 곡을 넣고 이 상호작용의 답 메시지로 알린다. 권한은 호출부가 이미 보았다.
  * placeholder: 찾는 동안 본인에게 보일 줄, source: 로그 라벨, show: 자리표시자를 보이는 법(기본은 새 답. 검색 결과 메뉴는 그 메시지를 고친다)
  */
-async function playOnReply(interaction: ChatInputCommandInteraction<"cached"> | StringSelectMenuInteraction<"cached">, bot: BotContext, { query, placeholder, source, insertFirst = false, show = (view) => interaction.reply(reply(view)) }: { query: string; placeholder: string; source: string; insertFirst?: boolean; show?: (view: ContainerBuilder) => Promise<unknown> }) {
+async function playOnReply(interaction: ChatInputCommandInteraction<"cached"> | StringSelectMenuInteraction<"cached">, bot: BotContext, { query, placeholder, source, insertFirst = false, show = (view) => interaction.reply(reply(view)) }: { query: string; placeholder: string; source: string | LogText; insertFirst?: boolean; show?: (view: ContainerBuilder) => Promise<unknown> }) {
   const { member, guild, channel } = interaction;
   // 자리표시자는 본인에게만. Components V2여야 이 자리표시자를 안내, 메뉴로 고칠 수 있다
   await show(frame({ body: placeholder }));
@@ -53,7 +55,7 @@ async function playOnReply(interaction: ChatInputCommandInteraction<"cached"> | 
   }
   // 담은 안내는 모두에게 따로 갔다. 자리표시자는 더 넣기 메뉴로 고치거나 삭제한다
   if (result.more && (await offerOnInteraction(interaction, result.more, result.player))) return;
-  await interaction.deleteReply().catch(unlessGone(log, "자리표시자 삭제"));
+  await interaction.deleteReply().catch(unlessGone(log, L.commands.placeholderDelete()));
 }
 
 function playCommand({ name, help, permission, insertFirst = false }: PlayOptions): GuildCommand {

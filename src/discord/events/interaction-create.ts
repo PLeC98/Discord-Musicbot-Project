@@ -17,6 +17,8 @@ import type { ClientEvent } from "../../app/main.ts";
 import type { BotContext } from "../../app/bot-context.ts";
 import { isShuttingDown } from "../../infra/shutdown-state.ts";
 import { privateText } from "../../ui/language.ts";
+import { L } from "../../infra/log/text.ts";
+import type { LogText } from "../../infra/log/log-text.ts";
 
 /**
  * 처리가 예외를 던졌다. 종류와 함께 남기고, 상호작용이 살아 있으면 알린다. 종류를 구분할 수 있는 오류(네트워크, 봇 감지 등)는
@@ -26,11 +28,11 @@ import { privateText } from "../../ui/language.ts";
  */
 async function failed(interaction: RepliableInteraction, what: string, error: unknown, fallback: Notice) {
   const kind = errorKind(error);
-  log.error({ kind }, `${what} 처리 실패:`, error);
+  log.error({ kind }, L.events.handlingFailed({ what }), error);
   if (isDeadInteraction(error)) return;
   const notice = kind === "unknown-error" ? fallback : errorMessage(privateText(interaction), error);
   // 안내 실패는 여기서 끝낸다. 리스너 밖으로 예외를 던지면 client "error"를 거쳐 uncaughtException이 된다
-  await tell(interaction, notice).catch((err: unknown) => log.error("오류 안내 전송 실패:", messageOf(err)));
+  await tell(interaction, notice).catch((err: unknown) => log.error(L.events.errorNoticeFailed({ error: messageOf(err) })));
 }
 
 function tell(interaction: RepliableInteraction, notice: Notice): Promise<unknown> {
@@ -43,8 +45,8 @@ function tell(interaction: RepliableInteraction, notice: Notice): Promise<unknow
 async function runCommand(bot: BotContext, interaction: ChatInputCommandInteraction) {
   const command = bot.commands.get(interaction.commandName);
   if (!command) {
-    log.warn(`처리할 핸들러가 없는 명령어: /${interaction.commandName}`);
-    return noticeSelf(interaction, privateText(interaction).errors.notice("unknown-command")).catch((err: unknown) => log.error("오류 안내 전송 실패:", messageOf(err)));
+    log.warn(L.events.unknownCommand({ commandName: interaction.commandName }));
+    return noticeSelf(interaction, privateText(interaction).errors.notice("unknown-command")).catch((err: unknown) => log.error(L.events.errorNoticeFailed({ error: messageOf(err) })));
   }
   try {
     // 서버 명령은 서버 안에서만. DM에서도 쓰는 명령은 그대로 부른다
@@ -70,17 +72,17 @@ async function runAutocomplete(bot: BotContext, interaction: AutocompleteInterac
     if (isDeadInteraction(error)) {
       lateLogged = true;
       const now = Date.now();
-      lateAnswer(now, (more) => `자동완성 답 실패(늦음): /${interaction.commandName} | 생성 뒤 ${now - interaction.createdTimestamp}ms${more} | ${describeError(error)}`);
-    } else log.error(`/${interaction.commandName} 자동완성 처리 실패:`, error);
+      lateAnswer(now, (skipped) => L.events.autocompleteAnswerLate({ commandName: interaction.commandName, ms: now - interaction.createdTimestamp, skipped, error: describeError(error) }));
+    } else log.error(L.events.autocompleteFailed({ commandName: interaction.commandName }), error);
   }
   if (!interaction.responded)
     await interaction.respond([]).catch((error: unknown) => {
       const dead = isDeadInteraction(error);
       if (dead && lateLogged) return;
       const now = Date.now();
-      const line = (more: string) => `자동완성 빈 응답 폴백 실패: /${interaction.commandName} | 경과 ${now - interaction.createdTimestamp}ms${more} | ${describeError(error)}`;
+      const line = (skipped: number) => L.events.autocompleteFallbackFailed({ commandName: interaction.commandName, ms: now - interaction.createdTimestamp, skipped, error: describeError(error) });
       if (dead) lateAnswer(now, line);
-      else log.warn(line(""));
+      else log.warn(line(0));
     });
 }
 
@@ -91,8 +93,8 @@ async function runComponent(bot: BotContext, input: Interaction, routes: readonl
   const { kind, interaction } = component;
   const route = routeOf(routes, kind, interaction.customId);
   if (!route) {
-    log.warn(`핸들러가 없는 상호작용: ${kind} ${interaction.customId}`);
-    return noticeSelf(interaction, privateText(interaction).errors.notice("unknown-interaction")).catch((err: unknown) => log.error("오류 안내 전송 실패:", messageOf(err)));
+    log.warn(L.events.unknownInteraction({ kind, customId: interaction.customId }));
+    return noticeSelf(interaction, privateText(interaction).errors.notice("unknown-interaction")).catch((err: unknown) => log.error(L.events.errorNoticeFailed({ error: messageOf(err) })));
   }
   try {
     await route.handle(interaction, bot);
@@ -109,12 +111,12 @@ const LATE_LOG_EVERY_MS = 60_000;
 // warn을 LATE_LOG_EVERY_MS에 한 줄로. 그 사이의 것은 세어 다음 줄에 " | 앞서 N번 더"로 붙인다
 function oncePerInterval() {
   const state = { loggedAt: -Infinity, skipped: 0 };
-  return (now: number, line: (more: string) => string) => {
+  return (now: number, line: (skipped: number) => LogText) => {
     if (now - state.loggedAt < LATE_LOG_EVERY_MS) {
       state.skipped++;
       return;
     }
-    log.warn(line(state.skipped ? ` | 앞서 ${state.skipped}번 더` : ""));
+    log.warn(line(state.skipped));
     state.loggedAt = now;
     state.skipped = 0;
   };
@@ -124,21 +126,21 @@ const lateAnswer = oncePerInterval();
 
 const nameOf = (interaction: Interaction) => {
   if (interaction.isChatInputCommand()) return `/${interaction.commandName}`;
-  if (interaction.isAutocomplete()) return `/${interaction.commandName} 자동완성`;
-  return "customId" in interaction ? String(interaction.customId) : "상호작용";
+  if (interaction.isAutocomplete()) return L.events.autocompleteName({ commandName: interaction.commandName });
+  return "customId" in interaction ? String(interaction.customId) : L.events.interactionName();
 };
 
 // 늦게 받은 상호작용. 응답하지 못한 것(10062)이 받기 전에 늦었는지(디스코드, 네트워크, 봇이 바빴음) 응답하다 늦었는지 가르려고 받은 때의 나이를 남긴다
 function noteLate(interaction: Interaction, now: number) {
   const age = now - interaction.createdTimestamp;
   if (!Number.isFinite(age) || age < LATE_MS) return;
-  lateReceive(now, (more) => `상호작용 늦게 받음: ${nameOf(interaction)} | 생성 뒤 ${age}ms${more} | 늘 이러면 봇 PC의 시계를 확인하세요`);
+  lateReceive(now, (skipped) => L.events.interactionReceivedLate({ name: nameOf(interaction), age, skipped }));
 }
 
 // 종료 중에 온 상호작용. 새 작업을 시작하지 않고 알린다(자동완성은 빈 목록). 답은 상호작용 토큰으로 가서 봇 토큰을 비운 뒤에도 닿는다
 async function refuseWhileStopping(interaction: Interaction) {
-  if (interaction.isAutocomplete()) return interaction.respond([]).catch((error: unknown) => log.warn(`종료 중 자동완성 응답 실패: ${describeError(error)}`));
-  if (interaction.isRepliable()) return noticeSelf(interaction, privateText(interaction).errors.notice("bot-shutting-down")).catch((error: unknown) => log.warn(`종료 중 안내 전송 실패: ${describeError(error)}`));
+  if (interaction.isAutocomplete()) return interaction.respond([]).catch((error: unknown) => log.warn(L.events.stoppingAutocompleteFailed({ error: describeError(error) })));
+  if (interaction.isRepliable()) return noticeSelf(interaction, privateText(interaction).errors.notice("bot-shutting-down")).catch((error: unknown) => log.warn(L.events.stoppingNoticeFailed({ error: describeError(error) })));
 }
 
 /** 상호작용 하나를 맡는다. routes는 테스트가 가짜 표를 넘기는 슬롯, now는 받은 시각 */

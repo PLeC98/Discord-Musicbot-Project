@@ -4,6 +4,7 @@ import { errorKind, messageOf } from "../rules/error-kind.ts";
 import type { SharedText } from "./text/shared.ts";
 import config from "../config/index.ts";
 import { isCode, type Code, type LooseProblem } from "../rules/problems.ts";
+import { L } from "../infra/log/text.ts";
 
 // 곡을 찾거나 추가하지 못한 결과. 여기서 읽는 필드만. code는 문제 목록의 코드이거나 흐름의 코드(lookup-failed, play-failed, play-threw 등),
 // kind는 오류로 못 했을 때 그 오류의 종류, skipped는 받을 수 없어 뺀 곡 수
@@ -14,7 +15,7 @@ const THROWN = new Set(["lookup-failed", "play-threw"]);
 /** 오류 → 사용자에게 보일 안내. T는 보낼 곳의 독자에 맞는 문구표(ui/language), 종류는 rules/error-kind가 구분한다 */
 function errorMessage(T: SharedText, error: unknown) {
   const code = errorKind(error);
-  return T.errors.noticeFor(code, {}, T.errors.PLAIN, (names) => log.warn(`안내 문구 템플릿 변수가 누락되어 기본 오류 메시지로 대체: ${code} (${names.join(", ")})`));
+  return T.errors.noticeFor(code, {}, T.errors.PLAIN, (names) => log.warn(L.error.noticeTemplateVarsMissing({ code, names: names.join(", ") })));
 }
 
 /** 곡을 찾거나 추가하지 못한 결과 → 문제. 목록의 코드면 그 코드, 오류로 못 했으면 오류 종류, 아니면 곡을 틀 수 없다고 */
@@ -27,7 +28,7 @@ function addFailure({ code, kind, skipped }: AddFailure): LooseProblem {
 /** 곡을 찾거나 추가하지 못한 결과 → 안내 */
 function addFailureMessage(T: SharedText, result: AddFailure) {
   const { code, ...params } = addFailure(result);
-  return T.errors.noticeFor(code, params, T.errors.PLAIN, (names) => log.warn(`안내 문구 템플릿 변수가 누락되어 기본 오류 메시지로 대체: ${code} (${names.join(", ")})`));
+  return T.errors.noticeFor(code, params, T.errors.PLAIN, (names) => log.warn(L.error.noticeTemplateVarsMissing({ code, names: names.join(", ") })));
 }
 
 /** 처리하지 못한 오류를 로그에 남기고 사용자 안내를 돌려준다(catch 블록에서) */

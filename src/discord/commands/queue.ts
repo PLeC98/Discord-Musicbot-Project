@@ -15,6 +15,7 @@ import logger from "../../infra/log/logger.ts";
 import { isDj } from "../../usecases/permissions.ts";
 import { privateText } from "../../ui/language.ts";
 import type { BotText } from "../../ui/text/index.ts";
+import { L } from "../../infra/log/text.ts";
 
 const log = logger.child({ category: "commands" });
 
@@ -31,7 +32,7 @@ async function mosaicOf(info: QueueInfo, page: number, waitMs: number): Promise<
   const late = new Promise<null>(
     (resolve) =>
       (timer = setTimeout(() => {
-        log.debug(`/queue 썸네일 대기 시간 초과(이미지 없이 출력): ${waitMs}ms`);
+        log.debug(L.commands.queueThumbnailWaitTimedOut({ waitMs }));
         resolve(null);
       }, waitMs)),
   );

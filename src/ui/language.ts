@@ -9,6 +9,7 @@ import { BASE_LANGUAGE, acceptedTags, availableLanguages, discordLanguage, infoO
 import * as guildSettings from "../store/guild-settings.ts";
 import * as userSettings from "../store/user-settings.ts";
 import { textFor } from "./text/index.ts";
+import { L } from "../infra/log/text.ts";
 
 const log = logger.child({ category: "core" });
 
@@ -28,7 +29,7 @@ function usable(tag: string | null, saved: Saved): Language | null {
   const key = `${saved.kind}|${"id" in saved ? saved.id : ""}|${tag}`;
   if (!warned.has(key)) {
     warned.add(key);
-    log.warn(`${saved.kind === "bot" ? "봇 기본 언어" : saved.kind === "guild" ? `서버 ${saved.id}의 서버 언어` : `사용자 ${saved.id}의 개인 언어`} ${tag}는 지금 쓸 수 없는 언어라 건너뜀(다음 순서의 언어로 표시)`);
+    log.warn(L.core.savedLanguageUnavailable({ kind: saved.kind, id: "id" in saved ? saved.id : "", tag }));
   }
   return null;
 }

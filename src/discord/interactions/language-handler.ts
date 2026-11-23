@@ -14,6 +14,7 @@ import { AUTO, FOLLOW_BOT } from "../../ui/language-panel.ts";
 import { isServerManager } from "../../usecases/permissions.ts";
 import { panelView } from "../commands/language.ts";
 import { route, type Route } from "./route.ts";
+import { L } from "../../infra/log/text.ts";
 
 const log = logger.child({ category: "events" });
 
@@ -26,7 +27,7 @@ function save(interaction: StringSelectMenuInteraction, which: "me" | "guild") {
     try {
       userSettings.setLanguage(interaction.user.id, language ?? "auto");
     } catch (error) {
-      log.error(`개인 언어 저장 실패: ${interaction.user.id}`, error);
+      log.error(L.events.userLanguageSaveFailed({ userId: interaction.user.id }), error);
       return "settings-save-failed" as const;
     }
     return null;
@@ -37,7 +38,7 @@ function save(interaction: StringSelectMenuInteraction, which: "me" | "guild") {
   try {
     guildSettings.setLanguage(interaction.guildId, language);
   } catch (error) {
-    log.error(`서버 언어 저장 실패: ${interaction.guild.name} (${interaction.guildId})`, error);
+    log.error(L.events.guildLanguageSaveFailed({ name: interaction.guild.name, guildId: interaction.guildId }), error);
     return "settings-save-failed" as const;
   }
   return null;

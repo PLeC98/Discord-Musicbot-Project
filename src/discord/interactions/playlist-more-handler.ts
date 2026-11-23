@@ -20,6 +20,7 @@ import { MAX_COUNT, parseCount, type More as MoreOffer, type MoreState } from ".
 import type { Player } from "../../player/player.ts";
 import { LIFETIME, noticeInstead, noticeSelf, toAll, unlessGone } from "../../ui/delivery.ts";
 import { audienceText, privateText, publicText } from "../../ui/language.ts";
+import { L } from "../../infra/log/text.ts";
 
 const PROGRESS_EVERY_MS = 2000;
 
@@ -27,7 +28,7 @@ const PROGRESS_EVERY_MS = 2000;
 type MoreInteraction = StringSelectMenuInteraction<"cached"> | ModalMessageModalSubmitInteraction<"cached">;
 
 // 상호작용이 이미 닫혔으면 넘긴다
-const closed = unlessGone(log, "더 넣기 응답");
+const closed = unlessGone(log, L.events.moreReply());
 
 const refuser = (interaction: MoreInteraction) => (notice: Notice) => noticeSelf(interaction, notice).catch(closed);
 
@@ -70,7 +71,7 @@ async function addMore(interaction: MoreInteraction, state: MoreState, count: nu
     if (done >= want || now - lastEdit < PROGRESS_EVERY_MS) return;
     lastEdit = now;
     // 진행 표시는 놓쳐도 된다. 불러오는 동안 되풀이하므로 trace
-    interaction.editReply(post(fetchingView(audienceText(interaction), { done, want }))).catch((error: unknown) => log.trace(`더 넣기 진행 표시 실패: ${messageOf(error)}`));
+    interaction.editReply(post(fetchingView(audienceText(interaction), { done, want }))).catch((error: unknown) => log.trace(L.events.moreProgressFailed({ error: messageOf(error) })));
   };
 
   let outcome: { view: ContainerBuilder } | { failed: Notice };
@@ -86,7 +87,7 @@ async function addMore(interaction: MoreInteraction, state: MoreState, count: nu
     });
     outcome = result.success ? { view: resultView(publicText(interaction.guildId), More.resultSpec(state, result, More.roomFor(player))) } : { failed: addFailureMessage(privateText(interaction), result) };
   } catch (error) {
-    log.error("재생목록 더 넣기 실패:", error);
+    log.error(L.events.playlistMoreFailed(), error);
     outcome = { failed: errorMessage(privateText(interaction), error) };
   }
 
@@ -133,7 +134,7 @@ async function offerOnInteraction(interaction: RepliableInteraction, more: MoreO
     More.expireLater(message.id, () => interaction.deleteReply());
     return true;
   } catch (error) {
-    log.warn(`더 넣기 메뉴 전송 실패: ${messageOf(error)}`);
+    log.warn(L.events.moreMenuSendFailed({ error: messageOf(error) }));
     return false;
   }
 }
@@ -148,7 +149,7 @@ async function offerOnChannel(channel: TextBasedChannel | null | undefined, more
     More.expireLater(message.id, () => message.delete());
     return true;
   } catch (error) {
-    if (!quiet) log.warn(`더 넣기 메뉴 전송 실패: ${messageOf(error)}`);
+    if (!quiet) log.warn(L.events.moreMenuSendFailed({ error: messageOf(error) }));
     return false;
   }
 }
