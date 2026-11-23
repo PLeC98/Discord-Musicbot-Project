@@ -288,8 +288,13 @@ function withImport(file: string, text: string, name: string, target: string): s
   if (new RegExp(`import\\s*\\{[^}]*\\b${name}\\b[^}]*\\}\\s*from\\s*"${spec.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`).test(text)) return text;
   const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
   const imports = source.statements.filter(ts.isImportDeclaration);
-  const at = imports.length ? imports[imports.length - 1].getEnd() : 0;
-  return `${text.slice(0, at)}\nimport { ${name} } from "${spec}";${text.slice(at)}`;
+  if (imports.length) {
+    const at = imports[imports.length - 1].getEnd();
+    return `${text.slice(0, at)}\nimport { ${name} } from "${spec}";${text.slice(at)}`;
+  }
+  // import 가 없으면 머리 주석(파일 맨 앞의 주석) 뒤에
+  const header = ts.getLeadingCommentRanges(text, 0)?.at(-1)?.end ?? 0;
+  return header ? `${text.slice(0, header)}\n\nimport { ${name} } from "${spec}";${text.slice(header)}` : `import { ${name} } from "${spec}";\n${text}`;
 }
 
 /** 호출부를 바꾼 소스. sites 는 한 파일의 것 */
