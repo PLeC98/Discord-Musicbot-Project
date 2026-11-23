@@ -10,6 +10,8 @@ import { Readable, finished } from "stream";
 import * as SafeUrl from "../infra/safe-url.ts";
 import { messageOf } from "../rules/error-kind.ts";
 import logger from "../infra/log/logger.ts";
+import { L } from "../infra/log/text.ts";
+import { logTextError } from "../infra/log/log-text.ts";
 const log = logger.child({ category: "link" });
 
 /** 이을 때의 요청(가드를 지난다). 2xx가 아니면 status를 단 오류를 던진다 */
@@ -74,7 +76,7 @@ function createResumingBody(options: ResumingOptions): Readable {
       current?.resume();
     },
     destroy(error, callback) {
-      aborter.abort(new Error("본문 스트림이 닫힘"));
+      aborter.abort(logTextError(L.link.bodyStreamClosed()));
       current?.destroy();
       options.body.destroy();
       callback(error);
@@ -168,14 +170,14 @@ function createResumingBody(options: ResumingOptions): Readable {
         await pour(next.body, next.skip);
         next = null;
         if (total === null || pos >= total) return void out.push(null);
-        throw Object.assign(new Error(`본문을 다 받기 전에 끝남(${pos}/${total}B)`), { code: "ERR_STREAM_PREMATURE_CLOSE" });
+        throw Object.assign(logTextError(L.link.bodyEndedEarly({ receivedBytes: pos, totalBytes: total })), { code: "ERR_STREAM_PREMATURE_CLOSE" });
       } catch (error) {
         next?.body.destroy();
         next = null;
         if (out.destroyed) return;
         if ((error as { permanent?: boolean }).permanent || failures >= retryDelaysMs.length) return void out.destroy(error as Error);
         interruptedAt ||= Date.now();
-        log.trace(`본문 이어 받기(재시도 ${failures + 1}/${retryDelaysMs.length}, ${pos}B): ${messageOf(error)}`);
+        log.trace(L.link.bodyResumeRetry({ attempt: failures + 1, maxAttempts: retryDelaysMs.length, offsetBytes: pos, error: messageOf(error) }));
         await sleep(retryDelaysMs[failures++]);
         if (out.destroyed) return;
       }

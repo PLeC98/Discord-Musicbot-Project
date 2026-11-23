@@ -13,6 +13,7 @@ import { bestEffort } from "../infra/best-effort.ts";
 import { repeatingFailure } from "../infra/repeating-failure.ts";
 import * as audioCache from "../store/audio-cache.ts";
 import { audioKeyOf } from "../rules/audio-key-of.ts";
+import { L } from "../infra/log/text.ts";
 
 const POSITION_SAVE_MS = 5000;
 // 설정이 바뀐 뒤 이만큼 모았다가 한 번 쓴다(볼륨을 연달아 바꾸는 따위)
@@ -30,7 +31,7 @@ const liveStore = () => (stateDb.isOpen() ? sessions() : null);
 const active = new Set<SessionPersistence>();
 let tickTimer: NodeJS.Timeout | null = null;
 // DB가 잠기면 5초마다 같은 실패가 난다. 처음 한 번만 error, 풀리면 한 줄
-const positionSave = repeatingFailure(log, "재생 위치 저장");
+const positionSave = repeatingFailure(log, L.session.positionSave());
 
 function saveTick() {
   const store = liveStore();
@@ -88,10 +89,10 @@ class SessionPersistence {
       const botId = this.player.guild?.client?.user?.id ?? null;
       const human = [saved.current, ...saved.queue].filter((t) => t && t.requesterId !== botId).length;
       store.removeSession(guildId);
-      log.info(`저장된 세션을 삭제하고 새로 시작: 사람이 추가한 곡 ${human}곡 (서버 ID ${guildId})`);
+      log.info(L.session.sessionDiscarded({ humanTracks: human, guildId }));
       return human;
     } catch (error) {
-      log.error(`저장된 세션 정리 실패 (서버 ID ${guildId}):`, messageOf(error));
+      log.error(L.session.sessionDiscardFailed({ guildId, error: messageOf(error) }));
       return 0;
     }
   }
@@ -113,7 +114,7 @@ class SessionPersistence {
       if (write(store, guildId) === false) this.resync(store);
     } catch (error) {
       this.dirty = true;
-      log.warn(`세션 곡 저장 실패(다음 변경에서 통째로 다시 씀, 서버 ID ${guildId}): ${messageOf(error)}`);
+      log.warn(L.session.sessionTracksSaveFailed({ guildId, error: messageOf(error) }));
     }
   }
 
@@ -126,7 +127,7 @@ class SessionPersistence {
       this.dirty = false;
     } catch (error) {
       this.dirty = true;
-      log.error(`세션 트랙 재기록 실패 (서버 ID ${p.guild.id}): ${messageOf(error)}`);
+      log.error(L.session.sessionTracksRewriteFailed({ guildId: p.guild.id, error: messageOf(error) }));
     }
   }
 
@@ -226,7 +227,7 @@ class SessionPersistence {
     try {
       store.savePositions([{ guildId: p.guild.id, positionMs: p.getCurrentTime() || 0 }]);
     } catch (error) {
-      log.warn(`재생 위치 저장 실패: ${messageOf(error)}`);
+      log.warn(L.session.positionSaveFailed({ error: messageOf(error) }));
     }
   }
 
@@ -252,7 +253,7 @@ class SessionPersistence {
         this.lastRow = this._rowKey();
       }
     } catch (error) {
-      log.error(`세션 저장 실패 (서버 ID ${p.guild.id}):`, messageOf(error));
+      log.error(L.session.sessionSaveFailed({ guildId: p.guild.id, error: messageOf(error) }));
     }
     if (FINAL_REASONS.has(reason)) this.frozen = true;
   }
@@ -266,7 +267,7 @@ class SessionPersistence {
       store.removeSession(guildId);
       this.lastRow = null;
     } catch (error) {
-      log.error(`세션 삭제 실패 (서버 ID ${guildId}):`, messageOf(error));
+      log.error(L.session.sessionRemoveFailed({ guildId, error: messageOf(error) }));
     }
   }
 
@@ -386,12 +387,12 @@ class SessionPersistence {
     const botId = player.guild?.client?.user?.id || null;
     const queueRows = botId ? record.queue.filter((t) => t.requesterId !== botId) : record.queue;
     const droppedAutoplay = record.queue.length - queueRows.length;
-    if (droppedAutoplay > 0) log.info(`복원에서 자동재생 곡 ${droppedAutoplay}곡 제외 (서버 ID ${guildId})`);
+    if (droppedAutoplay > 0) log.info(L.session.restoreAutoplayDropped({ count: droppedAutoplay, guildId }));
 
     // 상한을 줄인 뒤 재시작하면 저장된 대기열이 넘친다. 잘라낸다. 잘랐으면 DB도 맞춰야 하니 다시 쓴다.
     const max = config.bot.maxQueueSize;
     const cut = max > 0 && queueRows.length > max;
-    if (cut) log.info(`복원한 대기열이 상한을 넘어 잘라냄: ${queueRows.length}곡 → ${max}곡 (서버 ID ${guildId})`);
+    if (cut) log.info(L.session.restoreQueueTrimmed({ count: queueRows.length, max, guildId }));
     trackState.restore(
       player,
       {
@@ -410,7 +411,7 @@ class SessionPersistence {
     try {
       liveStore()?.markAutoResume(guildId);
     } catch (error) {
-      log.warn(`세션 자동 이어 틀기 표시 실패 (서버 ID ${guildId}): ${messageOf(error)}`);
+      log.warn(L.session.autoResumeMarkFailed({ guildId, error: messageOf(error) }));
     }
   }
 
@@ -421,8 +422,8 @@ class SessionPersistence {
     } catch (error) {
       // 종료 중이라 붙지 않았다. 연결 실패가 아니므로 그대로 예외를 던진다(부른 쪽이 세션을 남기고 정리한다)
       if (codeOf(error) === "bot-shutting-down") throw error;
-      log.error("세션 복원 중 음성 연결 실패:", messageOf(error));
-      throw codedError("voice-failed", "음성 채널 재연결 실패", { cause: error });
+      log.error(L.session.restoreVoiceFailed({ error: messageOf(error) }));
+      throw codedError("voice-failed", L.session.voiceRejoinFailed(), { cause: error });
     }
   }
 
@@ -434,7 +435,7 @@ class SessionPersistence {
         // 재생 패널을 새로 올린다(진행 갱신도 시작). 옛 패널은 기록을 보고 치운다. 복원에는 진입점 자리표시자가 없다.
         await playerEvents.started(player);
       } catch (error) {
-        log.error("세션 복원 중 재생 패널 복구 실패:", messageOf(error));
+        log.error(L.session.restorePanelFailed({ error: messageOf(error) }));
       }
     }
 
@@ -443,7 +444,7 @@ class SessionPersistence {
         // 실제로 튼 곡과 위치(복원하던 곡을 곡 탓으로 넘겼으면 다른 곡, 처음부터다)
         await playerEvents.notice(player, "restored", { title: player.currentTrack.title, atSec: Math.floor(player.getCurrentTime() / 1000), paused: player.pause.userPaused });
       } catch (error) {
-        log.warn(`복원 알림 보내기 실패: ${messageOf(error)}`);
+        log.warn(L.session.restoreNoticeFailed({ error: messageOf(error) }));
       }
     }
   }

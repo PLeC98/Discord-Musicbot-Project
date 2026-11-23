@@ -1,5 +1,8 @@
 // BtbN/FFmpeg-Builds 릴리스에서 이 플랫폼이 받을 에셋. 설치(scripts/install-ffmpeg)가 쓴다
 
+import { L } from "../../infra/log/text.ts";
+import { logTextError } from "../../infra/log/log-text.ts";
+
 const VARIANT = "lgpl"; // 오디오만 쓰므로 GPL 전용 코덱(x264/x265)은 불필요
 
 const RELEASES_URL = "https://github.com/BtbN/FFmpeg-Builds/releases/download";
@@ -50,7 +53,7 @@ function assetFor(checksumsText: string, target: Target, key: string): Asset {
     }
   }
 
-  if (!best) throw new Error(`이 릴리스에 ${key}용 ${VARIANT} 빌드가 없음`);
+  if (!best) throw logTextError(L.ffmpeg.releaseBuildMissing({ target: key, variant: VARIANT }));
   return { assetName: best.assetName, sha256: best.sha256, version: best.version, branch: best.branch };
 }
 

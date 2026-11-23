@@ -13,6 +13,7 @@ import type { Player } from "./player.ts";
 import { messageOf } from "../rules/error-kind.ts";
 import { listenersIn } from "../rules/holds.ts";
 import * as staySeats from "../store/stay-seats.ts";
+import { L } from "../infra/log/text.ts";
 
 /** 24/7 자리에 있나: 서버의 자리가 그 채널이다. 자리에서는 나가는 타이머를 걸지 않고 정지도 채널에 남는다 */
 function seatedIn(guildId: string, channelId: string | null | undefined) {
@@ -79,7 +80,7 @@ class IdleLeave {
     this.aloneAt = Date.now() + Math.max(this.aloneMs, 0);
     this.aloneTimer = setTimeout(
       () => {
-        this._aloneExpired().catch((error: unknown) => log.error("빈 음성 채널 자동 퇴장 정리 실패:", error));
+        this._aloneExpired().catch((error: unknown) => log.error(L.player.aloneLeaveFailed(), error));
       },
       Math.max(this.aloneMs, 0),
     );
@@ -135,7 +136,7 @@ class IdleLeave {
       if (player.queue.length !== 0 || player.currentTrack || this.seated()) return;
       const channel = player.voiceChannel?.id ?? "?";
       // 끝난 패널의 "쉬러 갈게요"를 음성 밖 문구로
-      player.dispose({ reason, session: "remove", panel: "disconnected", end: "queue-drained" }).catch((error: unknown) => log.error(`대기열 소진 자동 퇴장 중 플레이어 정리 실패(세션 및 음성 연결 잔류 가능): ${player.guild?.name ?? player.guild?.id} | 채널=${channel} | ${messageOf(error)}`));
+      player.dispose({ reason, session: "remove", panel: "disconnected", end: "queue-drained" }).catch((error: unknown) => log.error(L.player.queueDrainedLeaveFailed({ guild: player.guild?.name ?? player.guild?.id, channel, error: messageOf(error) })));
     }, config.bot.leaveDelayQueueEmptyMs);
   }
 

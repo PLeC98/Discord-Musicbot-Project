@@ -3,6 +3,7 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "registry" });
 import type { Player } from "./player.ts";
 import * as playerEvents from "./events.ts";
+import { L } from "../infra/log/text.ts";
 
 /**
  * 서버마다 플레이어 하나. 조립(app/main)이 하나 만들어 넘긴다. 등록, 해제를 기록한다.
@@ -22,7 +23,7 @@ class PlayerRegistry extends Collection<string, Player> {
   forget(player: Player, reason = "?") {
     const guildId = player.guild?.id;
     if (!guildId || this.get(guildId) !== player) return;
-    log.debug(`해제: ${label(player, guildId)} | 원인=${reason}`);
+    log.debug(L.registry.playerForgotten({ guild: label(player, guildId), reason }));
     super.delete(guildId);
   }
 

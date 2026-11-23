@@ -15,6 +15,8 @@ import { codedError, messageOf } from "../rules/error-kind.ts";
 import type { FromWorker, Reply, ToWorker } from "./encode-worker.ts";
 import { josa } from "../infra/josa.ts";
 import { sec } from "../infra/log/seconds.ts";
+import { L } from "../infra/log/text.ts";
+import { logTextError } from "../infra/log/log-text.ts";
 const log = logger.child({ category: "player" });
 
 const FRAME_MS = 20;
@@ -274,7 +276,7 @@ class EncodePool {
       entry.ids.delete(slot.id);
       control(entry, { type: "close", id: slot.id });
     }
-    log.warn("정리되지 않은 출력 스트림의 인코더를 GC가 해제함(리소스를 destroy 하지 않는 경로가 있음)");
+    log.warn(L.player.encoderFreedByGc());
   });
 
   constructor({ workerUrl, maxWorkers, stallMs, calibrateFrames }: PoolOptions = {}) {
@@ -386,7 +388,7 @@ class EncodePool {
         entry.gone = true;
         port1.close();
         void thread.terminate();
-        reject(new Error(`인코딩 워커 실행 실패: ${why}`));
+        reject(logTextError(L.player.encodeWorkerSpawnFailed({ reason: why })));
       };
       const timer = setTimeout(() => fail(`${START_TIMEOUT_MS / 1000}초 안에 준비되지 않음`), START_TIMEOUT_MS);
       port1.on("message", (m: FromWorker) => {
@@ -412,7 +414,7 @@ class EncodePool {
     // 준비된 뒤 풀에 넣기 전에 죽었다(크래시는 이미 셌다)
     if (entry.gone) return this.#rehome();
     this.#workers.push(entry);
-    if (this.#workers.length > 1) log.info(`재생 인코딩 워커를 늘림(${this.#workers.length}개, 상한 ${this.#limit()})`);
+    if (this.#workers.length > 1) log.info(L.player.encodeWorkerAdded({ count: this.#workers.length, limit: this.#limit() }));
     if (!this.#timers.length && !this.#closing) {
       this.#timers.push(setInterval(() => this.#checkStalls(), STALL_CHECK_MS).unref(), setInterval(() => this.#tick(), TICK_MS).unref());
     }
@@ -566,7 +568,7 @@ class EncodePool {
     const session = found && !found.freed && found.slot.entry === entry ? found : null;
     if (item.fatal) {
       // 어느 프레임에서 났는지 안다. 그 세션은 실패시키고, 이 크래시는 연속 크래시(백오프)에 세지 않는다
-      if (session) this.#fail(session, new Error(`인코딩 중 WASM 오류: ${item.error ?? ""}`));
+      if (session) this.#fail(session, logTextError(L.player.encodeWasmError({ error: item.error ?? "" })));
       return this.#died(entry, `WASM 오류로 내림(${item.error ?? ""})`, { known: !!session });
     }
     if (session) this.#answer(entry, session, item, received);
@@ -615,7 +617,7 @@ class EncodePool {
     try {
       session.hooks.onError(error);
     } catch (thrown) {
-      log.warn(`출력 스트림의 인코딩 오류 처리 중 실패: ${messageOf(thrown)}`);
+      log.warn(L.player.encodeErrorHandlerFailed({ error: messageOf(thrown) }));
     }
   }
 
@@ -655,13 +657,13 @@ class EncodePool {
     const what: string[] = [];
     if (moved || !poisoned.length) what.push(`맡던 스트림 ${moved}개를 다른 워커로 옮김`);
     if (poisoned.length) what.push(`스트림 ${poisoned.length}개는 붙어 있던 워커가 잇달아 죽어 실패 처리`);
-    log.warn(`재생 인코딩 워커 ${entry.n}: ${why}. ${what.join(". ")}`);
+    log.warn(L.player.encodeWorkerDied({ worker: entry.n, reason: why, outcomes: what.join(". ") }));
     this.#stats.deaths++;
     if (!known) this.#noteDeath();
     this.#cancelMovesTo(entry);
     for (const session of sessions) {
       if (poisoned.includes(session)) {
-        this.#fail(session, new Error("이 스트림을 맡은 인코딩 워커가 잇달아 죽음"));
+        this.#fail(session, logTextError(L.player.encodeWorkerKeptDying()));
         continue;
       }
       session.moveTo = null;
@@ -726,7 +728,7 @@ class EncodePool {
       entry.lastLate = entryLate;
       this.#steer(entry, rttP99, at);
     }
-    if (details.length) log.debug(`재생 인코딩 상세: ${details.join(" | ")}`);
+    if (details.length) log.debug(L.player.encodeDetails({ details: details.join(" | ") }));
     this.#noteSlow(late, worst);
   }
 
@@ -751,7 +753,7 @@ class EncodePool {
       entry.depth += action === "deepen" ? 1 : -1;
       entry.depthChanges.push(at);
       entry.calm = 0;
-      log.debug(`재생 인코딩 워커 ${entry.n}: 큐 깊이 ${entry.depth}(응답 시간 p99 ${rttP99.toFixed(1)}ms)`);
+      log.debug(L.player.encodeQueueDepth({ worker: entry.n, depth: entry.depth, rttP99Ms: rttP99.toFixed(1) }));
     }
   }
 
@@ -807,10 +809,10 @@ class EncodePool {
       this.#slowCalm = 0;
       const streams = this.#workers.reduce((sum, e) => sum + e.ids.size, 0);
       const cpu = worst?.load ? `${Math.round(worst.load.cpuUs / 10_000)}%` : "알 수 없음";
-      log.warn(`재생 인코딩 지연(워커 ${this.#workers.length}개/상한 ${this.#limit()}, 스트림 ${streams}개, 지연 워커 CPU ${cpu}). 지연된 만큼 소리가 끊김`);
+      log.warn(L.player.encodeLagging({ workers: this.#workers.length, limit: this.#limit(), streams, workerCpu: cpu }));
     }
     if (this.#slowSince && this.#slowCalm >= SLOW_CALM_TICKS) {
-      log.info(`재생 인코딩 지연 해소(${Math.round((now() - this.#slowSince) / 1000)}초 동안 지연 프레임 ${this.#slowLate}개)`);
+      log.info(L.player.encodeLagCleared({ seconds: Math.round((now() - this.#slowSince) / 1000), lateFrames: this.#slowLate }));
       this.#slowSince = 0;
       this.#slowLate = 0;
     }
@@ -826,7 +828,7 @@ function gcText(entry: Entry) {
   return count ? `워커 GC(최근 2초) ${count}번, 최대 ${max.toFixed(1)}ms` : "워커 GC(최근 2초) 없음";
 }
 
-const unavailable = () => codedError("encoder-unavailable", "쓸 수 있는 재생 인코딩 워커가 없음");
+const unavailable = () => codedError("encoder-unavailable", L.player.encoderUnavailable());
 
 const encodePool = new EncodePool();
 

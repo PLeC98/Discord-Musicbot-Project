@@ -6,6 +6,7 @@ import * as procRegistry from "../../infra/process-registry.ts";
 import logger from "../../infra/log/logger.ts";
 import { messageOf } from "../../rules/error-kind.ts";
 import { exitText, exitVerdict } from "./exit.ts";
+import { L } from "../../infra/log/text.ts";
 const log = logger.child({ category: "ffmpeg" });
 
 // 소리를 내는 ffmpeg(playback-input, 갭리스 전환)
@@ -61,15 +62,15 @@ function spawnFfmpeg(args: string[], label: string, { killOnStdoutClose = true }
 
   child.on("error", (err) => {
     release();
-    log.error(`ffmpeg(${label}) 실행 실패: ${err.message} (경로: ${bin})`);
+    log.error(L.ffmpeg.spawnFailed({ job: label, error: err.message, path: bin }));
   });
 
   child.on("exit", (code, signal) => {
     release();
     const detail = stderrTail.trim() ? `: ${stderrTail.trim()}` : "";
     const verdict = exitVerdict({ code, signal, closedByUs });
-    if (verdict === "crash") log.error(`ffmpeg(${label}) 비정상 종료: ${exitText(code, signal)}${detail}`);
-    else if (verdict === "cleanup") log.debug(`ffmpeg(${label}) 정리 완료 (종료 코드 ${exitText(code, signal)})`);
+    if (verdict === "crash") log.error(L.ffmpeg.exitedAbnormally({ job: label, exit: exitText(code, signal), detailSuffix: detail }));
+    else if (verdict === "cleanup") log.debug(L.ffmpeg.cleanupExited({ job: label, exit: exitText(code, signal) }));
     else if (verdict === "failed") log.warn(`ffmpeg(${label}) 종료 코드 ${exitText(code, signal)}${closedByUs ? "(출력을 닫기 전에 이미 실패)" : ""}${detail}`);
   });
 
@@ -126,7 +127,7 @@ function probeAudio(file: string): Promise<ProbeInfo> {
     try {
       child = spawnFfmpeg(["-hide_banner", ...inputFilter(AUDIO_FORMATS, "file"), "-i", file, "-c", "copy", "-f", "null", "-"], "probe", { killOnStdoutClose: false });
     } catch (error) {
-      log.warn(`ffmpeg(probe) 실행 실패: ${file} | ${messageOf(error)}`);
+      log.warn(L.ffmpeg.probeSpawnFailed({ file, error: messageOf(error) }));
       return resolve(unknown);
     }
 

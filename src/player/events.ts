@@ -18,6 +18,7 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import { messageOf } from "../rules/error-kind.ts";
 import type { Player, PlayerEnd } from "./player.ts";
+import { L } from "../infra/log/text.ts";
 
 /** 패널을 새로 올릴 때 요청한 사람. 복원이면 아는 것이 id 뿐이다 */
 type Requester = { id: string; username?: string };
@@ -91,7 +92,7 @@ function disposed(player: Player, reason: string, end: PlayerEnd) {
     try {
       fn(player, reason, end);
     } catch (error) {
-      log.warn(`플레이어 정리 알림 처리 실패: ${messageOf(error)}`);
+      log.warn(L.player.disposeListenerFailed({ error: messageOf(error) }));
     }
   }
 }
@@ -102,7 +103,7 @@ function touched(guildId: string) {
     try {
       fn(guildId);
     } catch (error) {
-      log.warn(`대시보드 알림 전송 실패: ${messageOf(error)}`);
+      log.warn(L.player.dashboardNotifyFailed({ error: messageOf(error) }));
     }
   }
 }

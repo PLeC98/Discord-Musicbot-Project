@@ -8,6 +8,8 @@ import path from "node:path";
 import { RELEASES_URL, TARGETS, assetFor, type Target } from "./release.ts";
 import { EMPTY_STATE, readState, setAsideBroken, writeState, type FfmpegBuild, type FfmpegState } from "./state.ts";
 import { withLock } from "../../infra/folder-lock.ts";
+import { L } from "../../infra/log/text.ts";
+import { logTextError } from "../../infra/log/log-text.ts";
 
 /** 실행 확인의 결과. ok면 ffmpeg -version이 출력한 버전 */
 type Probe = { ok: true; version: string } | { ok: false; reason: string };
@@ -42,7 +44,7 @@ type AlignOptions = { dir: string; defaultRelease: string; pin?: string | null; 
 /** 목표에 맞춘다. 폴더 잠금 안에서 기록을 새로 읽고 끝에 한 번 쓴다 */
 async function alignFfmpeg({ dir, defaultRelease, pin, force = false, io }: AlignOptions): Promise<AlignOutcome> {
   const target = TARGETS[io.key];
-  if (!target) throw new Error(`${io.key}용 빌드가 제공되지 않음`);
+  if (!target) throw logTextError(L.ffmpeg.ffmpegTargetUnsupported({ target: io.key }));
   const notes: string[] = [];
   const held = await withLock(dir, () => alignLocked({ dir, defaultRelease, pin, force, io, target, notes }));
   return held.ok ? held.value : { kind: "busy", holder: held.holder, notes };

@@ -9,6 +9,7 @@ import { readState, writeState, type FfmpegBuild } from "./state.ts";
 import { withLock } from "../../infra/folder-lock.ts";
 import { FFMPEG_RELEASE } from "../../config/vendor-versions.ts";
 import type { FfmpegInfo } from "./info-types.ts";
+import { L } from "../../infra/log/text.ts";
 const log = logger.child({ category: "ffmpeg" });
 
 /**
@@ -43,7 +44,7 @@ function probeResult(candidate: string, source: string): ProbeResult {
     const match = /ffmpeg version (\S+)/i.exec(result.stdout || "");
     return { version: match ? match[1] : "unknown" };
   } catch (error) {
-    log.warn(`ffmpeg 후보 실행 확인(-version) 실패: ${candidate} | 출처=${source} | 원인=${codeOf(error) ?? messageOf(error)}`);
+    log.warn(L.ffmpeg.candidateProbeFailed({ path: candidate, source, error: codeOf(error) ?? messageOf(error) }));
     return { failed: "error" };
   }
 }
@@ -58,7 +59,7 @@ function probe(candidate: string | null | undefined, source = "?"): string | nul
 /** vendor/ffmpeg의 설치본 둘(지금 설치본, 이전 설치본). 기록을 읽지 못하면 경고하고 건너뛴다 */
 function installed(dir: string): { active: FfmpegBuild | null; previous: FfmpegBuild | null } {
   const read = readState(dir);
-  if (read.kind === "broken") log.warn(`ffmpeg 기록(${path.join(dir, "state.json")}) 읽기 실패(${read.error}): 설치본을 건너뜀. pnpm run install:ffmpeg로 다시 맞추세요`);
+  if (read.kind === "broken") log.warn(L.ffmpeg.stateReadFailed({ file: path.join(dir, "state.json"), error: read.error }));
   return read.kind === "ok" ? read.state : { active: null, previous: null };
 }
 
@@ -76,7 +77,7 @@ function pickInstalled(dir: string): Resolved | null {
   const file = path.join(dir, previous.folder, BIN);
   const ran = probeResult(file, "이전 설치본");
   if (!("version" in ran)) return null;
-  if (active) log.warn(`ffmpeg 설치본(${active.release})이 실행되지 않아 이전 설치본(${previous.release})을 씀`);
+  if (active) log.warn(L.ffmpeg.activeBuildFallback({ activeRelease: active.release, previousRelease: previous.release }));
   if (active && activeFailed && "failed" in activeFailed && activeFailed.failed === "error") toReject = { active, previous };
   return { path: file, version: ran.version, source: "이전 설치본", release: previous.release };
 }
@@ -95,7 +96,7 @@ function resolve(dir = PROJECT.ffmpeg): Resolved {
       // 명시 지정이 틀렸으면 다른 후보로 넘어가지 않는다. 사용자가 의도한 바이너리가 아닌 것을
       // 조용히 쓰면 "왜 내 설정이 반영되지 않지"로 이어진다.
       // 범위: 모든 곡이 같이 안 된다(player/failure-scope)
-      throw Object.assign(codedError("stream-failed", `FFMPEG_PATH로 지정한 경로를 실행할 수 없음: ${configured}`), { scope: "environment" });
+      throw Object.assign(codedError("stream-failed", L.ffmpeg.configuredPathNotRunnable({ path: configured })), { scope: "environment" });
     }
     resolved = { path: configured, version, source: "FFMPEG_PATH", release: null };
     return resolved;
@@ -106,7 +107,7 @@ function resolve(dir = PROJECT.ffmpeg): Resolved {
   const version = probe("ffmpeg", "PATH");
   if (version) return (resolved = { path: "ffmpeg", version, source: "PATH", release: null });
 
-  throw Object.assign(codedError("stream-failed", "ffmpeg를 찾을 수 없음. `pnpm run install:ffmpeg`로 다운로드하거나, ffmpeg를 설치해 PATH에 두거나, .env의 FFMPEG_PATH로 경로를 지정하세요 (macOS: brew install ffmpeg)."), { scope: "environment" });
+  throw Object.assign(codedError("stream-failed", L.ffmpeg.ffmpegNotFound()), { scope: "environment" });
 }
 
 /**
@@ -127,7 +128,7 @@ async function settleRejected(dir = PROJECT.ffmpeg): Promise<void> {
     },
     5000,
   );
-  if (held.ok && held.value) log.warn(`실행되지 않는 ffmpeg(${seen.active.release})를 물린 릴리스로 기록하고 이전 설치본(${seen.previous.release})을 가리키게 함. 다시 받으려면 pnpm run install:ffmpeg --force`);
+  if (held.ok && held.value) log.warn(L.ffmpeg.brokenReleaseRecorded({ activeRelease: seen.active.release, previousRelease: seen.previous.release }));
 }
 
 // 봇 정보 탭 ffmpeg 줄의 출처 코드. 화면이 이 코드로 표시할 글을 정한다
@@ -176,12 +177,12 @@ function capabilities(): Capabilities {
     try {
       const result = spawnSync(ffmpegPath(), args, { windowsHide: true, encoding: "utf8", timeout: 10000, env: toolEnv() });
       if (result.error) {
-        log.warn(`ffmpeg 지원 기능 확인 실패(${args.join(" ")}): ${messageOf(result.error)}`);
+        log.warn(L.ffmpeg.featureCheckFailed({ args: args.join(" "), error: messageOf(result.error) }));
         return "";
       }
       return `${result.stdout || ""}${result.stderr || ""}`;
     } catch (error) {
-      log.warn(`ffmpeg 지원 기능 확인 실패(${args.join(" ")}): ${messageOf(error)}`);
+      log.warn(L.ffmpeg.featureCheckFailed({ args: args.join(" "), error: messageOf(error) }));
       return "";
     }
   };

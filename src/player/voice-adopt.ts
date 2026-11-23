@@ -11,6 +11,7 @@ import type { PlayerSeats } from "./registry.ts";
 import { sessions } from "../store/player-sessions.ts";
 import { isShuttingDown } from "../infra/shutdown-state.ts";
 import { leaveLingeringVoice, LEFT_BY } from "./voice-leave.ts";
+import { L } from "../infra/log/text.ts";
 
 const log = logger.child({ category: "voice" });
 
@@ -27,8 +28,8 @@ async function adoptLingeringVoice(client: Client<true>, players: Pick<PlayerSea
     // 이어받지 않는다(붙들면 /join이 막히고 퇴장 때 세션을 삭제한다). 나가기만 하고 세션은 남긴다
     if (sessions().load(guild.id)) {
       const how = await leaveLingeringVoice(guild, players, "adopt");
-      if (how === "superseded") log.info(`그사이 플레이어가 생겨 남은 음성 채널에서 나가지 않음: "${channel.name}" (${guild.name})`);
-      else if (how !== "failed") log.info(`저장된 세션은 남기고 음성 채널에서 나감(${LEFT_BY[how]}, /join으로 이어서 재생): "${channel.name}" (${guild.name})`);
+      if (how === "superseded") log.info(L.voice.lingeringLeaveSuperseded({ channel: channel.name, guild: guild.name }));
+      else if (how !== "failed") log.info(L.voice.lingeringLeftSessionKept({ leftBy: LEFT_BY[how], channel: channel.name, guild: guild.name }));
       continue;
     }
 
@@ -37,11 +38,11 @@ async function adoptLingeringVoice(client: Client<true>, players: Pick<PlayerSea
     try {
       await player.voice.connect();
     } catch (error) {
-      log.warn(`세션 없이 남은 음성 채널에 재연결하지 못해 정리: "${channel.name}" (${guild.name}) | ${messageOf(error)}`);
+      log.warn(L.voice.lingeringAdoptFailed({ channel: channel.name, guild: guild.name, error: messageOf(error) }));
       await player.dispose({ reason: "남은 채널 이어받기 실패", session: "keep", end: "adopt-failed" });
       continue;
     }
-    log.info(`세션 없이 남아 있던 음성 채널 연결을 이어받음: "${channel.name}" (${guild.name})`);
+    log.info(L.voice.lingeringAdopted({ channel: channel.name, guild: guild.name }));
     player.showIdleVoiceStatus();
     player.idle.scheduleEmpty("곡 없이 대기");
     // 혼자 남음은 붙을 때(connect) 억제 사유를 맞추며 이미 걸었다. 그때의 안내는 틀 게 없음 타이머 전이라 한 번 더 알린다

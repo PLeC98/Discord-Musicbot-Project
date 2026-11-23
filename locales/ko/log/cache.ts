@@ -31,6 +31,15 @@ const cache = {
   linkDataRow: () => `링크 데이터`,
   /** 읽은 행의 형식이 맞지 않아 버렸다. what: 행 종류(sessionTrackRow, linkDataRow 라벨), where: 틀린 칸, key: 요청 키(없으면 null) */
   rowShapeInvalid: ({ what, where, key }: { what: string; where: string; key: string | null }) => `${what} 행의 형식이 올바르지 않아 무시(${where}): ${key ?? "없음"}`,
+  sourceRecheck: ({ platform }: { platform: string }) => `${platform} 캐시 원본 재확인`,
+  sourceRecheckFailed: ({ title, error }: { title: string; error: string }) => `원본 다시 확인 실패(${title}): ${error}`,
+  sourceRecheckSame: ({ track }: { track: string }) => `원본 다시 확인: 같음 ${track}`,
+  sourceRecheckUncompared: ({ reason, track }: { reason: string; track: string }) => `원본 다시 확인: 열림, 비교 불가(${reason}) ${track}`,
+  cachedSourceGone: ({ code, track }: { code: string; track: string }) => `캐시된 곡의 원본을 더 이상 재생할 수 없음(${code}). 캐시 파일은 그대로 사용: ${track}`,
+  sourceRecheckUnknown: ({ reason, track }: { reason: string; track: string }) => `원본 다시 확인: 모름(${reason}), 하루 뒤에 다시 ${track}`,
+  cachedSourceChangedKept: ({ changes, track }: { changes: string; track: string }) => `캐시된 곡의 원본이 변경됨(${changes}). 캐시 파일은 유지하고 캐시 DB에 표시: ${track}`,
+  cachedSourceChangedReplaced: ({ changes, track }: { changes: string; track: string }) => `캐시된 곡의 원본이 변경됨(${changes}). 캐시 파일을 삭제하고 다음 재생 시 새로 다운로드: ${track}`,
+  changedSourceCacheRemoved: ({ title }: { title: string }) => `변경된 원본의 캐시 파일 삭제(다음 재생 시 새로 다운로드): "${title}"`,
 };
 
 export { cache };

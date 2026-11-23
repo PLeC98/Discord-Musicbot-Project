@@ -7,6 +7,8 @@ import { messageOf } from "../rules/error-kind.ts";
 import { refusedStatus } from "./input-health.ts";
 import type { RangeFetch } from "./chunked-stream.ts";
 import type { LogText } from "../infra/log/log-text.ts";
+import { L } from "../infra/log/text.ts";
+import { logTextError } from "../infra/log/log-text.ts";
 
 type SeekRequest = { url: string; headers: Record<string, string>; totalBytes: number; startMs: number; durationMs: number; chunkBytes: number };
 type SeekStart = { header: Buffer; startByte: number; startedAtMs: number; expectStart: { bytes: number; check(head: Buffer): boolean } };
@@ -27,7 +29,7 @@ const HEAD_TIMEOUT_MS = 3000;
 /** 앞부분 [0, bytes)를 받는다. 206이 아니면 그 상태를 던진다 */
 async function headOf(url: string, headers: Record<string, string>, bytes: number, fetchImpl: RangeFetch, signal: AbortSignal): Promise<Buffer> {
   const res = await fetchImpl(url, { headers: { ...headers, Range: `bytes=0-${bytes - 1}` }, signal });
-  if (res.status !== 206 || !res.body) throw Object.assign(new Error(`헤더 요청이 HTTP ${res.status}`), { status: res.status });
+  if (res.status !== 206 || !res.body) throw Object.assign(logTextError(L.player.headerHttpFailed({ status: res.status })), { status: res.status });
   const reader = res.body.getReader();
   const chunks: Buffer[] = [];
   let length = 0;
@@ -45,7 +47,7 @@ async function seekStart(request: SeekRequest, { fetchImpl = fetch as unknown as
   const { url, headers, totalBytes, startMs, durationMs, chunkBytes } = request;
   if (!worthIndexing({ startMs, durationMs, totalBytes, chunkBytes })) return { ok: false, why: "가까운 위치", near: true };
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(new Error(`헤더 요청이 ${timeoutMs / 1000}초를 넘김`)), timeoutMs);
+  const timer = setTimeout(() => controller.abort(logTextError(L.player.headerRequestTimedOut({ seconds: timeoutMs / 1000 }))), timeoutMs);
   try {
     let head = await headOf(url, headers, Math.min(headBytes, totalBytes), fetchImpl, controller.signal);
     let read = readIndex(head, totalBytes);

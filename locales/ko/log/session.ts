@@ -1,0 +1,32 @@
+// 로그 문구: 재생 세션(session 분류). 세션 저장과 기동 때의 복원
+
+const session = {
+  positionSave: () => `재생 위치 저장`,
+  sessionDiscarded: ({ humanTracks, guildId }: { humanTracks: number; guildId: string }) => `저장된 세션을 삭제하고 새로 시작: 사람이 추가한 곡 ${humanTracks}곡 (서버 ID ${guildId})`,
+  sessionDiscardFailed: ({ guildId, error }: { guildId: string; error: string }) => `저장된 세션 정리 실패 (서버 ID ${guildId}): ${error}`,
+  sessionTracksSaveFailed: ({ guildId, error }: { guildId: string; error: string }) => `세션 곡 저장 실패(다음 변경에서 통째로 다시 씀, 서버 ID ${guildId}): ${error}`,
+  sessionTracksRewriteFailed: ({ guildId, error }: { guildId: string; error: string }) => `세션 트랙 재기록 실패 (서버 ID ${guildId}): ${error}`,
+  positionSaveFailed: ({ error }: { error: string }) => `재생 위치 저장 실패: ${error}`,
+  sessionSaveFailed: ({ guildId, error }: { guildId: string; error: string }) => `세션 저장 실패 (서버 ID ${guildId}): ${error}`,
+  sessionRemoveFailed: ({ guildId, error }: { guildId: string; error: string }) => `세션 삭제 실패 (서버 ID ${guildId}): ${error}`,
+  restoreAutoplayDropped: ({ count, guildId }: { count: number; guildId: string }) => `복원에서 자동재생 곡 ${count}곡 제외 (서버 ID ${guildId})`,
+  restoreQueueTrimmed: ({ count, max, guildId }: { count: number; max: number; guildId: string }) => `복원한 대기열이 상한을 넘어 잘라냄: ${count}곡 → ${max}곡 (서버 ID ${guildId})`,
+  autoResumeMarkFailed: ({ guildId, error }: { guildId: string; error: string }) => `세션 자동 이어 틀기 표시 실패 (서버 ID ${guildId}): ${error}`,
+  restoreVoiceFailed: ({ error }: { error: string }) => `세션 복원 중 음성 연결 실패: ${error}`,
+  voiceRejoinFailed: () => `음성 채널 재연결 실패`,
+  restorePanelFailed: ({ error }: { error: string }) => `세션 복원 중 재생 패널 복구 실패: ${error}`,
+  restoreNoticeFailed: ({ error }: { error: string }) => `복원 알림 보내기 실패: ${error}`,
+  joinOnlySessionsSkipped: ({ count }: { count: number }) => `/join으로만 이어 듣는 세션 ${count}개는 기동 때 복원하지 않음`,
+  restoreSkippedCrashes: ({ count, guildIds }: { count: number; guildIds: string }) => `짧은 간격의 비정상 종료가 반복되어 저장된 세션 ${count}개의 복원을 건너뜀(세션은 유지): 서버 ID ${guildIds}`,
+  restoreStarted: ({ count }: { count: number }) => `저장된 재생 세션 ${count}개 복원 시작`,
+  restoreGuildFailed: ({ guildId, error }: { guildId: string; error: string }) => `서버 ID ${guildId} 세션 복원 중 오류(세션은 남김): ${error}`,
+  guildGoneSessionRemoved: ({ guildId }: { guildId: string }) => `서버를 찾을 수 없거나 접근할 수 없어 저장된 세션 삭제: 서버 ID ${guildId}`,
+  restoreSkippedPlaying: ({ guild }: { guild: string }) => `서버 ${guild}에서 이미 재생 중이라 저장 세션 복원을 건너뜀`,
+  guildRestored: ({ guild, outcome }: { guild: string; outcome: string }) => `서버 ${guild}의 세션 복원: ${outcome}`,
+  restoreStoppedShutdown: ({ guild }: { guild: string }) => `서버 ${guild}의 세션 복원 중단: 종료 중(세션은 남김)`,
+  playerRestoreFailed: ({ guild, guildId, error }: { guild: string; guildId: string; error: string }) => `서버 ${guild} (${guildId}) 세션 복원 중 오류(세션은 남김): ${error}`,
+  restoreChannelFetchFailed: ({ guild, channel, error }: { guild: string; channel: string; error: string }) => `서버 ${guild}의 채널 ${channel} 조회 실패(세션은 남김): ${error}`,
+  restoreVoiceChannelGone: ({ guild }: { guild: string }) => `서버 ${guild}의 저장된 음성 채널이 없어 저장된 세션 삭제`,
+};
+
+export { session };

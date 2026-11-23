@@ -40,6 +40,8 @@ import { bestEffort } from "../infra/best-effort.ts";
 import { logTitle } from "../infra/log/title.ts";
 import { addDownloaded } from "../infra/download-meter.ts";
 import { sec } from "../infra/log/seconds.ts";
+import { L } from "../infra/log/text.ts";
+import { logTextError } from "../infra/log/log-text.ts";
 
 // 다운로드에 부르는 소스와 변환에서 여기서 부르는 필드만
 type Sources = {
@@ -88,7 +90,7 @@ function cleanTemp(tempPath: string, title?: string | null): number {
   try {
     names = fsSync.readdirSync(dir);
   } catch (error) {
-    if (codeOf(error) !== "ENOENT") log.warn(`캐시 다운로드 임시 파일 정리 중 디렉터리 읽기 실패(임시 파일 정리 건너뜀): ${dir} | 곡=${logTitle(title)} | ${messageOf(error)} (${String(codeOf(error))})`);
+    if (codeOf(error) !== "ENOENT") log.warn(L.track.downloadTempDirReadFailed({ dir, title: logTitle(title), error: messageOf(error), code: String(codeOf(error)) }));
     return 0;
   }
   let left = 0;
@@ -105,7 +107,7 @@ function cleanTemp(tempPath: string, title?: string | null): number {
       first ??= { name, code: String(codeOf(error) ?? messageOf(error)) };
     }
   }
-  if (first) log.warn(`캐시 다운로드 임시 파일 삭제 실패(${left}개 남음): 첫 실패 파일=${first.name} (${first.code}) | 곡=${logTitle(title)}`);
+  if (first) log.warn(L.track.downloadTempRemoveFailed({ remaining: left, file: first.name, code: first.code, title: logTitle(title) }));
   return removed;
 }
 
@@ -126,7 +128,7 @@ const LINGER_LOG_MS = 5_000;
 // 직접 지정한 음원으로 받은 곡도 교정하지 않는다(곡 정보는 요청의 것, 음원은 다른 곡일 수 있다). 직접 링크는 파일 태그로 고친다(sources/direct-tags)
 function correctTitle(track: DownloadTrack, verifiedTitle: string | null) {
   if (!verifiedTitle || track.platform !== "youtube" || track.audioFoundBy === "pinned" || verifiedTitle === track.title) return;
-  log.debug(`제목 교정: "${logTitle(track.title)}" → "${verifiedTitle}"`);
+  log.debug(L.track.titleCorrected({ title: logTitle(track.title), correctedTitle: verifiedTitle }));
   track.title = verifiedTitle;
 }
 
@@ -142,7 +144,7 @@ async function ensureNotEmpty(tempPath: string) {
   const stats = await fs.stat(tempPath);
   if (stats.size > 0) return;
   await bestEffort(log, fs.unlink(tempPath), "빈 임시 파일 삭제");
-  throw codedError("stream-failed", "다운로드한 파일이 비어 있음");
+  throw codedError("stream-failed", L.track.downloadedFileEmpty());
 }
 
 // 완료된 다운로드를 DB에 남긴다. 못 남겨도 파일은 이미 올라갔다. 기록 없는 파일은 기동 정리가 치운다
@@ -152,7 +154,7 @@ function record(audioKey: string, filepath: string, track: DownloadTrack, { veri
     audioCache.recordDownloadComplete(audioKey, filepath, size, track, { durationSec: audioDurationSec, audioVersion });
     trackLookup.recordTrackLookup(track, { verified: !!verifiedTitle && track.platform === "youtube" });
   } catch (error) {
-    log.warn(`캐시 기록 실패 ("${logTitle(track.title)}"): ${error instanceof Error ? error.message : String(error)}`);
+    log.warn(L.track.cacheRecordFailed({ title: logTitle(track.title), error: error instanceof Error ? error.message : String(error) }));
   }
 }
 
@@ -173,7 +175,7 @@ async function publish(tempPath: string, filepath: string, title?: string | null
     try {
       await fs.unlink(tempPath);
     } catch (error) {
-      log.warn(`중복 다운로드된 캐시 임시 파일 삭제 실패(다음 기동 시 정리): ${tempPath} | 곡=${logTitle(title)} | 원인=${codeOf(error) ?? messageOf(error)}`);
+      log.warn(L.track.duplicateDownloadTempRemoveFailed({ file: tempPath, title: logTitle(title), error: codeOf(error) ?? messageOf(error) }));
     }
     return false;
   }
@@ -192,7 +194,7 @@ const youtubeNote = (track: DownloadTrack) => (track.audioUrl && inputKind(track
 // 유튜브는 넷 이상이면 도중에 HTTP 401로 막히고 둘은 막히지 않는다(재생이 같은 곡을 나란히 다운로드해도). 사운드클라우드는 여덟까지 막히지 않는다.
 const CONCURRENT_FRAGMENTS = { youtube: 2, soundcloud: 4 } as const;
 // 캐시를 찾을 때마다 불리므로 폴더 권한 같은 장애는 처음과 복구만 warn, 파일별 줄은 debug
-const cacheFileChecks = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "캐시 파일 확인");
+const cacheFileChecks = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.track.cacheFileCheck());
 
 class TrackDownloader {
   player: Owner;
@@ -225,7 +227,7 @@ class TrackDownloader {
       const found = await this.deps.equivalent.findYouTubeEquivalent(track).catch((error: unknown) => {
         throw this._failed(track, error);
       });
-      if (!found) throw this._failed(track, codedError("sp-no-youtube-match", "유튜브에서 같은 곡을 찾지 못함"));
+      if (!found) throw this._failed(track, codedError("sp-no-youtube-match", L.track.youtubeMatchNotFound()));
     }
     const filepath = this.trackFilePath(track);
 
@@ -251,7 +253,7 @@ class TrackDownloader {
         // 링크 데이터의 유튜브 영상이 내려갔으면(삭제, 비공개) 그 링크 데이터를 버리고 다시 찾아 한 번 더 받는다.
         // 다시 찾은 영상은 ledger 표시가 없어 여기로 다시 오지 않는다(무한 반복 방지)
         if (youtubeSource.isVideoUnavailableError(err) && track.audioFoundBy === "ledger") {
-          log.warn({ tags: ["retry"] }, `캐시된 유튜브 영상 접근 불가 (${logTitle(track.title)}). 재검색 후 재시도`);
+          log.warn({ tags: ["retry"] }, L.track.cachedYoutubeVideoUnavailable({ title: logTitle(track.title) }));
           const fresh = await this.deps.equivalent.reresolveYouTube(track);
           if (!fresh) throw err;
           return await this._redownload(track);
@@ -276,7 +278,7 @@ class TrackDownloader {
 
   // 다운로드 실패는 여기서 한 번만 남긴다(원인까지). 호출부(백그라운드 다운로드, 사전 캐싱)는 그 결과만 debug로 남긴다
   _failed(track: DownloadTrack, error: unknown) {
-    log.error(`캐시 다운로드 실패 ("${logTitle(track.title)}"):`, youtubeSource.briefError(error));
+    log.error(L.track.cacheDownloadFailed({ title: logTitle(track.title), error: youtubeSource.briefError(error) }));
     return error;
   }
 
@@ -290,19 +292,19 @@ class TrackDownloader {
       if (audioKey) audioCache.recordDownloadStart(audioKey, track);
       // 빌려 오는 곡은 downloadTrack이 먼저 채웠다
       const downloadUrl = track.audioUrl;
-      if (!downloadUrl) throw new Error("음원 주소가 없어 다운로드할 수 없음");
+      if (!downloadUrl) throw logTextError(L.track.downloadUrlMissing());
 
       // 음원이 정해진 지점. SponsorBlock 구간을 미리 받아 두면 재생할 때 기다리지 않는다.
       // 실패해도 다운로드, 재생을 막지 않는다(DB가 열리지 않은 것만 예외를 던진다).
       await this.deps.sponsor.forTrack(track, player.guild.id).catch((error: unknown) => {
         if (codeOf(error) === "DB_NOT_OPEN") throw error;
-        log.warn(`SponsorBlock 구간 미리 불러오기 실패: ${messageOf(error)}`);
+        log.warn(L.track.sponsorSegmentsPrefetchFailed({ error: messageOf(error) }));
       });
 
       // 라이브 스트림은 캐시 다운로드 대상이 아니다. 끝이 없어서 yt-dlp가 외부 다운로더로 실행한
       // ffmpeg가 파일을 끝없이 키운다. 재생(스트리밍)은 그대로 되므로 여기서만 끊는다.
       if (track.isLive) {
-        throw new Error("라이브 스트림은 캐시 다운로드 대상이 아님");
+        throw logTextError(L.track.liveNotCacheable());
       }
 
       // yt-dlp가 다운로드하는 것들: 유튜브 영상(스포티파이, 자동재생 곡이 찾아 둔 것 포함)과 사운드클라우드.
@@ -317,7 +319,7 @@ class TrackDownloader {
       // 다운로드한 양(봇 상태 탭의 다운로드). 먼저 끝낸 쪽이 있어 버려도 다운로드한 것은 다운로드한 것이다
       addDownloaded(fsSync.statSync(tempPath).size);
       const mine = await publish(tempPath, filepath, track.title);
-      if (!mine) log.debug(`다른 작업이 먼저 다운로드한 캐시 파일을 사용: "${logTitle(track.title)}"`);
+      if (!mine) log.debug(L.track.cacheFileDownloadedByOther({ title: logTitle(track.title) }));
 
       correctInfo(track, got);
       const shown = shownDuration(track, measured, "measured");
@@ -327,7 +329,7 @@ class TrackDownloader {
       if (audioKey && mine) finish(audioKey, filepath, track, measured ? { ...got, audioDurationSec: measured } : got);
       // 출처가 유튜브가 아닌 곡은 소리를 가져온 영상도 남긴다. 예열이 곡마다 한 줄씩 남기므로 debug다.
       // 걸린 시간을 단계마다 적는다. 긴 곡의 캐시가 어디서 오래 걸렸는지 구분할 근거다
-      log.debug(`캐시 다운로드 완료: "${logTitle(track.title)}"${youtubeNote(track)} | ${got.how} · 길이 측정 ${sec(measureMs)}초`);
+      log.debug(L.track.cacheDownloadDone({ title: logTitle(track.title), youtubeSuffix: youtubeNote(track), how: got.how, measureSeconds: sec(measureMs) }));
       return filepath;
     } catch (error) {
       // 중단, 실패한 다운로드가 남긴 .part, 조각 파일, 중간 파일을 바로 치운다. 내 임시 파일만
@@ -335,11 +337,11 @@ class TrackDownloader {
       // 'downloading'이 된 DB 행은 'error'로 되돌린다(아니면 다음 기동까지 'downloading'으로 남는다).
       try {
         const removed = cleanTemp(tempPath, track.title);
-        if (removed > 0) log.debug(`캐시 다운로드 중단으로 생성된 조각 파일 ${removed}개 정리: ${logTitle(track.title)}`);
+        if (removed > 0) log.debug(L.track.downloadPartialFilesRemoved({ count: removed, title: logTitle(track.title) }));
         if (audioKey) audioCache.recordError(audioKey);
       } catch (cleanupError) {
         // 정리 실패는 원래 오류를 가리면 안 된다
-        log.warn(`캐시 다운로드 실패 뒤 정리 실패 ("${logTitle(track.title)}"): ${messageOf(cleanupError)}`);
+        log.warn(L.track.downloadCleanupFailed({ title: logTitle(track.title), error: messageOf(cleanupError) }));
       }
       throw this._failed(track, error);
     } finally {
@@ -380,12 +382,12 @@ class TrackDownloader {
     // match-filter에 걸리면 yt-dlp는 "skipping" 후 정상 종료(exit 0)하고 파일을 남기지 않는다.
     // 아래 fs.stat이 ENOENT로 터지면 원인을 알 수 없으므로 여기서 명확한 오류로 바꾼다.
     if (!fsSync.existsSync(tempPath)) {
-      throw new Error("yt-dlp가 대상을 건너뜀 (라이브 스트림 등). 캐시 다운로드 불가");
+      throw logTextError(L.track.ytdlpSkippedTarget());
     }
     const ended = Date.now();
     const info = this._takeInfoJson(tempPath);
     // 사운드클라우드가 미리듣기 조각(30초)만 준 곡: 곡처럼 캐시하지 않는다(추가한 뒤 권리자가 미리듣기로 돌린 곡)
-    if (/_preview$/.test(info.formatId ?? "")) throw codedError("sc-preview-only", `미리듣기만 열린 곡이라 캐시하지 않음: ${downloadUrl}`);
+    if (/_preview$/.test(info.formatId ?? "")) throw codedError("sc-preview-only", L.track.previewOnlyNotCached({ url: downloadUrl }));
     // 다운로드한 포맷과 리먹싱, 인코딩 여부(yt-dlp의 ExtractAudio는 Opus면 리먹싱하고 아니면 인코딩한다)
     const codec = info.acodec?.split(".")[0] ?? "?";
     const format = `포맷 ${info.formatId ?? "?"}(${info.protocol ?? "?"}, ${codec === "opus" ? "옮김" : `${codec} → opus 구움`})`;
@@ -404,7 +406,7 @@ class TrackDownloader {
     // 끝이 없는 것(인터넷 라디오, 라이브 HLS)은 받지 않는다. 추가할 때 라이브로 적어 여기 오지 않지만, 직접 지정한 음원은 그 검사를 거치지 않는다
     if (audioStream.live) {
       audioStream.destroy();
-      throw codedError(track.audioFoundBy === "pinned" ? "pinned-live" : "stream-failed", `끝이 없는 라이브(인터넷 라디오, 라이브 HLS)라 캐시하지 않음: ${downloadUrl}`);
+      throw codedError(track.audioFoundBy === "pinned" ? "pinned-live" : "stream-failed", L.track.endlessLiveNotCached({ url: downloadUrl }));
     }
     const audioVersion = versionOf.fromHeaders(audioStream.headers);
 
@@ -430,7 +432,7 @@ class TrackDownloader {
         fsSync.unlinkSync(rawPath);
       } catch (error) {
         // 이미 없거나 잠겨 있음. cleanTemp와 기동 스윕이 받는다
-        if (codeOf(error) !== "ENOENT") log.warn(`다운로드한 원본 임시 파일 삭제 실패: ${rawPath} | ${messageOf(error)}`);
+        if (codeOf(error) !== "ENOENT") log.warn(L.track.rawTempRemoveFailed({ file: rawPath, error: messageOf(error) }));
       }
     }
   }
@@ -456,12 +458,12 @@ class TrackDownloader {
           ...formatOf(info),
         };
       } catch (error) {
-        log.warn(`info.json 읽기 실패(제목, 길이, 버전 생략): ${p} | ${messageOf(error)}`);
+        log.warn(L.track.infoJsonReadFailed({ file: p, error: messageOf(error) }));
         try {
           fsSync.unlinkSync(p);
         } catch (unlinkError) {
           // 남아도 기동 스윕이 치운다
-          if (codeOf(unlinkError) !== "ENOENT") log.warn(`info.json 삭제 실패: ${p} | ${messageOf(unlinkError)}`);
+          if (codeOf(unlinkError) !== "ENOENT") log.warn(L.track.infoJsonRemoveFailed({ file: p, error: messageOf(unlinkError) }));
         }
       }
     }
@@ -521,7 +523,7 @@ class TrackDownloader {
         return null;
       }
       cacheFileChecks.fail(String(code ?? messageOf(error)));
-      log.debug(`캐시 파일 확인 실패: ${file} | ${messageOf(error)}`);
+      log.debug(L.track.cacheFileCheckFailed({ file, error: messageOf(error) }));
       return null;
     }
   }

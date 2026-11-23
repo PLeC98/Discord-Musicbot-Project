@@ -9,6 +9,7 @@ import logger from "../infra/log/logger.ts";
 import { sec } from "../infra/log/seconds.ts";
 const wlog = logger.child({ category: "watchdog" });
 import type { Player } from "./player.ts";
+import { L } from "../infra/log/text.ts";
 
 /** 감시가 읽고 멈추는 플레이어 필드 */
 type WatchHost = Pick<Player, "_trackLabel" | "audioPlayer" | "currentTrack" | "getCurrentTime" | "isLive" | "_stopWith" | "playback" | "lifecycle" | "isVoiceRecovering" | "onTrackEnd">;
@@ -52,7 +53,7 @@ class PlaybackWatch {
     const at = player.getCurrentTime();
     if (at <= lengthMs + OVERFLOW_MS) return;
     this.stopOverflow();
-    wlog.warn(`곡 길이를 ${OVERFLOW_MS / 1000}초 넘겨 재생을 멈춤: ${player._trackLabel()} | 위치 ${sec(at)}초 / 길이 ${sec(lengthMs)}초`);
+    wlog.warn(L.watchdog.overflowStopped({ overSeconds: OVERFLOW_MS / 1000, track: player._trackLabel(), positionSeconds: sec(at), lengthSeconds: sec(lengthMs) }));
     player._stopWith("overflow");
   }
 
@@ -77,7 +78,7 @@ class PlaybackWatch {
     const quietSince = Math.max(this.bufferingSince ?? now, player.playback?.inputProgressAt ?? 0);
     if (now - quietSince < BUFFERING_STALL_MS) return;
     this.stopBuffering();
-    wlog.warn(`재생이 시작되지 않아 다시 시도: ${player._trackLabel()} | 버퍼링 ${sec(now - (this.bufferingSince ?? now))}초, 입력 없음 ${sec(now - quietSince)}초`);
+    wlog.warn(L.watchdog.bufferingStallRetry({ track: player._trackLabel(), bufferingSeconds: sec(now - (this.bufferingSince ?? now)), quietSeconds: sec(now - quietSince) }));
     // force 없이는 무음 패딩만 예약되고 Buffering에서 벗어나지 않는다(패딩은 Playing에서만 소비된다)
     player._stopWith("buffering-stall");
   }
@@ -103,9 +104,9 @@ class PlaybackWatch {
     if (!player.currentTrack || player.audioPlayer.state.status !== AudioPlayerStatus.Idle || player.lifecycle.released) return;
     // 곡을 여는 중, 끝 처리 중, 음성 복구 중이면 그 작업이 끝난 뒤 다시 본다
     if (player.lifecycle.starting || player.lifecycle.ending || player.isVoiceRecovering) return this.armIdle();
-    wlog.warn(`곡이 있는데 오디오가 ${IDLE_STUCK_MS / 1000}초 넘게 멈춰 있어 곡을 끝냄: ${player._trackLabel()}`);
+    wlog.warn(L.watchdog.idleStuckEnded({ seconds: IDLE_STUCK_MS / 1000, track: player._trackLabel() }));
     this.armIdle(); // 넘긴 곡도 틀지 못하면 다시 본다
-    player.onTrackEnd("stuck").catch((error) => wlog.error("멈춘 곡 스킵 처리 실패:", error));
+    player.onTrackEnd("stuck").catch((error) => wlog.error(L.watchdog.stuckSkipFailed(), error));
   }
 
   stopIdle() {

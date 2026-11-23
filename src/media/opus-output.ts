@@ -13,6 +13,7 @@ import type { EncodeSession, SessionHooks } from "./encode-pool.ts";
 import type { GainTap, TapFrame } from "./gain-tap.ts";
 import { LoudnessMeter } from "./loudness-meter.ts";
 import { addVoicePacket } from "../infra/upload-meter.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "player" });
 
 type OpenEncoder = (hooks: SessionHooks) => EncodeSession;
@@ -55,7 +56,7 @@ class OpusOutput extends Duplex {
     // 패킷, 오류는 이 출력 스트림의 read() 밖(다른 출력 스트림의 read(), 이벤트, 풀의 타이머)에서도 온다
     this.#session = openEncoder({ onPacket: (packet) => this.#onPacket(packet), onError: (err) => this.destroy(err) });
     // play() 전에 난 오류는 voice의 리스너가 아직 없다. 그 경우는 play()가 "already ended" 예외를 던져 재생 실패로 간다
-    this.on("error", (err) => log.debug(`출력 스트림 오류: ${messageOf(err)}`));
+    this.on("error", (err) => log.debug(L.player.outputStreamError({ error: messageOf(err) })));
   }
 
   /** 곡 중간 볼륨 변경. 다음에 보내는 프레임부터 */

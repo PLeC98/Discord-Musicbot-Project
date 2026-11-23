@@ -6,6 +6,7 @@
 // 전이마다 한 줄 남긴다. 허용되지 않은 전이는 경고로 드러내고 그대로 따른다(재생을 멈추면 안 된다).
 
 import logger from "../infra/log/logger.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "watchdog" });
 
 type Phase = "idle" | "starting" | "playing" | "parked" | "resting" | "disposed";
@@ -35,8 +36,8 @@ class PlaybackState {
     const prev = this.phase;
     if (prev === next) return;
     const tail = `${why ? ` | ${why}` : ""}${this.label() ? ` | ${this.label()}` : ""}`;
-    if (NEXT[prev]?.includes(next)) log.debug(`재생 단계: ${prev} → ${next}${tail}`);
-    else log.warn(`예상하지 못한 재생 단계 전이: ${prev} → ${next}${tail}`);
+    if (NEXT[prev]?.includes(next)) log.debug(L.watchdog.phaseChanged({ from: prev, to: next, detail: tail }));
+    else log.warn(L.watchdog.phaseChangeUnexpected({ from: prev, to: next, detail: tail }));
     this.phase = next;
   }
 

@@ -11,6 +11,7 @@
 import { Readable } from "stream";
 import { codeOf, codedError, timeoutError } from "../rules/error-kind.ts";
 import logger from "../infra/log/logger.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "player" });
 
 const RETRY_DELAYS_MS = [500, 1000, 2000];
@@ -222,7 +223,7 @@ class ChunkedReader {
     clearTimeout(this.stallTimer);
     const request = this.aborter;
     const { stallMs } = this.o;
-    this.stallTimer = setTimeout(() => request?.abort(timeoutError(`${stallMs / 1000}초 동안 받은 데이터가 없음`, { code: "STREAM_STALL" })), stallMs);
+    this.stallTimer = setTimeout(() => request?.abort(timeoutError(L.player.noDataReceived({ seconds: stallMs / 1000 }), { code: "STREAM_STALL" })), stallMs);
     this.stallTimer.unref?.();
   }
 
@@ -296,7 +297,7 @@ class ChunkedReader {
         this.accept(value);
       }
       // 범위: 연결이 중간에 끊겼다(player/failure-scope)
-      if (this.pos < this.target) throw Object.assign(codedError("stream-failed", `응답이 일찍 끝남 (${this.pos}/${this.target}B)`), { scope: "environment" });
+      if (this.pos < this.target) throw Object.assign(codedError("stream-failed", L.player.responseEndedEarly({ receivedBytes: this.pos, totalBytes: this.target })), { scope: "environment" });
     } catch (err) {
       this.aborter?.abort(); // 버린 요청이 열린 채 남지 않게
       throw err;
@@ -362,7 +363,7 @@ class ChunkedReader {
     }
     const delays = this.o.retryDelaysMs;
     if ((err as { permanent?: boolean }).permanent || this.failures >= delays.length) throw err;
-    log.trace(`청크 요청 실패(재시도 ${this.failures + 1}/${delays.length}, ${this.pos}B): ${describeStreamError(err)}`);
+    log.trace(L.player.chunkRequestRetry({ attempt: this.failures + 1, maxAttempts: delays.length, offsetBytes: this.pos, error: describeStreamError(err) }));
     await sleep(delays[this.failures++]);
     return !this.stream.destroyed;
   }

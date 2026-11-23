@@ -25,6 +25,8 @@ import type { QueuedTrack } from "./track.ts";
 import type { StreamInfo } from "../sources/stream-url.ts";
 import type { Segments } from "../sources/sponsor-block.ts";
 import { logTitle } from "../infra/log/title.ts";
+import { L } from "../infra/log/text.ts";
+import { logTextError } from "../infra/log/log-text.ts";
 
 /** 소리를 어디서 받을지 정한 것. cacheKey: 여기서 찾은 캐시 파일의 음원 키. 스트림이면 서술자가 키를 싣는다. sponsorKey: SponsorBlock을 물은 음원 */
 type Source = { cacheFile: string | null; cacheKey: string | null; streamInfo: StreamInfo | null; titleVerified: boolean; isLive: boolean | null; sponsor: Promise<Segments | null>; sponsorKey: string | null };
@@ -40,7 +42,7 @@ async function prepareStart(player: Player, seekMs: number): Promise<{ ok: true;
   }
   // 붙지 못하면 voice-failed 예외를 던진다. play()는 넘기거나 세지 않고 그 결과를 돌려준다. 음성 복구 중이면 붙지 않는다(새로 붙으면 복구가 멈추고, 실패하면 채널에서 나간다. 복구가 다시 연다)
   if (!player.connection) {
-    if (player.isVoiceRecovering) throw codedError("voice-failed", "음성 연결을 복구하는 중");
+    if (player.isVoiceRecovering) throw codedError("voice-failed", L.player.voiceRecovering());
     await player.voice.connect();
   }
 
@@ -52,7 +54,7 @@ async function prepareStart(player: Player, seekMs: number): Promise<{ ok: true;
     const track = player.currentTrack;
     let searching = false;
     try {
-      if (!track) throw new Error("재생할 곡 없음");
+      if (!track) throw logTextError(L.player.noTrackToPlay());
       if (!track.audioUrl) {
         searching = true;
         await player.io.findEquivalent(track); // 멱등. 영상 id 확정
@@ -106,7 +108,7 @@ async function resolveSource(player: Player, track: QueuedTrack, startMs: number
     // 캐시 파일을 한 번 더 보고, 있으면 스트림을 받지 않는다
     if (!track.audioUrl) {
       const ytUrl = await player.io.findEquivalent(track);
-      if (!ytUrl) throw codedError("sp-no-youtube-match", `유튜브에서 같은 곡을 찾지 못함: ${logTitle(track.title)}`);
+      if (!ytUrl) throw codedError("sp-no-youtube-match", L.player.youtubeMatchNotFound({ title: logTitle(track.title) }));
       cacheFile = pickCacheFile();
     }
     // 어느 사이트에서 받을지는 sources/stream-url 한 곳에서 분기한다
@@ -130,7 +132,7 @@ async function resolveSource(player: Player, track: QueuedTrack, startMs: number
 function askSponsor(player: Player, track: QueuedTrack) {
   return player.io.sponsorFor(track, player.guild.id).catch((error: unknown) => {
     if (codeOf(error) === "DB_NOT_OPEN") throw error;
-    log.warn(`SponsorBlock 구간 조회 실패(구간 건너뛰기 없이 재생): ${messageOf(error)}`);
+    log.warn(L.player.sponsorLookupFailed({ error: messageOf(error) }));
     return null;
   });
 }
@@ -158,7 +160,7 @@ function ageCheck(audioUrl: string | null | undefined) {
 function verifyTitle(track: QueuedTrack, streamInfo: StreamInfo | null) {
   if (track.platform !== "youtube" || track.audioFoundBy === "pinned" || !streamInfo?.title) return false;
   if (streamInfo.title !== track.title) {
-    log.debug(`제목 교정: "${logTitle(track.title)}" → "${streamInfo.title}"`);
+    log.debug(L.player.titleCorrected({ title: logTitle(track.title), correctedTitle: streamInfo.title }));
     track.title = streamInfo.title;
   }
   return true;
@@ -177,7 +179,7 @@ function refusedBefore(track: QueuedTrack, previous: CurrentPlayback | null) {
   const status = previous?.input?.refused;
   const key = audioKeyOf(track.audioUrl);
   if (!status || !key || previous?.stream?.audioKey !== key) return false;
-  log.debug(`직전 스트림 주소가 막혀 새로 받음(HTTP ${status}): ${logTitle(track.title)}`);
+  log.debug(L.player.refusedStreamRefetch({ status, title: logTitle(track.title) }));
   return true;
 }
 
@@ -212,7 +214,7 @@ async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source
   const track = pb.track;
   const { streamInfo } = source;
   const { resource } = pb;
-  if (!resource) throw codedError("stream-failed", "열린 스트림 없음");
+  if (!resource) throw codedError("stream-failed", L.player.noOpenStream());
 
   // SponsorBlock 구간을 받은 뒤 자동 스킵을 켠다. 기준점은 시작 위치다(위치 이동으로 구간 안에 들어가면 건너뛰지 않는다)
   pb.sponsor = await sponsorOfPlaying(player, track, source, pb.audioKey);
@@ -254,7 +256,7 @@ async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source
   await player.persistence.save("play");
 
   // 다음 자동재생 곡을 미리 선택해 둔다. 기다리지 않는다. 재생 시작을 늦추면 안 된다.
-  player.ensureAutoplayNext().catch((error) => log.warn(`자동재생 미리 선택 실패: ${messageOf(error)}`));
+  player.ensureAutoplayNext().catch((error) => log.warn(L.player.autoplayPrefetchFailed({ error: messageOf(error) })));
 }
 
 // 제목 확인됨은 받은 서술자가 링크 데이터에 적을 음원(곡의 음원 주소)의 것일 때만. 여는 동안 다시 찾아졌으면 그 제목은 다른 영상의 것이다
@@ -268,7 +270,7 @@ function recordPlayed(track: QueuedTrack, playedKey: string | null, titleVerifie
     if (countPlay && playedKey) audioCache.recordPlayback(playedKey);
     if (audioKeyOf(track.audioUrl)) trackLookup.recordTrackLookup(track, { verified: titleVerified });
   } catch (error) {
-    log.warn(`오디오 캐시 기록 실패(재생은 계속): ${messageOf(error)}`);
+    log.warn(L.player.audioCacheRecordFailed({ error: messageOf(error) }));
   }
 }
 

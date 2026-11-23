@@ -14,6 +14,7 @@ import * as audioCache from "../store/audio-cache.ts";
 import * as loudness from "../store/loudness.ts";
 import { CACHE_FORMATS, inputFilter } from "./ffmpeg/input-filter.ts";
 import { PROGRESS_ARGS, runFfmpeg, type FfmpegJob, type FfmpegResult } from "./ffmpeg/job.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "ffmpeg", sub: "loudness" });
 
 // 재생과 같은 48kHz 스테레오로 맞춘 소리를 잰다(모노, 다채널을 들리는 대로)
@@ -107,7 +108,7 @@ class MeasureQueue {
   #running: Running | null = null;
   #probe: Promise<boolean> | null = null;
   #onMeasured: ((audioKey: string) => void) | null = null;
-  readonly #env = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "캐시 파일 볼륨 측정");
+  readonly #env = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.ffmpeg.cacheLoudnessMeasure());
   // 환경 탓으로 실패한 키와 다시 재도 되는 시각
   readonly #retryAt = new Map<string, number>();
   readonly #now: () => number;
@@ -131,7 +132,7 @@ class MeasureQueue {
     try {
       outsideGuild(() => this.#enqueue(audioKey, current));
     } catch (error) {
-      log.warn(`캐시 파일 볼륨 측정 요청 실패: ${audioKey} | ${messageOf(error)}`);
+      log.warn(L.ffmpeg.loudnessEnqueueFailed({ audioKey, error: messageOf(error) }));
     }
   }
 
@@ -156,7 +157,7 @@ class MeasureQueue {
     this.#insert({ key, current });
     // 다른 서버의 지금 곡을 재는 중이면 밀어내지 않는다(긴 파일을 트는 두 서버가 서로를 끝없이 취소한다)
     if (current && this.#running && !this.#running.current) {
-      log.debug(`지금 곡을 먼저 재려고 미리 받는 곡의 볼륨 측정을 뒤로 돌림: ${this.#running.key}`);
+      log.debug(L.ffmpeg.loudnessPreempted({ audioKey: this.#running.key }));
       this.#running.controller.abort();
     }
     void this.#pump();
@@ -185,7 +186,7 @@ class MeasureQueue {
       const again = await this.#measure(running);
       if (again) this.#insert({ key: running.key, current: running.current });
     } catch (error) {
-      log.warn(`캐시 파일 볼륨 측정 중 오류: ${running.key} | ${messageOf(error)}`);
+      log.warn(L.ffmpeg.loudnessMeasureError({ audioKey: running.key, error: messageOf(error) }));
     } finally {
       this.#running = null;
       void this.#pump();
@@ -221,13 +222,13 @@ class MeasureQueue {
       }
       this.#env.ok();
       if (verdict.kind === "file") {
-        log.warn(`캐시 파일 볼륨을 재지 못해 이 파일은 다시 재지 않음: ${job.key} | ${verdict.why}`);
+        log.warn(L.ffmpeg.loudnessFileUnmeasurable({ audioKey: job.key, reason: verdict.why }));
         loudness.recordFileFailed(job.key, identity);
         return false;
       }
       loudness.recordFile(job.key, verdict.value, identity);
       const { integrated, truePeak, peakP99 } = verdict.value;
-      log.debug(`캐시 파일 볼륨: ${job.key} | ${integrated} LUFS, 피크 ${truePeak} dBTP, 프레임 피크 상위 1% ${peakP99} dB | ${((performance.now() - started) / 1000).toFixed(1)}초`);
+      log.debug(L.ffmpeg.loudnessMeasured({ audioKey: job.key, lufs: integrated, truePeak, peakP99, seconds: ((performance.now() - started) / 1000).toFixed(1) }));
       this.#onMeasured?.(job.key);
       return false;
     } finally {
@@ -239,11 +240,11 @@ class MeasureQueue {
   #probeOnce(): Promise<boolean> {
     this.#probe ??= this.#selfTest().then(
       (why) => {
-        if (why) log.warn(`볼륨 정규화의 캐시 파일 볼륨 측정을 끔(이 ffmpeg의 ebur128 출력을 읽지 못함): ${why}`);
+        if (why) log.warn(L.ffmpeg.loudnessDisabledUnreadable({ reason: why }));
         return !why;
       },
       (error: unknown) => {
-        log.warn(`볼륨 정규화의 캐시 파일 볼륨 측정을 끔(자체 테스트 실패): ${messageOf(error)}`);
+        log.warn(L.ffmpeg.loudnessDisabledSelfTest({ error: messageOf(error) }));
         return false;
       },
     );

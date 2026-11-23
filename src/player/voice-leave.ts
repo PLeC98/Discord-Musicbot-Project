@@ -7,6 +7,8 @@ import logger from "../infra/log/logger.ts";
 import { codeOf, describeError, messageOf } from "../rules/error-kind.ts";
 import { joinPayload, leavePayload } from "../infra/voice-adapter.ts";
 import type { PlayerSeats } from "./registry.ts";
+import { L } from "../infra/log/text.ts";
+import { logTextError } from "../infra/log/log-text.ts";
 
 const log = logger.child({ category: "voice" });
 
@@ -53,12 +55,12 @@ async function leaveByGateway(guild: Guild, channelId: string, players: Pick<Pla
 async function leaveByRest(guild: Guild): Promise<"rest" | "already" | "failed"> {
   try {
     const voice = guild.members.me?.voice;
-    if (!voice) throw new Error("봇의 멤버 정보가 캐시에 없음");
+    if (!voice) throw logTextError(L.voice.botMemberMissing());
     await voice.disconnect();
     return "rest";
   } catch (error) {
     if (codeOf(error) === RESTJSONErrorCodes.TargetUserIsNotConnectedToVoice) return "already";
-    log.warn(`플레이어 없이 남은 음성 채널에서 나가기 실패: ${guild.name} | ${messageOf(error)}`);
+    log.warn(L.voice.lingeringLeaveFailed({ guild: guild.name, error: messageOf(error) }));
     return "failed";
   }
 }
@@ -69,7 +71,7 @@ async function botChannelAtDiscord(guild: Guild, caller: string, fallback: strin
     return (await guild.voiceStates.fetch("@me", { force: true, cache: false })).channelId;
   } catch (error) {
     if (codeOf(error) === RESTJSONErrorCodes.UnknownVoiceState) return null;
-    log.warn(`봇 음성 상태 REST 조회 실패(${fallback}): ${guild.name} (${guild.id}) | 호출=${caller} | ${describeError(error)}`);
+    log.warn(L.voice.botVoiceStateFetchFailed({ fallback, guild: guild.name, guildId: guild.id, caller, error: describeError(error) }));
     return undefined;
   }
 }

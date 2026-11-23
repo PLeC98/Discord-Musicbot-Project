@@ -12,6 +12,8 @@
 import { Readable, finished } from "stream";
 import { messageOf, timeoutError } from "../rules/error-kind.ts";
 import logger from "../infra/log/logger.ts";
+import { L } from "../infra/log/text.ts";
+import { logTextError } from "../infra/log/log-text.ts";
 const log = logger.child({ category: "player" });
 
 const RETRY_DELAYS_MS = [500, 1000, 2000];
@@ -52,7 +54,7 @@ type FragmentStream = Readable & {
 };
 
 /** 다시 받아도 결과가 같은 실패. 4xx(만료, 차단, 없는 세그먼트) */
-const permanent = (status: number) => Object.assign(new Error(`세그먼트 요청 실패: HTTP ${status}`), { status, permanent: status < 500 });
+const permanent = (status: number) => Object.assign(logTextError(L.player.segmentHttpFailed({ status })), { status, permanent: status < 500 });
 
 function streamFragments<F>(source: FragmentSource<F>, { retryDelaysMs = RETRY_DELAYS_MS, stallMs = STALL_MS }: StreamOptions = {}): FragmentStream {
   let sent = 0; // 내보낸 세그먼트
@@ -67,7 +69,7 @@ function streamFragments<F>(source: FragmentSource<F>, { retryDelaysMs = RETRY_D
   // 세그먼트 하나를 받는다. 멈추거나(무응답) 5xx, 네트워크 오류면 다시 받고, 4xx는 곧바로 실패한다
   async function fetchOne(fragment: F): Promise<Buffer | Readable> {
     for (let attempt = 0; ; attempt++) {
-      if (closed) throw new Error("세그먼트 스트림이 닫힘");
+      if (closed) throw logTextError(L.player.segmentStreamClosed());
       const controller = new AbortController();
       fetching.add(controller);
       let timer: NodeJS.Timeout | undefined;
@@ -75,7 +77,7 @@ function streamFragments<F>(source: FragmentSource<F>, { retryDelaysMs = RETRY_D
       const arm = () => {
         if (settled) return;
         clearTimeout(timer);
-        timer = setTimeout(() => controller.abort(timeoutError(`세그먼트가 ${stallMs / 1000}초 동안 오지 않음`)), stallMs);
+        timer = setTimeout(() => controller.abort(timeoutError(L.player.segmentStalled({ seconds: stallMs / 1000 }))), stallMs);
       };
       arm();
       try {
@@ -85,7 +87,7 @@ function streamFragments<F>(source: FragmentSource<F>, { retryDelaysMs = RETRY_D
         return got;
       } catch (error) {
         if ((error as { permanent?: boolean }).permanent || attempt >= retryDelaysMs.length || closed) throw error;
-        log.trace(`세그먼트 다운로드 실패(재시도 ${attempt + 1}/${retryDelaysMs.length}): ${messageOf(error)}`);
+        log.trace(L.player.segmentRetry({ attempt: attempt + 1, maxAttempts: retryDelaysMs.length, error: messageOf(error) }));
         retries++;
         await sleep(retryDelaysMs[attempt]);
       } finally {
@@ -150,7 +152,7 @@ function streamFragments<F>(source: FragmentSource<F>, { retryDelaysMs = RETRY_D
     },
     destroy(error, callback) {
       closed = true;
-      for (const controller of fetching) controller.abort(new Error("세그먼트 스트림이 닫힘"));
+      for (const controller of fetching) controller.abort(logTextError(L.player.segmentStreamClosed()));
       pouring?.destroy();
       void ahead?.then((chunk) => chunk && !Buffer.isBuffer(chunk) && chunk.destroy(), ignore);
       source.close?.();

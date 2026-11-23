@@ -18,6 +18,7 @@ import { createChunkedStream, readerOf, type RangeFetch } from "./chunked-stream
 import { createResumingBody, type Resumed } from "./resuming-body.ts";
 import { segmentStart } from "../rules/hls-segment-start.ts";
 import logger from "../infra/log/logger.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "link" });
 
 /** 이어받을 재료: 전체 크기, 처음 응답의 검증값(If-Range), 가드를 지나는 Range 요청 */
@@ -87,7 +88,7 @@ async function openDirectInput(url: string, { startMs = 0, liveOnly = false, bod
     return Object.assign(body, { live: radio, bounded, ...(resumable ? { resumable } : {}) });
   }
   const { hls } = opened;
-  if (liveOnly && !hls.live) throw codedError("live-ended", `라이브 HLS의 목록이 끝남: ${url}`);
+  if (liveOnly && !hls.live) throw codedError("live-ended", L.link.liveHlsPlaylistEnded({ url }));
   return Object.assign(streamFragments(pouringSource(hls.fragments(startMs), onResumed), { stallMs: hls.idleMs }), { live: hls.live, bounded: !hls.live });
 }
 
@@ -208,12 +209,12 @@ function decrypting(key: Buffer, iv: Buffer): Transform {
         return segment instanceof Error ? done(segment) : done(null, segment);
       }
       if (rest.length) {
-        log.warn(`HLS 세그먼트의 끝이 블록이 되지 않아 마지막 ${rest.length}바이트를 버림(암호문이 잘림)`);
+        log.warn(L.link.hlsSegmentTailNotBlock({ bytes: rest.length }));
         return done(null, held ?? undefined);
       }
       const pad = held ? paddingOf(held) : null;
       if (!held || pad === null) {
-        log.warn(`HLS 세그먼트의 끝을 복호화하지 못해 마지막 ${held?.length ?? 0}바이트를 버림(패딩이 맞지 않음)`);
+        log.warn(L.link.hlsSegmentTailDecryptFailed({ bytes: held?.length ?? 0 }));
         return done();
       }
       done(null, held.subarray(0, 16 - pad));
@@ -243,7 +244,7 @@ async function checkLastBlock(pour: HlsPour, totalBytes: number, key: Buffer, si
     body = await pour.get(pour.url, undefined, { accept: OPEN_ACCEPT, from, to: totalBytes - 1, signal, bodyIdleMs: pour.idleMs });
   } catch (error) {
     if (signal.aborted) throw signal.reason;
-    log.debug(`HLS 세그먼트의 키 확인 건너뜀(끝 블록을 받지 못함): ${messageOf(error)}`);
+    log.debug(L.link.hlsKeyCheckSkippedFetch({ error: messageOf(error) }));
     return;
   }
   let tail: Buffer | null = null;
@@ -252,12 +253,12 @@ async function checkLastBlock(pour: HlsPour, totalBytes: number, key: Buffer, si
     if (body.status === 206 && range && Number(range[1]) === from && Number(range[2]) === totalBytes - 1 && Number(range[3]) === totalBytes) tail = await firstBytes(body, 33, signal);
   } catch (error) {
     if (signal.aborted) throw signal.reason;
-    log.debug(`HLS 세그먼트의 키 확인 건너뜀(끝 블록을 읽지 못함): ${messageOf(error)}`);
+    log.debug(L.link.hlsKeyCheckSkippedRead({ error: messageOf(error) }));
     return;
   } finally {
     body.destroy();
   }
-  if (tail?.length !== 32) return void log.debug(`HLS 세그먼트의 키 확인 건너뜀(구간 응답이 아님)`);
+  if (tail?.length !== 32) return void log.debug(L.link.hlsKeyCheckSkippedNotRange());
   const last = crypto.createDecipheriv("aes-128-cbc", key, tail.subarray(0, 16)).setAutoPadding(false).update(tail.subarray(16));
   if (paddingOf(last) === null) throw permanent("HLS 세그먼트의 키가 맞지 않음(마지막 블록의 패딩이 깨짐)");
 }

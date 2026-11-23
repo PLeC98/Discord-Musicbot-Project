@@ -10,6 +10,7 @@ import { mapLimit } from "../infra/map-limit.ts";
 import { ytdlpLoad } from "../sources/ytdlp-spawn.ts";
 import type { Player } from "./player.ts";
 import type { PlayerSeats } from "./registry.ts";
+import { L } from "../infra/log/text.ts";
 
 const ATTEMPTS = 3;
 const RETRY_DELAY_MS = 1000;
@@ -61,16 +62,16 @@ async function restoreSessions(client: Client, players: Registry, PlayerCtor: Pl
   const all = sessions().loadAll();
   const saved = all.filter((s) => s.session.autoResume !== false);
   const forJoin = all.length - saved.length;
-  if (forJoin > 0) log.info(`/join으로만 이어 듣는 세션 ${forJoin}개는 기동 때 복원하지 않음`);
+  if (forJoin > 0) log.info(L.session.joinOnlySessionsSkipped({ count: forJoin }));
   const touched = saved.map((s) => s.guildId);
   if (saved.length === 0) return touched;
   if (skip) {
-    log.warn(`짧은 간격의 비정상 종료가 반복되어 저장된 세션 ${saved.length}개의 복원을 건너뜀(세션은 유지): 서버 ID ${touched.join(", ")}`);
+    log.warn(L.session.restoreSkippedCrashes({ count: saved.length, guildIds: touched.join(", ") }));
     // 손대지 않았다. 음성에 남은 봇은 이어받기가 뺀다
     return [];
   }
 
-  log.info(`저장된 재생 세션 ${saved.length}개 복원 시작`);
+  log.info(L.session.restoreStarted({ count: saved.length }));
 
   // 차례를 기다리는 서버로 올려 둔다. 그사이 곡 추가, 자동재생 켜기, /join이 오면 그 서버를 먼저 복원한다(waitForRestore)
   for (const { guildId } of saved) {
@@ -80,7 +81,7 @@ async function restoreSessions(client: Client, players: Registry, PlayerCtor: Pl
         await inGuild(guildId, () => restoreOne(client, players, PlayerCtor, guildId));
       } catch (error) {
         // 지우지 않는다. 다음 기동, /join이 재시도한다(지운 대기열은 되찾을 수 없다)
-        log.error(`서버 ID ${guildId} 세션 복원 중 오류(세션은 남김):`, messageOf(error));
+        log.error(L.session.restoreGuildFailed({ guildId, error: messageOf(error) }));
       }
     });
   }
@@ -127,7 +128,7 @@ async function restoreOne(client: Client, players: Registry, PlayerCtor: PlayerC
   if (!guild) {
     // 일시적 조회 실패면 세션을 남긴다. 다음 기동에서 다시 시도한다
     if (gone) {
-      log.warn(`서버를 찾을 수 없거나 접근할 수 없어 저장된 세션 삭제: 서버 ID ${guildId}`);
+      log.warn(L.session.guildGoneSessionRemoved({ guildId }));
       sessions().removeSession(guildId);
     }
     return;
@@ -136,7 +137,7 @@ async function restoreOne(client: Client, players: Registry, PlayerCtor: PlayerC
   // 기다리는 사이 사람이 이 서버에서 재생을 시작했으면 그쪽이 이긴다. 세션 기록도 이미 그 플레이어가 쓰고 있어 건드리지 않는다
   const alreadyPlaying = () => {
     if (!players.has(guildId)) return false;
-    log.info(`서버 ${guild.name}에서 이미 재생 중이라 저장 세션 복원을 건너뜀`);
+    log.info(L.session.restoreSkippedPlaying({ guild: guild.name }));
     return true;
   };
   if (alreadyPlaying()) return;
@@ -155,11 +156,11 @@ async function restoreOne(client: Client, players: Registry, PlayerCtor: PlayerC
   players.set(guildId, player);
   try {
     const outcome = await player.persistence.restoreSession(record);
-    log.info(`서버 ${guild.name}의 세션 복원: ${RESTORE_OUTCOME[outcome]}`);
+    log.info(L.session.guildRestored({ guild: guild.name, outcome: RESTORE_OUTCOME[outcome] }));
   } catch (error) {
     // 음성 연결 실패 등. 세션은 남긴다(다음 기동, /join이 재시도한다). 종료 중이라 붙지 않은 것은 실패가 아니다
-    if (codeOf(error) === "bot-shutting-down") log.info(`서버 ${guild.name}의 세션 복원 중단: 종료 중(세션은 남김)`);
-    else log.error(`서버 ${guild.name} (${guildId}) 세션 복원 중 오류(세션은 남김):`, messageOf(error));
+    if (codeOf(error) === "bot-shutting-down") log.info(L.session.restoreStoppedShutdown({ guild: guild.name }));
+    else log.error(L.session.playerRestoreFailed({ guild: guild.name, guildId, error: messageOf(error) }));
     await player.dispose({ reason: "세션 복원 실패", session: "keep", end: "restore-failed" });
   }
 }
@@ -181,7 +182,7 @@ async function savedChannels(guild: Guild, { voiceChannelId, textChannelId }: Se
   const fetch = (id: string) =>
     guild.channels.fetch(id).catch((error: unknown) => {
       if (CHANNEL_GONE.has(codeOf(error))) return null;
-      log.warn(`서버 ${guild.name}의 채널 ${id} 조회 실패(세션은 남김): ${describeError(error)}`);
+      log.warn(L.session.restoreChannelFetchFailed({ guild: guild.name, channel: id, error: describeError(error) }));
       return lookupFailed;
     });
   const find = async (id: string) => guild.channels.cache.get(id) || (await fetch(id));
@@ -189,7 +190,7 @@ async function savedChannels(guild: Guild, { voiceChannelId, textChannelId }: Se
   const text = textChannelId ? await find(textChannelId) : null;
   if (voice === lookupFailed || text === lookupFailed) return "unknown" as const;
   if (!voice?.isVoiceBased()) {
-    log.warn(`서버 ${guild.name}의 저장된 음성 채널이 없어 저장된 세션 삭제`);
+    log.warn(L.session.restoreVoiceChannelGone({ guild: guild.name }));
     return "gone" as const;
   }
   return { voice, text: text?.isTextBased() ? text : null };
