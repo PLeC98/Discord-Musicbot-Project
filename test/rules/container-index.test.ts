@@ -8,6 +8,7 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { readIndex, headerOf, startPoint, worthIndexing, FIRST_BYTES, type ContainerIndex } from "../../src/rules/container-index.ts";
 import { spawnFfmpeg } from "../../src/media/ffmpeg/process.ts";
+import { asText, type LogText } from "../../src/infra/log/log-text.ts";
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-container-index-"));
 after(() => fs.rmSync(DIR, { recursive: true, force: true }));
@@ -173,7 +174,7 @@ test("webm: Cues가 첫 클러스터 앞에 없거나, 시각이 줄거나, 자�
     [Buffer.from("not media at all"), 100, /webm이나 mp4가 아님/],
   ] as const) {
     const read = readIndex(buf, total);
-    assert.ok(!read.ok && "why" in read && why.test(read.why), JSON.stringify(read));
+    assert.ok(!read.ok && "why" in read && why.test(asText(read.why)), JSON.stringify(read));
   }
 });
 
@@ -254,7 +255,7 @@ test("mp4: 계층형 sidx, timescale 0, 항목 없음, 끝이 파일 밖, moov �
   ];
   for (const [buf, why] of cases) {
     const read = readIndex(buf, buf.length + 200);
-    assert.ok(!read.ok && "why" in read && why.test(read.why), `${why} → ${JSON.stringify(read)}`);
+    assert.ok(!read.ok && "why" in read && why.test(asText(read.why)), `${why} → ${JSON.stringify(read)}`);
   }
 });
 
@@ -290,11 +291,11 @@ test("시작점: 목표보다 1초 넘게 앞선 마지막 키프레임. 첫 청
   assert.deepEqual([(at(25_000) as { byte: number }).byte, (at(25_000) as { startedAtMs: number }).startedAtMs], [4_000_000, 20_000]);
   assert.equal((at(20_500) as { startedAtMs: number }).startedAtMs, 10_000, "예열 1초가 모자라면 한 키프레임 앞");
   assert.equal((at(21_000) as { startedAtMs: number }).startedAtMs, 20_000, "딱 1초면 그 키프레임");
-  assert.match((at(9_000) as { why: string }).why, /첫 청크 안/);
-  assert.match((at(500) as { why: string }).why, /키프레임이 없음/);
-  assert.match((at(25_000, 200_000) as { why: string }).why, /곡 길이/, "마지막 키프레임이 곡 끝보다 한참 앞");
-  assert.match((at(25_000, 20_000) as { why: string }).why, /곡 길이/, "마지막 키프레임이 곡 끝보다 뒤");
-  assert.match((at(25_000, 0) as { why: string }).why, /곡 길이/, "길이를 모르면");
+  assert.match(asText((at(9_000) as { why: LogText }).why), /첫 청크 안/);
+  assert.match(asText((at(500) as { why: LogText }).why), /키프레임이 없음/);
+  assert.match(asText((at(25_000, 200_000) as { why: LogText }).why), /곡 길이/, "마지막 키프레임이 곡 끝보다 한참 앞");
+  assert.match(asText((at(25_000, 20_000) as { why: LogText }).why), /곡 길이/, "마지막 키프레임이 곡 끝보다 뒤");
+  assert.match(asText((at(25_000, 0) as { why: LogText }).why), /곡 길이/, "길이를 모르면");
 });
 
 test("묻기 전 판정: 목표 바이트 어림이 첫 청크 둘 밖일 때만", () => {

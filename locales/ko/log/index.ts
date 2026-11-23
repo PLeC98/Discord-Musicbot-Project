@@ -12,3 +12,5 @@ export { net } from "./net.ts";
 export { zip } from "./zip.ts";
 export { link } from "./link.ts";
 export { vendor } from "./vendor.ts";
+export { player } from "./player.ts";
+export { track } from "./track.ts";

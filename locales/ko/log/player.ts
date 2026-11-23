@@ -1,0 +1,41 @@
+// 로그 문구: player 분류
+
+const player = {
+  indexTooLong: ({ bytes }: { bytes: number }) => `색인이 너무 길다(${bytes}B)`,
+  notEbml: () => `EBML 헤더가 아님`,
+  noSegment: () => `Segment가 없음`,
+  unsizedBeforeCluster: () => `첫 클러스터 앞에 크기 모를 요소`,
+  noCuesBeforeCluster: () => `Cues가 첫 클러스터 앞에 없음`,
+  zeroTimecodeScale: () => `TimecodeScale이 0`,
+  sidxZeroTimescale: () => `sidx timescale이 0`,
+  sidxNoEntries: () => `sidx 항목이 없음`,
+  sidxOverBox: () => `sidx 항목이 상자를 넘음`,
+  sidxHierarchical: () => `계층형 sidx`,
+  sidxOverflow: () => `sidx 값 오버플로`,
+  boxBroken: () => `상자가 깨짐`,
+  notFtyp: () => `ftyp로 시작하지 않음`,
+  sidxAfterSegment: () => `sidx가 세그먼트 앞에 없음`,
+  sidxAfterMoov: () => `sidx가 moov 앞에 있음`,
+  sidxPastFile: () => `sidx의 끝이 파일 밖`,
+  indexEmpty: () => `색인 항목이 없음`,
+  indexPointPastFile: ({ byte }: { byte: number }) => `색인이 가리키는 자리가 파일 밖(${byte})`,
+  indexNotIncreasing: () => `색인의 시각이나 바이트가 늘어나지 않음`,
+  notWebmOrMp4: () => `webm이나 mp4가 아님`,
+  lastKeyframeOff: ({ keyframeMs, durationMs }: { keyframeMs: number; durationMs: number }) => `마지막 키프레임(${keyframeMs}ms)이 곡 길이(${durationMs}ms)와 맞지 않음`,
+  noKeyframeBefore: () => `목표 앞에 키프레임이 없음`,
+  keyframeInFirstChunk: () => `키프레임이 첫 청크 안`,
+  stopStreamError: () => `재생 스트림 오류`,
+  stopBufferingStall: () => `재생이 시작되지 않음`,
+  stopResumeFailed: () => `재생 재개 실패`,
+  stopPacketsCut: () => `패킷 공급이 끊겨 플레이어가 멈춤`,
+  endLiveEnded: () => `방송이 끝남`,
+  endInputEnded: () => `입력 끝`,
+  endStopped: ({ reason }: { reason: string }) => `멈춤(${reason})`,
+  endAtEnd: ({ cause }: { cause: string }) => `${cause}. 끝에 닿아 다시 열지 않음`,
+  retryExhausted: ({ limit }: { limit: number }) => `재시도 ${limit}회 소진`,
+  retryStalled: ({ seconds, times }: { seconds: number; times: number }) => `${seconds}초도 못 가고 ${times}번 연달아 끊김`,
+  /** 라이브 입력의 ffmpeg가 정상으로 끝나지 않았다. code: 종료 코드(모르면 null) */
+  ffmpegExit: ({ code }: { code: number | null }) => `ffmpeg 종료 코드 ${code ?? "없음"}`,
+};
+
+export { player };

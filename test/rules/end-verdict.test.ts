@@ -2,7 +2,14 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { endVerdict, type EndFacts } from "../../src/rules/end-verdict.ts";
+import { endVerdict as verdictOf, type EndFacts } from "../../src/rules/end-verdict.ts";
+import { asText } from "../../src/infra/log/log-text.ts";
+
+// 판정의 이유는 로그 문구다. 글로 비교하려고 그린다
+const endVerdict = (f: EndFacts) => {
+  const verdict = verdictOf(f);
+  return { ...verdict, why: asText(verdict.why) };
+};
 
 // 온전히 끝난 VOD가 기준. 테스트마다 한 필드씩 바꾼다
 const facts = (over: Partial<EndFacts> = {}): EndFacts => ({

@@ -40,6 +40,9 @@ function renderLogText(text: LogText): string {
   }
 }
 
+/** 글이나 서술자를 글로(아직 옮기지 않은 글 줄에 서술자를 끼울 때) */
+const asText = (value: string | LogText): string => (isLogText(value) ? renderLogText(value) : value);
+
 /** 지금까지 그리기에 실패한 문구 코드를 꺼내고 비운다 */
 const takeRenderFailures = (): string[] => failedEvents.splice(0);
 
@@ -71,5 +74,5 @@ function logTextError(text: LogText, { code, cause }: { code?: string; cause?: u
   return Object.assign(new Error(renderLogText(text), cause === undefined ? undefined : { cause }), { logText: text }, code === undefined ? {} : { code });
 }
 
-export { FAILED_MARK, isLogText, logText, logTextError, renderLogText, takeRenderFailures, plainArgs, recordArgs };
+export { FAILED_MARK, asText, isLogText, logText, logTextError, renderLogText, takeRenderFailures, plainArgs, recordArgs };
 export type { LogArg, LogArgs, LogText, LogBindings };

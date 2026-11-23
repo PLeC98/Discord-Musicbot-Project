@@ -636,23 +636,8 @@
     "outside": 11,
     "log": 71
   },
-  "src/rules/container-index.ts": {
-    "outside": 25
-  },
-  "src/rules/convert-plan.ts": {
-    "outside": 5
-  },
-  "src/rules/discord-rejection.ts": {
-    "outside": 13
-  },
-  "src/rules/end-verdict.ts": {
-    "outside": 10
-  },
   "src/rules/node-support.ts": {
     "outside": 3
-  },
-  "src/rules/retry-budget.ts": {
-    "outside": 4
   },
   "src/rules/tunables.ts": {
     "bug": 1

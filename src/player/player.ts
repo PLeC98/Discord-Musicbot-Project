@@ -30,7 +30,7 @@ import * as autoplayRoute from "../autoplay/route.ts";
 import { errorKind, messageOf, codedError, codeOf } from "../rules/error-kind.ts";
 import { failureScope, servedDirectly, type FailureScope } from "./failure-scope.ts";
 import { failureReason } from "../rules/failure-reason.ts";
-import { renderLogText } from "../infra/log/log-text.ts";
+import { asText, renderLogText, type LogText } from "../infra/log/log-text.ts";
 import * as streamUrl from "../sources/stream-url.ts";
 import { SponsorSkipper } from "./sponsor-skipper.ts";
 import * as embeddedArt from "../sources/embedded-art.ts";
@@ -125,7 +125,7 @@ function dropUnplayed(player: Pick<Player, "_trackLabel">, pb: CurrentPlayback |
 const AUDIO_FROM: Partial<Record<ReturnType<typeof inputKind>, string>> = { youtube: "유튜브", soundcloud: "사운드클라우드", direct: "음원 직접" };
 
 // 곡이 어떻게 끝났나. dropped: 사고로 끊겼다, live: 그중 라이브가 끊긴 것
-type EndShape = { playedMs: number; label: string; dropped: boolean; live: boolean; why: string; cause?: string | null };
+type EndShape = { playedMs: number; label: string; dropped: boolean; live: boolean; why: string | LogText; cause?: string | null };
 
 // 끝 판정에 넘길 사실. 판정은 rules/end-verdict
 function endFactsOf(pb: CurrentPlayback | null, reason: string, positionMs: number): EndFacts {
@@ -1316,7 +1316,7 @@ class Player {
     const facts = endFactsOf(this.playback, reason, playedMs);
     const { dropped, why } = endVerdict(facts);
     const lengthText = facts.lengthMs ? `${sec(facts.lengthMs)}초` : "모름";
-    wlog.debug(`트랙 종료 판정: ${dropped ? "끊김" : "끝"}(${why}) | 재생 ${sec(playedMs)}초 / 길이 ${lengthText}`);
+    wlog.debug(`트랙 종료 판정: ${dropped ? "끊김" : "끝"}(${asText(why)}) | 재생 ${sec(playedMs)}초 / 길이 ${lengthText}`);
     if (reason === "idle" && !facts.streamEnded && !facts.live) log.warn(`패킷 공급이 끊겨 플레이어가 멈춤: ${label} | ${starvedDetail(this.playback)}`);
     // 길이는 판정에 쓰지 않는다. 저절로 끝난 위치가 길이와 크게 다르면 길이 쪽을 살필 수 있게 남긴다
     if (!dropped && reason === "idle" && facts.lengthMs && Math.abs(playedMs - facts.lengthMs) > LENGTH_MISMATCH_LOG_MS) {
@@ -1342,14 +1342,14 @@ class Player {
     const at = `${sec(playedMs)}초`;
     const causeText = cause ? ` | 원인=${cause}` : "";
     if (step.reopen && live) {
-      log.warn({ tags: ["retry"] }, `라이브 연결이 끊겨 다시 열기: ${label} | ${why} (${tries})${causeText}`);
+      log.warn({ tags: ["retry"] }, `라이브 연결이 끊겨 다시 열기: ${label} | ${asText(why)} (${tries})${causeText}`);
       // 주소에는 수명이 있고, 만료된 주소로는 몇 번을 재연결해도 실패한다.
       // 위치 0으로 트는 것이 곧 "yt-dlp로 주소를 새로 받는다"이고, 라이브는 애초에 엣지로만 붙는다.
       await new Promise((done) => setTimeout(done, LIVE_REOPEN_DELAY_MS * step.state.used));
       return this._reopenLive(label);
     }
     if (step.reopen) {
-      log.warn({ tags: ["retry"] }, `재생이 끊겨 ${at} 지점부터 다시 재생: ${label} | ${why} (${tries})${causeText}`);
+      log.warn({ tags: ["retry"] }, `재생이 끊겨 ${at} 지점부터 다시 재생: ${label} | ${asText(why)} (${tries})${causeText}`);
       const started = Date.now();
       const reopened = await this.play(playedMs, { continued: true });
       if (reopened.ok) log.info({ tags: ["retry"] }, `다시 열기 완료: ${label} | ${sec(Date.now() - started)}초 걸림`);
@@ -1357,12 +1357,12 @@ class Player {
     }
     // 들리던 곡이다(곡 탓으로 볼 근거가 없다). 끊긴 위치에서 일시정지해 둔다. 라이브는 끊긴 위치가 의미 없어 세고 넘긴다
     if (!live) {
-      log.error(`재생 복구 실패(그 곡에서 일시정지해 둠): ${label} | ${at} 지점, ${step.why}${causeText}`);
+      log.error(`재생 복구 실패(그 곡에서 일시정지해 둠): ${label} | ${at} 지점, ${asText(step.why)}${causeText}`);
       this.park(playedMs, { kind: "dropped" });
       return true;
     }
     const stopping = this._countFailure();
-    log.error(`라이브 다시 열기 실패(${stopping ? "일시정지해 둠" : "다음 곡으로 넘김"}): ${label} | ${step.why}${causeText}`);
+    log.error(`라이브 다시 열기 실패(${stopping ? "일시정지해 둠" : "다음 곡으로 넘김"}): ${label} | ${asText(step.why)}${causeText}`);
     if (!stopping) return false;
     this.park(0, { kind: "failures", count: this._takeFailures() });
     return true;

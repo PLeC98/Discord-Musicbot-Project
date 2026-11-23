@@ -24,6 +24,7 @@ import type { StreamInfo } from "../sources/stream-url.ts";
 import { transportOf, type Transport } from "../rules/transport-of.ts";
 import { sec } from "../infra/log/seconds.ts";
 import { watchBodyIdle } from "../infra/safe-url.ts";
+import { asText, isLogText, logTextError } from "../infra/log/log-text.ts";
 
 type Splicer = InstanceType<typeof AudioSplicer>;
 // 바깥 경계에서 여기서 부르고 읽는 필드만. R은 오디오 리소스(건드리지 않고 돌려준다)
@@ -327,10 +328,10 @@ async function openChunked<R>(o: InputOptions<R>, { url, headers, totalBytes, du
   const seek = await o.io.seekStart({ url, headers, totalBytes, startMs: o.startMs, durationMs, chunkBytes: chunkSize });
   if (!seek.ok) {
     // 주소가 막혔다. 처음부터 받아도 똑같이 막히므로 오류를 던진다(앞 광고 시간이면 openStream이 기다렸다 다시 연다)
-    if (seek.refused) throw Object.assign(new Error(seek.why), { status: seek.refused, permanent: true });
-    if (seek.slow) log.warn(`인덱스 불러오기 실패(처음부터 스트리밍): ${o.label} | ${seek.why}`);
-    else if (seek.failed) log.warn(`탐색 인덱스 조회 실패(처음부터 스트리밍해 ${sec(o.startMs)}초 지점까지 디코딩): ${o.label} | ${seek.why}`);
-    else if (!seek.near) log.debug(`인덱스를 사용하지 않고 처음부터 스트리밍: ${o.label} | ${seek.why}`);
+    if (seek.refused) throw Object.assign(isLogText(seek.why) ? logTextError(seek.why) : new Error(seek.why), { status: seek.refused, permanent: true });
+    if (seek.slow) log.warn(`인덱스 불러오기 실패(처음부터 스트리밍): ${o.label} | ${asText(seek.why)}`);
+    else if (seek.failed) log.warn(`탐색 인덱스 조회 실패(처음부터 스트리밍해 ${sec(o.startMs)}초 지점까지 디코딩): ${o.label} | ${asText(seek.why)}`);
+    else if (!seek.near) log.debug(`인덱스를 사용하지 않고 처음부터 스트리밍: ${o.label} | ${asText(seek.why)}`);
     return o.io.openChunkedStream(base);
   }
   const { header, startByte, startedAtMs, expectStart } = seek.start;

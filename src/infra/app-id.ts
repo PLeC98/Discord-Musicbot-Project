@@ -1,7 +1,9 @@
-import { L } from "./log/text.ts";
-import { logTextError } from "./log/log-text.ts"; // 봇 토큰의 앱 ID. .env에 두지 않고 기동과 pnpm commands가 앱 설정(GET /applications/@me)을 읽어 넣는다(app/app-info).
+// 봇 토큰의 앱 ID. .env에 두지 않고 기동과 pnpm commands가 앱 설정(GET /applications/@me)을 읽어 넣는다(app/app-info).
 // 명령 배포 경로, 초대 링크, 대시보드 로그인(OAuth), 세션 쿠키 이름이 쓴다.
 // 설정 객체(config)에 두지 않는다: 대시보드에서 설정을 저장하면 설정을 다시 계산해 덮어쓴다(store/tunables)
+
+import { L } from "./log/text.ts";
+import { logTextError } from "./log/log-text.ts";
 
 let appId: string | null = null;
 

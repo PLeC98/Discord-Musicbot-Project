@@ -8,6 +8,9 @@
 //   그 밖                  끝
 // 끊겼어도 다시 열 위치가 길이 끝 1.5초 안이면 끝으로 본다(끝부분을 되풀이해 틀지 않게).
 
+import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
+
 type EndFacts = {
   reason: string; // 멈춘 이유. 저절로 멈췄으면 "idle"
   live: boolean; // 라이브를 주소 경로로 틀었다
@@ -18,32 +21,32 @@ type EndFacts = {
   lengthMs: number | null; // 트는 음원의 길이(표시 길이가 아니다). 되감기를 막는 데만 쓴다. 모르면 null
 };
 
-type Verdict = { dropped: boolean; why: string };
+type Verdict = { dropped: boolean; why: string | LogText };
 
 // 우리가 멈췄지만 재생이 깨져서 멈춘 이유. 같은 곡을 멈춘 위치부터 다시 연다
-const BROKEN_STOPS: Record<string, string> = {
-  "stream-error": "재생 스트림 오류",
-  "buffering-stall": "재생이 시작되지 않음",
-  error: "재생 재개 실패",
+const BROKEN_STOPS: Record<string, LogText> = {
+  "stream-error": L.player.stopStreamError(),
+  "buffering-stall": L.player.stopBufferingStall(),
+  error: L.player.stopResumeFailed(),
 };
 
 // 다시 열 위치가 끝에서 이만큼 안이면 다시 열지 않고 끝난 것으로 본다. 출처가 준 길이는 정수 초라 실제 끝보다 1초 넘게 길 수 있어 그보다 조금 크게 잡는다
 const REWIND_GUARD_MS = 1500;
 
-const ended = (why: string): Verdict => ({ dropped: false, why });
+const ended = (why: string | LogText): Verdict => ({ dropped: false, why });
 
 // 끊긴 원인. 끊기지 않았으면 null
-function dropCause(f: EndFacts): string | null {
+function dropCause(f: EndFacts): string | LogText | null {
   if (f.reason !== "idle") return BROKEN_STOPS[f.reason] ?? null;
-  if (f.live) return f.exitCode === 0 && !f.broken ? null : (f.broken ?? `ffmpeg 종료 코드 ${f.exitCode ?? "없음"}`);
-  if (!f.streamEnded) return "패킷 공급이 끊겨 플레이어가 멈춤";
+  if (f.live) return f.exitCode === 0 && !f.broken ? null : (f.broken ?? L.player.ffmpegExit({ code: f.exitCode }));
+  if (!f.streamEnded) return L.player.stopPacketsCut();
   return f.broken;
 }
 
 function endVerdict(f: EndFacts): Verdict {
   const cause = dropCause(f);
-  if (!cause) return ended(f.reason === "idle" ? (f.live ? "방송이 끝남" : "입력 끝") : `멈춤(${f.reason})`);
-  if (f.lengthMs && f.positionMs >= f.lengthMs - REWIND_GUARD_MS) return ended(`${cause}. 끝에 닿아 다시 열지 않음`);
+  if (!cause) return ended(f.reason === "idle" ? (f.live ? L.player.endLiveEnded() : L.player.endInputEnded()) : L.player.endStopped({ reason: f.reason }));
+  if (f.lengthMs && f.positionMs >= f.lengthMs - REWIND_GUARD_MS) return ended(L.player.endAtEnd({ cause }));
   return { dropped: true, why: cause };
 }
 

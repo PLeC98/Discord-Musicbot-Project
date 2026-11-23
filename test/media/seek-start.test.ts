@@ -11,6 +11,7 @@ import { seekStart, type SeekRequest } from "../../src/media/seek-start.ts";
 import { openChunkedStream, type RangeFetch } from "../../src/media/chunked-stream.ts";
 import { buildFfmpegArgs } from "../../src/media/ffmpeg/args.ts";
 import { spawnFfmpeg } from "../../src/media/ffmpeg/process.ts";
+import { asText } from "../../src/infra/log/log-text.ts";
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-seek-start-"));
 after(() => fs.rmSync(DIR, { recursive: true, force: true }));
@@ -93,12 +94,12 @@ test("헤더 요청이 206이 아니면, 받지 못하면, 한도를 넘으면 �
   const file = files.webm;
   if (!file) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   const ignored = await seekStart(request(file), { fetchImpl: fileFetch(file, { status: 200 }).fetchImpl });
-  assert.ok(!ignored.ok && /HTTP 200/.test(ignored.why) && !ignored.slow);
+  assert.ok(!ignored.ok && /HTTP 200/.test(asText(ignored.why)) && !ignored.slow);
   const failing: RangeFetch = async () => {
     throw new Error("ECONNRESET");
   };
   const down = await seekStart(request(file), { fetchImpl: failing });
-  assert.ok(!down.ok && /ECONNRESET/.test(down.why) && !down.slow);
+  assert.ok(!down.ok && /ECONNRESET/.test(asText(down.why)) && !down.slow);
   const slow = await seekStart(request(file), { fetchImpl: fileFetch(file, { hang: true }).fetchImpl, timeoutMs: 50 });
   assert.ok(!slow.ok && slow.slow === true, JSON.stringify(slow));
 });
@@ -116,7 +117,7 @@ test("곡 길이가 색인과 크게 다르면(시간 축을 잘못 읽은 것) 
   const file = files.m4a;
   if (!file) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   const answer = await seekStart(request(file, { durationMs: 600_000, startMs: 90_000 }), { fetchImpl: fileFetch(file).fetchImpl });
-  assert.ok(!answer.ok && /곡 길이/.test(answer.why), JSON.stringify(answer));
+  assert.ok(!answer.ok && /곡 길이/.test(asText(answer.why)), JSON.stringify(answer));
 });
 
 // ── 진짜 청크 스트림, ffmpeg ──

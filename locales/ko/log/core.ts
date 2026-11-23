@@ -14,6 +14,18 @@ const core = {
   bgutilOldFoldersRemoved: ({ names }: { names: string }) => `bgutil 옛 폴더 정리: ${names}`,
   versionReadFailed: ({ file, error }: { file: string; error: string }) => `버전 정보 읽기 실패(${file}): ${error}`,
   appIdNotRead: () => `앱 ID를 아직 읽지 않음(기동이 앱 설정을 읽은 뒤에 쓴다)`,
+  rejectInteractionTimeout: () => `상호작용에 3초 안에 응답하지 못함(봇이 바빴거나 네트워크가 느렸거나, 같은 토큰으로 다른 봇이 실행 중)`,
+  rejectInteractionTwice: () => `이미 응답한 상호작용에 다시 응답함(코드가 두 번 응답했거나, 같은 토큰으로 다른 봇이 실행 중)`,
+  rejectTokenExpired: () => `상호작용 토큰이 만료됨(15분)`,
+  rejectNoWebhook: () => `웹훅이 없음(지워졌거나 봇이 서버를 나갔다 들어옴)`,
+  rejectNoChannel: () => `채널이 없음`,
+  rejectNoGuild: () => `서버가 없음(봇이 나갔거나 추방됨)`,
+  rejectNoMessage: () => `메시지가 없음`,
+  rejectNoAccess: () => `접근 권한이 없음(채널이나 서버를 볼 수 없음)`,
+  rejectNoPermission: () => `작업 권한이 없음`,
+  rejectUnknown: () => `디스코드가 요청을 거절함`,
+  /** 디스코드가 거절한 요청 한 줄. what: 거절의 뜻, code: 디스코드 오류 번호, message: 디스코드가 준 글, request: 요청(모르면 null), guild: 서버(모르면 null), where: 어디서 새어 나왔나 */
+  rejectionLine: ({ what, code, message, request, guild, where }: { what: string; code: number; message: string; request: string | null; guild: string | null; where: string }) => `${what} (${code}${message ? ` ${message}` : ""}) | ${request ?? "요청 모름"} | 서버 ${guild ?? "모름"} | ${where}`,
 };
 
 export { core };

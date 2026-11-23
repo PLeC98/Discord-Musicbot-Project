@@ -3,22 +3,24 @@
 // DiscordAPIError는 숫자 code(디스코드 JSON 오류 코드)와 숫자 status(HTTP)를 함께 가진다. 숫자 code만 보면 DOMException(TimeoutError 23 등), 자식 프로세스의 종료 코드가 섞인다
 
 import { chainOf } from "./error-kind.ts";
+import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
 
 type Family = "interaction" | "gone" | "permission" | "other";
 /** 거절 정보. request: 메서드와 경로(쿼리, 상호작용 토큰은 뺀다), 모르면 null */
-type Rejection = { family: Family; level: "warn" | "error"; code: number; meaning: string | null; message: string; request: string | null };
+type Rejection = { family: Family; level: "warn" | "error"; code: number; meaning: LogText | null; message: string; request: string | null };
 
 // 코드마다의 부류와 뜻. 상호작용 수명과 사라진 대상은 바깥 상태가 바뀐 것이라 warn, 권한과 그 밖(우리 요청이 틀림)은 error
-const KNOWN: Record<number, { family: Family; meaning: string }> = {
-  10062: { family: "interaction", meaning: "상호작용에 3초 안에 응답하지 못함(봇이 바빴거나 네트워크가 느렸거나, 같은 토큰으로 다른 봇이 실행 중)" },
-  40060: { family: "interaction", meaning: "이미 응답한 상호작용에 다시 응답함(코드가 두 번 응답했거나, 같은 토큰으로 다른 봇이 실행 중)" },
-  50027: { family: "interaction", meaning: "상호작용 토큰이 만료됨(15분)" },
-  10015: { family: "interaction", meaning: "웹훅이 없음(지워졌거나 봇이 서버를 나갔다 들어옴)" },
-  10003: { family: "gone", meaning: "채널이 없음" },
-  10004: { family: "gone", meaning: "서버가 없음(봇이 나갔거나 추방됨)" },
-  10008: { family: "gone", meaning: "메시지가 없음" },
-  50001: { family: "permission", meaning: "접근 권한이 없음(채널이나 서버를 볼 수 없음)" },
-  50013: { family: "permission", meaning: "작업 권한이 없음" },
+const KNOWN: Record<number, { family: Family; meaning: LogText }> = {
+  10062: { family: "interaction", meaning: L.core.rejectInteractionTimeout() },
+  40060: { family: "interaction", meaning: L.core.rejectInteractionTwice() },
+  50027: { family: "interaction", meaning: L.core.rejectTokenExpired() },
+  10015: { family: "interaction", meaning: L.core.rejectNoWebhook() },
+  10003: { family: "gone", meaning: L.core.rejectNoChannel() },
+  10004: { family: "gone", meaning: L.core.rejectNoGuild() },
+  10008: { family: "gone", meaning: L.core.rejectNoMessage() },
+  50001: { family: "permission", meaning: L.core.rejectNoAccess() },
+  50013: { family: "permission", meaning: L.core.rejectNoPermission() },
 };
 const LEVEL: Record<Family, "warn" | "error"> = { interaction: "warn", gone: "warn", permission: "error", other: "error" };
 
@@ -50,9 +52,8 @@ function discordRejection(error: unknown): Rejection | null {
 }
 
 /** 로그 한 줄. guildId: 그 서버(모르면 null), where: 어디서 새어 나왔나 */
-function rejectionLine(r: Rejection, guildId: string | null, where: string): string {
-  const what = r.meaning ?? "디스코드가 요청을 거절함";
-  return `${what} (${r.code}${r.message ? ` ${r.message}` : ""}) | ${r.request ?? "요청 모름"} | 서버 ${guildId ?? "모름"} | ${where}`;
+function rejectionLine(r: Rejection, guildId: string | null, where: string): LogText {
+  return L.core.rejectionLine({ what: r.meaning ?? L.core.rejectUnknown(), code: r.code, message: r.message, request: r.request, guild: guildId, where });
 }
 
 export { discordRejection, rejectionLine };

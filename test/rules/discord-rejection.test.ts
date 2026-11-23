@@ -2,7 +2,11 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { discordRejection, rejectionLine } from "../../src/rules/discord-rejection.ts";
+import { discordRejection, rejectionLine as lineOf } from "../../src/rules/discord-rejection.ts";
+import { asText } from "../../src/infra/log/log-text.ts";
+
+// 로그 줄은 로그 문구다. 글로 비교하려고 그린다
+const rejectionLine = (...args: Parameters<typeof lineOf>) => asText(lineOf(...args));
 
 // DiscordAPIError의 형태: 숫자 code와 숫자 status
 const rejected = (code: number, extra: object = {}) => Object.assign(new Error(`거절 ${code}`), { code, status: 400, ...extra });
