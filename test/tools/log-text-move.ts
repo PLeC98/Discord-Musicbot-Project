@@ -6,7 +6,8 @@
 //
 // 기준은 문구표 밖 한글 집계 분류(test/helpers/text-outside 의 koreanSites)다. 도구가 옮기지 않는 한글 자리는 계획 파일의 manual, unplanned에 남긴다.
 // 자동으로 옮기는 꼴: 로그 호출의 (글), (바인딩, 글), (err, 글), 글 뒤에 문자열 값(공백으로 이어 붙는다), repeatingFailure 의 라벨, logRuleLine 을 ruleLogText 로.
-// 그 밖(예외, 다른 라벨 도우미, 글 뒤의 오류 값, 슬롯 안의 한글 조각, 변수로 만든 글)은 표시만 한다
+// 예외: new Error(글, 옵션) 를 logTextError(문구, 옵션) 로, codedError, timeoutError 의 글 인자를 문구로.
+// 그 밖(Error 를 이은 클래스, 다른 라벨 도우미, 글 뒤의 오류 값, 슬롯 안의 한글 조각, 변수로 만든 글)은 표시만 한다
 
 import fs from "node:fs";
 import path from "node:path";
@@ -23,8 +24,11 @@ const PLAIN_TYPES = new Set(["string", "number", "boolean"]);
 
 /** 슬롯 하나: 원래 식, 문구 함수의 값 이름, 값 타입 */
 type Slot = { expr: string; param: string; type: string };
-/** 옮길 자리 하나. start, end: 바꿀 범위(글 인자, 글 뒤 값까지). parts: 고정 글(슬롯 수 + 1, 해석한 글) */
-type Site = { file: string; line: number; start: number; end: number; kind: "log" | "label" | "rule"; namespace: string | null; key: string | null; parts: string[]; slots: Slot[] };
+/**
+ * 옮길 자리 하나. start, end: 바꿀 범위(글 인자, 글 뒤 값까지). parts: 고정 글(슬롯 수 + 1, 해석한 글).
+ * kind: log(로그 호출의 글), label(라벨, 예외 도우미 codedError, timeoutError 의 글 인자), rule(logRuleLine), error(new Error 전체를 logTextError 로. rest: 글 뒤 인자의 원문)
+ */
+type Site = { file: string; line: number; start: number; end: number; kind: "log" | "label" | "rule" | "error"; namespace: string | null; key: string | null; parts: string[]; slots: Slot[]; rest?: string[] };
 type Manual = { file: string; line: number; text: string; why: string };
 type Plan = { sites: Site[]; manual: Manual[]; unplanned: Array<{ file: string; line: number; text: string }>; duplicates: string[][] };
 /** 슬롯 식의 타입 이름(PLAIN_TYPES 의 이름들을 | 로 잇거나, 그 밖이면 "other") */
@@ -106,11 +110,33 @@ function scanSource(file: string, text: string, typeOf: TypeOf, source = ts.crea
     manual.push({ file, line: lineOf(source, node.getStart(source)), text: node.getText(source).slice(0, 160), why });
     covered.push([node.getStart(source), node.getEnd()]);
   };
+  // 예외의 네임스페이스: 파일의 로거 분류가 하나면 그것(없거나 여럿이면 사람이 채운다)
+  const categories = [...new Set([...loggers.values()].filter((one) => one !== null))];
+  const errorSpace = categories.length === 1 ? categories[0] : null;
+  const errorSite = (node: ts.Node, message: ts.Expression, kind: "label" | "error", rest: ts.Expression[] = []) => {
+    const parsed = partsOf(message, typeOf);
+    if (!parsed) return mark(node, "예외 글 슬롯 안의 한글 조각");
+    const [start, end] = kind === "error" ? [node.getStart(source), node.getEnd()] : [message.getStart(source), message.getEnd()];
+    sites.push({ file, line: lineOf(source, message.getStart(source)), start, end, kind, namespace: errorSpace, key: null, ...parsed, ...(kind === "error" ? { rest: rest.map((arg) => arg.getText(source)) } : {}) });
+    covered.push([start, end]);
+  };
   const visit = (node: ts.Node) => {
+    // new Error(글, 옵션) → logTextError(문구, 옵션). Error 를 이은 클래스는 생성자가 달라 손으로 본다
+    if (ts.isNewExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "Error" && node.arguments?.length && hasHangul(node.arguments[0])) {
+      errorSite(node, node.arguments[0], "error", node.arguments.slice(1));
+      return;
+    }
     if (ts.isCallExpression(node)) {
       const callee = node.expression;
       const name = ts.isPropertyAccessExpression(callee) ? callee.name.text : ts.isIdentifier(callee) ? callee.text : "";
       const owner = ts.isPropertyAccessExpression(callee) && ts.isIdentifier(callee.expression) ? callee.expression.text : null;
+      // 예외 도우미의 글 인자: codedError(코드, 글), timeoutError(글)
+      const messageAt = name === "codedError" ? 1 : name === "timeoutError" ? 0 : -1;
+      if (messageAt >= 0 && ts.isIdentifier(callee) && node.arguments.length > messageAt && hasHangul(node.arguments[messageAt])) {
+        errorSite(node, node.arguments[messageAt], "label");
+        node.arguments.forEach((arg, i) => i !== messageAt && visit(arg));
+        return;
+      }
       // 로그 호출: logger.level(...)
       if (owner && loggers.has(owner) && LEVELS.has(name)) {
         const namespace = loggers.get(owner) ?? null;
@@ -237,9 +263,12 @@ function applySource(file: string, text: string, sites: Site[]): string {
     }
     if (!site.namespace || !site.key) throw new Error(`${file}:${site.line}: 네임스페이스와 키를 채워야 한다`);
     const args = site.slots.length ? `{ ${site.slots.map((slot) => (slot.param === slot.expr ? slot.param : `${slot.param}: ${slot.expr}`)).join(", ")} }` : "";
-    out = `${out.slice(0, site.start)}L.${site.namespace}.${site.key}(${args})${out.slice(site.end)}`;
+    const text = `L.${site.namespace}.${site.key}(${args})`;
+    const replaced = site.kind === "error" ? `logTextError(${[text, ...(site.rest ?? [])].join(", ")})` : text;
+    out = `${out.slice(0, site.start)}${replaced}${out.slice(site.end)}`;
   }
   if (sites.some((site) => site.kind !== "rule")) out = withImport(file, out, "L", "src/infra/log/text.ts");
+  if (sites.some((site) => site.kind === "error")) out = withImport(file, out, "logTextError", "src/infra/log/log-text.ts");
   if (sites.some((site) => site.kind === "rule" || site.slots.some((slot) => slot.expr.startsWith("ruleLogText(")))) {
     out = withImport(file, out, "ruleLogText", "src/rules/text/index.ts");
     // logRuleLine 을 더 쓰지 않으면 import 에서 뺀다(부르지 않고 값으로 넘기는 곳도 쓰는 곳이다: problems.map(logRuleLine))
@@ -321,15 +350,63 @@ function sameCall(before: ts.CallExpression, after: ts.CallExpression, catalogs:
   return null;
 }
 
-/** 파일 하나의 원래 판과 지금 판을 대조한 차이 */
+/** 예외를 만드는 식을 소스 차례대로: new Error, logTextError, codedError, timeoutError */
+function errorsOf(file: string, text: string): Array<ts.NewExpression | ts.CallExpression> {
+  const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const found: Array<ts.NewExpression | ts.CallExpression> = [];
+  const visit = (node: ts.Node) => {
+    if (ts.isNewExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "Error") found.push(node);
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && ["logTextError", "codedError", "timeoutError"].includes(node.expression.text)) found.push(node);
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return found;
+}
+
+/** 예외 식 하나의 메시지 인자 자리(없으면 -1) */
+const messageIndex = (node: ts.NewExpression | ts.CallExpression) => (ts.isCallExpression(node) && node.expression.getText() === "codedError" ? 1 : 0);
+
+/** 원래 예외 식과 바꾼 예외 식이 같은 메시지와 나머지 인자를 갖는지. 같으면 null, 다르면 까닭 */
+function sameError(before: ts.NewExpression | ts.CallExpression, after: ts.NewExpression | ts.CallExpression, catalogs: (namespace: string) => string | null): string | null {
+  if (before.getText() === after.getText()) return null;
+  const callee = (node: ts.NewExpression | ts.CallExpression) => (ts.isNewExpression(node) ? "new Error" : node.expression.getText());
+  const [was, now] = [callee(before), callee(after)];
+  // new Error(글, 옵션) 은 logTextError(문구, 옵션) 으로만 바뀐다. 도우미는 그대로다
+  if (was !== now && !(was === "new Error" && now === "logTextError")) return `만드는 것이 다름: ${was} → ${now}`;
+  const at = messageIndex(before);
+  const oldArgs = [...(before.arguments ?? [])];
+  const newArgs = [...(after.arguments ?? [])];
+  const others = (args: ts.Expression[]) => args.filter((_, i) => i !== at).map((arg) => arg.getText());
+  if (JSON.stringify(others(oldArgs)) !== JSON.stringify(others(newArgs))) return "메시지 밖의 인자가 다름";
+  if (!oldArgs[at] || !newArgs[at]) return "메시지 인자가 없음";
+  const old = messageOf(oldArgs[at], catalogs);
+  const fresh = messageOf(newArgs[at], catalogs);
+  if (typeof old === "string") return old;
+  if (typeof fresh === "string") return fresh;
+  if (JSON.stringify(old.parts) !== JSON.stringify(fresh.parts)) return `고정 글이 다름: ${JSON.stringify(old.parts)} → ${JSON.stringify(fresh.parts)}`;
+  if (JSON.stringify(old.exprs) !== JSON.stringify(fresh.exprs)) return `값 식이 다름: ${JSON.stringify(old.exprs)} → ${JSON.stringify(fresh.exprs)}`;
+  return null;
+}
+
+/** 파일 하나의 원래 판과 지금 판을 대조한 차이(로그 호출, 예외 식) */
 function verifySource(file: string, before: string, after: string, catalogs: (namespace: string) => string | null): string[] {
   const old = callsOf(file, before);
   const now = callsOf(file, after);
   if (old.length !== now.length) return [`${file}: 로그 호출 수가 다름(${old.length} → ${now.length})`];
-  return old.flatMap((call, i) => {
-    const why = sameCall(call, now[i], catalogs);
-    return why ? [`${file}:${lineOf(call.getSourceFile(), call.getStart())}: ${why}`] : [];
-  });
+  const oldErrors = errorsOf(file, before);
+  const newErrors = errorsOf(file, after);
+  if (oldErrors.length !== newErrors.length) return [`${file}: 예외 식 수가 다름(${oldErrors.length} → ${newErrors.length})`];
+  const at = (node: ts.Node) => `${file}:${lineOf(node.getSourceFile(), node.getStart())}`;
+  return [
+    ...old.flatMap((call, i) => {
+      const why = sameCall(call, now[i], catalogs);
+      return why ? [`${at(call)}: ${why}`] : [];
+    }),
+    ...oldErrors.flatMap((node, i) => {
+      const why = sameError(node, newErrors[i], catalogs);
+      return why ? [`${at(node)}: ${why}`] : [];
+    }),
+  ];
 }
 
 // ── 명령 ──────────────────────────────────────────────────────────────

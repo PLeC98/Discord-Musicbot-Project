@@ -147,3 +147,32 @@ test("verify: String(식)으로 감싼 값은 원래 식으로 본다", () => {
     [],
   );
 });
+
+test("예외: new Error 는 logTextError 로, codedError, timeoutError 는 글 인자만 문구로 옮기고 verify 가 짝지어 대조한다", () => {
+  const source = ['import logger from "../infra/log/logger.ts";', 'const log = logger.child({ category: "player" });', "function run(file: string, count: number, error: unknown) {", "  if (count) throw new Error(`저장 실패: ${file}`, { cause: error });", '  if (!file) throw codedError("NO_FILE", "파일 없음");', "  return timeoutError(`응답이 ${count}ms 동안 없음`);", "}", ""].join("\n");
+  const plan = scanSource(FILE, source, typeOf);
+  assert.deepEqual(
+    plan.sites.map((site) => [site.kind, site.namespace, site.parts, site.rest ?? null]),
+    [
+      ["error", "player", ["저장 실패: ", ""], ["{ cause: error }"]],
+      ["label", "player", ["파일 없음"], null],
+      ["label", "player", ["응답이 ", "ms 동안 없음"], null],
+    ],
+  );
+  assert.deepEqual(plan.unplanned, []);
+  const keys = ["saveFailed", "noFile", "noAnswer"];
+  const sites = plan.sites.map((site, i) => ({ ...site, key: keys[i] }));
+  const after = applySource(FILE, source, sites);
+  assert.match(after, /throw logTextError\(L\.player\.saveFailed\(\{ file \}\), \{ cause: error \}\)/);
+  assert.match(after, /codedError\("NO_FILE", L\.player\.noFile\(\)\)/);
+  assert.match(after, /timeoutError\(L\.player\.noAnswer\(\{ count \}\)\)/);
+  assert.match(after, /import \{ logTextError \} from "\.\.\/infra\/log\/log-text\.ts";/);
+  const catalog = withEntries("player", null, sites.map(entryOf));
+  assert.deepEqual(
+    verifySource(FILE, source, after, () => catalog),
+    [],
+  );
+  // 글이나 나머지 인자가 바뀌면 알린다
+  assert.equal(verifySource(FILE, source, after.replace("{ cause: error }", "{}"), () => catalog).length, 1);
+  assert.equal(verifySource(FILE, source, after, () => catalog.replace("파일 없음", "파일 모름")).length, 1);
+});
