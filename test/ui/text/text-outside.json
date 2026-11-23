@@ -6,7 +6,7 @@
   "src/app/resilience.ts": 1,
   "src/app/run-record.ts": 15,
   "src/app/shutdown.ts": 2,
-  "src/app/startup-prepare.ts": 6,
+  "src/app/startup-prepare.ts": 5,
   "src/app/stay-keeper.ts": 5,
   "src/autoplay/assist/index.ts": 15,
   "src/autoplay/filter.ts": 9,

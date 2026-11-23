@@ -13,6 +13,7 @@ import config from "../config/index.ts";
 import { clientFreshness } from "../dashboard/client-freshness.ts";
 import { sec } from "../infra/log/seconds.ts";
 import { TARGETS } from "../media/ffmpeg/release.ts";
+import { readState } from "../media/ffmpeg/state.ts";
 import { cleanupFfmpeg } from "../media/ffmpeg/cleanup.ts";
 import { cleanupBgutil } from "../sources/bgutil/cleanup.ts";
 import { bgutilBundle } from "../sources/bgutil/bundle.ts";
@@ -73,14 +74,21 @@ async function buildDashboardIfStale({ root, dashboard: dashboardDir, dist }: Da
  */
 async function alignFfmpegAtStartup(dir = PROJECT.ffmpeg, script = path.join(PROJECT.root, "scripts", "install-ffmpeg.ts")): Promise<void> {
   if (config.ffmpeg.path || !TARGETS[`${process.platform}-${process.arch}`]) return;
+  const before = activeFolder(dir);
   const info = await runToEnd({ name: "ffmpeg-install", script, args: [], cwd: PROJECT.root, env: toolEnv(), timeoutMs: FFMPEG_MS, succeeded: () => true });
+  // 이미 맞으면(대부분의 기동) 조용히 넘어가고, 바꿨으면 스크립트의 결과 줄을 남긴다.
+  // 바꿨는지는 기록의 지금 빌드 폴더로 본다(스크립트 출력은 로그 언어로 찍혀 글로 판단할 수 없다. 폴더 이름에 받은 시각이 붙어 교체하거나 설치할 때마다 달라진다)
   if (info?.state === "succeeded") {
-    // 이미 맞으면(대부분의 기동) 조용히 넘어가고, 바꿨으면 스크립트의 결과 줄을 남긴다
-    const last = stripScriptPrefix(info.output.at(-1) ?? "");
-    if (!last.includes("이미 ")) log.info(L.core.ffmpegAligned({ result: last }));
+    if (activeFolder(dir) !== before) log.info(L.core.ffmpegAligned({ result: stripScriptPrefix(info.output.at(-1) ?? "") }));
   } else if (info) log.warn(L.core.ffmpegAlignFailed({ why: failedText(info) }));
   const cleaned = await cleanupFfmpeg(dir);
   if (cleaned.kind === "ok" && cleaned.removed.length) log.info(L.core.ffmpegOldFoldersRemoved({ names: cleaned.removed.map((r) => r.name).join(", ") }));
+}
+
+/** ffmpeg 기록(state.json)이 가리키는 지금 빌드의 폴더. 기록이 없거나 깨졌으면 null */
+function activeFolder(dir: string): string | null {
+  const read = readState(dir);
+  return read.kind === "ok" ? (read.state.active?.folder ?? null) : null;
 }
 
 /** vendor/bgutil 정리: 기록에 없는 버전 폴더, 끝난 받기의 임시 폴더. 돌고 있는 POToken 서버의 빌드(기동 시 읽은 것)는 남긴다 */

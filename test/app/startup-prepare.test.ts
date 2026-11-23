@@ -10,10 +10,13 @@ import { buildDashboardIfStale, alignFfmpegAtStartup, type DashboardPaths } from
 import { _resetJobs } from "../../src/infra/script-job.ts";
 import { TARGETS } from "../../src/media/ffmpeg/release.ts";
 import { withConfig } from "../helpers/config.ts";
+import logSink from "../../src/infra/log/sink.ts";
 
 const base = fs.mkdtempSync(path.join(os.tmpdir(), "startup-prepare-"));
 after(() => fs.rmSync(base, { recursive: true, force: true, maxRetries: 5 }));
 afterEach(() => _resetJobs());
+const events: string[] = [];
+logSink.addDestination((rec) => void (typeof rec.event === "string" && events.push(rec.event)));
 
 let n = 0;
 /** 화면 소스 하나와 가짜 빌드 도구가 있는 임시 저장소. fail: 빌드 도구가 실패로 끝난다, noTool: 빌드 도구가 없다 */
@@ -90,6 +93,33 @@ console.log("✅ [ffmpeg] 설치");`,
   await alignFfmpegAtStartup(dir, script);
   assert.deepEqual(JSON.parse(fs.readFileSync(seen, "utf8")), []);
   assert.deepEqual(fs.readdirSync(dir).sort(), [`${release}-2`, "state.json"]);
+});
+
+/** 기록이 folder를 가리키게 쓰고 line을 찍는 가짜 받기 스크립트 */
+function fakeInstall(dir: string, folder: string, line: string): string {
+  const script = path.join(base, `install-${++n}.mjs`);
+  const state = { active: { folder, release: "autobuild-2026-10-31-12-59", asset: "a", sha256: "x", version: "v" }, previous: null, rejected: [], pin: null };
+  fs.writeFileSync(
+    script,
+    `import fs from "node:fs";
+fs.writeFileSync(${JSON.stringify(path.join(dir, "state.json"))}, ${JSON.stringify(JSON.stringify(state))});
+console.log(${JSON.stringify(line)});`,
+  );
+  return script;
+}
+
+test("ffmpeg 맞추기: 바꿨는지는 스크립트가 찍은 글이 아니라 기록의 지금 빌드 폴더로 본다(바꿨을 때만 결과 줄을 남긴다)", { skip: !TARGETS[`${process.platform}-${process.arch}`] && "번들 ffmpeg가 없는 플랫폼은 맞추지 않는다" }, async () => {
+  const dir = path.join(base, `ffmpeg-${++n}`);
+  fs.mkdirSync(path.join(dir, "build-1"), { recursive: true });
+  fs.mkdirSync(path.join(dir, "build-2"), { recursive: true });
+  const aligned = () => events.filter((event) => event === "core.ffmpegAligned").length;
+  const start = aligned();
+  await alignFfmpegAtStartup(dir, fakeInstall(dir, "build-1", "INFO  [ffmpeg] already in use"));
+  assert.equal(aligned(), start + 1, "기록이 없다가 생기면 남긴다");
+  await alignFfmpegAtStartup(dir, fakeInstall(dir, "build-1", "INFO  [ffmpeg] installed"));
+  assert.equal(aligned(), start + 1, "같은 폴더면 글과 상관없이 남기지 않는다");
+  await alignFfmpegAtStartup(dir, fakeInstall(dir, "build-2", "INFO  [ffmpeg] 이미 사용 중"));
+  assert.equal(aligned(), start + 2, "폴더가 바뀌면 글과 상관없이 남긴다");
 });
 
 test("ffmpeg 맞추기: FFMPEG_PATH를 쓰면 하지 않는다", async () => {
