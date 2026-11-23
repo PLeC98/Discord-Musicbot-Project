@@ -43,12 +43,12 @@ const channelName = (p: VoiceHost) => p.voiceChannel?.name ?? p.voiceChannel?.id
 const LIVE: ReadonlySet<LinkState> = new Set(["joining", "ready", "waiting", "recovering"]);
 const RECOVERY_ATTEMPTS_MAX = 5; // 한 번 끊겼을 때 연결 복구가 실패해도 되는 횟수(게이트웨이가 끊긴 동안의 실패는 세지 않는다). 넘으면 세션을 저장하고 정리한다
 // 빠짐, 사라짐으로 버릴 때(세션 삭제)
-const FORCED_OUT = { reason: "봇이 음성에서 강제 퇴장됨", session: "remove", panel: "disconnected", end: "kicked" } as const;
+const FORCED_OUT = { reason: L.voice.reasonKicked(), session: "remove", panel: "disconnected", end: "kicked" } as const;
 // 스테이지가 끝나도 쫓겨난 것과 같은 빠짐 알림만 온다. 가르는 것은 음성 서버의 닫힘 코드: 끝나면 모두를 끊어 4022, 한 명만 내보내면 4014.
 // 4014는 빠짐 알림보다 먼저, 4022는 0.1 ~ 0.2초 뒤에 온다. 코드가 끝내 오지 않으면 둘 다 말한다
-const STAGE_ENDED = { reason: "스테이지가 끝남", session: "remove", panel: "disconnected", end: "stage-ended" } as const;
-const STAGE_OUT = { reason: "봇이 스테이지에서 나옴(스테이지 종료 또는 강제 퇴장)", session: "remove", panel: "disconnected", end: "stage-disconnect" } as const;
-const CHANNEL_GONE = { reason: "봇의 음성 채널이 사라짐", session: "remove", panel: "disconnected", end: "channel-gone" } as const;
+const STAGE_ENDED = { reason: L.voice.reasonStageEnded(), session: "remove", panel: "disconnected", end: "stage-ended" } as const;
+const STAGE_OUT = { reason: L.voice.reasonStageOut(), session: "remove", panel: "disconnected", end: "stage-disconnect" } as const;
+const CHANNEL_GONE = { reason: L.voice.reasonChannelGone(), session: "remove", panel: "disconnected", end: "channel-gone" } as const;
 
 // 서버 헤드셋 끄기. 자기 헤드셋 끄기로는 디스코드가 채널의 말소리를 계속 보내온다.
 // 멤버에 남아(채널을 옮기거나 다시 들어와도) 대개 서버마다 한 번 걸린다. 음성 밖에서는 걸 수 없다(40032)
@@ -175,13 +175,13 @@ class VoiceLink {
   // 다시 보내도 답이 없고 봇이 그 채널에 있으면 게이트웨이로 나갔다가 다시 참가한다(REST로 빼기는 멤버 옮기기 권한이 든다)
   async _unstick(connection: VoiceConnection, channelId: string, tries: number) {
     if (!this._stillSignalling(connection)) return;
-    const at = await this._botChannelAtDiscord("unstick", "대기");
+    const at = await this._botChannelAtDiscord("unstick", L.voice.fallbackWait());
     // 묻는 사이에 붙었거나 연결이 바뀌었으면 할 일이 없다
     const state = connection.state;
     if (connection !== this.player.connection || state.status !== VoiceConnectionStatus.Signalling) return;
     if (at === undefined) return this._armUnstick(connection, channelId, tries);
     if (tries === 0 || at !== channelId) {
-      const line = `음성 채널 참가 요청에 응답이 없어 재전송: ${this._label()}`;
+      const line = L.voice.joinRequestResent({ channel: this._label() });
       if (tries === 0) log.warn(line);
       else log.debug(line);
       connection.rejoin();
@@ -202,7 +202,7 @@ class VoiceLink {
   }
 
   // 디스코드가 보는 봇의 음성 채널(REST). 채널에 없으면 null, 묻지 못하면 undefined
-  _botChannelAtDiscord(caller: string, fallback: string): Promise<string | null | undefined> {
+  _botChannelAtDiscord(caller: string, fallback: LogText): Promise<string | null | undefined> {
     return botChannelAtDiscord(this.player.guild, caller, fallback);
   }
 
@@ -250,7 +250,7 @@ class VoiceLink {
       this._wait(newState.reason, "closeCode" in newState ? newState.closeCode : undefined);
       return;
     }
-    if (newState.status === VoiceConnectionStatus.Destroyed) this.recover("연결이 부서짐");
+    if (newState.status === VoiceConnectionStatus.Destroyed) this.recover(L.voice.recoverDestroyed());
   }
 
   // 연결이 Ready가 됐다. 끊긴 뒤 기다리던 중이면 자동 재연결된 것이다
@@ -277,7 +277,7 @@ class VoiceLink {
     if (!networking || ("networking" in oldState && oldState.networking === networking)) return;
     this.lastCloseCode = null;
     networking.prependOnceListener("close", (code: number) => {
-      const line = `음성 서버 연결 닫힘: 코드 ${code} | ${this._label()}`;
+      const line = L.voice.serverConnectionClosed({ code, channel: this._label() });
       if (code !== DO_NOT_RECONNECT && code !== CALL_TERMINATED && this.state === "ready" && this.player.connection?.state.status === VoiceConnectionStatus.Ready) log.warn(line);
       else log.debug(line);
       this.lastCloseCode = code;
@@ -311,11 +311,11 @@ class VoiceLink {
     if (this.state === "closed") return;
     // 네트워크가 끊긴 것은 복구 시작 줄이 원인과 함께 남긴다
     if (errorKind(error) === "network-error") {
-      this.recover(`네트워크 오류(${messageOf(error)})`);
+      this.recover(L.voice.recoverNetworkError({ error: messageOf(error) }));
       return;
     }
     log.warn(L.voice.connectionError({ channel: this._label(), state: this.state, kind: errorKind(error), error: describeError(error) }));
-    this.recover("연결 오류");
+    this.recover(L.voice.recoverConnectionError());
   }
 
   // ── 끊김: 라이브러리가 자동으로 재연결하기를 기다린다 ──
@@ -325,7 +325,7 @@ class VoiceLink {
     this.waitCloseCode = closeCode ?? null;
     this.waitAt = Date.now();
     const gen = ++this.gen;
-    const line = `연결 끊김: ${this._label()} | 원인=${reason}${closeCode ? `(${closeCode})` : ""} | 자동 재연결 대기`;
+    const line = L.voice.connectionLost({ channel: this._label(), reason, closeSuffix: closeCode ? `(${closeCode})` : "" });
     // 4014는 내보냄, 옮겨짐, 봇의 게이트웨이 끊김 중 하나다. 어느 쪽인지는 뒤따르는 줄(떠남, 이동, 복구)이 남긴다
     if (closeCode === DO_NOT_RECONNECT) log.debug(line);
     else log.warn(line);
@@ -370,13 +370,13 @@ class VoiceLink {
       return;
     }
     log.warn(L.voice.autoReconnectFailed({ channel: this._label() }));
-    this.recover("자동 재연결 안 됨");
+    this.recover(L.voice.recoverAutoReconnectFailed());
   }
 
   // ── 복구: 우리가 재연결한다 ──
 
   /** 연결을 재연결한다. 붙어 있거나 끊겨 기다리는 중일 때만 받는다(이미 복구 중, 끝남, 붙는 중이면 아무것도 안 한다) */
-  recover(why: string) {
+  recover(why: string | LogText) {
     // 붙는 중에 부서지면 connect()가 실패를 받는다
     if (this.state !== "ready" && this.state !== "waiting") return;
     this._clearWait();
@@ -443,7 +443,7 @@ class VoiceLink {
   // 디스코드에 조회하는 사이 정리됐으면(active가 false) 아무것도 하지 않는다. 그 뒤에 만든 연결은 정리할 곳이 없다
   async _rejoin(active: () => boolean) {
     const connection = this.player.connection;
-    const at = connection && connection.state.status !== VoiceConnectionStatus.Destroyed ? await this._botChannelAtDiscord("rejoin", "재연결") : null;
+    const at = connection && connection.state.status !== VoiceConnectionStatus.Destroyed ? await this._botChannelAtDiscord("rejoin", L.voice.fallbackRejoin()) : null;
     if (!active()) return false;
     try {
       if (connection && this._mayReattach(at) && this._reattach(connection)) {
@@ -494,14 +494,14 @@ class VoiceLink {
     const renewed = typeof shardId === "number" ? this.lib.newSessionAt?.(shardId) : null;
     if (!renewed || renewed < Math.max(this.waitAt - RENEWED_WINDOW_MS, this.readyAt ?? 0)) return false;
     log.warn(L.voice.gatewaySessionRejoin({ channel: this._label() }));
-    this.recover("게이트웨이 새 세션");
+    this.recover(L.voice.recoverGatewaySession());
     return true;
   }
 
   // 재연결하지 못했다. 세션을 저장하고 버린다. /join이 저장된 세션으로 이어서 튼다
   _giveUp() {
-    log.error(`연결 복구 포기: ${this._label()} | 최대 ${RECOVERY_ATTEMPTS_MAX}회 넘음(세션을 저장하고 정리)${this.lastRecoveryError ? ` | 마지막 오류=${this.lastRecoveryError}` : ""}`);
-    this._end({ reason: "음성 연결 복구 포기", session: "save", panel: "disconnected", end: "voice-lost" });
+    log.error(L.voice.recoveryGaveUp({ channel: this._label(), maxAttempts: RECOVERY_ATTEMPTS_MAX, lastError: this.lastRecoveryError }));
+    this._end({ reason: L.voice.reasonRecoveryGaveUp(), session: "save", panel: "disconnected", end: "voice-lost" });
   }
 
   // ── 게이트웨이: 봇 자신의 음성 상태 ──
@@ -520,7 +520,7 @@ class VoiceLink {
       // 4014("재연결하지 말 것")로 끊겨 기다리는 중이면 쫓겨난 것이다(게이트웨이 새 세션은 _renewedSession이 가른다). 음성 서버의 닫힘이 게이트웨이의 빠짐 알림보다 먼저 올 때가 있다
       if (this.state === "recovering" || (this.state === "waiting" && this.waitCloseCode !== DO_NOT_RECONNECT)) {
         log.info(L.voice.leftWhileReconnecting({ channel: this._label() }));
-        this.recover("음성 상태가 지워짐");
+        this.recover(L.voice.recoverStateCleared());
         return { left: false, moved: false };
       }
       if (this._renewedSession()) return { left: false, moved: false };
@@ -767,7 +767,7 @@ class VoiceLink {
   }
 
   /** 연결을 부수고 채널에서 나간다. 로그 없이 나가면 왜 나갔는지 나중에 알 수 없으므로 원인을 남긴다 */
-  disconnect(reason = "정리") {
+  disconnect(reason: string | LogText = L.voice.reasonCleanup()) {
     this.stop();
     this.state = "closed";
     const connection = this._detach();

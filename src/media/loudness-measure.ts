@@ -15,6 +15,7 @@ import * as loudness from "../store/loudness.ts";
 import { CACHE_FORMATS, inputFilter } from "./ffmpeg/input-filter.ts";
 import { PROGRESS_ARGS, runFfmpeg, type FfmpegJob, type FfmpegResult } from "./ffmpeg/job.ts";
 import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
 const log = logger.child({ category: "ffmpeg", sub: "loudness" });
 
 // 재생과 같은 48kHz 스테레오로 맞춘 소리를 잰다(모노, 다채널을 들리는 대로)
@@ -38,7 +39,7 @@ const SUMMARY_I = /^\s*I:\s+(\S+)\s+LUFS/;
 const SUMMARY_PEAK = /^\s*Peak:\s+(\S+)\s+dBFS/;
 
 type Run = (args: string[], options: FfmpegJob) => Promise<FfmpegResult>;
-type Verdict = { kind: "ok"; value: loudness.Measured } | { kind: "file"; why: string } | { kind: "env"; why: string };
+type Verdict = { kind: "ok"; value: loudness.Measured } | { kind: "file"; why: LogText } | { kind: "env"; why: LogText };
 /** 한 번 잰 결과. lines: 100ms 줄 수, loudFrames: 게이트를 넘은 프레임 수 */
 type Reading = { lines: number; loudFrames: number; integrated: number | null; truePeak: number | null; peakP99: number | null };
 
@@ -85,13 +86,13 @@ const measureArgs = (input: string[]) => [...PROGRESS_ARGS, ...input, "-af", FIL
  * 줄 수는 내림(길이 x 10)이고, 컨테이너가 알리는 길이와 디코딩한 길이가 다를 수 있어 한 줄 차이까지는 허용한다
  */
 function verdictOf(result: Pick<FfmpegResult, "code" | "timedOut">, reading: Reading, durationSec: number | null): Verdict {
-  if (result.timedOut) return { kind: "env", why: `진행이 ${STALL_MS / 1000}초 멈춤` };
-  if (result.code !== 0) return { kind: "env", why: `ffmpeg 종료 코드 ${result.code ?? "없음"}` };
+  if (result.timedOut) return { kind: "env", why: L.ffmpeg.loudnessStalled({ seconds: STALL_MS / 1000 }) };
+  if (result.code !== 0) return { kind: "env", why: L.ffmpeg.measureExited({ code: result.code }) };
   // 줄 형식이 다른 빌드에서는 모든 파일이 이렇게 나온다. 파일 탓으로 기록하면 모든 캐시 파일이 file-failed로 남아 다시 재지 못한다
-  if (reading.lines === 0 || reading.integrated === null || reading.truePeak === null) return { kind: "env", why: "ebur128 줄이나 요약을 읽지 못함" };
-  if (durationSec && Math.abs(reading.lines - Math.floor(durationSec * 10)) > 1) return { kind: "file", why: `100ms 줄 ${reading.lines}개, 길이 ${durationSec}초와 맞지 않음` };
-  if (reading.peakP99 === null) return { kind: "file", why: "게이트를 넘은 프레임이 없음" };
-  if (reading.integrated < QUIET_LUFS) return { kind: "file", why: `통합 볼륨 ${reading.integrated} LUFS` };
+  if (reading.lines === 0 || reading.integrated === null || reading.truePeak === null) return { kind: "env", why: L.ffmpeg.loudnessUnreadable() };
+  if (durationSec && Math.abs(reading.lines - Math.floor(durationSec * 10)) > 1) return { kind: "file", why: L.ffmpeg.loudnessLinesMismatch({ lines: reading.lines, durationSec }) };
+  if (reading.peakP99 === null) return { kind: "file", why: L.ffmpeg.loudnessNoGatedFrames() };
+  if (reading.integrated < QUIET_LUFS) return { kind: "file", why: L.ffmpeg.loudnessTooQuiet({ lufs: reading.integrated }) };
   return { kind: "ok", value: { integrated: reading.integrated, truePeak: reading.truePeak, peakP99: reading.peakP99 } };
 }
 
@@ -214,7 +215,7 @@ class MeasureQueue {
       // 취소(밀려남)와 종료 중에 끝난 것은 실패가 아니다
       if (isShuttingDown()) return false;
       if (result.aborted) return !isShuttingDown();
-      const verdict: Verdict = fs.existsSync(file) ? verdictOf(result, reading.result(), row.duration_sec) : { kind: "env", why: "재는 사이 파일이 사라짐" };
+      const verdict: Verdict = fs.existsSync(file) ? verdictOf(result, reading.result(), row.duration_sec) : { kind: "env", why: L.ffmpeg.loudnessFileVanished() };
       if (verdict.kind === "env") {
         this.#env.fail(verdict.why);
         this.#retryAt.set(job.key, this.#now() + ENV_RETRY_MS);
@@ -252,7 +253,7 @@ class MeasureQueue {
   }
 
   // 맞으면 null, 아니면 실패 이유
-  async #selfTest(): Promise<string | null> {
+  async #selfTest(): Promise<LogText | null> {
     const samples = new Float32Array(48_000 * PROBE_SEC * 2);
     for (let i = 0; i < samples.length; i += 2) samples[i] = samples[i + 1] = 0.1 * Math.sin((2 * Math.PI * 1000 * (i / 2)) / 48_000);
     const reading = readingOf();
@@ -260,8 +261,8 @@ class MeasureQueue {
     const result = await this.#run(measureArgs(input), { input: Buffer.from(samples.buffer), stallMs: STALL_MS, onStderrLine: (line) => reading.feed(line), label: "loudness", job: "loudness" });
     const got = reading.result();
     const near = (value: number | null) => value !== null && Math.abs(value - PROBE_DB) <= 0.5;
-    if (result.code !== 0) return `종료 코드 ${result.code ?? "없음"}`;
-    if (got.lines !== PROBE_SEC * 10 || !near(got.integrated) || !near(got.truePeak)) return `줄 ${got.lines}개, 통합 볼륨 ${String(got.integrated)}, 피크 ${String(got.truePeak)}`;
+    if (result.code !== 0) return L.ffmpeg.selfTestExited({ code: result.code });
+    if (got.lines !== PROBE_SEC * 10 || !near(got.integrated) || !near(got.truePeak)) return L.ffmpeg.loudnessSelfTestMismatch({ lines: got.lines, integrated: String(got.integrated), truePeak: String(got.truePeak) });
     return null;
   }
 }

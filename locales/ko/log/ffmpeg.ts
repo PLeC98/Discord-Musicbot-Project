@@ -23,6 +23,37 @@ const ffmpeg = {
   loudnessMeasured: ({ audioKey, lufs, truePeak, peakP99, seconds }: { audioKey: string; lufs: number; truePeak: number; peakP99: number; seconds: string }) => `캐시 파일 볼륨: ${audioKey} | ${lufs} LUFS, 피크 ${truePeak} dBTP, 프레임 피크 상위 1% ${peakP99} dB | ${seconds}초`,
   loudnessDisabledUnreadable: ({ reason }: { reason: string }) => `볼륨 정규화의 캐시 파일 볼륨 측정을 끔(이 ffmpeg의 ebur128 출력을 읽지 못함): ${reason}`,
   loudnessDisabledSelfTest: ({ error }: { error: string }) => `볼륨 정규화의 캐시 파일 볼륨 측정을 끔(자체 테스트 실패): ${error}`,
+  installArgsPinUnpin: () => `--pin과 --unpin은 함께 쓸 수 없습니다`,
+  installArgsPinMissing: () => `--pin 뒤에 고정할 릴리스를 넣으세요(예: --pin autobuild-2026-10-31-12-59)`,
+  installArgsPinInvalid: ({ tag }: { tag: string }) => `BtbN 릴리스 태그 형식이 아닙니다: ${tag}(예: autobuild-2026-10-31-12-59)`,
+  exitNone: () => `없음`,
+  stateSetAside: ({ error, file }: { error: string; file: string }) => `ffmpeg 기록(state.json)을 읽지 못해(${error}) ${file} 파일로 옮기고 새로 기록했습니다. 고정한 버전이 있었다면 다시 고정하세요`,
+  releaseMissing: ({ release }: { release: string }) => `${release} 릴리스가 없음(BtbN이 지웠거나 태그가 틀림. 월말 빌드는 2년, 그 외는 2주 보관)`,
+  checksumMismatch: ({ expected, actual }: { expected: string; actual: string }) => `체크섬 불일치(기대 ${expected}, 실제 ${actual})`,
+  downloadedNotRunnable: ({ reason }: { reason: string }) => `받은 ffmpeg가 이 환경에서 실행되지 않음(${reason})`,
+  pathBuild: () => `PATH의 ffmpeg`,
+  stateBuildInvalid: () => `빌드 기록 형식이 올바르지 않음`,
+  stateRejectedInvalid: () => `물린 릴리스 목록 형식이 올바르지 않음`,
+  statePinInvalid: () => `고정 형식이 올바르지 않음`,
+  loudnessStalled: ({ seconds }: { seconds: number }) => `진행이 ${seconds}초 멈춤`,
+  loudnessUnreadable: () => `ebur128 줄이나 요약을 읽지 못함`,
+  loudnessLinesMismatch: ({ lines, durationSec }: { lines: number; durationSec: number }) => `100ms 줄 ${lines}개, 길이 ${durationSec}초와 맞지 않음`,
+  loudnessNoGatedFrames: () => `게이트를 넘은 프레임이 없음`,
+  loudnessTooQuiet: ({ lufs }: { lufs: number }) => `통합 볼륨 ${lufs} LUFS`,
+  loudnessFileVanished: () => `재는 사이 파일이 사라짐`,
+  loudnessSelfTestMismatch: ({ lines, integrated, truePeak }: { lines: number; integrated: string; truePeak: string }) => `줄 ${lines}개, 통합 볼륨 ${integrated}, 피크 ${truePeak}`,
+  /** closedByUs: 출력을 닫기 전에 이미 실패했다. detailSuffix: ": 표준 오류의 끝"(없으면 빈 글) */
+  exitedFailed: ({ job, exit, closedByUs, detailSuffix }: { job: string; exit: string; closedByUs: boolean; detailSuffix: string }) => `ffmpeg(${job}) 종료 코드 ${exit}${closedByUs ? "(출력을 닫기 전에 이미 실패)" : ""}${detailSuffix}`,
+  /** exit: 종료 코드나 신호(둘 다 없으면 null) */
+  candidateProbeExited: ({ path, source, exit }: { path: string; source: string; exit: number | string | null }) => `ffmpeg 후보 실행 확인(-version) 실패: ${path} | 출처=${source} | 원인=종료 코드 ${exit ?? "없음"}`,
+  sourceInstalled: () => `설치본`,
+  sourcePrevious: () => `이전 설치본`,
+  ffmpegResolved: ({ version, source, path }: { version: string; source: string; path: string }) => `ffmpeg ${version} (${source}: ${path})`,
+  /** https, hls: 이 빌드에 https 프로토콜, hls 디먹서가 있다 */
+  liveUnsupported: ({ https, hls }: { https: boolean; hls: boolean }) => `이 ffmpeg 빌드는 라이브(HLS) 재생을 지원하지 않음(https:${https ? "있음" : "없음"}, hls:${hls ? "있음" : "없음"}). \`pnpm run install:ffmpeg\`로 다운로드한 빌드를 쓰거나 FFMPEG_PATH를 확인하세요`,
+  /** code: ffmpeg 종료 코드(모르면 null) */
+  measureExited: ({ code }: { code: number | null }) => `ffmpeg 종료 코드 ${code ?? "없음"}`,
+  selfTestExited: ({ code }: { code: number | null }) => `종료 코드 ${code ?? "없음"}`,
 };
 
 export { ffmpeg };

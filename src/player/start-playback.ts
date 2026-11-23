@@ -65,7 +65,7 @@ async function prepareStart(player: Player, seekMs: number): Promise<{ ok: true;
     } catch (error) {
       if (codeOf(error) === "DB_NOT_OPEN") throw error;
       // 조회 실패는 넘긴다(fail-open). 오프셋 없이 재생. 검색 실패는 검색 모듈이 이미 warn으로 남겼다
-      const line = `재생 전 유튜브 매칭 및 SponsorBlock 인트로 조회 실패(0초부터 재생): ${player._trackLabel(track)} (${track?.requestKey ?? "?"}) | 분류=${errorKind(error)} | ${describeError(error)}`;
+      const line = L.player.prePlayLookupFailed({ track: player._trackLabel(track), requestKey: track?.requestKey ?? "?", kind: errorKind(error), error: describeError(error) });
       if (searching) log.debug(line);
       else log.warn(line);
     }
@@ -200,7 +200,7 @@ function resumeStream(track: QueuedTrack, previous: CurrentPlayback | null, star
   const remainingMs = Math.max(0, (stream.duration || track.duration || 0) * 1000 - startMs);
   const state = reuseState(stream.url, remainingMs);
   if (state !== "ok") {
-    log.debug(`직전 스트림 주소는 ${state === "unknown" ? "만료 시각을 몰라" : "만료가 가까워"} 주소를 새로 받음: ${logTitle(track.title)}`);
+    log.debug(L.player.reusedStreamUrlExpiring({ expiryUnknown: state === "unknown", title: logTitle(track.title) }));
     return null;
   }
   // 재사용한 주소다. 열리지 않으면 재생 쪽이 새로 받아 한 번 더 연다(media/playback-input)
@@ -231,10 +231,9 @@ async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source
   const shown = shownDuration(track, durationSec, pb.cacheFile ? "measured" : "provided");
   if (shown) Object.assign(track, shown);
   // 길이는 끝 판정이 쓰는 음원 길이(표시 길이가 아니다). 트랙 종료 판정 줄과 맞대 볼 수 있다
-  const length = player.isLive ? "라이브" : pb.lengthMs ? `길이 ${Math.round(pb.lengthMs / 1000)}초` : "길이 모름";
   // 일시정지한 채 여는 곡은 그 원인을 이 줄에 붙인다(곡 하나의 info는 시작, 끝 두 줄). 일시정지하는 건 Playing 리스너다. 지금은 아직 버퍼링 상태라 pause()가 적용되지 않는다
-  const paused = player.paused ? ` | 일시정지(${[...(player.pause.userPaused ? ["user"] : []), ...player.pause.holds].join(", ")})` : "";
-  log.info(`재생: ${player._trackLabel(track)} | 시작 ${Math.round(pb.startOffsetMs / 1000)}초 / ${length} | 출처=${pb.cacheFile ? "캐시" : "스트림"}${paused}`);
+  const pausedBy = player.paused ? [...(player.pause.userPaused ? ["user"] : []), ...player.pause.holds].join(", ") : null;
+  log.info(L.player.playbackStarted({ track: player._trackLabel(track), startSeconds: Math.round(pb.startOffsetMs / 1000), live: player.isLive, lengthSeconds: pb.lengthMs ? Math.round(pb.lengthMs / 1000) : null, cached: Boolean(pb.cacheFile), pausedBy }));
 
   // 볼륨 정규화: 소리를 바꾸기 직전에 이 재생의 탭을 확정한다(이전 탭은 마지막 게인으로 고정된다. 여는 동안 생긴 측정값과 바로잡힌 키를 다시 본다)
   player.gain.commit(pb.tap, pb.audioKey);

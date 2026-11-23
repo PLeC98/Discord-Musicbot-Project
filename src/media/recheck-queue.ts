@@ -132,7 +132,7 @@ async function step() {
   }
 }
 
-const WHAT_CHANGED = (result: Extract<Recheck, { kind: "changed" }>) => (result.durationChanged === true ? "길이가 바뀜" : result.durationChanged === false ? "길이는 같음" : "음원 파일이 바뀜");
+const WHAT_CHANGED = (result: Extract<Recheck, { kind: "changed" }>) => (result.durationChanged === true ? L.cache.recheckLengthChanged() : result.durationChanged === false ? L.cache.recheckLengthSame() : L.cache.recheckFileChanged());
 
 async function apply(job: Job, row: audioCache.AudioRow, result: Recheck) {
   const at = deps.now();
@@ -155,7 +155,7 @@ async function apply(job: Job, row: audioCache.AudioRow, result: Recheck) {
   }
   if (result.kind === "unknown") {
     held.set(job.audioKey, at + UNKNOWN_HOLD_MS);
-    failuresOf(job.platform).fail(`${result.code ?? result.reason} (해당 곡 24시간 뒤 재시도)`);
+    failuresOf(job.platform).fail(L.cache.recheckRetryLater({ reason: result.code ?? result.reason }));
     log.debug(L.cache.sourceRecheckUnknown({ reason: result.reason, track: where }));
     return;
   }

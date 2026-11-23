@@ -10,6 +10,7 @@ import { withLock } from "../../infra/folder-lock.ts";
 import { FFMPEG_RELEASE } from "../../config/vendor-versions.ts";
 import type { FfmpegInfo } from "./info-types.ts";
 import { L } from "../../infra/log/text.ts";
+import type { LogText } from "../../infra/log/log-text.ts";
 const log = logger.child({ category: "ffmpeg" });
 
 /**
@@ -20,8 +21,8 @@ const log = logger.child({ category: "ffmpeg" });
  * FFMPEG_PATH가 유효하지 않으면 다음 후보로 넘어가지 않고 즉시 실패한다.
  */
 
-/** source: 찾은 곳. release: 설치본이면 그 릴리스 */
-type Source = "FFMPEG_PATH" | "설치본" | "이전 설치본" | "PATH";
+/** source: 찾은 곳(봇 정보 탭의 ffmpeg 줄과 같은 코드). release: 설치본이면 그 릴리스 */
+type Source = FfmpegInfo["source"];
 type Resolved = { path: string; version: string; source: Source; release: string | null };
 type Capabilities = { https: boolean; hls: boolean; dash: boolean; segMaxRetry: boolean; ok: boolean };
 /** 실행 확인의 결과. timeout: 시간 상한(10초)을 넘겼다(백신이 처음 보는 실행 파일을 검사하느라 늦을 수 있어 물리지 않는다) */
@@ -34,23 +35,27 @@ let caps: Capabilities | null = null;
 /** 지금 설치본이 실행되지 않아 이전 설치본으로 떴다. settleRejected가 물린 릴리스로 기록한다(기록이 기동 때 읽은 active, previous 그대로일 때만) */
 let toReject: { active: FfmpegBuild; previous: FfmpegBuild } | null = null;
 
-function probeResult(candidate: string, source: string): ProbeResult {
+/** 로그에 적는 찾은 곳. 출처 없이 부른 후보 확인은 ? */
+const sourceLabel = (source: Source | undefined): string | LogText => (source === undefined ? "?" : { env: "FFMPEG_PATH", installed: L.ffmpeg.sourceInstalled(), previous: L.ffmpeg.sourcePrevious(), path: "PATH" }[source]);
+
+function probeResult(candidate: string, source?: Source): ProbeResult {
   try {
     const result = spawnSync(candidate, ["-version"], { windowsHide: true, encoding: "utf8", timeout: 10000, env: toolEnv() });
     if (result.error || result.status !== 0) {
-      log.warn(`ffmpeg 후보 실행 확인(-version) 실패: ${candidate} | 출처=${source} | 원인=${result.error ? (codeOf(result.error) ?? messageOf(result.error)) : `종료 코드 ${result.status ?? result.signal ?? "없음"}`}`);
+      if (result.error) log.warn(L.ffmpeg.candidateProbeFailed({ path: candidate, source: sourceLabel(source), error: codeOf(result.error) ?? messageOf(result.error) }));
+      else log.warn(L.ffmpeg.candidateProbeExited({ path: candidate, source: sourceLabel(source), exit: result.status ?? result.signal ?? null }));
       return { failed: codeOf(result.error) === "ETIMEDOUT" ? "timeout" : "error" };
     }
     const match = /ffmpeg version (\S+)/i.exec(result.stdout || "");
     return { version: match ? match[1] : "unknown" };
   } catch (error) {
-    log.warn(L.ffmpeg.candidateProbeFailed({ path: candidate, source, error: codeOf(error) ?? messageOf(error) }));
+    log.warn(L.ffmpeg.candidateProbeFailed({ path: candidate, source: sourceLabel(source), error: codeOf(error) ?? messageOf(error) }));
     return { failed: "error" };
   }
 }
 
 /** 후보가 실제로 실행 가능한 ffmpeg인지 확인하고 버전 문자열을 추출한다. 실행할 수 없으면 null */
-function probe(candidate: string | null | undefined, source = "?"): string | null {
+function probe(candidate: string | null | undefined, source?: Source): string | null {
   if (!candidate) return null;
   const ran = probeResult(candidate, source);
   return "version" in ran ? ran.version : null;
@@ -69,17 +74,17 @@ function pickInstalled(dir: string): Resolved | null {
   let activeFailed: ProbeResult | null = null;
   if (active) {
     const file = path.join(dir, active.folder, BIN);
-    const ran = probeResult(file, "설치본");
-    if ("version" in ran) return { path: file, version: ran.version, source: "설치본", release: active.release };
+    const ran = probeResult(file, "installed");
+    if ("version" in ran) return { path: file, version: ran.version, source: "installed", release: active.release };
     activeFailed = ran;
   }
   if (!previous) return null;
   const file = path.join(dir, previous.folder, BIN);
-  const ran = probeResult(file, "이전 설치본");
+  const ran = probeResult(file, "previous");
   if (!("version" in ran)) return null;
   if (active) log.warn(L.ffmpeg.activeBuildFallback({ activeRelease: active.release, previousRelease: previous.release }));
   if (active && activeFailed && "failed" in activeFailed && activeFailed.failed === "error") toReject = { active, previous };
-  return { path: file, version: ran.version, source: "이전 설치본", release: previous.release };
+  return { path: file, version: ran.version, source: "previous", release: previous.release };
 }
 
 /**
@@ -91,21 +96,21 @@ function resolve(dir = PROJECT.ffmpeg): Resolved {
 
   const configured = config.ffmpeg && config.ffmpeg.path;
   if (configured) {
-    const version = probe(configured, "FFMPEG_PATH");
+    const version = probe(configured, "env");
     if (!version) {
       // 명시 지정이 틀렸으면 다른 후보로 넘어가지 않는다. 사용자가 의도한 바이너리가 아닌 것을
       // 조용히 쓰면 "왜 내 설정이 반영되지 않지"로 이어진다.
       // 범위: 모든 곡이 같이 안 된다(player/failure-scope)
       throw Object.assign(codedError("stream-failed", L.ffmpeg.configuredPathNotRunnable({ path: configured })), { scope: "environment" });
     }
-    resolved = { path: configured, version, source: "FFMPEG_PATH", release: null };
+    resolved = { path: configured, version, source: "env", release: null };
     return resolved;
   }
 
   const fromInstalled = pickInstalled(dir);
   if (fromInstalled) return (resolved = fromInstalled);
-  const version = probe("ffmpeg", "PATH");
-  if (version) return (resolved = { path: "ffmpeg", version, source: "PATH", release: null });
+  const version = probe("ffmpeg", "path");
+  if (version) return (resolved = { path: "ffmpeg", version, source: "path", release: null });
 
   throw Object.assign(codedError("stream-failed", L.ffmpeg.ffmpegNotFound()), { scope: "environment" });
 }
@@ -131,9 +136,6 @@ async function settleRejected(dir = PROJECT.ffmpeg): Promise<void> {
   if (held.ok && held.value) log.warn(L.ffmpeg.brokenReleaseRecorded({ activeRelease: seen.active.release, previousRelease: seen.previous.release }));
 }
 
-// 봇 정보 탭 ffmpeg 줄의 출처 코드. 화면이 이 코드로 표시할 글을 정한다
-const SOURCE_CODE: Record<Source, FfmpegInfo["source"]> = { FFMPEG_PATH: "env", 설치본: "installed", "이전 설치본": "previous", PATH: "path" };
-
 /** 지금 쓰는 ffmpeg와 vendor/ffmpeg의 기록(ffmpeg를 찾지 못했으면 null). 터미널에서 실행한 install:ffmpeg가 기록을 바꿀 수 있어 부를 때마다 새로 읽는다 */
 function ffmpegInfo(dir = PROJECT.ffmpeg): FfmpegInfo | null {
   let info: Resolved;
@@ -145,7 +147,7 @@ function ffmpegInfo(dir = PROJECT.ffmpeg): FfmpegInfo | null {
   }
   const read = readState(dir);
   const state = read.kind === "ok" ? read.state : null;
-  return { version: info.version, source: SOURCE_CODE[info.source], release: info.release, pin: state?.pin ?? null, defaultRelease: FFMPEG_RELEASE, rejected: state?.rejected ?? [] };
+  return { version: info.version, source: info.source, release: info.release, pin: state?.pin ?? null, defaultRelease: FFMPEG_RELEASE, rejected: state?.rejected ?? [] };
 }
 
 /** 정해 둔 경로(아직 정하지 않았으면 null). 정하지 않았을 때 resolve()처럼 실행 확인을 돌리지 않는다(삭제하기 전에 쓰는 중인지 볼 때 쓴다) */
@@ -199,7 +201,7 @@ function capabilities(): Capabilities {
 
   caps = { https, hls, dash, segMaxRetry, ok: https && hls };
   if (!caps.ok) {
-    log.warn(`이 ffmpeg 빌드는 라이브(HLS) 재생을 지원하지 않음(https:${https ? "있음" : "없음"}, hls:${hls ? "있음" : "없음"}). \`pnpm run install:ffmpeg\`로 다운로드한 빌드를 쓰거나 FFMPEG_PATH를 확인하세요`);
+    log.warn(L.ffmpeg.liveUnsupported({ https, hls }));
   }
   return caps;
 }
@@ -207,8 +209,8 @@ function capabilities(): Capabilities {
 /** 기동 시 1회 호출. 실제로 쓰는 바이너리를 로그에 남긴다. 못 찾으면 예외를 던진다. */
 function logResolved(): Resolved {
   const info = resolve();
-  const shown = info.source === "PATH" ? "PATH의 ffmpeg" : info.path;
-  log.info({ tags: ["startup"] }, `ffmpeg ${info.version} (${info.source}: ${shown})`);
+  const shown = info.source === "path" ? L.ffmpeg.pathBuild() : info.path;
+  log.info({ tags: ["startup"] }, L.ffmpeg.ffmpegResolved({ version: info.version, source: sourceLabel(info.source), path: shown }));
   return info;
 }
 

@@ -15,7 +15,7 @@ type EndFacts = {
   reason: string; // 멈춘 이유. 저절로 멈췄으면 "idle"
   live: boolean; // 라이브를 주소 경로로 틀었다
   streamEnded: boolean; // 재생 스트림이 끝까지 읽혔다(playStream.readableEnded)
-  broken: string | null; // 입력 깨짐 표시
+  broken: string | LogText | null; // 입력 깨짐 표시
   exitCode: number | null; // 지금 소스 ffmpeg의 종료 코드. 아직 살아 있으면 null
   positionMs: number; // 곡 안의 멈춘 위치
   lengthMs: number | null; // 트는 음원의 길이(표시 길이가 아니다). 되감기를 막는 데만 쓴다. 모르면 null

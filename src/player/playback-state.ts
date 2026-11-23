@@ -7,6 +7,7 @@
 
 import logger from "../infra/log/logger.ts";
 import { L } from "../infra/log/text.ts";
+import { asText, type LogText } from "../infra/log/log-text.ts";
 const log = logger.child({ category: "watchdog" });
 
 type Phase = "idle" | "starting" | "playing" | "parked" | "resting" | "disposed";
@@ -32,10 +33,10 @@ class PlaybackState {
     this.label = label;
   }
 
-  to(next: Phase, why = "") {
+  to(next: Phase, why: string | LogText = "") {
     const prev = this.phase;
     if (prev === next) return;
-    const tail = `${why ? ` | ${why}` : ""}${this.label() ? ` | ${this.label()}` : ""}`;
+    const tail = `${why ? ` | ${asText(why)}` : ""}${this.label() ? ` | ${this.label()}` : ""}`;
     if (NEXT[prev]?.includes(next)) log.debug(L.watchdog.phaseChanged({ from: prev, to: next, detail: tail }));
     else log.warn(L.watchdog.phaseChangeUnexpected({ from: prev, to: next, detail: tail }));
     this.phase = next;

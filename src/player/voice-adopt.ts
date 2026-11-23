@@ -39,12 +39,12 @@ async function adoptLingeringVoice(client: Client<true>, players: Pick<PlayerSea
       await player.voice.connect();
     } catch (error) {
       log.warn(L.voice.lingeringAdoptFailed({ channel: channel.name, guild: guild.name, error: messageOf(error) }));
-      await player.dispose({ reason: "남은 채널 이어받기 실패", session: "keep", end: "adopt-failed" });
+      await player.dispose({ reason: L.voice.adoptFailed(), session: "keep", end: "adopt-failed" });
       continue;
     }
     log.info(L.voice.lingeringAdopted({ channel: channel.name, guild: guild.name }));
     player.showIdleVoiceStatus();
-    player.idle.scheduleEmpty("곡 없이 대기");
+    player.idle.scheduleEmpty(L.voice.idleWithoutTrack());
     // 혼자 남음은 붙을 때(connect) 억제 사유를 맞추며 이미 걸었다. 그때의 안내는 틀 게 없음 타이머 전이라 한 번 더 알린다
     player.idle.announce();
   }

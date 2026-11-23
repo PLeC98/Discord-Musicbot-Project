@@ -14,6 +14,8 @@ import { deadSourceCode } from "../sources/dead-source.ts";
 import { inputKind } from "../rules/input-kind.ts";
 import { errorKind, messageOf } from "../rules/error-kind.ts";
 import * as versionOf from "./audio-version.ts";
+import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
 
 /** 다운로드할 때 적어 둔 것(audio_cache). version은 audio_version, durationSec는 캐시 파일의 길이 */
 type Stored = { version: string | null; durationSec: number | null };
@@ -25,7 +27,7 @@ type Stored = { version: string | null; durationSec: number | null };
  * gone: 원본에서 틀 수 없다(code: 문제 코드). unknown: 이번에는 모른다(일시 오류 등, reason: 원인).
  * unknown의 code: 반복 실패의 원인으로 쓰는 값(HTTP 상태나 오류 종류). reason은 원문이다
  */
-type Recheck = { kind: "same"; version: string } | { kind: "changed"; version: string; durationChanged: boolean | null } | { kind: "uncompared"; reason: string } | { kind: "gone"; code: string } | { kind: "unknown"; reason: string; code?: string };
+type Recheck = { kind: "same"; version: string } | { kind: "changed"; version: string; durationChanged: boolean | null } | { kind: "uncompared"; reason: string | LogText } | { kind: "gone"; code: string } | { kind: "unknown"; reason: string | LogText; code?: string };
 
 /** 원본에 묻는 길. 테스트가 가짜를 넘긴다 */
 type Deps = {
@@ -57,7 +59,7 @@ async function recheck(audioUrl: string, stored: Stored, deps: Deps = DEPS): Pro
     if (kind === "youtube") return youtube(await deps.youtubeFormats(audioUrl), stored);
     if (kind === "soundcloud") return compared(versionOf.fromSoundCloudUrl((await deps.soundcloudStream(audioUrl)).url), stored, sameSoundCloud);
     if (kind === "direct") return direct((await deps.directHead(audioUrl)).headers, stored);
-    return { kind: "unknown", reason: `다시 확인하지 않는 출처(${kind})` };
+    return { kind: "unknown", reason: L.cache.recheckUnsupportedSource({ kind }) };
   } catch (error) {
     return failed(error, kind);
   }
@@ -66,8 +68,8 @@ async function recheck(audioUrl: string, stored: Stored, deps: Deps = DEPS): Pro
 function youtube(formats: readonly unknown[], stored: Stored): Recheck {
   const lmts = versionOf.lmtsOf(formats);
   const mine = versionOf.lmtOf(stored.version);
-  if (!lmts.size) return { kind: "uncompared", reason: "원본 포맷에 lmt가 없다" };
-  if (!mine) return { kind: "uncompared", reason: "적어 둔 버전이 없다" };
+  if (!lmts.size) return { kind: "uncompared", reason: L.cache.recheckNoLmt() };
+  if (!mine) return { kind: "uncompared", reason: L.cache.recheckNoStoredVersion() };
   if (lmts.has(mine)) return { kind: "same", version: `lmt:${mine}` };
   const duration = versionOf.audioDurationOf(formats);
   const durationChanged = duration && stored.durationSec ? Math.abs(duration - stored.durationSec) > DURATION_SLACK_SEC : null;
@@ -86,10 +88,10 @@ const sameSoundCloud = (a: string, b: string) => (a.split(":")[0] === b.split(":
 
 // 원본의 지금 버전을 적어 둔 것과 비교한다. 어느 쪽이든 없거나 비교할 수 없으면 uncompared
 function compared(now: string | null, stored: Stored, same: (a: string, b: string) => boolean | null): Recheck {
-  if (!now) return { kind: "uncompared", reason: "원본이 버전을 주지 않는다" };
-  if (!stored.version) return { kind: "uncompared", reason: "적어 둔 버전이 없다" };
+  if (!now) return { kind: "uncompared", reason: L.cache.recheckNoSourceVersion() };
+  if (!stored.version) return { kind: "uncompared", reason: L.cache.recheckNoStoredVersion() };
   const verdict = same(stored.version, now);
-  if (verdict === null) return { kind: "uncompared", reason: "비교할 값이 없다" };
+  if (verdict === null) return { kind: "uncompared", reason: L.cache.recheckNothingToCompare() };
   return verdict ? { kind: "same", version: stored.version } : { kind: "changed", version: now, durationChanged: null };
 }
 

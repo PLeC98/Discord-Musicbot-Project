@@ -79,7 +79,8 @@ test("가까운 위치는 묻지 않는다, 색인이 처음 받은 양보다 �
   const file = files.webm;
   if (!file) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   const near = fileFetch(file);
-  assert.deepEqual(await seekStart(request(file, { startMs: 3000 }), { fetchImpl: near.fetchImpl }), { ok: false, why: "가까운 위치", near: true });
+  const nearAnswer = await seekStart(request(file, { startMs: 3000 }), { fetchImpl: near.fetchImpl });
+  assert.deepEqual(nearAnswer.ok ? nearAnswer : { ...nearAnswer, why: asText(nearAnswer.why) }, { ok: false, why: "가까운 위치", near: true });
   assert.equal(near.asked.length, 0);
 
   const more = fileFetch(file);

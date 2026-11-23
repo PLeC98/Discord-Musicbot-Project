@@ -1,5 +1,7 @@
 // 로그 문구: player 분류
 
+import { josa } from "../../../src/infra/josa.ts";
+
 const player = {
   indexTooLong: ({ bytes }: { bytes: number }) => `색인이 너무 길다(${bytes}B)`,
   notEbml: () => `EBML 헤더가 아님`,
@@ -143,6 +145,104 @@ const player = {
   noOpenStream: () => `열린 스트림 없음`,
   autoplayPrefetchFailed: ({ error }: { error: string }) => `자동재생 미리 선택 실패: ${error}`,
   audioCacheRecordFailed: ({ error }: { error: string }) => `오디오 캐시 기록 실패(재생은 계속): ${error}`,
+  responseDone: () => `응답을 다 썼다`,
+  rangeHttpFailed: ({ status }: { status: number }) => `Range 요청 실패: HTTP ${status}`,
+  chunkTotalBytesInvalid: ({ totalBytes }: { totalBytes: number }) => `totalBytes가 올바르지 않음: ${totalBytes}`,
+  chunkSizeInvalid: ({ chunkSize }: { chunkSize: number }) => `chunkSize가 올바르지 않음: ${chunkSize}`,
+  chunkStartByteInvalid: ({ startByte }: { startByte: number }) => `startByte가 올바르지 않음: ${startByte}`,
+  chunkStartWithFirst: () => `startByte와 first는 함께 줄 수 없음`,
+  rangeMismatch: ({ expected, contentRange }: { expected: number; contentRange: string }) => `Range 응답이 어긋남: 요청 ${expected}, 응답 ${contentRange}`,
+  rangeTotalChanged: ({ totalBytes, contentRange }: { totalBytes: number; contentRange: string }) => `이어받은 파일의 전체 크기가 다름: 처음 ${totalBytes}B, 지금 ${contentRange}`,
+  responseBodyMissing: () => `응답 본문 없음`,
+  seekKeyframeMismatch: ({ offsetBytes }: { offsetBytes: number }) => `받은 첫 바이트가 인덱스가 가리킨 키프레임이 아님(${offsetBytes}B)`,
+  encodeWorkerStartTimedOut: ({ seconds }: { seconds: number }) => `${seconds}초 안에 준비되지 않음`,
+  encodeWorkerThreadExited: ({ code }: { code: number }) => `스레드가 종료됨(코드 ${code})`,
+  encodeWorkerWasmDown: ({ error }: { error: string }) => `WASM 오류로 내림(${error})`,
+  encodeWorkerUnresponsive: ({ seconds }: { seconds: string }) => `${seconds}초 넘게 응답이 없어 내림`,
+  cpuUnknown: () => `알 수 없음`,
+  machineCpuUnknown: () => `PC CPU 알 수 없음`,
+  workerGcUnknown: () => `워커 GC 알 수 없음`,
+  workerGc: ({ count, maxMs }: { count: number; maxMs: string }) => `워커 GC(최근 2초) ${count}번, 최대 ${maxMs}ms`,
+  workerGcNone: () => `워커 GC(최근 2초) 없음`,
+  fragmentCountInvalid: ({ count }: { count: number }) => `세그먼트 수가 올바르지 않음: ${count}`,
+  fragmentPosition: ({ index, count, startIndex }: { index: number; count: number; startIndex: number }) => `세그먼트 ${index}/${count}(시작 ${startIndex})`,
+  inputFfmpegExited: ({ exit }: { exit: string }) => `ffmpeg 종료 코드 ${exit}`,
+  inputUrl: () => `주소`,
+  hlsSegmentSkippedMark: ({ detail }: { detail: string }) => `HLS 세그먼트를 건너뜀: ${detail}`,
+  inputFile: () => `파일`,
+  singleGetHeadersTimedOut: ({ seconds }: { seconds: number }) => `응답이 ${seconds}초 동안 없음`,
+  inputSegments: () => `세그먼트`,
+  inputChunked: () => `청크`,
+  inputDirect: () => `직접 링크`,
+  inputSingleGet: () => `단일 GET`,
+  streamReconnected: ({ track, attempts, seconds }: { track: string; attempts: number; seconds: string }) => `스트림 재연결: ${track} | 재시도 ${attempts}회, ${seconds}초`,
+  inputStreamError: ({ error }: { error: string }) => `입력 스트림 오류: ${error}`,
+  inputEndedShort: ({ receivedBytes, totalBytes }: { receivedBytes: number; totalBytes: number }) => `입력 스트림이 덜 받고 끝남 (${receivedBytes}/${totalBytes}B)`,
+  seekNear: () => `가까운 위치`,
+  seekIndexBeyondHead: () => `색인이 받은 앞부분보다 길다`,
+  headerFetchFailed: ({ error }: { error: string }) => `헤더를 받지 못함: ${error}`,
+  idleWithoutTrack: () => `곡 없이 대기`,
+  aloneTimeout: () => `듣는 사람 없이 기다린 시간이 지남`,
+  queueDrained: () => `대기열 소진`,
+  starvedInput: ({ kind }: { kind: string }) => `입력 ${kind}`,
+  starvedInputQuiet: ({ seconds }: { seconds: string }) => `입력 없음 ${seconds}초`,
+  errorWithCode: ({ error, code }: { error: string; code: number | string }) => `${error} (코드=${code})`,
+  panelPrefetchInfo: () => `미리 받기 곡 정보`,
+  disposeVoiceConnectFailed: () => `음성 채널 접속 실패`,
+  panelDownloadInfo: () => `백그라운드 다운로드 곡 정보`,
+  panelFileTags: () => `파일 태그`,
+  noTrackLabel: () => `(곡 없음)`,
+  refillQueueCleared: () => `대기열을 비운`,
+  refillTrackRemoved: () => `대기열에서 곡을 뺀`,
+  endNoTrack: () => `곡 없음`,
+  inSeconds: ({ seconds }: { seconds: string }) => `${seconds}초`,
+  lengthUnknown: () => `모름`,
+  causeSuffix: ({ cause }: { cause: string }) => ` | 원인=${cause}`,
+  panelAutoplayTrack: () => `자동재생 곡`,
+  sessionSave: () => `세션 저장`,
+  prePlayLookupFailed: ({ track, requestKey, kind, error }: { track: string; requestKey: string; kind: string; error: string }) => `재생 전 유튜브 매칭 및 SponsorBlock 인트로 조회 실패(0초부터 재생): ${track} (${requestKey}) | 분류=${kind} | ${error}`,
+  /** 이어받기나 위치를 옮긴 첫 요청에 Content-Range가 없거나 읽지 못했다. contentRange: 받은 헤더(없으면 빈 글) */
+  rangeHeaderMissing: ({ expected, contentRange }: { expected: number; contentRange: string }) => `Content-Range가 없거나 읽을 수 없는 206(${expected}바이트부터 요청, ${contentRange || "없음"})`,
+  encodeStreamsMoved: ({ worker, count }: { worker: number; count: number }) => `재생 인코딩 워커 ${worker}${josa(String(worker), "으로")} 스트림 ${count}개를 옮김`,
+  /** expected: 기다린 순번(기다리던 프레임이 없으면 null) */
+  encodeReplyOutOfOrder: ({ expected, received }: { expected: number | null; received: number }) => `인코딩 응답의 순서가 어긋남(기다린 순번 ${expected ?? "없음"}, 받은 순번 ${received})`,
+  encodeFailed: () => `인코딩 실패`,
+  /** 죽은 워커가 맡던 스트림의 처리. moved: 다른 워커로 옮긴 수, poisoned: 실패시킨 수 */
+  encodeWorkerOutcomes: ({ moved, poisoned }: { moved: number; poisoned: number }) => [moved || !poisoned ? `맡던 스트림 ${moved}개를 다른 워커로 옮김` : "", poisoned ? `스트림 ${poisoned}개는 붙어 있던 워커가 잇달아 죽어 실패 처리` : ""].filter(Boolean).join(". "),
+  /** windowSeconds 안에 deaths번 죽어 minutes분 동안 새 워커를 띄우지 않는다. alive: 남은 워커 수 */
+  encodeWorkerBackoff: ({ windowSeconds, deaths, minutes, alive }: { windowSeconds: number; deaths: number; minutes: number; alive: number }) => `재생 인코딩 워커가 ${windowSeconds}초 안에 ${deaths}번 죽어 ${minutes}분 동안 새 워커를 실행하지 않음(남은 워커 ${alive}개)${alive ? "" : ". 그동안 새 재생은 실패함"}`,
+  /**
+   * 워커 하나의 지난 1초. active/streams: 활성 스트림 수/붙은 스트림 수, limitMs: 큐 깊이로 정한 응답 한도, cpu: 워커 CPU(예: 12%),
+   * rttP99, maxMs: 응답 시간(ms, 소수 한 자리), wait, encode, receive: p99(예: 1.2ms, 값이 없으면 -), gc, machineCpu: 워커 GC와 PC CPU 글
+   */
+  encodeWorkerDetail: ({ worker, active, streams, depth, limitMs, cpu, late, underrun, rttP99, maxMs, wait, encode, receive, gc, machineCpu }: { worker: number; active: number; streams: number; depth: number; limitMs: number; cpu: string; late: number; underrun: number; rttP99: string; maxMs: string; wait: string; encode: string; receive: string; gc: string; machineCpu: string }) =>
+    `워커 ${worker}(활성 스트림 ${active}/${streams}, 큐 깊이 ${depth}, 응답 한도 ${limitMs}ms, CPU ${cpu}): 지연 프레임 ${late}개 · 입력 언더런 ${underrun}개 · 응답 시간 p99 ${rttP99}ms(최대 ${maxMs}ms; 대기 p99 ${wait} · 인코딩 p99 ${encode}) · 메인이 받기까지 p99 ${receive} · ${gc} · ${machineCpu}`,
+  /** pc, bot: PC 전체와 봇의 CPU(%). quota: 컨테이너의 CPU 할당(코어, 없으면 null). 할당이 있으면 PC 대신 호스트다 */
+  machineCpu: ({ pc, bot, quota }: { pc: number; bot: number; quota: number | null }) => `${quota === null ? "PC" : "호스트"} CPU ${pc}%(봇 ${bot}%${quota === null ? "" : `, 할당 ${quota}코어`})`,
+  /** position: 세그먼트 출처의 상태 한 줄. retries: 다시 받은 횟수 */
+  fragmentProgress: ({ position, retries }: { position: string; retries: number }) => `${position}${retries ? ` · 다시 받음 ${retries}회` : ""}`,
+  /** protocol: yt-dlp가 알린 프로토콜(모르면 null) */
+  streamUrlNotHttp: ({ protocol }: { protocol: string | null }) => `스트림 주소가 http(s)가 아님(${protocol ?? "프로토콜 모름"})`,
+  /** list: 스트림 목록 형식(HLS, DASH) 또는 그 밖이면 프로토콜(모르면 null) */
+  ffmpegCannotOpen: ({ list }: { list: string | null }) => `이 ffmpeg 빌드로는 ${list ?? "없음"} 스트림을 재생할 수 없음`,
+  /** 재생 분기. via: pipe, url, file */
+  streamBranch: ({ via, live }: { via: string; live: boolean }) => `${via === "pipe" ? "파이프" : via === "url" ? "주소" : "파일"}${live ? "(라이브)" : ""}`,
+  /** 청크 스트림의 상태. idleSeconds: 마지막 수신 뒤 지난 초, expiresInSeconds: 주소가 만료될 때까지 남은 초(모르면 null), startByte: 첫 요청의 자리(0이면 처음부터) */
+  chunkStreamDetail: ({ requests, receivedBytes, totalBytes, idleSeconds, expiresInSeconds, startByte, resuming }: { requests: number; receivedBytes: number; totalBytes: number; idleSeconds: string; expiresInSeconds: number | null; startByte: number; resuming: boolean }) => `청크 #${requests} · ${receivedBytes}/${totalBytes}B · 마지막 수신 ${idleSeconds}초 전 · URL 만료 ${expiresInSeconds ?? "?"}초 후${startByte ? ` · 시작 ${startByte}B` : ""}${resuming ? " · 이어받는 중" : ""}`,
+  inputCacheSwitch: () => `캐시 전환`,
+  /** 출력 쪽 상태. worker: 맡은 인코딩 워커(없으면 null), oldestSeconds: 가장 오래 기다린 응답의 초(없으면 null) */
+  outputDetail: ({ worker, inflight, oldestSeconds, ready, depth }: { worker: number | null; inflight: number; oldestSeconds: string | null; ready: number; depth: number }) => `출력 워커 ${worker ?? "없음"} · 응답 대기 ${inflight}개${oldestSeconds === null ? "" : `(가장 오래 ${oldestSeconds}초)`} · 송출 대기 ${ready}개 · 큐 깊이 ${depth}`,
+  /** parked: 연달은 실패 한도에 닿아 그 곡에서 일시정지해 둔다(아니면 다음 곡으로). causeSuffix: " | 원인=…"(없으면 빈 글) */
+  liveReopenGaveUp: ({ parked, track, reason, causeSuffix }: { parked: boolean; track: string; reason: string; causeSuffix: string }) => `라이브 다시 열기 실패(${parked ? "일시정지해 둠" : "다음 곡으로 넘김"}): ${track} | ${reason}${causeSuffix}`,
+  /** startSeconds: 시작 위치(초). lengthSeconds: 끝 판정이 쓰는 음원 길이(초, 모르면 null). cached: 캐시 파일로 연다. pausedBy: 일시정지한 채 열면 그 원인들(아니면 null) */
+  playbackStarted: ({ track, startSeconds, live, lengthSeconds, cached, pausedBy }: { track: string; startSeconds: number; live: boolean; lengthSeconds: number | null; cached: boolean; pausedBy: string | null }) => `재생: ${track} | 시작 ${startSeconds}초 / ${live ? "라이브" : lengthSeconds === null ? "길이 모름" : `길이 ${lengthSeconds}초`} | 출처=${cached ? "캐시" : "스트림"}${pausedBy === null ? "" : ` | 일시정지(${pausedBy})`}`,
+  /** expiryUnknown: 주소의 만료 시각을 모른다(아니면 만료가 가깝다) */
+  reusedStreamUrlExpiring: ({ expiryUnknown, title }: { expiryUnknown: boolean; title: string }) => `직전 스트림 주소는 ${expiryUnknown ? "만료 시각을 몰라" : "만료가 가까워"} 주소를 새로 받음: ${title}`,
+  /** channel: 음성 채널 이름이나 ID(없으면 null) */
+  aloneDetected: ({ guild, channel, seconds }: { guild: string; channel: string | null; seconds: number }) => `서버 ${guild}의 채널 ${channel ?? "없음"}에 사람이 없음. ${seconds}초 뒤 정리`,
+  aloneCancelled: ({ guild, channel }: { guild: string; channel: string | null }) => `서버 ${guild}의 채널 ${channel ?? "없음"}에 사람이 돌아와 정리 취소`,
+  /** leavesAt: 퇴장 예정 시각(ISO, 없으면 null) */
+  leaveTimeUpdateFailed: ({ guild, leavesAt, error }: { guild: string; leavesAt: string | null; error: string }) => `종료 패널 퇴장 예정 시각 갱신 실패: ${guild} | 퇴장 예정=${leavesAt ?? "없음"} | ${error}`,
 };
 
 export { player };

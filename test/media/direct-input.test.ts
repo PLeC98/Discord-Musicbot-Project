@@ -12,6 +12,7 @@ import type { DirectOpen } from "../../src/sources/direct.ts";
 import { openHls, type Hls, type HlsPart } from "../../src/sources/hls.ts";
 import type { AudioStream, OpenOptions } from "../../src/sources/direct-open.ts";
 import sink from "../../src/infra/log/sink.ts";
+import { asText } from "../../src/infra/log/log-text.ts";
 
 const file =
   (radio: boolean, length: number | null, headers: Record<string, unknown> = {}) =>
@@ -60,7 +61,7 @@ test("HLS: VOD는 bounded이고 위치를 세그먼트 단위로 넘긴다, 라�
   let text = "";
   for await (const chunk of vod) text += String(chunk);
   assert.equal(text, "ab");
-  assert.equal(vod.describe?.(), "내보냄 2");
+  assert.equal(asText(vod.describe?.() ?? ""), "내보냄 2");
 
   const live = await openDirectInput("https://h.test/l.m3u8", {}, hlsOf(true));
   assert.deepEqual([live.live, live.bounded], [true, false]);

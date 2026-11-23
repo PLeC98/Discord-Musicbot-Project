@@ -10,6 +10,7 @@ import os from "node:os";
 import path from "node:path";
 import { alignFfmpeg, type InstallIo } from "../../src/media/ffmpeg/install.ts";
 import { readState, writeState, type FfmpegBuild, type FfmpegState } from "../../src/media/ffmpeg/state.ts";
+import { asText } from "../../src/infra/log/log-text.ts";
 
 const base = fs.mkdtempSync(path.join(os.tmpdir(), "ffmpeg-install-"));
 after(() => fs.rmSync(base, { recursive: true, force: true, maxRetries: 5 }));
@@ -139,9 +140,9 @@ test("릴리스가 없거나(404) 체크섬이 틀리면 실패하고 기록은 
   writeState(dir, { active, previous: null, rejected: [], pin: null });
   const missing = await alignFfmpeg({ dir, defaultRelease: B, io: fakeIo({}).io });
   assert.equal(missing.kind, "failed");
-  assert.match(missing.kind === "failed" ? missing.reason : "", /없음/);
+  assert.match(missing.kind === "failed" ? asText(missing.reason) : "", /없음/);
   const badSum = await alignFfmpeg({ dir, defaultRelease: B, io: fakeIo({ [B]: { body: "good", badSum: true } }).io });
-  assert.match(badSum.kind === "failed" ? badSum.reason : "", /체크섬/);
+  assert.match(badSum.kind === "failed" ? asText(badSum.reason) : "", /체크섬/);
   assert.deepEqual(stateOf(dir), { active, previous: null, rejected: [], pin: null });
 });
 
@@ -167,7 +168,7 @@ test("기록이 깨졌으면 옆으로 치우고 알린 뒤 새로 기록한다(
   const outcome = await alignFfmpeg({ dir, defaultRelease: B, io: fakeIo({ [B]: { body: "good" } }).io });
   assert.equal(outcome.kind, "installed");
   assert.equal(outcome.notes.length, 1);
-  assert.match(outcome.notes[0] ?? "", /다시 고정하세요/);
+  assert.match(asText(outcome.notes[0] ?? ""), /다시 고정하세요/);
   assert.equal(
     fs.readdirSync(dir).some((f) => f.startsWith("state.json.broken-")),
     true,

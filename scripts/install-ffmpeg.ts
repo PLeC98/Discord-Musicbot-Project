@@ -24,6 +24,7 @@ import { alignFfmpeg, type AlignOutcome, type InstallIo, type Probe } from "../s
 import { parseInstallArgs } from "../src/media/ffmpeg/cli-args.ts";
 import { download } from "./download.ts";
 import { scriptLine } from "../src/infra/script-line.ts";
+import { asText } from "../src/infra/log/log-text.ts";
 import { josa } from "../src/infra/josa.ts";
 import path from "node:path";
 
@@ -129,7 +130,7 @@ function report(outcome: AlignOutcome, bot: "none" | "parent" | "other"): number
       say("warn", `${outcome.release}: 이 환경에서 실행되지 않았던 릴리스라 받지 않음. 다시 받으려면 pnpm run install:ffmpeg --force로 실행하세요`);
       return 1;
     case "failed":
-      say("error", `${outcome.release} 설치 실패(지금 쓰는 ffmpeg 그대로): ${outcome.reason}`);
+      say("error", `${outcome.release} 설치 실패(지금 쓰는 ffmpeg 그대로): ${asText(outcome.reason)}`);
       return 1;
     case "busy":
       say("error", `설치 건너뜀: 다른 프로세스(${outcome.holder ? `PID ${outcome.holder}` : "PID 모름"})가 vendor/ffmpeg 사용 중`);

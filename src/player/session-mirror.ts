@@ -207,7 +207,7 @@ class SessionPersistence {
   saveRowIfChanged() {
     const p = this.player;
     if (!p.currentTrack && p.queue.length === 0) return;
-    if (this._rowKey() !== this.lastRow) bestEffort(log, this.save("changed"), "세션 저장");
+    if (this._rowKey() !== this.lastRow) bestEffort(log, this.save("changed"), L.session.sessionSave());
   }
 
   // 세션 행에서 위치를 뺀 열. 위치는 주기 저장이 따로 쓴다

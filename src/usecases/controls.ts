@@ -10,6 +10,7 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "control" });
 import * as perm from "./permissions.ts";
 import { bestEffort } from "../infra/best-effort.ts";
+import { asText } from "../infra/log/log-text.ts";
 import * as playerEvents from "../player/events.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { VOLUME_MAX } from "../rules/limits.ts";
@@ -455,7 +456,7 @@ async function leave(guild: Guild, actor: Actor, players: Pick<PlayerRegistry, "
     const how = await leaveLingeringVoice(guild, players);
     if (how === "superseded") return fail("leave-superseded");
     if (how === "failed") return fail("leave-failed");
-    log.info(`플레이어 없이 남은 음성 채널에서 나감(${LEFT_BY[how]}): ${guild.name}`);
+    log.info(`플레이어 없이 남은 음성 채널에서 나감(${asText(LEFT_BY[how])}): ${guild.name}`);
     return done({ left: "voice-only" as const, stayOff: seated });
   }
   const track = player.currentTrack;

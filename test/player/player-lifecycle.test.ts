@@ -305,7 +305,7 @@ test("패킷 공급이 끊겨 멈추면 입력 종류, 입력이 끊긴 시간, 
   h.reset();
   const q = h.makePlayer();
   starved(q, cached("e2eeeeeeeee"), 30_000);
-  Object.assign(q.playback ?? {}, { input: { kind: "캐시 전환", detail: () => null }, inputProgressAt: Date.now() - 300_000 });
+  Object.assign(q.playback ?? {}, { input: { kind: "캐시 전환", cacheSwitch: true, detail: () => null }, inputProgressAt: Date.now() - 300_000 });
   const from2 = sink.buffer.length;
   await q.onTrackEnd("idle");
   h.dispose(q);

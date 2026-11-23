@@ -10,6 +10,18 @@ const watchdog = {
   bufferingSlow: ({ transition }: { transition: string }) => `${transition} 오래 걸림`,
   playerStateChanged: ({ from, to, track }: { from: string; to: string; track: string }) => `재생 상태 전이: ${from} → ${to} | ${track}`,
   gaplessSwitchAbandoned: ({ track, reason }: { track: string; reason: string }) => `갭리스 전환 포기: ${track} | ${reason}`,
+  bufferingTransition: ({ status, track, seconds }: { status: string; track: string; seconds: string }) => `상태 전이: buffering → ${status} | ${track} | 버퍼링 ${seconds}s`,
+  startFailed: () => `시작 못 함`,
+  gaplessNotReady: () => `전환할 수 있는 상태가 아님`,
+  gaplessTrackChanged: () => `이미 다른 곡으로 넘어감`,
+  gaplessAudioChanged: () => `곡의 음원이 바뀌어 트는 음원의 파일이 없음`,
+  gaplessNoCacheFile: () => `쓸 수 있는 캐시 파일이 없음`,
+  trackEndPhase: ({ reason }: { reason: string }) => `곡 끝(${reason})`,
+  longPause: () => `장시간 일시정지`,
+  /** slips: 스플라이서가 전환 지점을 고친 횟수 */
+  gaplessSwitchDetail: ({ seconds, slips }: { seconds: string; slips: number }) => `갭리스 전환 상세: ${seconds}초 지점${slips ? ` | 지점 조정 ${slips}회` : ""}`,
+  /** dropped: 끊김(아니면 끝). why: 판정 이유 */
+  endVerdict: ({ dropped, why, playedSeconds, length }: { dropped: boolean; why: string; playedSeconds: string; length: string }) => `트랙 종료 판정: ${dropped ? "끊김" : "끝"}(${why}) | 재생 ${playedSeconds}초 / 길이 ${length}`,
 };
 
 export { watchdog };

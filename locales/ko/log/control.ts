@@ -16,6 +16,9 @@ const control = {
   queueTracksRemoved: ({ count, position, remaining }: { count: number; position: number; remaining: number }) => `대기열 제거: ${count}곡(${position}번부터) | 남은 ${remaining}곡`,
   queueMoved: ({ title, from, to }: { title: string; from: number; to: number }) => `대기열 이동: "${title}" ${from}번 → ${to}번`,
   autoplayPicked: ({ title, artist, genre, source, how }: { title: string; artist: string; genre: string; source: string; how: string }) => `자동재생 선택: "${title}" / ${artist} (장르 ${genre}, 소스 ${source} → ${how})`,
+  autoplayFromPinned: ({ url }: { url: string }) => `직접 지정한 음원 ${url}`,
+  /** 자동재생 곡의 소리가 온 곳. kind: 음원 주소의 종류(youtube, soundcloud, direct. 그 밖은 유튜브로 적는다), ledger: 링크 데이터를 다시 써 검색을 건너뛰었다 */
+  autoplayAudioFrom: ({ kind, url, ledger }: { kind: string; url: string; ledger: boolean }) => `${kind === "soundcloud" ? "사운드클라우드" : kind === "direct" ? "음원 직접" : "유튜브"}${kind === "direct" ? "" : ` ${url}`}${ledger ? " (링크 데이터 재사용, 검색 생략)" : ""}`,
 };
 
 export { control };

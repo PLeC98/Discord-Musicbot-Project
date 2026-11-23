@@ -35,6 +35,19 @@ const track = {
   warmAutoplayRefillFailed: ({ guildName, guildId, genre, error }: { guildName: string; guildId: string; genre: string; error: string }) => `재생 불가 자동재생 곡 제거 후 대체 곡 미리 추가 실패(곡 종료 시 재시도): 서버=${guildName} (${guildId}), 장르=${genre} | ${error}`,
   warmStarted: ({ title, targets }: { title: string; targets: number }) => `사전 캐싱: "${title}" | 대상 ${targets}곡`,
   warmTrackFailed: ({ title }: { title: string }) => `사전 캐싱 실패(재생할 때 다시 다운로드): "${title}"`,
+  emptyTempRemove: () => `빈 임시 파일 삭제`,
+  ytdlpLingerSuffix: ({ seconds }: { seconds: string }) => ` · 파일을 다 쓰고 ${seconds}초 뒤에 끝남`,
+  ytdlpDownloadHow: ({ seconds, format, lingerSuffix }: { seconds: string; format: string; lingerSuffix: string }) => `yt-dlp ${seconds}초 · ${format}${lingerSuffix}`,
+  directDownloadHow: ({ downloadSeconds, convertSeconds }: { downloadSeconds: string; convertSeconds: string }) => `다운로드 ${downloadSeconds}초 · 변환 ${convertSeconds}초`,
+  convertStalled: ({ seconds }: { seconds: number }) => `진행이 ${seconds}초 동안 멈춰 끊음`,
+  ytdlpFormat: ({ formatId, protocol, codec }: { formatId: string; protocol: string; codec: string }) => `포맷 ${formatId}(${protocol}, ${codec === "opus" ? "옮김" : `${codec} → opus 구움`})`,
+  /** code, signal: ffmpeg 종료 코드와 신호(없으면 null) */
+  convertExited: ({ code, signal }: { code: number | null; signal: string | null }) => `FFmpeg 종료 (code=${code ?? "없음"}, signal=${signal ?? "없음"})`,
+  /** tail: 표준 오류의 끝 */
+  convertFailedTail: ({ why, tail }: { why: string; tail: string }) => `${why}: ${tail}`,
+  /** why: 그렇게 정한 이유 */
+  cacheRemuxed: ({ why }: { why: string }) => `캐시 변환: 리먹싱 (${why})`,
+  cacheTranscoded: ({ kbps, why }: { kbps: number; why: string }) => `캐시 변환: 변환 ${kbps}k (${why})`,
 };
 
 export { track };

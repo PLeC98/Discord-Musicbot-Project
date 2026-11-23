@@ -45,7 +45,7 @@ async function headOf(url: string, headers: Record<string, string>, bytes: numbe
 
 async function seekStart(request: SeekRequest, { fetchImpl = fetch as unknown as RangeFetch, timeoutMs = HEAD_TIMEOUT_MS, headBytes = HEAD_BYTES }: SeekOptions = {}): Promise<SeekAnswer> {
   const { url, headers, totalBytes, startMs, durationMs, chunkBytes } = request;
-  if (!worthIndexing({ startMs, durationMs, totalBytes, chunkBytes })) return { ok: false, why: "가까운 위치", near: true };
+  if (!worthIndexing({ startMs, durationMs, totalBytes, chunkBytes })) return { ok: false, why: L.player.seekNear(), near: true };
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(logTextError(L.player.headerRequestTimedOut({ seconds: timeoutMs / 1000 }))), timeoutMs);
   try {
@@ -56,15 +56,15 @@ async function seekStart(request: SeekRequest, { fetchImpl = fetch as unknown as
       head = await headOf(url, headers, Math.min(read.need, totalBytes), fetchImpl, controller.signal);
       read = readIndex(head, totalBytes);
     }
-    if (!read.ok) return { ok: false, why: "need" in read ? "색인이 받은 앞부분보다 길다" : read.why };
+    if (!read.ok) return { ok: false, why: "need" in read ? L.player.seekIndexBeyondHead() : read.why };
     const point = startPoint(read.index, { targetMs: startMs, durationMs, chunkBytes });
     if ("why" in point) return { ok: false, why: point.why };
     return { ok: true, start: { header: headerOf(head, read.index), startByte: point.byte, startedAtMs: point.startedAtMs, expectStart: { bytes: FIRST_BYTES[read.index.kind], check: point.expectStart } } };
   } catch (error) {
-    if (controller.signal.aborted) return { ok: false, why: `헤더 요청이 ${timeoutMs / 1000}초를 넘김`, slow: true };
+    if (controller.signal.aborted) return { ok: false, why: L.player.headerRequestTimedOut({ seconds: timeoutMs / 1000 }), slow: true };
     const refused = refusedStatus(error);
     if (refused) return { ok: false, why: messageOf(error), refused };
-    return { ok: false, why: `헤더를 받지 못함: ${messageOf(error)}`, failed: true };
+    return { ok: false, why: L.player.headerFetchFailed({ error: messageOf(error) }), failed: true };
   } finally {
     clearTimeout(timer);
     controller.abort();

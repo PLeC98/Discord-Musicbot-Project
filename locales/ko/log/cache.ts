@@ -40,6 +40,15 @@ const cache = {
   cachedSourceChangedKept: ({ changes, track }: { changes: string; track: string }) => `캐시된 곡의 원본이 변경됨(${changes}). 캐시 파일은 유지하고 캐시 DB에 표시: ${track}`,
   cachedSourceChangedReplaced: ({ changes, track }: { changes: string; track: string }) => `캐시된 곡의 원본이 변경됨(${changes}). 캐시 파일을 삭제하고 다음 재생 시 새로 다운로드: ${track}`,
   changedSourceCacheRemoved: ({ title }: { title: string }) => `변경된 원본의 캐시 파일 삭제(다음 재생 시 새로 다운로드): "${title}"`,
+  recheckLengthChanged: () => `길이가 바뀜`,
+  recheckLengthSame: () => `길이는 같음`,
+  recheckFileChanged: () => `음원 파일이 바뀜`,
+  recheckRetryLater: ({ reason }: { reason: string }) => `${reason} (해당 곡 24시간 뒤 재시도)`,
+  recheckUnsupportedSource: ({ kind }: { kind: string }) => `다시 확인하지 않는 출처(${kind})`,
+  recheckNoLmt: () => `원본 포맷에 lmt가 없다`,
+  recheckNoStoredVersion: () => `적어 둔 버전이 없다`,
+  recheckNoSourceVersion: () => `원본이 버전을 주지 않는다`,
+  recheckNothingToCompare: () => `비교할 값이 없다`,
 };
 
 export { cache };

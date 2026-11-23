@@ -71,7 +71,7 @@ function spawnFfmpeg(args: string[], label: string, { killOnStdoutClose = true }
     const verdict = exitVerdict({ code, signal, closedByUs });
     if (verdict === "crash") log.error(L.ffmpeg.exitedAbnormally({ job: label, exit: exitText(code, signal), detailSuffix: detail }));
     else if (verdict === "cleanup") log.debug(L.ffmpeg.cleanupExited({ job: label, exit: exitText(code, signal) }));
-    else if (verdict === "failed") log.warn(`ffmpeg(${label}) 종료 코드 ${exitText(code, signal)}${closedByUs ? "(출력을 닫기 전에 이미 실패)" : ""}${detail}`);
+    else if (verdict === "failed") log.warn(L.ffmpeg.exitedFailed({ job: label, exit: exitText(code, signal), closedByUs, detailSuffix: detail }));
   });
 
   return child;

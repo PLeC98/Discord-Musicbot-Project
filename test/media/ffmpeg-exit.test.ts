@@ -7,6 +7,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { exitText, exitVerdict, isPipeWriteFailure, signedCode } from "../../src/media/ffmpeg/exit.ts";
+import { asText } from "../../src/infra/log/log-text.ts";
 
 const EINVAL_WIN = 4294967274; // -22
 const INVALIDDATA_WIN = 3199971767; // -1094995529
@@ -17,7 +18,7 @@ test("Windows의 종료 코드는 부호를 되돌려 이름을 붙인다", () =
   assert.equal(exitText(INVALIDDATA_WIN, null, "win32"), "-1094995529(INVALIDDATA)");
   assert.equal(exitText(1, null, "win32"), "1");
   assert.equal(exitText(null, "SIGKILL", "win32"), "SIGKILL");
-  assert.equal(exitText(null, null, "win32"), "없음");
+  assert.equal(asText(exitText(null, null, "win32")), "없음");
 });
 
 test("하위 8비트만 남는 OS는 숫자 그대로 둔다", () => {

@@ -27,6 +27,14 @@ const session = {
   playerRestoreFailed: ({ guild, guildId, error }: { guild: string; guildId: string; error: string }) => `서버 ${guild} (${guildId}) 세션 복원 중 오류(세션은 남김): ${error}`,
   restoreChannelFetchFailed: ({ guild, channel, error }: { guild: string; channel: string; error: string }) => `서버 ${guild}의 채널 ${channel} 조회 실패(세션은 남김): ${error}`,
   restoreVoiceChannelGone: ({ guild }: { guild: string }) => `서버 ${guild}의 저장된 음성 채널이 없어 저장된 세션 삭제`,
+  sessionSave: () => `세션 저장`,
+  restoreFailedDispose: () => `세션 복원 실패`,
+  outcomeResumed: () => `이어 재생`,
+  outcomeParked: () => `열지 못해 그 곡에서 일시정지해 둠`,
+  outcomeOpenFailed: () => `재생할 곡을 열지 못함`,
+  outcomeEmpty: () => `재생할 곡 없음`,
+  /** error: 마지막 조회 오류(오류 없이 길드를 못 받았으면 null) */
+  guildLookupFailed: ({ guildId, attempts, error }: { guildId: string; attempts: number; error: string | null }) => `서버 ID ${guildId} 조회 ${attempts}회 실패(세션을 유지하고 다음 기동 시 재시도): ${error ?? "길드를 불러오지 못함"}`,
 };
 
 export { session };

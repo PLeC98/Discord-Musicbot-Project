@@ -4,6 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { InputHealth, refusedStatus } from "../../src/media/input-health.ts";
+import { asText } from "../../src/infra/log/log-text.ts";
 
 const child = () => new EventEmitter();
 
@@ -21,13 +22,13 @@ test("0이 아닌 코드나 신호로 끝나면 깨진 것이다. 신호는 -1�
   const a = new InputHealth("파일").watch(coded);
   coded.emit("exit", 1, null);
   assert.equal(a.exitCode, 1);
-  assert.equal(a.broken, "ffmpeg 종료 코드 1");
+  assert.equal(asText(a.broken ?? ""), "ffmpeg 종료 코드 1");
 
   const killed = child();
   const b = new InputHealth("파일").watch(killed);
   killed.emit("exit", null, "SIGKILL");
   assert.equal(b.exitCode, -1);
-  assert.equal(b.broken, "ffmpeg 종료 코드 SIGKILL");
+  assert.equal(asText(b.broken ?? ""), "ffmpeg 종료 코드 SIGKILL");
 });
 
 test("먼저 온 원인을 지킨다. 입력을 닫아 ffmpeg가 0으로 끝나도 깨진 채로 남는다", () => {

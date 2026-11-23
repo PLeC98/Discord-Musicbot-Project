@@ -41,7 +41,7 @@ import { logTitle } from "../infra/log/title.ts";
 import { addDownloaded } from "../infra/download-meter.ts";
 import { sec } from "../infra/log/seconds.ts";
 import { L } from "../infra/log/text.ts";
-import { logTextError } from "../infra/log/log-text.ts";
+import { logTextError, type LogText } from "../infra/log/log-text.ts";
 
 // 다운로드에 부르는 소스와 변환에서 여기서 부르는 필드만
 type Sources = {
@@ -116,7 +116,7 @@ function cleanTemp(tempPath: string, title?: string | null): number {
  * 메타데이터라 오디오와 다를 수 있다), audioVersion: 다운로드한 음원의 버전(같은 주소에서 음원이 바뀐 것을 알아볼 값, audio-version.ts)
  */
 // how: 어떻게 다운로드했나(로그 한 줄). 걸린 시간, 포맷, 리먹싱, 인코딩 여부
-type Fetched = { verifiedTitle: string | null; tags?: TagInfo | null; cover?: Cover | null; audioDurationSec: number | null; audioVersion: string | null; how: string };
+type Fetched = { verifiedTitle: string | null; tags?: TagInfo | null; cover?: Cover | null; audioDurationSec: number | null; audioVersion: string | null; how: LogText };
 
 // 다운로드한 포맷(로그용). info.json의 필드
 const formatOf = (info: { format_id?: string | null; protocol?: string | null; acodec?: string | null } | null | undefined) => ({ formatId: info?.format_id ?? null, protocol: info?.protocol ?? null, acodec: info?.acodec ?? null });
@@ -143,7 +143,7 @@ function correctInfo(track: DownloadTrack, got: Fetched) {
 async function ensureNotEmpty(tempPath: string) {
   const stats = await fs.stat(tempPath);
   if (stats.size > 0) return;
-  await bestEffort(log, fs.unlink(tempPath), "빈 임시 파일 삭제");
+  await bestEffort(log, fs.unlink(tempPath), L.track.emptyTempRemove());
   throw codedError("stream-failed", L.track.downloadedFileEmpty());
 }
 
@@ -390,10 +390,10 @@ class TrackDownloader {
     if (/_preview$/.test(info.formatId ?? "")) throw codedError("sc-preview-only", L.track.previewOnlyNotCached({ url: downloadUrl }));
     // 다운로드한 포맷과 리먹싱, 인코딩 여부(yt-dlp의 ExtractAudio는 Opus면 리먹싱하고 아니면 인코딩한다)
     const codec = info.acodec?.split(".")[0] ?? "?";
-    const format = `포맷 ${info.formatId ?? "?"}(${info.protocol ?? "?"}, ${codec === "opus" ? "옮김" : `${codec} → opus 구움`})`;
+    const format = L.track.ytdlpFormat({ formatId: info.formatId ?? "?", protocol: info.protocol ?? "?", codec });
     const lingerMs = ended - fsSync.statSync(tempPath).mtimeMs;
-    const linger = lingerMs > LINGER_LOG_MS ? ` · 파일을 다 쓰고 ${sec(lingerMs)}초 뒤에 끝남` : "";
-    return { verifiedTitle: info.title, audioDurationSec: info.durationSec, audioVersion: info.version, how: `yt-dlp ${sec(ended - started)}초 · ${format}${linger}` };
+    const linger = lingerMs > LINGER_LOG_MS ? L.track.ytdlpLingerSuffix({ seconds: sec(lingerMs) }) : "";
+    return { verifiedTitle: info.title, audioDurationSec: info.durationSec, audioVersion: info.version, how: L.track.ytdlpDownloadHow({ seconds: sec(ended - started), format, lingerSuffix: linger }) };
   }
 
   // 직접 링크(파일, HLS VOD). SSRF 가드(SafeUrl)를 통과해 가져온다(media/direct-input).
@@ -424,7 +424,7 @@ class TrackDownloader {
       // 무엇을 할지는 audioConvert 한 곳이 정한다. 리먹싱이냐 변환이냐, 목표가 몇이냐.
       const made = await this.deps.convert.toCacheOpus(rawPath, tempPath, { tags, cover });
       // 리먹싱, 인코딩 여부는 변환이 자기 로그 줄에 남긴다
-      const how = `다운로드 ${sec(received - started)}초 · 변환 ${sec(Date.now() - received)}초`;
+      const how = L.track.directDownloadHow({ downloadSeconds: sec(received - started), convertSeconds: sec(Date.now() - received) });
       return { verifiedTitle: null, tags, cover, audioDurationSec: made.durationSec || null, audioVersion, how };
     } finally {
       audioCache.unprotectFile(rawPath);

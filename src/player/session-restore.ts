@@ -43,7 +43,7 @@ async function resolveGuildForRestore(client: Client, guildId: string, { attempt
     }
   }
 
-  log.warn(`서버 ID ${guildId} 조회 ${attempts}회 실패(세션을 유지하고 다음 기동 시 재시도): ${lastError ? messageOf(lastError) : "길드를 불러오지 못함"}`);
+  log.warn(L.session.guildLookupFailed({ guildId, attempts, error: lastError ? messageOf(lastError) : null }));
   return { guild: null, gone: false };
 }
 
@@ -161,12 +161,12 @@ async function restoreOne(client: Client, players: Registry, PlayerCtor: PlayerC
     // 음성 연결 실패 등. 세션은 남긴다(다음 기동, /join이 재시도한다). 종료 중이라 붙지 않은 것은 실패가 아니다
     if (codeOf(error) === "bot-shutting-down") log.info(L.session.restoreStoppedShutdown({ guild: guild.name }));
     else log.error(L.session.playerRestoreFailed({ guild: guild.name, guildId, error: messageOf(error) }));
-    await player.dispose({ reason: "세션 복원 실패", session: "keep", end: "restore-failed" });
+    await player.dispose({ reason: L.session.restoreFailedDispose(), session: "keep", end: "restore-failed" });
   }
 }
 
 // 복원한 결과를 로그에
-const RESTORE_OUTCOME = { restored: "이어 재생", parked: "열지 못해 그 곡에서 일시정지해 둠", failed: "재생할 곡을 열지 못함", empty: "재생할 곡 없음" } as const;
+const RESTORE_OUTCOME = { restored: L.session.outcomeResumed(), parked: L.session.outcomeParked(), failed: L.session.outcomeOpenFailed(), empty: L.session.outcomeEmpty() } as const;
 
 // 채널이 없다는 디스코드의 확답(삭제됨, 볼 수 없음). 그 밖의 조회 실패는 잠깐일 수 있다
 const CHANNEL_GONE = new Set<unknown>([RESTJSONErrorCodes.UnknownChannel, RESTJSONErrorCodes.MissingAccess]);

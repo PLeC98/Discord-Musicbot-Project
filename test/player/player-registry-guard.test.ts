@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 import { openTempStore } from "../helpers/temp-store.ts";
 import { fakePlayer } from "../helpers/fake.ts";
 import * as tracks from "../helpers/tracks.ts";
+import { asText, type LogText } from "../../src/infra/log/log-text.ts";
 const store = openTempStore("registry-guard-");
 after(() => store.close());
 
@@ -80,12 +81,13 @@ function makePlayer(current: { title: string; duration: number } | null = { titl
       async play() {},
       async updateVoiceStatus() {},
       audioPlayer: { stop() {} },
-      // 진짜 dispose처럼 버린 단계로 옮기고 알린다(레지스트리는 알림을 듣고 뺀다)
-      async dispose({ reason }: { reason: string }) {
+      // 진짜 dispose처럼 원인을 글로 그려 버린 단계로 옮기고 알린다(레지스트리는 알림을 듣고 뺀다)
+      async dispose({ reason }: { reason: string | LogText }) {
         if (this.lifecycle.disposed) return;
-        disposeCalls.push(reason);
-        this.lifecycle.to("disposed", reason);
-        playerEvents.disposed(this as unknown as InstanceType<typeof Player>, reason, "stop");
+        const text = asText(reason);
+        disposeCalls.push(text);
+        this.lifecycle.to("disposed", text);
+        playerEvents.disposed(this as unknown as InstanceType<typeof Player>, text, "stop");
       },
     },
     { disposeCalls },

@@ -22,6 +22,7 @@ import { md5 } from "../../src/rules/audio-key-of.ts";
 import { codedError, codeOf } from "../../src/rules/error-kind.ts";
 import { recordPanel } from "../helpers/panel-events.ts";
 import type { FakeChild } from "../helpers/player-harness.ts";
+import { asText } from "../../src/infra/log/log-text.ts";
 import type { Player } from "../../src/player/player.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import type { StreamInfo } from "../../src/sources/stream-url.ts";
@@ -379,7 +380,7 @@ test("세그먼트 목록으로만 주는 소리는 위치가 든 세그먼트�
   const args = argsOf(calls.spawns[0]);
   assert.ok(args.includes("-i pipe:0"), args);
   assert.ok(args.includes("-ss 1.000"), `세그먼트 하나가 2초라 5초는 셋째 세그먼트(4초)부터 받고 1초를 건너뛴다: ${args}`);
-  assert.equal(p.playback?.input?.kind, "세그먼트");
+  assert.equal(asText(p.playback?.input?.kind ?? ""), "세그먼트");
   assert.equal(p.playback?.live, false);
 });
 
@@ -1627,7 +1628,7 @@ test("파이프 분기: 입력 스트림이 깨지면 입력을 닫은 ffmpeg가
   calls.spawns[0].emit("exit", 0, null);
 
   assert.equal(p.playback?.input?.exitCode, 0);
-  assert.match(p.playback?.input?.broken ?? "", /입력 스트림 오류/);
+  assert.match(asText(p.playback?.input?.broken ?? ""), /입력 스트림 오류/);
 });
 
 test("파이프 분기: 청크 스트림이 전체 크기를 다 받지 못하고 끝나면 깨진 것, 다 받고 끝나면 온전하다", async () => {
@@ -1647,7 +1648,7 @@ test("파이프 분기: 청크 스트림이 전체 크기를 다 받지 못하�
     await tick();
 
     assert.equal(p.playback?.input?.broken != null, broken, `${received}/4096B`);
-    if (broken) assert.match(p.playback?.input?.broken ?? "", /1000\/4096B/);
+    if (broken) assert.match(asText(p.playback?.input?.broken ?? ""), /1000\/4096B/);
   }
 });
 
@@ -1660,7 +1661,7 @@ test("파일, 주소 분기도 ffmpeg가 0이 아닌 코드로 끝나면 깨진 
   assert.equal(calls.spawns[0].label, "playback");
   assert.equal(p.playback?.input?.broken, null, "여는 순간에는 온전하다");
   calls.spawns[0].emit("exit", 2, null);
-  assert.match(p.playback?.input?.broken ?? "", /종료 코드 2/);
+  assert.match(asText(p.playback?.input?.broken ?? ""), /종료 코드 2/);
 
   h.reset();
   const q = h.makePlayer();
@@ -1668,7 +1669,7 @@ test("파일, 주소 분기도 ffmpeg가 0이 아닌 코드로 끝나면 깨진 
   behavior.stream = () => ({ url: "https://hls.test/vod.m3u8", protocol: "m3u8", duration: 100 });
   await playOnce(q);
   calls.spawns[0].emit("exit", 1, null);
-  assert.match(q.playback?.input?.broken ?? "", /종료 코드 1/);
+  assert.match(asText(q.playback?.input?.broken ?? ""), /종료 코드 1/);
 });
 
 test("연 입력의 종류를 적는다. 청크 스트림은 끊겼을 때 남길 상태(이어받는 중인가)를 준다", async () => {
@@ -1684,11 +1685,11 @@ test("연 입력의 종류를 적는다. 청크 스트림은 끊겼을 때 남�
     p.currentTrack = yt("k1kkkkkkkkk");
     arrange();
     await playOnce(p);
-    assert.equal(p.playback?.input?.kind, kind);
+    assert.equal(asText(p.playback?.input?.kind ?? ""), kind);
     if (kind === "청크") {
-      assert.doesNotMatch(p.playback?.input?.detail() ?? "", /이어받는 중/);
+      assert.doesNotMatch(asText(p.playback?.input?.detail() ?? ""), /이어받는 중/);
       calls.chunkedStreams[0].resuming = true;
-      assert.match(p.playback?.input?.detail() ?? "", /^청크 #1 · .* · 이어받는 중$/);
+      assert.match(asText(p.playback?.input?.detail() ?? ""), /^청크 #1 · .* · 이어받는 중$/);
     } else assert.equal(p.playback?.input?.detail(), null, kind);
   }
 
@@ -1698,7 +1699,7 @@ test("연 입력의 종류를 적는다. 청크 스트림은 끊겼을 때 남�
   const f = h.makePlayer();
   f.currentTrack = cachedTrack;
   await playOnce(f);
-  assert.equal(f.playback?.input?.kind, "파일");
+  assert.equal(asText(f.playback?.input?.kind ?? ""), "파일");
 });
 
 test("오디오 플레이어는 패킷 공급이 끊겨도 10초(프레임 500개)를 버틴다", () => {
@@ -1774,7 +1775,7 @@ test("HLS 다시보기가 세그먼트를 건너뛰면 입력을 끊고 깨진 �
     await new Promise((done) => setImmediate(done));
 
     assert.equal(ffmpeg.killed, cut, String(liveStatus));
-    if (cut) assert.equal(p.playback?.input?.broken, "HLS 세그먼트를 건너뜀: Segment 3 of playlist 0 failed too many times, skipping");
+    if (cut) assert.equal(asText(p.playback?.input?.broken ?? ""), "HLS 세그먼트를 건너뜀: Segment 3 of playlist 0 failed too many times, skipping");
     else assert.equal(p.playback?.input?.broken, null);
   }
 });
