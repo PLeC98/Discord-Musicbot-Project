@@ -121,20 +121,31 @@ function isData(node: ts.Node, rel: string): boolean {
   return false;
 }
 
-/** 소스 하나에서 로그, 데이터가 아닌 한글 문자열(줄 번호와 문자열) */
-function rowsIn(rel: string, text: string): Array<{ line: number; text: string }> {
-  if (DATA_FILES[rel]) return [];
+/** 한글이 든 문자열 자리 하나. kind: 로그 계열(log), 데이터(data), 그 밖(outside). start: 소스 안의 시작 위치 */
+type KoreanSite = { line: number; start: number; text: string; kind: "log" | "data" | "outside" };
+
+/** 소스 파일 하나의 모든 한글 문자열 자리(로그 계열, 데이터 포함). 로그 문구를 옮기는 도구(test/tools/log-text-move)도 이 분류를 쓴다 */
+function koreanSites(rel: string, text: string): KoreanSite[] {
   const source = ts.createSourceFile(rel, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
   const scope: Scope = { rel, loggers: new Set(["log", "logger", "console", ...namesMadeBy(source, /\.child\(/)]), failures: namesMadeBy(source, /\brepeatingFailure\(|\bfailuresOf\(/) };
-  const out: Array<{ line: number; text: string }> = [];
+  const out: KoreanSite[] = [];
   const visit = (node: ts.Node) => {
     const literal = ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node);
-    if (literal && HANGUL.test(node.text) && !isLogged(node, scope) && !isData(node, rel)) out.push({ line: source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1, text: node.text });
+    if (literal && HANGUL.test(node.text)) {
+      const kind = DATA_FILES[rel] || isData(node, rel) ? "data" : isLogged(node, scope) ? "log" : "outside";
+      out.push({ line: source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1, start: node.getStart(source), text: node.text, kind });
+    }
     ts.forEachChild(node, visit);
   };
   visit(source);
   return out;
 }
+
+/** 소스 하나에서 로그, 데이터가 아닌 한글 문자열(줄 번호와 문자열) */
+const rowsIn = (rel: string, text: string): Array<{ line: number; text: string }> =>
+  koreanSites(rel, text)
+    .filter((site) => site.kind === "outside")
+    .map(({ line, text: value }) => ({ line, text: value }));
 
 /** 파일 하나의 로그, 데이터 밖 한글 문자열 */
 const stringsOf = (rel: string): string[] => rowsIn(rel, fs.readFileSync(path.join(ROOT, rel), "utf8")).map((one) => one.text);
@@ -149,4 +160,5 @@ function textOutside(): Record<string, number> {
   return counts;
 }
 
-export { textOutside, stringsOf, rowsIn, DATA_FILES, DATA_DECLARATIONS, LOG_CALLS_IN };
+export { textOutside, stringsOf, rowsIn, koreanSites, DATA_FILES, DATA_DECLARATIONS, LOG_CALLS_IN };
+export type { KoreanSite };
