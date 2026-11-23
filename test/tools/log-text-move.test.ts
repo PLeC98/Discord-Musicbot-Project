@@ -176,3 +176,44 @@ test("예외: new Error 는 logTextError 로, codedError, timeoutError 는 글 �
   assert.equal(verifySource(FILE, source, after.replace("{ cause: error }", "{}"), () => catalog).length, 1);
   assert.equal(verifySource(FILE, source, after, () => catalog.replace("파일 없음", "파일 모름")).length, 1);
 });
+
+test("예외: 서술자를 받는 Error 클래스(SsrfError)와 파일 한정 도우미(zip 의 bad)는 글 인자만 옮기고, 다른 파일의 bad 는 옮기지 않는다", () => {
+  const source = ["function check(title: string) {", "  if (!title) throw new SsrfError(`DNS 결과 없음: ${title}`);", '  throw bad("ZIP이 아님");', "}", ""].join("\n");
+  const kinds = (file: string) => scanSource(file, source, typeOf).sites.map((site) => [site.kind, site.parts.join("{}")]);
+  assert.deepEqual(kinds("src/infra/zip.ts"), [
+    ["label", "DNS 결과 없음: {}"],
+    ["label", "ZIP이 아님"],
+  ]);
+  assert.deepEqual(kinds("src/infra/other.ts"), [["label", "DNS 결과 없음: {}"]]);
+  const sites = scanSource("src/infra/zip.ts", source, typeOf).sites.map((site, i) => ({ ...site, namespace: "zip", key: ["noDns", "notZip"][i] }));
+  const after = applySource("src/infra/zip.ts", source, sites);
+  assert.match(after, /new SsrfError\(L\.zip\.noDns\(\{ title \}\)\)/);
+  assert.match(after, /throw bad\(L\.zip\.notZip\(\)\)/);
+  assert.deepEqual(
+    verifySource("src/infra/zip.ts", source, after, () => withEntries("zip", null, sites.map(entryOf))),
+    [],
+  );
+});
+
+test("--literals: 다른 꼴이 잡지 않은 한글 글을 그 자리에서 문구 호출로 옮기고, verify 가 글 자리를 차례대로 짝지어 대조한다", () => {
+  const source = ["const none = (why: string) => ({ ok: false, why });", "function read(title: string, count: number) {", '  if (!title) return none("헤더가 아님");', "  return { why: `마지막 ${title}(${count}개)` };", "}", 'log.warn("이미 옮긴 줄은 그대로");', ""].join("\n");
+  const plan = scanSource(FILE, source, typeOf, undefined, { literals: true });
+  assert.deepEqual(
+    plan.sites.map((site) => [site.kind, site.parts]),
+    [
+      ["log", ["이미 옮긴 줄은 그대로"]],
+      ["label", ["헤더가 아님"]],
+      ["label", ["마지막 ", "(", "개)"]],
+    ],
+  );
+  const sites = plan.sites.map((site, i) => ({ ...site, namespace: "media", key: ["kept", "notHeader", "lastPoint"][i] }));
+  const after = applySource(FILE, source, sites);
+  assert.match(after, /return none\(L\.media\.notHeader\(\)\)/);
+  assert.match(after, /return \{ why: L\.media\.lastPoint\(\{ title, count \}\) \}/);
+  const catalog = withEntries("media", null, sites.map(entryOf));
+  assert.deepEqual(
+    verifySource(FILE, source, after, () => catalog),
+    [],
+  );
+  assert.equal(verifySource(FILE, source, after, () => catalog.replace("헤더가 아님", "헤더 아님")).length, 1);
+});

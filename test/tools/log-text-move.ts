@@ -1,19 +1,21 @@
 // 로그 문구를 코드에서 문구표(locales/ko/log)로 옮기는 도구. 로그 계열 다국어의 옮기기 동안만 쓰고, 끝나면 지운다.
 //
-//   node test/tools/log-text-move.ts scan <계획.json> <파일...>   옮길 자리를 계획 파일로 뽑는다. 키는 비워 둔다(사람이 채운다)
+//   node test/tools/log-text-move.ts scan [--literals] <계획.json> <파일...>   옮길 자리를 계획 파일로 뽑는다. 키는 비워 둔다(사람이 채운다).
+//     --literals: 다른 꼴이 잡지 않은 한글 글도 그 자리에서 문구 호출로(돌려주는 이유 글, 표). 글이 서술자로 바뀌면 깨지는 자리(Map 키, 글 비교)는 사람이 뺀다
 //   node test/tools/log-text-move.ts apply <계획.json>            계획 파일대로 코드와 문구표를 바꾼다
 //   node test/tools/log-text-move.ts verify <ref> <파일...>       ref 버전과 지금 버전의 로그 호출을 짝지어, 문구표 항목에 값 식을 끼운 글이 원래 글과 같은지 확인한다
+//   node test/tools/log-text-move.ts rebase ["<파일> <종류>"...]  문구표 밖 한글 지도의 기준표를 지금 수로(늘어난 것은 적은 것만 받는다)
 //
 // 기준은 문구표 밖 한글 집계 분류(test/helpers/text-outside 의 koreanSites)다. 도구가 옮기지 않는 한글 자리는 계획 파일의 manual, unplanned에 남긴다.
 // 자동으로 옮기는 꼴: 로그 호출의 (글), (바인딩, 글), (err, 글), 글 뒤에 문자열 값(공백으로 이어 붙는다), repeatingFailure 의 라벨, logRuleLine 을 ruleLogText 로.
-// 예외: new Error(글, 옵션) 를 logTextError(문구, 옵션) 로, codedError, timeoutError 의 글 인자를 문구로.
+// 예외: new Error(글, 옵션) 를 logTextError(문구, 옵션) 로, 예외 도우미(codedError, timeoutError 등)와 서술자를 받는 Error 클래스(SsrfError)의 글 인자를 문구로.
 // 그 밖(Error 를 이은 클래스, 다른 라벨 도우미, 글 뒤의 오류 값, 슬롯 안의 한글 조각, 변수로 만든 글)은 표시만 한다
 
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import ts from "typescript";
-import { koreanSites } from "../helpers/text-outside.ts";
+import { koreanMap, koreanSites, type KoreanCounts } from "../helpers/text-outside.ts";
 
 const ROOT = path.join(import.meta.dirname, "..", "..");
 const LOG_DIR = "locales/ko/log";
@@ -21,6 +23,14 @@ const LEVELS = new Set(["trace", "debug", "info", "warn", "error", "fatal"]);
 const HANGUL = /[가-힣ㄱ-ㆎ]/;
 // 값 식의 타입 중 그대로 넘기는 것. 그 밖은 String(식)으로 감싼다(템플릿 문자열 변환과 같은 결과)
 const PLAIN_TYPES = new Set(["string", "number", "boolean"]);
+// 글 인자를 서술자로도 받는 예외 도우미와 그 인자 자리
+const MESSAGE_ARGS: Readonly<Record<string, number>> = { codedError: 1, timeoutError: 0 };
+// 파일 안에서만 예외 도우미로 보는 이름(이름이 흔하다)
+const MESSAGE_ARGS_IN: Readonly<Record<string, Readonly<Record<string, number>>>> = { "src/infra/zip.ts": { bad: 0 } };
+// 생성자의 첫 인자로 서술자도 받는 Error 클래스
+const MESSAGE_CLASSES = new Set(["SsrfError"]);
+/** 예외 도우미면 글 인자 자리, 아니면 -1 */
+const messageArgOf = (file: string, name: string) => MESSAGE_ARGS[name] ?? MESSAGE_ARGS_IN[file]?.[name] ?? -1;
 
 /** 슬롯 하나: 원래 식, 문구 함수의 값 이름, 값 타입 */
 type Slot = { expr: string; param: string; type: string };
@@ -101,7 +111,8 @@ function partsOf(node: ts.Expression, typeOf: TypeOf): { parts: string[]; slots:
 }
 
 /** 소스 하나에서 옮길 자리, 손으로 볼 자리, 계획에 없는 한글 자리 */
-function scanSource(file: string, text: string, typeOf: TypeOf, source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)): Plan {
+/** literals: 다른 꼴이 잡지 않은 한글 글(데이터, bug 빼고)도 그 자리에서 문구 호출로 바꿀 자리로 뽑는다(돌려주는 이유 글, 표, 모아 찍는 줄) */
+function scanSource(file: string, text: string, typeOf: TypeOf, source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS), { literals = false }: { literals?: boolean } = {}): Plan {
   const loggers = loggersOf(source);
   const sites: Site[] = [];
   const manual: Manual[] = [];
@@ -126,12 +137,18 @@ function scanSource(file: string, text: string, typeOf: TypeOf, source = ts.crea
       errorSite(node, node.arguments[0], "error", node.arguments.slice(1));
       return;
     }
+    // 서술자를 받는 Error 클래스: 글 인자만 문구로
+    if (ts.isNewExpression(node) && ts.isIdentifier(node.expression) && MESSAGE_CLASSES.has(node.expression.text) && node.arguments?.length && hasHangul(node.arguments[0])) {
+      errorSite(node, node.arguments[0], "label");
+      node.arguments.slice(1).forEach(visit);
+      return;
+    }
     if (ts.isCallExpression(node)) {
       const callee = node.expression;
       const name = ts.isPropertyAccessExpression(callee) ? callee.name.text : ts.isIdentifier(callee) ? callee.text : "";
       const owner = ts.isPropertyAccessExpression(callee) && ts.isIdentifier(callee.expression) ? callee.expression.text : null;
-      // 예외 도우미의 글 인자: codedError(코드, 글), timeoutError(글)
-      const messageAt = name === "codedError" ? 1 : name === "timeoutError" ? 0 : -1;
+      // 예외 도우미의 글 인자: codedError(코드, 글), timeoutError(글) 등(MESSAGE_ARGS)
+      const messageAt = messageArgOf(file, name);
       if (messageAt >= 0 && ts.isIdentifier(callee) && node.arguments.length > messageAt && hasHangul(node.arguments[messageAt])) {
         errorSite(node, node.arguments[messageAt], "label");
         node.arguments.forEach((arg, i) => i !== messageAt && visit(arg));
@@ -179,6 +196,28 @@ function scanSource(file: string, text: string, typeOf: TypeOf, source = ts.crea
   };
   visit(source);
   const inside = (pos: number) => covered.some(([from, to]) => pos >= from && pos < to);
+  if (literals) {
+    // 옮길 글 자리: 집계 분류가 로그 계열이나 그 밖인 한글 글. 가장 바깥 글만(안쪽 글은 슬롯 안의 한글 조각이다)
+    const wanted = new Set(
+      koreanSites(file, text)
+        .filter((site) => (site.kind === "log" || site.kind === "outside") && !inside(site.start))
+        .map((site) => site.start),
+    );
+    const visitLiteral = (node: ts.Node) => {
+      const literal = ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isTemplateExpression(node);
+      if (literal && hasHangul(node) && [...wanted].some((at) => at >= node.getStart(source) && at < node.getEnd()) && !inside(node.getStart(source))) {
+        const parsed = partsOf(node as ts.Expression, typeOf);
+        if (!parsed) mark(node, "슬롯 안의 한글 조각");
+        else {
+          sites.push({ file, line: lineOf(source, node.getStart(source)), start: node.getStart(source), end: node.getEnd(), kind: "label", namespace: errorSpace, key: null, ...parsed });
+          covered.push([node.getStart(source), node.getEnd()]);
+        }
+        return;
+      }
+      ts.forEachChild(node, visitLiteral);
+    };
+    visitLiteral(source);
+  }
   const unplanned = koreanSites(file, text)
     .filter((site) => site.kind !== "data" && !inside(site.start))
     .map(({ line, text: value }) => ({ file, line, text: value }));
@@ -350,30 +389,30 @@ function sameCall(before: ts.CallExpression, after: ts.CallExpression, catalogs:
   return null;
 }
 
-/** 예외를 만드는 식을 소스 차례대로: new Error, logTextError, codedError, timeoutError */
+/** 예외를 만드는 식을 소스 차례대로: new Error, 서술자를 받는 Error 클래스, logTextError, 예외 도우미 */
 function errorsOf(file: string, text: string): Array<ts.NewExpression | ts.CallExpression> {
   const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
   const found: Array<ts.NewExpression | ts.CallExpression> = [];
   const visit = (node: ts.Node) => {
-    if (ts.isNewExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "Error") found.push(node);
-    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && ["logTextError", "codedError", "timeoutError"].includes(node.expression.text)) found.push(node);
+    if (ts.isNewExpression(node) && ts.isIdentifier(node.expression) && (node.expression.text === "Error" || MESSAGE_CLASSES.has(node.expression.text))) found.push(node);
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && (node.expression.text === "logTextError" || messageArgOf(file, node.expression.text) >= 0)) found.push(node);
     ts.forEachChild(node, visit);
   };
   visit(source);
   return found;
 }
 
-/** 예외 식 하나의 메시지 인자 자리(없으면 -1) */
-const messageIndex = (node: ts.NewExpression | ts.CallExpression) => (ts.isCallExpression(node) && node.expression.getText() === "codedError" ? 1 : 0);
+/** 예외 식 하나의 메시지 인자 자리 */
+const messageIndex = (file: string, node: ts.NewExpression | ts.CallExpression) => (ts.isCallExpression(node) ? Math.max(0, messageArgOf(file, node.expression.getText())) : 0);
 
 /** 원래 예외 식과 바꾼 예외 식이 같은 메시지와 나머지 인자를 갖는지. 같으면 null, 다르면 까닭 */
-function sameError(before: ts.NewExpression | ts.CallExpression, after: ts.NewExpression | ts.CallExpression, catalogs: (namespace: string) => string | null): string | null {
+function sameError(file: string, before: ts.NewExpression | ts.CallExpression, after: ts.NewExpression | ts.CallExpression, catalogs: (namespace: string) => string | null): string | null {
   if (before.getText() === after.getText()) return null;
-  const callee = (node: ts.NewExpression | ts.CallExpression) => (ts.isNewExpression(node) ? "new Error" : node.expression.getText());
+  const callee = (node: ts.NewExpression | ts.CallExpression) => (ts.isNewExpression(node) ? `new ${node.expression.getText()}` : node.expression.getText());
   const [was, now] = [callee(before), callee(after)];
   // new Error(글, 옵션) 은 logTextError(문구, 옵션) 으로만 바뀐다. 도우미는 그대로다
   if (was !== now && !(was === "new Error" && now === "logTextError")) return `만드는 것이 다름: ${was} → ${now}`;
-  const at = messageIndex(before);
+  const at = messageIndex(file, before);
   const oldArgs = [...(before.arguments ?? [])];
   const newArgs = [...(after.arguments ?? [])];
   const others = (args: ts.Expression[]) => args.filter((_, i) => i !== at).map((arg) => arg.getText());
@@ -388,7 +427,31 @@ function sameError(before: ts.NewExpression | ts.CallExpression, after: ts.NewEx
   return null;
 }
 
-/** 파일 하나의 원래 판과 지금 판을 대조한 차이(로그 호출, 예외 식) */
+/** 글 자리를 소스 차례대로: 한글 글(가장 바깥 것)과 문구 호출(L.ns.key). 안으로 들어가지 않는다. 로그 호출, 예외 식의 안쪽은 그 대조가 본다 */
+function textsOf(file: string, text: string): ts.Expression[] {
+  const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const owned = [...callsOf(file, text), ...errorsOf(file, text)].map((node) => [node.getStart(), node.getEnd()] as const);
+  const isOwned = (node: ts.Node) => owned.some(([from, to]) => node.getStart(source) >= from && node.getEnd() <= to);
+  const counted = new Set(
+    koreanSites(file, text)
+      .filter((site) => site.kind === "log" || site.kind === "outside")
+      .map((site) => site.start),
+  );
+  const found: ts.Expression[] = [];
+  const visit = (node: ts.Node) => {
+    const literal = (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isTemplateExpression(node)) && hasHangul(node) && [...counted].some((at) => at >= node.getStart(source) && at < node.getEnd());
+    const call = ts.isCallExpression(node) && /^L\.[A-Za-z0-9_]+\.[A-Za-z0-9_]+$/.test(node.expression.getText(source));
+    if (literal || call) {
+      if (!isOwned(node)) found.push(node as ts.Expression);
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return found;
+}
+
+/** 파일 하나의 원래 판과 지금 판을 대조한 차이(로그 호출, 예외 식, 글 자리) */
 function verifySource(file: string, before: string, after: string, catalogs: (namespace: string) => string | null): string[] {
   const old = callsOf(file, before);
   const now = callsOf(file, after);
@@ -397,13 +460,27 @@ function verifySource(file: string, before: string, after: string, catalogs: (na
   const newErrors = errorsOf(file, after);
   if (oldErrors.length !== newErrors.length) return [`${file}: 예외 식 수가 다름(${oldErrors.length} → ${newErrors.length})`];
   const at = (node: ts.Node) => `${file}:${lineOf(node.getSourceFile(), node.getStart())}`;
+  const oldTexts = textsOf(file, before);
+  const newTexts = textsOf(file, after);
+  if (oldTexts.length !== newTexts.length) return [`${file}: 글 자리 수가 다름(${oldTexts.length} → ${newTexts.length})`];
+  const textProblems = oldTexts.flatMap((node, i) => {
+    if (node.getText() === newTexts[i].getText()) return [];
+    const old = messageOf(node, catalogs);
+    const now = messageOf(newTexts[i], catalogs);
+    if (typeof old === "string") return [`${at(node)}: ${old}`];
+    if (typeof now === "string") return [`${at(node)}: ${now}`];
+    if (JSON.stringify(old.parts) !== JSON.stringify(now.parts)) return [`${at(node)}: 고정 글이 다름: ${JSON.stringify(old.parts)} → ${JSON.stringify(now.parts)}`];
+    if (JSON.stringify(old.exprs) !== JSON.stringify(now.exprs)) return [`${at(node)}: 값 식이 다름: ${JSON.stringify(old.exprs)} → ${JSON.stringify(now.exprs)}`];
+    return [];
+  });
   return [
+    ...textProblems,
     ...old.flatMap((call, i) => {
       const why = sameCall(call, now[i], catalogs);
       return why ? [`${at(call)}: ${why}`] : [];
     }),
     ...oldErrors.flatMap((node, i) => {
-      const why = sameError(node, newErrors[i], catalogs);
+      const why = sameError(file, node, newErrors[i], catalogs);
       return why ? [`${at(node)}: ${why}`] : [];
     }),
   ];
@@ -437,9 +514,9 @@ const readCatalog = (namespace: string) => {
   return fs.existsSync(file) ? fs.readFileSync(file, "utf8") : null;
 };
 
-function scanCommand(planFile: string, files: string[]) {
+function scanCommand(planFile: string, files: string[], literals: boolean) {
   const { typeOf, sourceOf } = checkerTypeOf(files);
-  const plans = files.map((file) => scanSource(file, fs.readFileSync(path.join(ROOT, file), "utf8"), typeOf, sourceOf(file)));
+  const plans = files.map((file) => scanSource(file, fs.readFileSync(path.join(ROOT, file), "utf8"), typeOf, sourceOf(file), { literals }));
   const sites = plans.flatMap((one) => one.sites);
   const plan: Plan = { sites, manual: plans.flatMap((one) => one.manual), unplanned: plans.flatMap((one) => one.unplanned), duplicates: duplicatesOf(sites) };
   fs.mkdirSync(path.dirname(planFile), { recursive: true });
@@ -482,13 +559,31 @@ function verifyCommand(ref: string, files: string[]) {
   if (problems.length) process.exitCode = 1;
 }
 
+/** 문구표 밖 한글 지도의 기준표(test/ui/text/text-outside.json)를 지금 수로 고친다. 늘어난 것은 allowed(파일 종류)에 적은 것만 받는다 */
+function rebaseCommand(allowed: string[]) {
+  const file = path.join(ROOT, "test/ui/text/text-outside.json");
+  const old = JSON.parse(fs.readFileSync(file, "utf8")) as Record<string, KoreanCounts>;
+  const now = koreanMap();
+  const more = Object.entries(now).flatMap(([name, counts]) => Object.entries(counts).flatMap(([kind, n]) => (n > (old[name]?.[kind as keyof KoreanCounts] ?? 0) && !allowed.includes(`${name} ${kind}`) ? [`${name} ${kind}`] : [])));
+  if (more.length) throw new Error(`늘어난 것: ${more.join(", ")}`);
+  const sorted = Object.fromEntries(
+    Object.keys(now)
+      .sort()
+      .map((name) => [name, now[name]]),
+  );
+  fs.writeFileSync(file, `${JSON.stringify(sorted, null, 2)}\n`);
+  console.log("기준표를 지금 수로 고침");
+}
+
 if (import.meta.main) {
   const [command, first, ...rest] = process.argv.slice(2);
-  if (command === "scan" && first) scanCommand(first, rest);
+  if (command === "scan" && first === "--literals" && rest[0]) scanCommand(rest[0], rest.slice(1), true);
+  else if (command === "scan" && first) scanCommand(first, rest, false);
   else if (command === "apply" && first) applyCommand(first);
   else if (command === "verify" && first) verifyCommand(first, rest);
+  else if (command === "rebase") rebaseCommand([first, ...rest].filter(Boolean));
   else {
-    console.error("사용: scan <계획.json> <파일...> | apply <계획.json> | verify <ref> <파일...>");
+    console.error('사용: scan [--literals] <계획.json> <파일...> | apply <계획.json> | verify <ref> <파일...> | rebase ["<파일> <종류>"...]');
     process.exitCode = 2;
   }
 }
