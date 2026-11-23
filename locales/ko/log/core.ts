@@ -12,6 +12,7 @@ const core = {
   ffmpegAlignFailed: ({ why }: { why: string }) => `ffmpeg 맞추기 실패(${why}. 받아 둔 ffmpeg로 뜸`,
   ffmpegOldFoldersRemoved: ({ names }: { names: string }) => `ffmpeg 옛 폴더 정리: ${names}`,
   bgutilOldFoldersRemoved: ({ names }: { names: string }) => `bgutil 옛 폴더 정리: ${names}`,
+  versionReadFailed: ({ file, error }: { file: string; error: string }) => `버전 정보 읽기 실패(${file}): ${error}`,
 };
 
 export { core };

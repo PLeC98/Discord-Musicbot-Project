@@ -15,6 +15,7 @@ import { codeOf, messageOf } from "./error-text.ts";
 import { consoleText } from "./console-text.ts";
 import { snapshotProcesses, sameImage, type Proc } from "./process-snapshot.ts";
 import type { ChildRecord, ProcessIdentity } from "./process-registry.ts";
+import { L } from "./log/text.ts";
 const log = logger.child({ category: "proc" });
 
 const IS_WIN = process.platform === "win32";
@@ -45,7 +46,7 @@ function realKillTree(pid: number, group: boolean): boolean {
     // 128: 그 사이에 끝났다
     const { error, status, stderr } = spawnSync("taskkill", ["/PID", String(pid), "/T", "/F"], { windowsHide: true, stdio: ["ignore", "ignore", "pipe"] });
     if (!error && (status === 0 || status === 128)) return true;
-    log.warn(`pid ${pid} 종료 실패: ${error ? error.message : `taskkill 종료 코드 ${String(status)} · ${consoleText(stderr).trim()}`}`);
+    log.warn(L.proc.leftoverTaskkillFailed({ pid, error: error ? error.message : null, status: String(status), stderr: consoleText(stderr).trim() }));
     return false;
   }
   try {
@@ -54,7 +55,7 @@ function realKillTree(pid: number, group: boolean): boolean {
   } catch (error) {
     // ESRCH: 그 사이에 끝났다
     if (codeOf(error) === "ESRCH") return true;
-    log.warn(`pid ${pid} 종료 실패: ${messageOf(error)}`);
+    log.warn(L.proc.leftoverKillFailed({ pid, error: messageOf(error) }));
     return false;
   }
 }
@@ -65,7 +66,7 @@ const REAL: Boundary = {
       return fs.readdirSync(dir);
     } catch (error) {
       // 없는 것은 첫 기동이다
-      if (codeOf(error) !== "ENOENT") log.warn(`기동 시 자식 프로세스 기록 폴더 읽기 실패(이전 실행의 잔류 프로세스 정리 건너뜀): ${dir} | ${messageOf(error)}`);
+      if (codeOf(error) !== "ENOENT") log.warn(L.proc.leftoverDirReadFailed({ dir, error: messageOf(error) }));
       return [];
     }
   },
@@ -73,7 +74,7 @@ const REAL: Boundary = {
     try {
       return fs.readFileSync(file, "utf8");
     } catch (error) {
-      log.warn(`잔류 자식 프로세스 정리 중 기록 파일 읽기 실패(파일 삭제, 해당 자식 프로세스 확인 건너뜀): ${path.basename(file)} | ${messageOf(error)} (${String(codeOf(error))})`);
+      log.warn(L.proc.leftoverRecordReadFailed({ file: path.basename(file), error: messageOf(error), code: String(codeOf(error)) }));
       return null;
     }
   },
@@ -139,7 +140,7 @@ function readRecords(dir: string, io: Boundary): Found[] {
     const parsed = text === null ? null : parse(text);
     if (parsed && "record" in parsed) found.push({ file, record: parsed.record });
     else {
-      if (parsed) log.warn(`잔류 자식 프로세스 정리 중 기록 파일 파싱 실패(파일 삭제, 해당 자식 프로세스 확인 건너뜀): ${name} | 원인=${parsed.reason}`);
+      if (parsed) log.warn(L.proc.leftoverRecordParseFailed({ name, reason: parsed.reason }));
       io.remove(file);
     }
   }
@@ -175,7 +176,7 @@ function sweepLeftoverChildren(dir: string, boundary: Partial<Boundary> = {}, is
   if (!procs) {
     const old = records.filter(({ record }) => io.now() - record.owner.startedAt > GIVE_UP_MS);
     for (const { file } of old) io.remove(file);
-    log.warn(`잔류 자식 프로세스를 확인하지 못해 기록 ${records.length - old.length}개를 두고 다음 기동에서 다시 확인${old.length ? `(7일 넘은 기록 ${old.length}개는 삭제)` : ""}`);
+    log.warn(L.proc.leftoverUncheckedKept({ kept: records.length - old.length, removed: old.length }));
     return [];
   }
 
@@ -184,12 +185,12 @@ function sweepLeftoverChildren(dir: string, boundary: Partial<Boundary> = {}, is
   for (const found of records) {
     const { owner } = found.record;
     if (owner.pid !== io.self.pid && same(byPid.get(owner.pid), owner)) {
-      log.warn(`기록을 남긴 봇 프로세스(pid ${owner.pid})가 아직 실행 중이라 그 기록의 잔류 자식 프로세스 정리를 건너뜀. 봇이 중복 실행 중인지 확인하세요`);
+      log.warn(L.proc.leftoverOwnerAlive({ pid: owner.pid }));
       continue;
     }
     killed.push(...sweepRecord(found, procs, byPid, io, isWin));
   }
-  if (killed.length) log.warn(`이전 실행의 잔류 자식 프로세스 ${killed.length}개 종료: ${killed.join(", ")}`);
+  if (killed.length) log.warn(L.proc.leftoverKilled({ count: killed.length, pids: killed.join(", ") }));
   return killed;
 }
 

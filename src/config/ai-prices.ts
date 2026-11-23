@@ -16,6 +16,7 @@ import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { PROVIDER_SPECS } from "./schema/ai-providers.ts";
 import type { AiTokens } from "../dashboard/contract/ai-log.ts";
 import type { RefreshResult } from "./ai-model-types.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "config" });
 
 const SOURCE = "https://models.dev/api.json";
@@ -37,7 +38,7 @@ function readBook(): PriceBook | null {
   try {
     return JSON.parse(fs.readFileSync(file, "utf8")) as PriceBook;
   } catch (error) {
-    if (codeOf(error) !== "ENOENT") log.warn(`AI 가격표 읽기 실패(${path.basename(file)}): ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(L.config.aiPricesReadFailed({ file: path.basename(file), error: messageOf(error) }));
     return null;
   }
 }

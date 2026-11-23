@@ -5,6 +5,7 @@
 
 import { logRuleLine } from "../rules/text/index.ts";
 import logger from "../infra/log/logger.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "config" });
 import * as documents from "./documents.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
@@ -45,7 +46,7 @@ function status(): StatusConfig {
   } catch (error) {
     if (codeOf(error) !== "CONFIG_INVALID") throw error;
     const message = messageOf(error);
-    if (message !== reported) log.error(`${message}\n   ${lastGood ? "고칠 때까지 이전 정상 설정으로 동작" : "고칠 때까지 활동 문구를 걸지 않음. 운영자 패널의 상태 문구 탭에서 고치세요"}`);
+    if (message !== reported) log.error(L.config.statusInvalid({ error: message, kept: Boolean(lastGood) }));
     reported = message;
     return lastGood ?? EMPTY;
   }

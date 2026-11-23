@@ -9,6 +9,7 @@ import { settleChild } from "./process-priority.ts";
 import { repeatingFailure } from "./repeating-failure.ts";
 import { killTrees as killTreesOf } from "./kill-tree.ts";
 import type { Job } from "./process-job.ts";
+import { L } from "./log/text.ts";
 const log = logger.child({ category: "proc" });
 
 /**
@@ -41,7 +42,7 @@ type Record = { owner: Identity; children: Array<Identity & { label: string; gro
 const active = new Map<number, Entry>();
 let hooksInstalled = false;
 let recordFile: string | null = null;
-const saveFailures = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "자식 프로세스 레지스트리 기록 파일 쓰기");
+const saveFailures = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.proc.registryFileWrite());
 
 /** 실행 파일 이름(경로, .exe를 뗀 소문자) */
 const imageOf = (file: string | undefined) =>
@@ -99,7 +100,7 @@ function install() {
   hooksInstalled = true;
   process.on("exit", () => {
     const killed = killAll();
-    if (killed.length) log.warn(`종료 처리를 거치지 않고 나가며 외부 프로세스 ${killed.length}개 정리: ${killed.map(({ label, pid }) => `${label}#${pid}`).join(", ")}`);
+    if (killed.length) log.warn(L.proc.exitCleanupKilled({ count: killed.length, children: killed.map(({ label, pid }) => `${label}#${pid}`).join(", ") }));
     // 다 내렸으면 기록을 삭제한다. 내리지 못한 것이 있으면 그것만 남은 파일을 두어 다음 기동이 다시 본다
     if (recordFile && active.size === 0) fs.rmSync(recordFile, { force: true });
   });
@@ -159,7 +160,7 @@ function killTrees(entries: Entry[]): { killed: Entry[]; failed: Entry[] } {
   const names = (pids: number[]) => pids.map((pid) => `${byPid.get(pid)?.label ?? "?"}#${pid}`).join(", ");
   const failedPids = killTreesOf(live, ({ pids, error, status, stderr }) => {
     const why = error ? messageOf(error) : `taskkill 종료 코드 ${String(status)} · ${consoleText(stderr ?? Buffer.alloc(0)).trim()}`;
-    log.warn(`${names(pids)} 종료 실패: ${why}`);
+    log.warn(L.proc.childKillFailed({ names: names(pids), why }));
   });
   const failed = live.filter((entry) => failedPids.has(entry.pid));
   return { killed: live.filter((entry) => !failedPids.has(entry.pid)), failed };
@@ -194,7 +195,7 @@ function killAll(): Array<{ label: string; pid: number }> {
     result = killTrees(entries);
   } catch (error) {
     // 종료 경로에서는 실패해도 더 할 수 있는 일이 없다. 기록은 그대로 두어 다음 기동이 다시 본다
-    log.warn(`자식 프로세스 종료 실패: ${messageOf(error)}`);
+    log.warn(L.proc.childStopFailed({ error: messageOf(error) }));
     return [];
   }
   // 내리지 못한 것만 기록에 남긴다

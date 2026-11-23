@@ -10,6 +10,7 @@
 import type { DiscordGatewayAdapterCreator } from "@discordjs/voice";
 import logger from "./log/logger.ts";
 import { isShuttingDown } from "./shutdown-state.ts";
+import { L } from "./log/text.ts";
 const log = logger.child({ category: "voice" });
 
 // 게이트웨이로 보내는 것. 여기서 보는 필드만
@@ -60,10 +61,10 @@ function holdingAdapterCreator(creator: DiscordGatewayAdapterCreator, { holdMs =
       const { payload, timer, rewritten } = pending;
       clearTimeout(timer);
       pending = null;
-      if (isShuttingDown()) return void log.debug(`음성 채널 ${payload.d.channel_id} 참가 요청을 버림(종료 중)`);
+      if (isShuttingDown()) return void log.debug(L.voice.joinDropped({ channel: payload.d.channel_id }));
       onSend?.(payload.d.channel_id, rewritten);
       // 붙잡는 동안 라이브러리에는 보냈다고 반환했다. 못 보낸 것은 여기서만 안다
-      if (!adapter.sendPayload(payload)) log.warn(`음성 채널 ${payload.d.channel_id} 참가 요청 전송 실패(샤드 미준비)`);
+      if (!adapter.sendPayload(payload)) log.warn(L.voice.joinSendFailed({ channel: payload.d.channel_id }));
     };
 
     return {
@@ -74,7 +75,7 @@ function holdingAdapterCreator(creator: DiscordGatewayAdapterCreator, { holdMs =
           return adapter.sendPayload(payload);
         }
         if (isShuttingDown()) {
-          log.debug(`음성 채널 ${payload.d.channel_id} 참가 요청을 버림(종료 중)`);
+          log.debug(L.voice.joinDropped({ channel: payload.d.channel_id }));
           return false;
         }
         // 새 참가 요청이 옛 것을 대신한다

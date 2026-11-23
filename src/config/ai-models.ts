@@ -13,6 +13,7 @@ import { httpFor } from "../infra/http.ts";
 import logger from "../infra/log/logger.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import type { ModelField, ModelGroup, ModelSummary, RefreshResult, ShowIf } from "./ai-model-types.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "config" });
 
 const RAW = "https://raw.githubusercontent.com/PocketRisu/pocketrisu-model-registry/main";
@@ -74,7 +75,7 @@ function readSnapshot(): Snapshot | null {
   try {
     return JSON.parse(fs.readFileSync(file, "utf8")) as Snapshot;
   } catch (error) {
-    if (codeOf(error) !== "ENOENT") log.warn(`AI 모델 정보 읽기 실패(${path.basename(file)}): ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(L.config.aiModelInfoReadFailed({ file: path.basename(file), error: messageOf(error) }));
     return null;
   }
 }
@@ -192,7 +193,7 @@ function touchingOurs(snapshot: Snapshot): string[] {
 function warnTouchingOurs(snapshot: Snapshot) {
   const touched = touchingOurs(snapshot);
   if (!touched.length) return;
-  log.warn(`AI 모델 정보가 모델, 프롬프트 칸을 바꾸려 해 그 값은 쓰지 않음(${touched.length}곳): ${touched.slice(0, 5).join(", ")}${touched.length > 5 ? " 등" : ""}`);
+  log.warn(L.config.aiModelInfoTouchingOurs({ count: touched.length, items: touched.slice(0, 5).join(", "), more: touched.length > 5 }));
 }
 
 const github = httpFor("github");
@@ -252,7 +253,7 @@ async function refresh({ registries, force = false, timeoutMs = 30000, fetchImpl
   if (catalog.schemaVersion !== CATALOG_SCHEMA) throw new Error(`지원하지 않는 레지스트리 카탈로그 형식: ${String(catalog.schemaVersion)}(${CATALOG_SCHEMA}만 지원)`);
   if (catalog.hash !== index.hash) throw new Error("레지스트리 인덱스와 카탈로그의 해시가 다름(원격에서 갱신 중, 다음에 다시 불러옴)");
   const { snapshot: got, skipped } = pick(catalog, registries);
-  if (skipped.length) log.warn(`AI 모델 정보에서 형식이 맞지 않는 프로필 ${skipped.length}개를 빼고 저장: ${skipped.slice(0, 5).join(", ")}${skipped.length > 5 ? " 등" : ""}`);
+  if (skipped.length) log.warn(L.config.aiModelInfoProfilesSkipped({ count: skipped.length, items: skipped.slice(0, 5).join(", "), more: skipped.length > 5 }));
   warnTouchingOurs(got);
   const lost = lostShape(registries, held, got);
   if (lost.length) throw new Error(`${lost.join(", ")}의 모델 필드가 통째로 비어 있음. 원격 형식이 바뀐 것으로 보여 쓰지 않음`);

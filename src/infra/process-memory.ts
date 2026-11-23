@@ -7,6 +7,7 @@ import logger from "./log/logger.ts";
 import { codeOf, messageOf } from "./error-text.ts";
 import { consoleText } from "./console-text.ts";
 import { repeatingFailure } from "./repeating-failure.ts";
+import { L } from "./log/text.ts";
 const log = logger.child({ category: "proc" });
 
 const IS_WIN = process.platform === "win32";
@@ -14,7 +15,7 @@ const IS_LINUX = process.platform === "linux";
 // 부하가 큰 시스템에서는 tasklist가 몇 초씩 걸린다. 구간마다 하나만 돌므로 넉넉히
 const TIMEOUT_MS = 30_000;
 
-const failures = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "자식 프로세스 메모리 읽기");
+const failures = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.proc.childMemoryRead());
 
 // 출력. 실패하면 원인. done: 실패가 아닌 종료 코드(ps는 고른 pid가 다 끝났으면 1로 끝난다)
 function run(file: string, args: string[], done: number[] = []): Promise<{ out: string } | { failed: string }> {

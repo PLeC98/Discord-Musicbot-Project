@@ -5,6 +5,19 @@ const config = {
   logLanguageIgnored: ({ value, malformed, language }: { value: string; malformed: boolean; language: string }) => `LOG_LANGUAGE 무시(${value}): ${malformed ? "언어 태그 형식이 아님" : "그 언어의 로그 문구가 없음"}. 로그 언어: ${language}`,
   tunableInvalid: ({ problem }: { problem: string }) => `운영 설정값 ${problem}. 해당 값은 기본값으로 적용. 운영자 패널에서 수정하세요`,
   tunablesApplyFailed: ({ error }: { error: string }) => `운영 설정값을 저장했지만 적용하지 못한 곳이 있음: ${error}`,
+  aiModelInfoLoadFailed: ({ error }: { error: string }) => `AI 모델 정보 불러오기 실패(PocketRisu 레지스트리): ${error}. 기존 정보를 씀`,
+  aiPricesLoadFailed: ({ error }: { error: string }) => `AI 가격표 불러오기 실패(models.dev): ${error}. 기존 가격표로 비용 계산`,
+  aiModelInfoReadFailed: ({ file, error }: { file: string; error: string }) => `AI 모델 정보 읽기 실패(${file}): ${error}`,
+  aiPricesReadFailed: ({ file, error }: { file: string; error: string }) => `AI 가격표 읽기 실패(${file}): ${error}`,
+  aiAssistSettings: ({ lines }: { lines: string }) => `AI 보조 설정: ${lines}`,
+  /** AI 모델 정보가 우리가 정하는 칸(모델, 프롬프트)을 바꾸려 했다. items: 앞의 몇 개, more: 더 있다 */
+  aiModelInfoTouchingOurs: ({ count, items, more }: { count: number; items: string; more: boolean }) => `AI 모델 정보가 모델, 프롬프트 칸을 바꾸려 해 그 값은 쓰지 않음(${count}곳): ${items}${more ? " 등" : ""}`,
+  /** AI 모델 정보에서 형식이 맞지 않는 프로필을 뺐다. items: 앞의 몇 개, more: 더 있다 */
+  aiModelInfoProfilesSkipped: ({ count, items, more }: { count: number; items: string; more: boolean }) => `AI 모델 정보에서 형식이 맞지 않는 프로필 ${count}개를 빼고 저장: ${items}${more ? " 등" : ""}`,
+  /** 자동재생 장르 설정이 잘못됐다. kept: 이전 정상 설정으로 동작한다(아니면 장르가 없다) */
+  genresInvalid: ({ error, kept }: { error: string; kept: boolean }) => `${error}\n   ${kept ? "고칠 때까지 이전 정상 설정으로 동작" : "고칠 때까지 자동재생 장르가 없음. 운영자 패널의 자동재생 탭에서 고치세요"}`,
+  /** 활동 문구 설정이 잘못됐다. kept: 이전 정상 설정으로 동작한다(아니면 활동 문구를 걸지 않는다) */
+  statusInvalid: ({ error, kept }: { error: string; kept: boolean }) => `${error}\n   ${kept ? "고칠 때까지 이전 정상 설정으로 동작" : "고칠 때까지 활동 문구를 걸지 않음. 운영자 패널의 상태 문구 탭에서 고치세요"}`,
 };
 
 export { config };

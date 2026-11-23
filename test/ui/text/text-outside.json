@@ -163,18 +163,12 @@
   "src/autoplay/sources/voca.ts": {
     "log": 12
   },
-  "src/config/ai-model-info.ts": {
-    "log": 4
-  },
   "src/config/ai-models.ts": {
-    "log": 13,
-    "outside": 2
+    "outside": 2,
+    "log": 6
   },
   "src/config/ai-prices.ts": {
-    "log": 3
-  },
-  "src/config/ai.ts": {
-    "log": 1
+    "log": 2
   },
   "src/config/documents.ts": {
     "log": 2
@@ -183,14 +177,14 @@
     "outside": 2
   },
   "src/config/genres.ts": {
-    "log": 5,
+    "log": 3,
     "outside": 4
   },
   "src/config/index.ts": {
     "outside": 27
   },
   "src/config/status.ts": {
-    "log": 3
+    "log": 1
   },
   "src/dashboard/ai-log-stream.ts": {
     "log": 3,
@@ -477,9 +471,6 @@
   "src/infra/app-id.ts": {
     "log": 1
   },
-  "src/infra/console-text.ts": {
-    "log": 2
-  },
   "src/infra/cpu-affinity.ts": {
     "log": 1
   },
@@ -491,16 +482,14 @@
     "outside": 6
   },
   "src/infra/leftover-children.ts": {
-    "log": 15,
     "outside": 5
   },
   "src/infra/log/file.ts": {
     "outside": 6,
-    "log": 2
+    "log": 1
   },
   "src/infra/log/sink.ts": {
-    "outside": 5,
-    "log": 1
+    "outside": 5
   },
   "src/infra/log/title.ts": {
     "outside": 1
@@ -509,35 +498,26 @@
     "log": 10
   },
   "src/infra/process-memory.ts": {
-    "log": 1,
     "outside": 3
   },
   "src/infra/process-priority.ts": {
     "outside": 12
   },
   "src/infra/process-registry.ts": {
-    "log": 7,
-    "outside": 5
+    "outside": 5,
+    "log": 2
   },
   "src/infra/process-snapshot.ts": {
-    "outside": 2,
-    "log": 5
+    "outside": 2
   },
   "src/infra/safe-url.ts": {
     "log": 24
   },
   "src/infra/system-upload.ts": {
-    "log": 5,
     "outside": 4
   },
   "src/infra/tool-run.ts": {
     "log": 7
-  },
-  "src/infra/version.ts": {
-    "log": 1
-  },
-  "src/infra/voice-adapter.ts": {
-    "log": 6
   },
   "src/infra/zip.ts": {
     "log": 23,

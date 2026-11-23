@@ -2,6 +2,7 @@
 
 import { logRuleLine, logSourceLabel } from "../rules/text/index.ts";
 import logger from "../infra/log/logger.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "config" });
 // 설정 검증과 실제 실행이 같은 표를 봐야 한다. 어긋나면 저장은 되는데 재생이 안 된다
 import * as sources from "./schema/genre-sources.ts";
@@ -86,7 +87,7 @@ function genres(): GenresConfig {
   } catch (error) {
     if (codeOf(error) !== "CONFIG_INVALID") throw error;
     const message = messageOf(error);
-    if (message !== reported) log.error(`${message}\n   ${lastGood ? "고칠 때까지 이전 정상 설정으로 동작" : "고칠 때까지 자동재생 장르가 없음. 운영자 패널의 자동재생 탭에서 고치세요"}`);
+    if (message !== reported) log.error(L.config.genresInvalid({ error: message, kept: Boolean(lastGood) }));
     reported = message;
     return lastGood ?? EMPTY;
   }

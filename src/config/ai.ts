@@ -6,6 +6,7 @@ const log = logger.child({ category: "config" });
 import * as documents from "./documents.ts";
 import { aiProblems, aiSwitchedOff, aiWarnings } from "./schema/ai.ts";
 import { promptProblems, type PromptSection } from "./schema/ai-prompt.ts";
+import { L } from "../infra/log/text.ts";
 
 const validateAi = aiProblems;
 
@@ -32,7 +33,7 @@ function ai(): ConfigData {
   // 막지 않는 경고(파싱에 실패한 추가 파라미터 줄)도 같은 줄에 알린다. 꺼 두었으면 요청이 없어 알리지 않는다
   const lines = [...problems, ...(aiSwitchedOff(data) ? [] : aiWarnings(data).map(logRuleLine))];
   const key = lines.join("|");
-  if (lines.length && key !== aiWarned) log.warn(`AI 보조 설정: ${lines.join(" / ")}`);
+  if (lines.length && key !== aiWarned) log.warn(L.config.aiAssistSettings({ lines: lines.join(" / ") }));
   aiWarned = key;
 
   // 하나라도 어긋나면 켜지 않는다. 반만 맞는 설정으로 부르면 매번 실패하고 로그만 쌓인다

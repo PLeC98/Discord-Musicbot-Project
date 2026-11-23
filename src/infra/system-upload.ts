@@ -14,6 +14,7 @@ import { messageOf } from "./error-text.ts";
 import { repeatingFailure } from "./repeating-failure.ts";
 import { isShuttingDown } from "./shutdown-state.ts";
 import * as processRegistry from "./process-registry.ts";
+import { L } from "./log/text.ts";
 const log = logger.child({ category: "proc" });
 
 type Sent = Map<string, number>;
@@ -23,7 +24,7 @@ const ANSWER_TIMEOUT_MS = 10_000;
 // 셸이 죽거나 응답하지 않으면 이만큼 기다렸다 다시 띄운다(띄우는 비용이 크다). 다시 응답하면 처음 간격부터
 const RESTART_DELAYS_MS = [60_000, 300_000, 1_800_000];
 
-const failures = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "시스템 업로드 읽기");
+const failures = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.proc.systemUploadRead());
 
 /** 두 누계 사이에 보낸 양. 두 번 다 있는 인터페이스만 센다(새로 생기거나 사라진 것은 뺀다). 누계가 줄었으면(다시 만들어졌다) 그 인터페이스는 뺀다 */
 function sentBetween(from: Sent, to: Sent) {
@@ -108,7 +109,7 @@ function startShell(): Shell {
     if (idle && !isShuttingDown()) {
       const delay = RESTART_DELAYS_MS[Math.min(restarts++, RESTART_DELAYS_MS.length - 1)];
       restartAt = Date.now() + delay;
-      log.warn(`시스템 업로드 측정 PowerShell 헬퍼 유휴 중 종료(대기 중인 쿼리 없음): 종료=${exit ?? why} | 실행 시간=${Math.round((Date.now() - startedAt) / 1000)}초 | 재실행 대기=${delay / 1000}초 | stderr=${self.stderr.trim()}`);
+      log.warn(L.proc.uploadHelperIdleExit({ exit: exit ?? why, seconds: Math.round((Date.now() - startedAt) / 1000), retrySeconds: delay / 1000, stderr: self.stderr.trim() }));
     }
   };
   child.on("error", (error) => gone(messageOf(error)));

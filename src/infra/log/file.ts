@@ -126,7 +126,7 @@ function createFileDestination({ file, maxBytes, keep, notice = (line: string) =
   let lastTry = 0;
   let lost = 0;
   // 처음 한 번 알리고, 같은 원인은 세기만 하고, 풀리면 한 줄(표준 오류로)
-  const failures = repeatingFailure({ error: (line) => notice(`[logFile] ${renderLogText(line)}\n`), info: (line) => notice(`[logFile] ${renderLogText(line)}\n`) }, `파일 로그(${file})`);
+  const failures = repeatingFailure({ error: (line) => notice(`[logFile] ${renderLogText(line)}\n`), info: (line) => notice(`[logFile] ${renderLogText(line)}\n`) }, L.log.fileLog({ file }));
 
   // 멈춘다. 그동안의 줄은 버리고 retryMs마다 다시 열어 본다. 여기서 logger를 부르면 이 destination으로 되돌아온다.
   function fail(what: string, err: unknown) {

@@ -11,6 +11,7 @@ import { LEVELS, KEPT_LINES, levelNameOf, wireFields, type LevelName, type LogGa
 import { repeatingFailure } from "../repeating-failure.ts";
 import { renderLogText } from "./log-text.ts";
 import { messageOf } from "../error-text.ts";
+import { L } from "./text.ts";
 
 // 터미널 출력은 늘 가로채기 전의 console로 한다. 가로챈 console로 찍으면 다시 여기로 들어온다.
 const REAL = { log: console.log.bind(console), error: console.error.bind(console) };
@@ -143,7 +144,7 @@ class LogSink {
   constructor({ maxLines = KEPT_LINES, intercept = true, terminal, notice = (line: string) => process.stderr.write(line) }: { maxLines?: number; intercept?: boolean; terminal?: (rec: LogRecord) => void; notice?: (line: string) => unknown } = {}) {
     this.maxLines = maxLines;
     this.notice = notice;
-    this._destFailures = repeatingFailure({ error: (line) => notice(`[log] ${renderLogText(line)}\n`), info: (line) => notice(`[log] ${renderLogText(line)}\n`) }, "로그 출력 대상 기록");
+    this._destFailures = repeatingFailure({ error: (line) => notice(`[log] ${renderLogText(line)}\n`), info: (line) => notice(`[log] ${renderLogText(line)}\n`) }, L.log.destinationWrite());
     this.terminal = terminal ?? ((rec) => this._renderTerminal(rec));
     // 터미널에만 적용하는 하한. 파일, 대시보드는 레코드가 오는 대로 다 받는다.
     // 조사 중 debug를 켜도 터미널은 조용하게 둘 수 있어야 한다.
