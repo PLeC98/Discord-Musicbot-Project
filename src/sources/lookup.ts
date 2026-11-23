@@ -12,6 +12,7 @@ import * as pinnedSources from "../store/pinned-sources.ts";
 import type { Pin } from "../store/pinned-sources.ts";
 import { codedError, errorKind, messageOf, codeOf } from "../rules/error-kind.ts";
 import { failureReason } from "../rules/failure-reason.ts";
+import { renderLogText } from "../infra/log/log-text.ts";
 import type { CacheHit } from "../store/track-lookup.ts";
 import { inputKind, type InputKind } from "../rules/input-kind.ts";
 import { queryNamesTrack } from "../rules/query-cover.ts";
@@ -157,7 +158,7 @@ function lookupFailed(error: unknown, context: string | null): LookupResult {
     return { success: false, code };
   }
   // 한 줄에는 무엇이 막았는지만. 원문(yt-dlp의 WARNING 줄 포함)은 조사할 때 본다
-  log.error({ sub: context || undefined, kind: errorKind(error) }, `곡 찾기 실패: ${failureReason(error, youtubeSource.cookiesConfigured())}`);
+  log.error({ sub: context || undefined, kind: errorKind(error) }, `곡 찾기 실패: ${renderLogText(failureReason(error, youtubeSource.cookiesConfigured()))}`);
   log.debug({ sub: context || undefined }, `곡 찾기 실패 원문: ${youtubeSource.briefError(error)}`);
   return { success: false, code: "lookup-failed", error };
 }

@@ -2,7 +2,8 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { failureReason } from "../../src/rules/failure-reason.ts";
+import { failureReason as reasonText } from "../../src/rules/failure-reason.ts";
+import { isLogText, renderLogText } from "../../src/infra/log/log-text.ts";
 import { errorMessage } from "../../src/ui/error-messages.ts";
 import { ytDlpError } from "../helpers/errors.ts";
 import { codedError } from "../../src/rules/error-kind.ts";
@@ -16,6 +17,9 @@ const COOKIE_WARN = "WARNING: [youtube] The provided YouTube account cookies are
 
 // yt-dlp를 실행하는 곳이 붙이는 모양(message = stderr, code = 이름)
 const ytdlpError = ytDlpError;
+
+// 실패 이유는 로그 문구다. 글로 비교하려고 그린다
+const failureReason = (error: unknown, cookiesConfigured: boolean) => renderLogText(reasonText(error, cookiesConfigured));
 
 test("연령 제한은 쿠키가 없어서인지, 쿠키가 무효인지, 쿠키로도 안 되는지 구분한다. 영상 id를 붙인다", () => {
   assert.equal(failureReason(ytdlpError(AGE), false), "연령 제한, 쿠키 없음 (hc0ZDaAZQT0)");
@@ -65,4 +69,11 @@ test("원인의 첫 줄이 오류와 같으면 다시 붙이지 않는다. 이�
   assert.equal(failureReason(same, false), line);
   const gone = codedError("unavailable-playlist", "ERROR: [soundcloud:set] discover/sets/x: HTTP Error 404", { cause: new Error("ERROR: [soundcloud:set] discover/sets/x: HTTP Error 404") });
   assert.equal(failureReason(gone, false), "없거나 비공개인 재생목록");
+});
+
+test("실패 이유는 로그 문구 reason.line이고, 종류 이름과 운영자 안내는 값 안의 서술자다", () => {
+  const text = reasonText(Object.assign(new Error("Sign in to confirm you're not a bot"), { code: "yt-bot-check" }), false);
+  assert.equal(text.event, "reason.line");
+  const { why, hint } = text.args;
+  assert.deepEqual([isLogText(why) && why.event, isLogText(hint) && hint.event], ["reason.ytBotCheck", "reason.hintBotCheck"]);
 });

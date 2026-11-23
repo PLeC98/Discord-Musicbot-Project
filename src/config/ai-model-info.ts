@@ -7,7 +7,7 @@ import * as prices from "./ai-prices.ts";
 import * as aiConfig from "./ai.ts";
 import { PROVIDER_SPECS } from "./schema/ai-providers.ts";
 import logger from "../infra/log/logger.ts";
-import { messageOf } from "../rules/error-kind.ts";
+import { errorText } from "../rules/text/index.ts";
 import type { RefreshResult } from "./ai-model-types.ts";
 import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "config" });
@@ -36,11 +36,11 @@ async function both(force: boolean): Promise<RefreshResult> {
   try {
     got = await models.refresh({ registries: registries(), force });
   } catch (error) {
-    log.warn(L.config.aiModelInfoLoadFailed({ error: messageOf(error) }));
+    log.warn(L.config.aiModelInfoLoadFailed({ error: errorText(error) }));
     throw error;
   }
   const priced = await prices.refresh().catch((error: unknown) => {
-    log.warn(L.config.aiPricesLoadFailed({ error: messageOf(error) }));
+    log.warn(L.config.aiPricesLoadFailed({ error: errorText(error) }));
     return null;
   });
   return { ...got, changed: got.changed || !!priced?.changed };

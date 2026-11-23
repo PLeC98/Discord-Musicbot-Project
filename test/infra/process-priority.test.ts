@@ -3,7 +3,8 @@
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import os from "node:os";
-import { raiseSelf, childPriority, settleChild, describe } from "../../src/infra/process-priority.ts";
+import { raiseSelf, childPriority, settleChild, describe as describeLines } from "../../src/infra/process-priority.ts";
+import { isLogText, renderLogText } from "../../src/infra/log/log-text.ts";
 
 const { PRIORITY_ABOVE_NORMAL, PRIORITY_BELOW_NORMAL, PRIORITY_HIGH, PRIORITY_NORMAL } = os.constants.priority;
 
@@ -25,6 +26,9 @@ function fakeOs(start: number, { obey = true, fail = null as object | null } = {
 afterEach(() => {
   raiseSelf(process.platform, fakeOs(PRIORITY_NORMAL, { obey: false }));
 });
+
+// 기동 로그의 줄은 로그 문구다. 글로 비교하려고 그린다
+const describe = (...args: Parameters<typeof describeLines>) => describeLines(...args).map(({ level, text }) => ({ level, text: renderLogText(text) }));
 
 test("Windows에서 보통으로 뜬 봇을 높은 우선순위로 올린다", () => {
   const sys = fakeOs(PRIORITY_NORMAL);
@@ -123,4 +127,11 @@ test("자식의 우선순위는 바꿀 때만 그 pid로 setPriority를 부른�
   const untouched = fakeOs(PRIORITY_ABOVE_NORMAL);
   settleChild(4323, true, untouched);
   assert.deepEqual(untouched.calls, []);
+});
+
+test("기동 로그의 줄은 로그 문구다(우선순위 이름은 값 안의 서술자)", () => {
+  const [line] = describeLines({ platform: "win32", before: PRIORITY_NORMAL, after: PRIORITY_ABOVE_NORMAL, raised: true });
+  assert.equal(line?.text.event, "proc.priorityNow");
+  const now = line?.text.args.now;
+  assert.equal(isLogText(now) && now.event, "proc.priorityAboveNormal");
 });

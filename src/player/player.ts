@@ -30,6 +30,7 @@ import * as autoplayRoute from "../autoplay/route.ts";
 import { errorKind, messageOf, codedError, codeOf } from "../rules/error-kind.ts";
 import { failureScope, servedDirectly, type FailureScope } from "./failure-scope.ts";
 import { failureReason } from "../rules/failure-reason.ts";
+import { renderLogText } from "../infra/log/log-text.ts";
 import * as streamUrl from "../sources/stream-url.ts";
 import { SponsorSkipper } from "./sponsor-skipper.ts";
 import * as embeddedArt from "../sources/embedded-art.ts";
@@ -685,7 +686,7 @@ class Player {
       return { ok: false, code: "live-upcoming" } satisfies PlayResult;
     }
     // 한 줄에는 무엇이 막았는지만. 원문(yt-dlp의 WARNING 줄 포함)은 조사할 때 본다
-    elog.error({ sub: "Player.play", kind: errorKind(error) }, `재생 실패: ${this._trackLabel()} | ${failureReason(error, youtubeSource.cookiesConfigured())}`);
+    elog.error({ sub: "Player.play", kind: errorKind(error) }, `재생 실패: ${this._trackLabel()} | ${renderLogText(failureReason(error, youtubeSource.cookiesConfigured()))}`);
     elog.debug({ sub: "Player.play" }, `재생 실패 원문: ${youtubeSource.briefError(error)}`);
     await this.handleError(error, { tell: true, at, continued });
     if (this.lifecycle.parked) return { ok: false, code: "parked", error } satisfies PlayResult;
@@ -1378,7 +1379,7 @@ class Player {
       return true;
     }
     if (reopened.code === "live-ended") log.info(`라이브 방송이 종료되어 다음 곡으로 넘김: ${label} | 재확인 결과 라이브 아님`);
-    else if (reopened.error) log.warn({ kind: errorKind(reopened.error) }, `라이브 다시 열기 실패(다음 곡으로 넘김): ${label} | ${failureReason(reopened.error, youtubeSource.cookiesConfigured())}`);
+    else if (reopened.error) log.warn({ kind: errorKind(reopened.error) }, `라이브 다시 열기 실패(다음 곡으로 넘김): ${label} | ${renderLogText(failureReason(reopened.error, youtubeSource.cookiesConfigured()))}`);
     else log.warn(`라이브 다시 열기 실패(다음 곡으로 넘김): ${label} | ${reopened.code}`);
     return false;
   }
@@ -1756,7 +1757,7 @@ class Player {
     this.persistence.startPeriodicSave();
     bestEffort(log, this.persistence.save("parked"), "세션 저장"); // 쓰기는 동기라 여기서 끝난다
     this._showTrackInVoiceStatus();
-    log.warn(`그 곡에서 일시정지(재생 버튼으로 재시도 가능): ${this._trackLabel()} | ${why.kind}${why.error ? ` | ${failureReason(why.error, youtubeSource.cookiesConfigured())}` : ""}`);
+    log.warn(`그 곡에서 일시정지(재생 버튼으로 재시도 가능): ${this._trackLabel()} | ${why.kind}${why.error ? ` | ${renderLogText(failureReason(why.error, youtubeSource.cookiesConfigured()))}` : ""}`);
     // 기다리지 않는다. 기다리는 사이 재생 버튼으로 시작한 새 재생을 이 실패한 재생의 끝 정리가 덮는다
     if (!this.quietFailures) playerEvents.notice(this, "parked", why).catch(noticeFailed(this, `parked(${why.kind})`));
   }

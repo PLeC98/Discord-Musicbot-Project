@@ -5,13 +5,15 @@
 
 import os from "node:os";
 import { codeOf, messageOf } from "./error-text.ts";
+import { L } from "./log/text.ts";
+import type { LogText } from "./log/log-text.ts";
 
 const { PRIORITY_ABOVE_NORMAL, PRIORITY_BELOW_NORMAL, PRIORITY_NORMAL } = os.constants.priority;
 
 type Os = Pick<typeof os, "getPriority" | "setPriority">;
 /** before, after: 올리기 전과 뒤의 os.getPriority 값(값이 작을수록 우선순위가 높다). raised: 봇이 한 단계 이상 높은 우선순위로 도는가 */
 type Raise = { platform: NodeJS.Platform; before: number; after: number; raised: boolean; error?: string };
-type Line = { level: "info" | "warn"; text: string };
+type Line = { level: "info" | "warn"; text: LogText };
 
 let state: Raise = { platform: process.platform, before: PRIORITY_NORMAL, after: PRIORITY_NORMAL, raised: false };
 
@@ -53,29 +55,29 @@ function settleChild(pid: number, low: boolean, sys: Os = os) {
   if (priority !== null) sys.setPriority(pid, priority);
 }
 
-// os.getPriority가 Windows에서 주는 값(우선순위 클래스마다 하나). 이름은 작업 관리자에 나오는 그대로다
-const WINDOWS_NAMES = new Map([
-  [-20, "실시간"],
-  [-14, "높음"],
-  [-7, "높은 우선순위"],
-  [0, "보통"],
-  [10, "낮은 우선순위"],
-  [19, "낮음"],
+// os.getPriority가 Windows에서 주는 값(우선순위 클래스마다 하나). 이름은 작업 관리자에 나오는 그대로다(로그 문구)
+const WINDOWS_NAMES = new Map<number, () => LogText>([
+  [-20, L.proc.priorityRealtime],
+  [-14, L.proc.priorityHigh],
+  [-7, L.proc.priorityAboveNormal],
+  [0, L.proc.priorityNormal],
+  [10, L.proc.priorityBelowNormal],
+  [19, L.proc.priorityLow],
 ]);
-const nameOf = (value: number, platform: NodeJS.Platform) => (platform === "win32" ? (WINDOWS_NAMES.get(value) ?? String(value)) : `nice ${value}`);
+const nameOf = (value: number, platform: NodeJS.Platform): LogText | string => (platform === "win32" ? (WINDOWS_NAMES.get(value)?.() ?? String(value)) : `nice ${value}`);
 
 /** 기동 로그에 남길 줄. 봇이 지금 어떤 우선순위로 도는지를 적는다 */
 function describe({ platform, before, after, raised, error }: Raise): Line[] {
   const now = nameOf(after, platform);
-  const why = error ? `, ${error}` : "";
+  const why = error ?? "";
   if (!raised) {
     // 유닉스는 권한 없이 올릴 수 없는 것이 기본이라 알리기만 한다
-    if (platform !== "win32") return [{ level: "info", text: `프로세스 우선순위: ${now}(${nameOf(PRIORITY_ABOVE_NORMAL, platform)} 설정 불가${why})` }];
-    return [{ level: "warn", text: `프로세스 우선순위 설정 실패(현재 "${now}"${why}). 다른 프로그램이 CPU를 많이 쓰면 재생이 끊길 수 있음` }];
+    if (platform !== "win32") return [{ level: "info", text: L.proc.priorityNotRaised({ now, target: nameOf(PRIORITY_ABOVE_NORMAL, platform), why }) }];
+    return [{ level: "warn", text: L.proc.priorityRaiseFailed({ now, why }) }];
   }
-  const lines: Line[] = [{ level: "info", text: `프로세스 우선순위: ${now}` }];
+  const lines: Line[] = [{ level: "info", text: L.proc.priorityNow({ now }) }];
   // 작업 스케줄러는 작업의 CPU, I/O, 메모리 우선순위를 모두 낮춰 띄운다. 봇이 올릴 수 있는 것은 CPU 우선순위뿐이다
-  if (platform === "win32" && before > PRIORITY_NORMAL) lines.push({ level: "warn", text: "낮은 우선순위로 실행됨(I/O, 메모리 우선순위는 낮게 남음). 작업 스케줄러라면 작업 XML의 Priority를 4로 변경 필요" });
+  if (platform === "win32" && before > PRIORITY_NORMAL) lines.push({ level: "warn", text: L.proc.priorityStartedLow() });
   return lines;
 }
 

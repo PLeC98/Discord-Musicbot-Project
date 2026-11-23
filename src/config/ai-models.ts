@@ -14,6 +14,7 @@ import logger from "../infra/log/logger.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import type { ModelField, ModelGroup, ModelSummary, RefreshResult, ShowIf } from "./ai-model-types.ts";
 import { L } from "../infra/log/text.ts";
+import { logTextError } from "../infra/log/log-text.ts";
 const log = logger.child({ category: "config" });
 
 const RAW = "https://raw.githubusercontent.com/PocketRisu/pocketrisu-model-registry/main";
@@ -238,25 +239,25 @@ function lostShape(registries: string[], held: Snapshot, got: Snapshot): string[
 async function refresh({ registries, force = false, timeoutMs = 30000, fetchImpl = github.fetch }: { registries: string[]; force?: boolean; timeoutMs?: number; fetchImpl?: typeof fetch }): Promise<RefreshResult> {
   const get = async <T>(at: string): Promise<T> => {
     const res = await fetchImpl(`${RAW}/${at}`, { signal: AbortSignal.timeout(timeoutMs) });
-    if (!res.ok) throw new Error(`레지스트리 ${res.status}: ${at}`);
+    if (!res.ok) throw logTextError(L.config.registryHttpFailed({ status: res.status, at }));
     return (await res.json()) as T;
   };
   const held = load();
   const count = (one: Snapshot) => Object.keys(one.profiles || {}).length;
   const index = await get<RegistryIndex>("index.json");
-  if (typeof index.hash !== "string") throw new Error("레지스트리 인덱스에 해시가 없음");
+  if (typeof index.hash !== "string") throw logTextError(L.config.registryNoHash());
   const sameRegistries = JSON.stringify(held.registries ?? []) === JSON.stringify([...registries].sort());
   if (!force && count(held) && sameRegistries && index.hash === held.hash) return { changed: false, count: count(held), fetchedAt: held.fetchedAt };
 
   // raw.githubusercontent.com은 5분 동안 캐시한다. 해시를 붙여 바뀐 카탈로그를 받고, 인덱스와 해시가 같은 짝만 쓴다
   const catalog = await get<Catalog>(`catalog.json?h=${encodeURIComponent(index.hash)}`);
-  if (catalog.schemaVersion !== CATALOG_SCHEMA) throw new Error(`지원하지 않는 레지스트리 카탈로그 형식: ${String(catalog.schemaVersion)}(${CATALOG_SCHEMA}만 지원)`);
-  if (catalog.hash !== index.hash) throw new Error("레지스트리 인덱스와 카탈로그의 해시가 다름(원격에서 갱신 중, 다음에 다시 불러옴)");
+  if (catalog.schemaVersion !== CATALOG_SCHEMA) throw logTextError(L.config.registryFormatUnsupported({ version: String(catalog.schemaVersion), supported: CATALOG_SCHEMA }));
+  if (catalog.hash !== index.hash) throw logTextError(L.config.registryHashMismatch());
   const { snapshot: got, skipped } = pick(catalog, registries);
   if (skipped.length) log.warn(L.config.aiModelInfoProfilesSkipped({ count: skipped.length, items: skipped.slice(0, 5).join(", "), more: skipped.length > 5 }));
   warnTouchingOurs(got);
   const lost = lostShape(registries, held, got);
-  if (lost.length) throw new Error(`${lost.join(", ")}의 모델 필드가 통째로 비어 있음. 원격 형식이 바뀐 것으로 보여 쓰지 않음`);
+  if (lost.length) throw logTextError(L.config.registryFieldsLost({ registries: lost.join(", ") }));
 
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, JSON.stringify(got, null, 2) + String.fromCharCode(10));

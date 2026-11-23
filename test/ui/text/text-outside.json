@@ -164,8 +164,7 @@
     "log": 12
   },
   "src/config/ai-models.ts": {
-    "outside": 2,
-    "log": 6
+    "outside": 2
   },
   "src/config/ai-prices.ts": {
     "log": 2
@@ -500,9 +499,6 @@
   "src/infra/process-memory.ts": {
     "outside": 3
   },
-  "src/infra/process-priority.ts": {
-    "outside": 12
-  },
   "src/infra/process-registry.ts": {
     "outside": 5,
     "log": 2
@@ -674,16 +670,10 @@
   "src/rules/end-verdict.ts": {
     "outside": 10
   },
-  "src/rules/failure-reason.ts": {
-    "outside": 13
-  },
   "src/rules/hls-playlist.ts": {
     "log": 1
   },
   "src/rules/node-support.ts": {
-    "outside": 3
-  },
-  "src/rules/operator-hints.ts": {
     "outside": 3
   },
   "src/rules/retry-budget.ts": {
