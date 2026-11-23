@@ -94,6 +94,19 @@ test("로그 언어를 고르는 모듈은 다른 프로젝트 모듈, Node 내�
   assert.deepEqual(now.chooseBareImports, []);
 });
 
+test("로그 문구 진입점은 문구 번들 장치와 로그 문구표만 부른다(로그, 설정, Node 내장 모듈, 패키지 없이)", () => {
+  const allowed = (rel: string) => /^src\/infra\/(text-bundle|text-fill|pseudo-text)\.ts$|^src\/infra\/log\/(text|log-text|language)\.ts$|^locales\/[^/]+\/log\//.test(rel);
+  assert.ok(
+    now.logTextReach.some((rel) => rel.startsWith("locales/ko/log/")),
+    "따라가기가 문구표까지 닿는다",
+  );
+  assert.deepEqual(
+    now.logTextReach.filter((rel) => !allowed(rel)),
+    [],
+  );
+  assert.deepEqual(now.logTextBareImports, []);
+});
+
 test(".env를 읽지 않는 진입의 첫 줄은 경로 모듈과 Node 내장 모듈만 더 부른다(node_modules 없이 돈다)", () => {
   assert.deepEqual(now.atStartReach, ["src/infra/log/choose-at-start.ts", "src/infra/log/choose-language.ts", "src/infra/log/language.ts", "src/infra/project-paths.ts"]);
   assert.deepEqual(

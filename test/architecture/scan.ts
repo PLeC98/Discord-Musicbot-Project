@@ -46,8 +46,8 @@ const CHOOSE_LANGUAGE = "src/infra/log/choose-language.ts";
 
 function layerOf(rel: string) {
   // 언어 폴더(locales/<언어>/)는 자신을 부르는 진입점의 층을 따른다
-  const locale = /^locales\/[^/]+\/(bot|rules)\//.exec(rel);
-  if (locale) return locale[1] === "bot" ? "ui" : "rules";
+  const locale = /^locales\/[^/]+\/(bot|rules|log)\//.exec(rel);
+  if (locale) return locale[1] === "bot" ? "ui" : locale[1] === "rules" ? "rules" : "infra";
   if (isRootIndex(rel)) return "app";
   if (isRootConfig(rel)) return "config";
   if (/^src\/(discord|dashboard)\//.test(rel)) return "진입점";
@@ -357,6 +357,9 @@ function scan() {
     chooseBareImports: bareImportsOf(reachOf(CHOOSE_LANGUAGE)),
     atStartReach: reachOf(CHOOSE_AT_START),
     atStartBareImports: bareImportsOf(reachOf(CHOOSE_AT_START)),
+    // 로그 문구 진입점(설정보다 먼저, node_modules 없이도 돈다)
+    logTextReach: reachOf("src/infra/log/text.ts"),
+    logTextBareImports: bareImportsOf(reachOf("src/infra/log/text.ts")),
     // .env를 process.env에 올리는 파일(주석은 뺀다)
     envFileLoad: [...sources, ...scripts].map((f) => f.rel).filter((rel) => /process\.loadEnvFile\b/.test(stripComments(rel))),
     // 실행 중 경로를 파일 위치에서 세는 파일(import.meta.dirname, 주석은 뺀다)

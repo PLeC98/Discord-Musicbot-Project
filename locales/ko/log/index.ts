@@ -1,0 +1,3 @@
+// 한국어 로그 문구 번들 전부(로그 문구 진입점 infra/log/text만 부른다). 네임스페이스는 로그 분류(category)를 따른다
+
+export { config } from "./config.ts";

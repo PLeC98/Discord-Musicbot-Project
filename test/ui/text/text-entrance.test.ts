@@ -33,13 +33,13 @@ function filesUnder(dir: string): string[] {
 // import, export ... from, import()의 경로(타입 import 포함)
 const specifiersOf = (source: string) => [...source.matchAll(/(?:^|\n)\s*(?:import|export)\b[^"';]*?from\s+"([^"]+)"|import\(\s*"([^"]+)"\s*\)/g)].map((m) => m[1] ?? m[2]);
 
-/** 그 파일이 부른 언어 폴더(봇 문구 locales/<언어>/bot, 규칙 문구 locales/<언어>/rules, 화면 문구 locales/<언어>/screen) */
+/** 그 파일이 부른 언어 폴더(봇 문구 locales/<언어>/bot, 규칙 문구 locales/<언어>/rules, 화면 문구 locales/<언어>/screen, 로그 문구 locales/<언어>/log) */
 function languageDirsCalled(file: string): string[] {
   const source = fs.readFileSync(path.join(ROOT, file), "utf8");
   return specifiersOf(source)
     .filter((spec) => spec.startsWith("."))
     .map((spec) => posix(path.join(path.dirname(file), spec)))
-    .filter((target) => LANGUAGE_DIRS.some((tag) => ["bot", "rules", "screen"].some((part) => target.startsWith(`locales/${tag}/${part}/`))))
+    .filter((target) => LANGUAGE_DIRS.some((tag) => ["bot", "rules", "screen", "log"].some((part) => target.startsWith(`locales/${tag}/${part}/`))))
     .map((target) => target.split("/").slice(0, 3).join("/"));
 }
 
@@ -47,6 +47,8 @@ function languageDirsCalled(file: string): string[] {
 function allowed(file: string, dir: string): boolean {
   const [, tag, part] = dir.split("/");
   if (file.startsWith(`${dir}/`)) return true;
+  // 로그 문구는 로그 문구 진입점만 부른다
+  if (part === "log") return file === "src/infra/log/text.ts";
   if (part !== "screen" && ["src/ui/text/index.ts", "src/ui/text/shared.ts", "src/ui/text/contract.ts", "src/rules/text/index.ts"].includes(file)) return true;
   // 화면의 진입점과 이모지 목록의 진입점
   if (part === "screen" && ["dashboard/src/text/index.ts", "dashboard/src/emoji-list/index.ts"].includes(file)) return true;
@@ -129,4 +131,5 @@ test("화면이 닿는 모듈은 규칙 문구의 진입점(rules/text/index)을
   for (const file of filesUnder("dashboard/src")) visit(file);
   assert.ok(seen.has("src/rules/rule-problem.ts"), "따라가기가 규칙 문제 모듈까지 닿는다");
   assert.ok(!seen.has("src/rules/text/index.ts"));
+  assert.ok(!seen.has("src/infra/log/text.ts"), "로그 문구 진입점도 부르지 않는다");
 });
