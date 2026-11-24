@@ -7,6 +7,7 @@
 //                        스트림(SSE)은 끝 이벤트를 쓰고 끝낸 뒤 소켓을 강제로 닫는다(읽지 않는 클라이언트는 끝내도 닫히지 않는다. 그래서 SSE는 Connection: close로 연다).
 //                        스트리밍 응답과 수신 중인 본문은 소켓을 강제로 닫는다. 상태를 바꾸는 요청은 변경 직전의 확인(assertSignedIn)이 401로 멈춘다
 //   스트림 열기 앞(admit)  저장소에서 세션이 살아 있는지 본다. 실시간 로그, AI 로그는 열자마자 놓친 줄을 보내니 연 뒤에 보면 늦다
+//   운영자 전용          운영자 확인(requireOwner)을 통과한 요청은 운영자에서 빠지면 세션은 두고 스트림을 끊고, 변경 직전의 확인이 403 으로 멈춘다
 
 import type { NextFunction, Request, Response } from "express";
 import type { Socket } from "node:net";
@@ -19,6 +20,7 @@ import { repeatingFailure } from "../infra/repeating-failure.ts";
 import { L } from "../infra/log/text.ts";
 import { renderLogText, type LogText } from "../infra/log/log-text.ts";
 import { bug } from "../infra/bug.ts";
+import { isBotOwner } from "../usecases/permissions.ts";
 const log = logger.child({ category: "dashboard" });
 
 /** 알림 없이 끝난 세션을 다시 확인하는 간격 */
@@ -40,16 +42,23 @@ const SAFE = new Set(["GET", "HEAD"]);
 /** 상태 변경 직전의 확인(assertSignedIn)이 던진다. 경로의 catch는 sessionEnded로 먼저 받는다 */
 class SessionEndedError extends Error {
   readonly logText: LogText;
-  constructor() {
-    const text = L.dashboard.sessionEndedError();
+  constructor(text: LogText = L.dashboard.sessionEndedError()) {
     super(renderLogText(text));
     this.name = "SessionEndedError";
     this.logText = text;
   }
 }
 
-/** 묶인 요청. stream: 스트림이면 그 이름(로그), drop: 그 스트림 모듈의 정리 */
-type Entry = { req: Request; res: Response; socket: Socket; sid: string; userId: string; name: string; deadline: number; store: SqliteSessionStore; stream: LogText | null; drop: () => void };
+/** 운영자 전용 요청의 변경 직전 확인: 그사이 운영자에서 빠졌다. 세션은 살아 있어 403(must-owner)으로 답한다 */
+class OperatorRevokedError extends SessionEndedError {
+  constructor() {
+    super(L.dashboard.operatorRevokedError());
+    this.name = "OperatorRevokedError";
+  }
+}
+
+/** 묶인 요청. stream: 스트림이면 그 이름(로그), drop: 그 스트림 모듈의 정리, operator: 운영자 확인을 통과했다 */
+type Entry = { req: Request; res: Response; socket: Socket; sid: string; userId: string; name: string; deadline: number; store: SqliteSessionStore; stream: LogText | null; drop: () => void; operator: boolean };
 
 /** 진행 중인 묶인 요청(응답이 닫히면 빠진다) */
 const entries = new Map<Response, Entry>();
@@ -84,7 +93,7 @@ function bind(req: Request, res: Response, next: NextFunction) {
   const user = req.session.user;
   if (user) {
     const expires = req.session.cookie?.expires ? new Date(req.session.cookie.expires).getTime() : Infinity;
-    const entry: Entry = { req, res, socket: req.socket, sid: req.sessionID, userId: user.id, name: user.username || user.id, deadline: Math.min((req.session.loginAt ?? 0) + SESSION_MAX_MS, expires), store, stream: null, drop: () => undefined };
+    const entry: Entry = { req, res, socket: req.socket, sid: req.sessionID, userId: user.id, name: user.username || user.id, deadline: Math.min((req.session.loginAt ?? 0) + SESSION_MAX_MS, expires), store, stream: null, drop: () => undefined, operator: false };
     entries.set(res, entry);
     entryOf.set(req, entry);
     useSocket(entry.sid, req.socket);
@@ -174,12 +183,29 @@ function assertSignedIn(req: Request) {
     return;
   }
   if (ended.has(req) || entry.deadline <= Date.now()) throw new SessionEndedError();
+  if (entry.operator && !isBotOwner(entry.userId)) throw new OperatorRevokedError();
 }
 
-/** 경로의 catch 맨 앞: 세션이 끝나 멈춘 것이면 401로 응답하고(헤더 전이면) true */
+/** 운영자 확인(requireOwner)을 통과했다: 운영자에서 빠지면 끊거나 멈출 요청으로 적는다 */
+function markOperator(req: Request) {
+  const entry = entryOf.get(req);
+  if (entry) entry.operator = true;
+}
+
+/** 운영자가 바뀐 뒤: 운영자 전용 스트림 가운데 이제 운영자가 아닌 사람의 것을 끊는다(세션은 둔다. 화면에서 다시 열면 403 을 받는다) */
+function closeRevokedStreams() {
+  for (const entry of [...entries.values()]) if (entry.operator && entry.stream && !isBotOwner(entry.userId)) closeStream(entry, L.dashboard.requestStopNotOperator());
+}
+
+/** 경로의 catch 맨 앞: 세션이 끝나 멈춘 것이면 401로(운영자에서 빠져 멈춘 것이면 403으로) 응답하고(헤더 전이면) true */
 function sessionEnded(res: Response, error: unknown): boolean {
   if (!(error instanceof SessionEndedError)) return false;
-  if (!res.headersSent && !res.destroyed) res.status(401).type("application/problem+json").json(problemBody("login-required"));
+  const revoked = error instanceof OperatorRevokedError;
+  if (!res.headersSent && !res.destroyed)
+    res
+      .status(revoked ? 403 : 401)
+      .type("application/problem+json")
+      .json(problemBody(revoked ? "must-owner" : "login-required"));
   return true;
 }
 
@@ -352,4 +378,4 @@ function _reset() {
   disarm();
 }
 
-export { noteSocket, bind, release, assertSignedIn, sessionEnded, isEnded, admit, track, recheck, _reset, SessionEndedError, RECHECK_MS, ENDED_FRAME };
+export { noteSocket, bind, release, assertSignedIn, markOperator, closeRevokedStreams, sessionEnded, isEnded, admit, track, recheck, _reset, SessionEndedError, OperatorRevokedError, RECHECK_MS, ENDED_FRAME };

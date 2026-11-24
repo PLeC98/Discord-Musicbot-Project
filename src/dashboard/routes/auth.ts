@@ -19,6 +19,7 @@ import { messageOf } from "../../rules/error-kind.ts";
 import { L } from "../../infra/log/text.ts";
 import type { LogText } from "../../infra/log/log-text.ts";
 import { logTextError } from "../../infra/log/log-text.ts";
+import { refreshOnLogin } from "../../usecases/app-owners.ts";
 
 /** 여기서 읽는 필드만 */
 type TokenReply = { access_token: string; token_type: string };
@@ -235,6 +236,8 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
 
       // 로그인 성공 시 세션 ID를 재발급한다(session fixation 방어). 이 브라우저의 기존 세션(재로그인이면 이전 로그인 세션)은 종료된다
       if (!(await signIn(req, sessionUser, access_token))) return res.redirect(loginFailed("auth_failed"));
+      // 방금 팀에 들어오거나 범위가 넓어진 운영자가 다시 받기를 기다리지 않게 앱 정보를 다시 받는다(조금만 기다린다)
+      await refreshOnLogin();
       res.redirect(login.popup ? "/login-done" : "/dashboard");
     } catch (error) {
       res.redirect(loginFailed(callbackFailure(error, REDIRECT_URI)));

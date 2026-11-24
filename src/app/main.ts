@@ -73,7 +73,7 @@ import { watchGoneGuilds } from "../discord/gone-guilds.ts";
 import { watchGatewaySessions } from "../infra/gateway-sessions.ts";
 import * as staySeats from "../store/stay-seats.ts";
 import { createStayKeeper } from "./stay-keeper.ts";
-import { loadAppInfo } from "../dashboard/invite.ts";
+import { startAppOwners } from "../usecases/app-owners.ts";
 import * as playerEvents from "../player/events.ts";
 import { botLanguage, languagesNow, publicText } from "../ui/language.ts";
 import { sendNotice } from "../ui/player-notices.ts";
@@ -132,6 +132,8 @@ function main() {
   // 앱 설정을 먼저 읽어 앱 ID를 넣는다. 명령 배포, 초대 링크, 대시보드 로그인과 쿠키 이름이 쓴다(.env에 두지 않는다)
   loadApp(() => readApp(config.discord.token))
     .then((app) => {
+      // 같은 응답으로 봇 운영자와 초대 권한을 정한다(대시보드가 첫 요청을 받기 전). 그 뒤 다시 받는다
+      startAppOwners(app, () => readApp(config.discord.token));
       deploySlashCommands();
       void potServer.start();
       // 기동 준비(업데이트 뒤의 화면 빌드, ffmpeg 맞추기)는 POToken 서버를 기다리는 동안 병렬로 실행하고, 대시보드를 열고 ffmpeg 경로를 정하기 전에 끝낸다
@@ -373,8 +375,6 @@ async function onReady(client: Client<true>, bot: BotContext, skipRestore: boole
   log.info({ tags: ["startup"] }, L.core.botReady({ tag: client.user.tag }));
   log.info(L.core.guildsWaiting({ count: client.guilds.cache.size }));
   new BotPresence(client).start(); // 활동 문구
-  // 대시보드 초대 화면: 누가 초대할 수 있나(공개 봇, 앱 소유자). 실패하면 초대 화면을 열 때 다시 받는다
-  void loadAppInfo(client);
   // 스포티파이 익명 상태와 토큰(첫 자동완성이 스포티파이를 쓰게). 저장해 둔 것이 쓸 만하면 요청하지 않는다
   void spotifySource.prepareAnonymous();
 

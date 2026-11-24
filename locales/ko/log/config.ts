@@ -31,9 +31,8 @@ const config = {
   pricesHttpFailed: ({ status, source }: { status: number; source: string }) => `값표 ${status}: ${source}`,
   pricesNoneRead: () => `가격표에서 우리 프로바이더의 가격을 하나도 읽지 못함(저쪽 형식이 바뀐 것으로 보여 쓰지 않음)`,
   genreEmpty: ({ name }: { name: string }) => `자동재생 장르 ${name}에 소스와 키워드가 하나도 없음. 운영자 패널의 자동재생 탭에서 확인하세요`,
-  ownerNobody: () => `대시보드 운영자 패널과 /system에 아무도 들어갈 수 없음`,
-  ownerIdMissing: ({ nobody }: { nobody: string }) => `OWNER_ID 미설정. ${nobody}`,
-  ownerIdInvalid: ({ ownerId, nobody }: { ownerId: string; nobody: string }) => `OWNER_ID 값이 디스코드 사용자 ID 형식(17 ~ 20자리 숫자)이 아님(${ownerId}). ${nobody}`,
+  /** ownerId: 형식이 틀린 값(쉼표로 여럿), all: 적힌 값이 모두 틀렸다 */
+  ownerIdInvalid: ({ ownerId, all }: { ownerId: string; all: boolean }) => `OWNER_ID 값이 디스코드 사용자 ID 형식(17 ~ 20자리 숫자)이 아님(${ownerId}). ${all ? "대시보드 운영자 패널과 /system에 아무도 들어갈 수 없음" : "그 값은 아무와도 맞지 않음"}`,
   envValueInvalid: ({ key, value, reason }: { key: string; value: string; reason: string }) => `.env의 ${key} 값이 잘못됨(${value}): ${reason}. 고친 뒤 다시 실행하세요`,
   tabSettings: () => `일반`,
   tabAppearance: () => `디스플레이`,

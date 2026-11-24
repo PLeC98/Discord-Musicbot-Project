@@ -1,10 +1,10 @@
 import { ChannelType, PermissionFlagsBits } from "discord.js";
-import config from "../config/index.ts";
 import * as guildSettings from "../store/guild-settings.ts";
 import type { Code } from "../rules/problems.ts";
 import type { Guild, GuildMember, VoiceBasedChannel } from "discord.js";
 import type { QueuedTrack } from "../player/track.ts";
 import { ownTrackDenied } from "../rules/controls.ts";
+import { operators } from "./app-owners.ts";
 
 /** 권한 판정이 막은 이유 */
 type PermissionDenied = Extract<Code, "must-be-in-voice" | "must-be-in-same-voice" | "must-dj" | VoiceEntryDenied>;
@@ -20,10 +20,9 @@ function isServerManager(member: GuildMember) {
   return member.permissions.has(PermissionFlagsBits.ManageGuild);
 }
 
-/** 봇 운영자(OWNER_ID)인지 확인한다. 디스코드 권한으로는 나타낼 수 없다. OWNER_ID가 비어 있으면 아무도 아니다 */
+/** 봇 운영자인지 확인한다. 디스코드 권한으로는 나타낼 수 없다. 운영자는 앱 소유자로 정하고 OWNER_ID 가 있으면 그것이 대신한다(usecases/app-owners) */
 function isBotOwner(userId: string) {
-  const ownerId = config.dashboard.ownerId;
-  return !!ownerId && userId === ownerId;
+  return operators().includes(userId);
 }
 
 /**

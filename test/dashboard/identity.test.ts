@@ -109,23 +109,29 @@ test("/api/me: 세션 사용자에 무엇이 더 붙어도 Me의 필드만 보�
   assert.deepEqual(Object.keys(me.json).sort(), ["avatar", "avatarUrl", "canInvite", "globalName", "id", "intents", "isOwner", "isRealOwner", "language", "username", "viewAs"]);
 });
 
-test("/api/me: canInvite는 공개 봇이면 누구나, 아니면 앱 소유자, 팀원만. code grant를 요구하거나 앱 정보를 모르면 아무도", async () => {
-  const { _setAppInfo } = await import("../../src/dashboard/invite.ts");
+test("/api/me: canInvite는 공개 봇이면 누구나, 아니면 앱 소유자, 수락한 팀원만. code grant를 요구하거나 앱 정보를 모르면 아무도", async () => {
+  const { _setAppOwners } = await import("../../src/usecases/app-owners.ts");
+  const { personalApp, teamApp } = await import("../helpers/app-owners.ts");
   const canInvite = async (id: string) => {
     user = { id, username: id };
     return (await get("/api/me")).json.canInvite;
   };
   try {
-    _setAppInfo(null);
+    _setAppOwners(null);
     assert.equal(await canInvite("u1"), false, "앱 정보를 아직 못 받았다");
-    _setAppInfo({ botPublic: true, requireCodeGrant: false, ownerIds: [] });
+    _setAppOwners(personalApp("u9", { botPublic: true }));
     assert.equal(await canInvite("u1"), true);
-    _setAppInfo({ botPublic: false, requireCodeGrant: false, ownerIds: ["u9", "u8"] });
-    assert.deepEqual([await canInvite("u1"), await canInvite("u9"), await canInvite("u8")], [false, true, true], "앱 소유자와 팀원");
-    _setAppInfo({ botPublic: true, requireCodeGrant: true, ownerIds: ["u9"] });
+    _setAppOwners(
+      teamApp("u9", [
+        { id: "u8", role: "read_only" },
+        { id: "u7", role: "admin", state: 1 },
+      ]),
+    );
+    assert.deepEqual([await canInvite("u1"), await canInvite("u9"), await canInvite("u8"), await canInvite("u7")], [false, true, true, false], "팀 소유자와 수락한 팀원(Read-only 도). 초대만 받은 사람은 아니다");
+    _setAppOwners(personalApp("u9", { botPublic: true, codeGrant: true }));
     assert.deepEqual([await canInvite("u1"), await canInvite("u9")], [false, false], "초대 링크만으로는 봇이 들어오지 않는다");
   } finally {
-    _setAppInfo(null);
+    _setAppOwners(null);
   }
 });
 

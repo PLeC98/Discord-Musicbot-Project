@@ -14,6 +14,7 @@ import { bodyLimit, closeOnUnreadBody, continueBody } from "./body-limit.ts";
 import { SqliteSessionStore } from "./session-store.ts";
 import { dropDuplicateCookie, sessionCookieName } from "./cookies.ts";
 import * as sessionRequests from "./session-requests.ts";
+import { onOperatorsChanged } from "../usecases/app-owners.ts";
 import { requireSameAccount } from "./middleware/same-account.ts";
 import { issueCsrfToken, requireCsrfToken } from "./middleware/csrf.ts";
 import { securityHeaders } from "./middleware/security-headers.ts";
@@ -413,6 +414,8 @@ function startDashboard(bot: BotContext, { stream, deployCommands, restart }: Ap
   aiLogStream.start(withGuildName((id) => bot.client.guilds.cache.get(id)?.name ?? id));
   // IP 위치 DB: 자동 업데이트면 새 버전을 다운로드한다(로그인한 기기의 위치)
   geoip.start();
+  // 운영자에서 빠진 사람의 운영자 스트림(실시간 로그, AI 로그)을 끊는다
+  onOperatorsChanged(() => sessionRequests.closeRevokedStreams());
   onTunablesChanged(() => {
     aiLogStream.syncHeartbeat();
     if (aiRequests.isOpen()) aiRequests.rotate(config.aiLog.maxBytes);

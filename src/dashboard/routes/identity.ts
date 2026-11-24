@@ -30,7 +30,7 @@ identityRouter.get("/me", (req, res) => {
   if (!req.session.user) return sendProblem(res, "login-required");
   // 세션 사용자를 펼치지 않고 필드를 골라 보낸다(세션에 무엇이 더 붙어도 화면으로 새지 않게)
   const { id, username, globalName, avatar } = req.session.user;
-  const me: Me = { id, username, globalName, avatar, avatarUrl: avatarUrl(id, avatar), isOwner: isOwner(req), isRealOwner: isRealOwner(req), viewAs: getViewAs(req), canInvite: canInvite(req.app.locals.bot.client, id), intents: { ...loggedInIntents() }, language: userSettings.languageOf(id) };
+  const me: Me = { id, username, globalName, avatar, avatarUrl: avatarUrl(id, avatar), isOwner: isOwner(req), isRealOwner: isRealOwner(req), viewAs: getViewAs(req), canInvite: canInvite(id), intents: { ...loggedInIntents() }, language: userSettings.languageOf(id) };
   res.json(me);
 });
 

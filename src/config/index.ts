@@ -16,6 +16,7 @@ import { KNOWN_TAGS } from "../rules/languages.ts";
 import { BGUTIL_COMMIT, BGUTIL_VERSION } from "./vendor-versions.ts";
 import { bgutilTarget } from "../rules/bgutil-install.ts";
 import { isSnowflake } from "../rules/snowflake.ts";
+import { overrideIds, type OperatorScope } from "../rules/app-owners.ts";
 import { L } from "../infra/log/text.ts";
 import type { LogText } from "../infra/log/log-text.ts";
 import { ruleLogText } from "../rules/text/index.ts";
@@ -85,11 +86,12 @@ type EnvSource = Record<string, string | undefined>;
 type HexColor = `#${string}`;
 const isHexColor = (v: string): v is HexColor => /^#[0-9a-fA-F]{6}$/.test(v);
 
-// 운영자 ID는 비었거나 형식이 틀려도 경고만 한다(봇은 돈다. 값은 그대로 두며 어느 사용자와도 일치하지 않는다)
+// 운영자 덮어쓰기(OWNER_ID, 쉼표로 여럿)는 형식이 틀린 값이 있어도 경고만 한다(값은 적힌 그대로 두며 어느 사용자와도 맞지 않는다). 비어 있으면 앱 소유자로 정한다(usecases/app-owners)
 function ownerIdWarning(ownerId: string | null): LogText | null {
-  const nobody = L.config.ownerNobody();
-  if (!ownerId) return L.config.ownerIdMissing({ nobody });
-  return isSnowflake(ownerId) ? null : L.config.ownerIdInvalid({ ownerId, nobody });
+  const ids = overrideIds(ownerId);
+  const bad = ids?.filter((id) => !isSnowflake(id)) ?? [];
+  if (!ids || !bad.length) return null;
+  return L.config.ownerIdInvalid({ ownerId: bad.join(", "), all: bad.length === ids.length });
 }
 
 // .env, 설정값 읽는 도구. 잘못 적은 값은 문제 목록에 적고 기본값을 돌려준다(설정값은 tuneProblems에. 기동을 멈추지 않는다)
@@ -427,7 +429,10 @@ function serviceConfig({ env, envInt, envEnum, envUrl, envOrigin, envAddress, en
       // 인증서 파일 경로(.env가 있는 폴더 기준). 둘 다 비우면 certs/cert.pem, certs/key.pem을 본다(dashboard/tls-files)
       tlsCert: env("DASHBOARD_TLS_CERT"),
       tlsKey: env("DASHBOARD_TLS_KEY"),
+      // 운영자 덮어쓰기. 있으면 앱 소유자 대신 적힌 그대로(usecases/app-owners)
       ownerId: env("OWNER_ID"),
+      // 팀 앱에서 운영자를 넓히는 범위. 기본은 팀 소유자만
+      operatorScope: "owner" as OperatorScope,
       // Vite 개발 서버(5173)를 CORS 허용 목록에 넣을지. `pnpm run dev`가 켠다. 평상시 실행은 닫힌다.
       devOrigin: env("DASHBOARD_DEV_ORIGIN") === "true",
       // 세션 쿠키 서명 비밀. 비우면 기동마다 무작위로 만든다(다시 시작하면 대시보드 로그인이 풀린다). 기동 로그에 경고

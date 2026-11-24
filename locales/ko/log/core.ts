@@ -264,6 +264,21 @@ const core = {
   startupCheckFailed: ({ error }: { error: string }) => `${error}`,
   /** 앱 이모지 예외의 대상(이모지 이름, ID, 개수) 그대로 */
   appEmojiErrorSubject: ({ subject }: { subject: string }) => `${subject}`,
+  /** names: 운영자 이름 목록, from: 정한 곳(operatorsFrom*) */
+  operatorsSet: ({ names, from }: { names: string; from: string }) => `봇 운영자: ${names} (${from})`,
+  operatorsFromOwner: () => `앱 소유자`,
+  operatorsFromTeamOwner: () => `팀 소유자`,
+  operatorsFromTeamAdmin: () => `팀 소유자와 Admin`,
+  operatorsFromTeamDeveloper: () => `팀 소유자, Admin, Developer`,
+  operatorsOverrideSame: ({ count }: { count: number }) => `봇 운영자: OWNER_ID ${count}명(앱 소유자로 정한 운영자와 같으니 OWNER_ID를 지워도 됨)`,
+  operatorsOverrideDiffers: ({ count }: { count: number }) => `봇 운영자: OWNER_ID ${count}명(앱 소유자로 정한 운영자와 다름. 앱 소유자 대신 OWNER_ID를 씀)`,
+  operatorsNone: () => `봇 운영자를 정하지 못함. 대시보드 운영자 패널과 /system에 아무도 들어갈 수 없음`,
+  /** added, removed: "이름(ID)" 목록. 빈 문자열이면 없음 */
+  operatorsChanged: ({ added, removed }: { added: string; removed: string }) => `봇 운영자 바뀜: 추가 ${added || "없음"} | 제외 ${removed || "없음"}`,
+  appOwnersUnknown: () => `디스코드 앱 정보에서 봇 운영자를 정하지 못함(응답 형식이 다름). 마지막으로 받은 정보를 씀`,
+  appOwnersUnknownShort: () => `응답 형식이 다름`,
+  appOwnersRefreshFailed: ({ error, minutes }: { error: string; minutes: number }) => `디스코드 앱 정보 다시 받기 실패: ${error}. ${minutes}분 뒤 다시 시도`,
+  appOwnersStale: ({ hours }: { hours: number }) => `디스코드 앱 정보를 ${hours}시간 넘게 받지 못해 넓힌 봇 운영자 범위를 되돌림(소유자만)`,
 };
 
 export { core };

@@ -16,12 +16,14 @@ import { SqliteSessionStore } from "../../src/dashboard/session-store.ts";
 import { noteDevice } from "../../src/dashboard/login-devices.ts";
 import * as sessionRequests from "../../src/dashboard/session-requests.ts";
 import { requireAuth } from "../../src/dashboard/middleware/require-auth.ts";
+import { requireOwner } from "../../src/dashboard/middleware/require-owner.ts";
 import { errorHandler } from "../../src/dashboard/middleware/error-handler.ts";
 import * as secrets from "../../src/store/secrets.ts";
 import { newSecretsKey } from "../../src/rules/secrets-key.ts";
 import * as listen from "../helpers/listen.ts";
 import { cookieJar } from "../helpers/cookie-jar.ts";
 import config from "../../src/config/index.ts";
+import { testText } from "../helpers/log-text.ts";
 import { uploadsRouter } from "../../src/dashboard/routes/uploads.ts";
 import * as uploads from "../../src/dashboard/uploads.ts";
 import * as archiveUploads from "../../src/dashboard/archive-uploads.ts";
@@ -143,6 +145,27 @@ before(async () => {
     res.json({ ok: true });
   });
   app.get("/ping", (_req, res) => res.json({ ok: true }));
+  // 운영자의 대기 중인 조작: 풀리면 변경 직전에 확인한다
+  app.post("/hold-operator-change", requireOwner, async (req, res) => {
+    gate.enter();
+    await gate.opened;
+    try {
+      sessionRequests.assertSignedIn(req);
+      effects++;
+      res.json({ ok: true });
+    } catch (error) {
+      if (sessionRequests.sessionEnded(res, error)) return;
+      res.status(500).json({ code: "change-failed" });
+    }
+  });
+  // 운영자 스트림(실시간 로그와 같은 형태)
+  app.get("/operator-stream", requireOwner, (req, res) => {
+    lastSocket = req.socket;
+    res.writeHead(200, { "Content-Type": "text/event-stream", Connection: "close" });
+    res.write(": open\n\n");
+    sessionRequests.track(req, res, testText("운영자 스트림"));
+    gate.enter();
+  });
   // 큰 파일 업로드(세션이 끝나면 그 세션의 업로드를 지운다)
   app.use("/api/admin/uploads", express.json(), uploadsRouter);
   app.use(errorHandler);
@@ -427,5 +450,44 @@ test("세션이 끝나면(다른 기기에서 로그아웃) 그 세션의 업로
   } finally {
     config.dashboard.ownerId = saved;
     uploads._reset();
+  }
+});
+
+test("운영자의 조작은 그사이 운영자에서 빠지면 바꾸지 않고 403(must-owner)이다. 세션은 살아 있다", async () => {
+  const saved = config.dashboard.ownerId;
+  newGate();
+  try {
+    config.dashboard.ownerId = "op1";
+    const op = await signedIn("op1");
+    const pending = op.go("/hold-operator-change", { method: "POST" });
+    await gate.entered;
+    config.dashboard.ownerId = "someone-else";
+    gate.open();
+    const res = await pending;
+    assert.deepEqual([res.status, ((await res.json()) as { code: string }).code, effects], [403, "must-owner", 0]);
+    assert.equal((await op.go("/socket")).status, 200, "로그인은 그대로다");
+  } finally {
+    config.dashboard.ownerId = saved;
+  }
+});
+
+test("운영자가 바뀌면 이제 운영자가 아닌 사람의 운영자 스트림을 끊는다(운영자인 사람의 것은 둔다)", async () => {
+  const saved = config.dashboard.ownerId;
+  newGate();
+  try {
+    config.dashboard.ownerId = "op2";
+    const op = await signedIn("op2");
+    const res = await op.go("/operator-stream");
+    assert.equal(res.status, 200);
+    await gate.entered;
+    const socket = lastSocket!;
+    sessionRequests.closeRevokedStreams();
+    assert.equal(socket.destroyed, false, "아직 운영자");
+    config.dashboard.ownerId = "someone-else";
+    sessionRequests.closeRevokedStreams();
+    assert.match(await res.text(), /event: session-ended/);
+    assert.equal(await untilDestroyed(socket), true);
+  } finally {
+    config.dashboard.ownerId = saved;
   }
 });

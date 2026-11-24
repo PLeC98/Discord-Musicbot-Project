@@ -26,7 +26,7 @@ function createInviteRouter({ http = discordHttp }: { http?: DiscordHttp } = {})
     const { client } = req.app.locals.bot;
     if (!client.isReady()) return sendProblem(res, "bot-not-ready");
     const user = signedIn(req);
-    if (!canInvite(client, user.id)) return sendProblem(res, "invite-unavailable");
+    if (!canInvite(user.id)) return sendProblem(res, "invite-unavailable");
 
     const relogin: InviteList = { state: "relogin" };
     // 토큰이 없다: 토큰을 두기 전의 세션이거나 SECRETS_KEY를 바꿨다
