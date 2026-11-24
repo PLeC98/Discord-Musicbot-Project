@@ -1,5 +1,5 @@
 /**
- * 설정 준비. .env가 없으면 .env.example을 복사하고 무작위로 만들 수 있는 비밀(SECRETS_KEY, SESSION_SECRET)을 채운다(config/env-file).
+ * 설정 준비. .env가 없으면 .env.example을 복사하고 무작위로 만든 비밀 키(SECRETS_KEY)를 채운다(config/env-file).
  * 이미 있으면 손대지 않는다. 기동도 같은 것을 부른다(pnpm은 의존성이 그대로면 이 단계를 건너뛴다).
  *
  * 장르, 상태 문구, AI 설정은 파일이 아니라 settings.db의 문서다. 처음에는 기본값(src/config/defaults)으로 돌고 대시보드에서 고친다.

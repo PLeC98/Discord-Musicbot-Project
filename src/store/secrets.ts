@@ -1,16 +1,18 @@
 // 비밀값(외부 서비스 키, AI 키, 서비스 계정, 쿠키). settings.db의 secrets 표에 값마다 암호화해 둔다.
 //
-// - 암호: SECRETS_KEY(.env, base64 32바이트)에서 HKDF로 용도별 키를 끌어내 AES-256-GCM. 행마다 키 지문(key_id)을 적어 다른 키로 잠근 행을 가려낸다.
+// - 암호: SECRETS_KEY(.env, base64 32바이트)에서 HKDF로 용도별 키를 파생해 AES-256-GCM. 행마다 키 지문(key_id)을 적어 다른 키로 잠근 행을 가려낸다.
 // - 묶기: 키는 저장할 때의 제공자, 주소(origin)에 묶인다. 인증 데이터(AAD)에 이름, 제공자, 주소, 형식 버전을 넣고, 복호화할 때는 호출부가 기대하는 값으로 만든다.
 //   그래서 DB에 쓸 수 있는 사람이 암호문을 다른 행으로 옮기거나 묶인 주소 열만 바꾸면 복호화되지 않는다.
 // - 값은 응답, 로그, 대시보드 내보내기로 나가지 않는다(설정 스냅샷, 명령 전체 백업에는 DB 째 암호문으로). 화면에는 status()의 저장 여부, 바꾼 때, 끝 네 글자만(복호화하지 않고 적어 둔 것).
-// - 다른 표의 한 열에 두는 값(로그인 세션의 디스코드 토큰)도 같은 키에서 끌어낸 용도별 키로 잠근다(sealBlob, openBlob).
+// - 다른 표의 한 열에 두는 값(로그인 세션의 디스코드 토큰)도 같은 키에서 파생한 용도별 키로 잠근다(sealBlob, openBlob).
+// - 로그인 세션 쿠키의 서명 비밀도 같은 키에서 파생한다(sessionSecret). 암호 키와 다른 이름으로 파생해 서로 겹치지 않는다.
 
 import crypto from "crypto";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "config" });
 import config from "../config/index.ts";
 import { codedError } from "../rules/error-kind.ts";
+import { isSecretsKey } from "../rules/secrets-key.ts";
 import { settingsDb } from "./settings-db.ts";
 import { L } from "../infra/log/text.ts";
 
@@ -33,7 +35,7 @@ type Status = { saved: boolean; updatedAt: number | null; last4: string | null; 
 
 type Row = { name: string; format: number; key_id: string; provider: string; endpoint: string; iv: Buffer; tag: Buffer; ciphertext: Buffer; last4: string; updated_at: number };
 
-// 키에서 끌어낸 것. 같은 키면 다시 계산하지 않는다. 암호 키는 용도마다 따로다(비밀값, 로그인 세션의 디스코드 토큰)
+// 키에서 파생한 것. 같은 키면 다시 계산하지 않는다. 암호 키는 용도마다 따로다(비밀값, 로그인 세션의 디스코드 토큰)
 let derived: { raw: string; ikm: Buffer; id: string; enc: Map<string, Buffer> } | null = null;
 // 테스트: 정하면 config 대신 이 키를 쓴다
 let keyOverride: string | null = null;
@@ -166,10 +168,20 @@ function openBlob(purpose: string, blob: Buffer, bound: string): string | null {
   }
 }
 
+/**
+ * 로그인 세션 쿠키의 서명 비밀(64자 hex). 키가 같으면 다시 시작해도 값이 같아 로그인이 유지되고, 키를 바꾸면 모든 로그인이 풀린다.
+ * 파생 이름은 암호 키(musicbot <용도> v1 encrypt)나 키 지문과 겹치지 않는다. 키가 없거나 형식이 틀리면 예외를 던진다(추측할 수 있는 값으로 서명하지 않는다)
+ */
+function sessionSecret(): string {
+  const raw = keyOverride ?? config.secrets.key;
+  if (!raw || !isSecretsKey(raw)) throw codedError("SECRETS_KEY_MISSING", L.config.secretsUnavailable());
+  return expand(Buffer.from(raw.trim(), "base64"), "musicbot session-cookie v1 sign", 32).toString("hex");
+}
+
 // 테스트: 인자 없이 부르면 config의 키로
 function _useKey(raw: string | null = null) {
   keyOverride = raw;
 }
 
-export { put, read, remove, removeAll, count, status, originOf, sealBlob, openBlob, _useKey };
+export { put, read, remove, removeAll, count, status, originOf, sealBlob, openBlob, sessionSecret, _useKey };
 export type { Binding, Read, Status };

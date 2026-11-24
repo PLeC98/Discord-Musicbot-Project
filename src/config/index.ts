@@ -436,7 +436,6 @@ function serviceConfig({ env, envInt, envEnum, envUrl, envOrigin, envAddress, en
       // Vite 개발 서버(5173)를 CORS 허용 목록에 넣을지. `pnpm run dev`가 켠다. 평상시 실행은 닫힌다.
       devOrigin: env("DASHBOARD_DEV_ORIGIN") === "true",
       // 세션 쿠키 서명 비밀. 비우면 기동마다 무작위로 만든다(다시 시작하면 대시보드 로그인이 풀린다). 기동 로그에 경고
-      sessionSecret: env("SESSION_SECRET"),
       // API 요청 제한. 정상 사용(5초 폴링 = 분당 12번, 재생목록 추가도 요청 한 번)을 넉넉히 넘는 값으로 도배만 막는다
       rateLimit: {
         windowMs: tuneInt("RATE_LIMIT_WINDOW_SEC") * 1000,

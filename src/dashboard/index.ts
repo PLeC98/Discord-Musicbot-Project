@@ -1,7 +1,6 @@
 import config from "../config/index.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
-import crypto from "crypto";
 import express, { type Express as App, type RequestHandler, type Response } from "express";
 import type { BotContext } from "../app/bot-context.ts";
 import session from "express-session";
@@ -31,6 +30,7 @@ import { ADMIN_MOUNTS } from "./routes/admin-mounts.ts";
 import { requireOwner } from "./middleware/require-owner.ts";
 import * as aiLogStream from "./ai-log-stream.ts";
 import * as aiRequests from "../store/ai-requests.ts";
+import { sessionSecret } from "../store/secrets.ts";
 import { onTunablesChanged } from "../config/tunables-changed.ts";
 import { createGuildsRouter } from "./routes/guilds.ts";
 import { identityRouter } from "./routes/identity.ts";
@@ -68,19 +68,6 @@ import type { LogText } from "../infra/log/log-text.ts";
 /** 조립이 넘기는 것. sessionMiddleware, clientDist(빌드한 화면)는 테스트가 바꿔 넘긴다 */
 type AppDeps = { stream: PlayerStream; deployCommands: Express.Locals["deployCommands"]; restart?: Express.Locals["restart"]; sessionMiddleware?: RequestHandler; clientDist?: string };
 
-// 세션 비밀: .env의 SESSION_SECRET이 표준 경로. 미설정이면 랜덤 폴백.
-// 보안은 유지되지만(추측 불가) 다시 시작할 때마다 쿠키 서명이 무효화되어 대시보드 로그인이 풀린다.
-function resolveSessionSecret() {
-  if (config.dashboard.sessionSecret) {
-    if (config.dashboard.sessionSecret.length < 32) {
-      log.warn(L.dashboard.sessionSecretShort());
-    }
-    return config.dashboard.sessionSecret;
-  }
-  log.warn(L.dashboard.sessionSecretMissing());
-  return crypto.randomBytes(32).toString("hex");
-}
-
 /** 신뢰하는 프록시를 설정한다(dashboard/client-ip). 내부 주소는 자동으로, 공인 IP의 원격 프록시는 DASHBOARD_TRUST_PROXY로 신뢰한다. 거부한 값과 필요 없는 값은 기동 로그용으로 돌려준다 */
 function applyTrustProxy(app: App, value: string) {
   const { trust, accepted, inside, rejected } = trustProxy(value);
@@ -95,8 +82,7 @@ function logTrustProxy({ accepted, inside, rejected }: Pick<ReturnType<typeof tr
   if (accepted.length) log.info(L.dashboard.trustProxyAccepted({ proxies: accepted.join(", ") }));
 }
 
-// 로그인 세션. SQLite 영속 스토어라 다시 시작해도 로그인이 유지된다(SESSION_SECRET이 .env에 고정일 때.
-// 랜덤 폴백이면 쿠키 서명이 무효화되어 어차피 풀림. resolveSessionSecret 경고 참조).
+// 로그인 세션. SQLite 영속 스토어이고 서명 비밀(store/secrets의 sessionSecret)은 SECRETS_KEY에서 파생하므로 다시 시작해도 로그인이 유지된다.
 // 쿠키 이름은 요청마다 다르다: HTTPS면 __Host- 이름을 쓴다(dashboard/cookies). express-session은 미들웨어당 이름을 하나만 받으므로 같은 저장소를 공유하는 미들웨어 둘을 만들어 선택한다.
 // 두 미들웨어의 설정은 이름 외에는 같아야 한다: express-session은 생성할 때마다 저장소의 세션 생성 함수(generate)를 덮어쓰므로 나중에 만든 쪽의 쿠키 설정이 모든 요청에 적용된다.
 // 세션을 만들 때 쿠키의 Secure와 createdOverHttps를 브라우저 쪽 판정(req.secure, dashboard/browser-side)으로 정한다. 쿠키 이름과 같은 판정이다
@@ -104,7 +90,7 @@ function logTrustProxy({ accepted, inside, rejected }: Pick<ReturnType<typeof tr
 // 다른 쪽 이름으로 온 세션은 받지 않는다: 평문에서 가로챈 세션 id를 __Host- 이름으로 HTTPS 요청에 보내지 못한다.
 // 받지 않은 세션은 저장소에서 삭제하고 새 세션으로 바꾼다(가로챈 id라면 원래 브라우저의 로그인도 끝난다). 이 값이 없는 세션은 평문으로 만든 것으로 본다
 // store, secret은 테스트에서 넘긴다(임시 DB). 생략하면 로그인 세션 DB와 설정의 비밀값을 쓴다
-function createSessionMiddleware({ store = new SqliteSessionStore(), secret = resolveSessionSecret() }: { store?: SqliteSessionStore; secret?: string } = {}): RequestHandler {
+function createSessionMiddleware({ store = new SqliteSessionStore(), secret = sessionSecret() }: { store?: SqliteSessionStore; secret?: string } = {}): RequestHandler {
   const options = {
     secret,
     store,

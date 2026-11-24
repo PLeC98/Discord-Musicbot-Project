@@ -46,7 +46,7 @@ const config = {
   secretsKeyRemake: ({ command }: { command: string }) => `만들기: ${command}의 출력을 .env의 SECRETS_KEY= 뒤에 넣고 다시 실행하세요. 새 키로는 대시보드에 저장해 둔 비밀값을 복호화하지 못해 다시 입력해야 함`,
   secretsKeyEmpty: ({ remake }: { remake: string }) => `SECRETS_KEY가 비어 있음(비밀값 암호화 키). ${remake}`,
   secretsKeyInvalid: ({ remake }: { remake: string }) => `.env의 SECRETS_KEY가 base64로 인코딩한 32바이트가 아님. ${remake}`,
-  envFileMade: ({ names }: { names: string }) => `.env가 없어 .env.example로 만듦(SECRETS_KEY, SESSION_SECRET은 채움). ${names} 값을 채운 뒤 실행하세요`,
+  envFileMade: ({ names }: { names: string }) => `.env가 없어 .env.example로 만듦(SECRETS_KEY는 채움). ${names} 값을 채운 뒤 실행하세요`,
   genreSourcesDropped: ({ genres, missing }: { genres: string; missing: string }) => `자동재생 장르 ${genres}: ${missing} 키가 없어 그 소스를 빼고 나머지 소스만 사용`,
   genreSourcesNone: ({ genres, missing }: { genres: string; missing: string }) => `자동재생 장르 ${genres}: ${missing} 키가 없어 쓸 소스가 없음. 키를 입력하기 전까지 이 장르는 선택할 수 없음`,
   nodeUnsupported: ({ version, range }: { version: string; range: string }) => `지원 범위 밖의 Node(지금 ${version}, 지원 ${range}). 알려진 보안 취약점이 고쳐진 버전으로 업데이트 필요`,
