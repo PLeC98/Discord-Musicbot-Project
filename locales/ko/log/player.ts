@@ -232,7 +232,7 @@ const player = {
   inputCacheSwitch: () => `캐시 전환`,
   /** 출력 쪽 상태. worker: 맡은 인코딩 워커(없으면 null), oldestSeconds: 가장 오래 기다린 응답의 초(없으면 null) */
   outputDetail: ({ worker, inflight, oldestSeconds, ready, depth }: { worker: number | null; inflight: number; oldestSeconds: string | null; ready: number; depth: number }) => `출력 워커 ${worker ?? "없음"} · 응답 대기 ${inflight}개${oldestSeconds === null ? "" : `(가장 오래 ${oldestSeconds}초)`} · 송출 대기 ${ready}개 · 큐 깊이 ${depth}`,
-  /** parked: 연달은 실패 한도에 닿아 그 곡에서 일시정지해 둔다(아니면 다음 곡으로). causeSuffix: " | 원인=…"(없으면 빈 글) */
+  /** parked: 잇따른 실패 한도에 닿아 그 곡에서 일시정지해 둔다(아니면 다음 곡으로). causeSuffix: " | 원인=…"(없으면 빈 글) */
   liveReopenGaveUp: ({ parked, track, reason, causeSuffix }: { parked: boolean; track: string; reason: string; causeSuffix: string }) => `라이브 다시 열기 실패(${parked ? "일시정지해 둠" : "다음 곡으로 넘김"}): ${track} | ${reason}${causeSuffix}`,
   /** startSeconds: 시작 위치(초). lengthSeconds: 끝 판정이 쓰는 음원 길이(초, 모르면 null). cached: 캐시 파일로 연다. pausedBy: 일시정지한 채 열면 그 원인들(아니면 null) */
   playbackStarted: ({ track, startSeconds, live, lengthSeconds, cached, pausedBy }: { track: string; startSeconds: number; live: boolean; lengthSeconds: number | null; cached: boolean; pausedBy: string | null }) => `재생: ${track} | 시작 ${startSeconds}초 / ${live ? "라이브" : lengthSeconds === null ? "길이 모름" : `길이 ${lengthSeconds}초`} | 출처=${cached ? "캐시" : "스트림"}${pausedBy === null ? "" : ` | 일시정지(${pausedBy})`}`,

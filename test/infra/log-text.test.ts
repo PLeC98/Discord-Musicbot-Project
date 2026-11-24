@@ -1,4 +1,4 @@
-// src/infra/log/log-text.ts, text.ts: 로그 문구 서술자와 진입점. 문구 코드와 값을 갖고 그릴 때의 로그 언어로 그리며, 그리기는 던지지 않는다
+// src/infra/log/log-text.ts, text.ts: 로그 문구 서술자와 진입점. 문구 코드와 값을 갖고 그릴 때의 로그 언어로 그리며, 그리기는 예외를 던지지 않는다
 
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";

@@ -37,7 +37,7 @@ const spotify = {
   searchHashFailed: ({ kept, error }: { kept: boolean; error: string }) => `곡 검색 해시 추출 실패(${kept ? "직전 값 사용" : "검색을 쓰지 못함"}): ${error}`,
   /** primary: 주 경로(아니면 폴백), last: 남은 폴백이 없다 */
   routeFailed: ({ primary, error, last }: { primary: boolean; error: string; last: boolean }) => `${primary ? "주 경로" : "폴백"} 실패: ${error}${last ? "" : ", 폴백 전환"}`,
-  /** more: 첫 곡 밖의 곡 수 */
+  /** more: 첫 곡을 뺀 나머지 곡 수 */
   collectionHead: ({ title, artist, more }: { title: string; artist: string; more: number }) => `"${title}" - ${artist}${more > 0 ? ` 외 ${more}곡` : ""}`,
   graphqlError: () => `GraphQL 오류`,
   apiFailed: ({ status, path }: { status: number; path: string }) => `API ${status} (${path})`,

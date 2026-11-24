@@ -6,7 +6,7 @@ import { operatorHint } from "./operator-hints.ts";
 import { L } from "../infra/log/text.ts";
 import type { LogText } from "../infra/log/log-text.ts";
 
-// 로그에 적을 이름(로그 문구). 문장이 넓게 걸리는 종류(stream-failed 등)는 넣지 않는다. 이름만 남기면 무엇이 깨졌는지 잃는다
+// 로그에 적을 이름(로그 문구). 여러 원인을 뭉뚱그리는 종류(stream-failed 등)는 넣지 않는다. 이름만 남기면 무엇이 깨졌는지 알 수 없다
 const LABELS: Readonly<Record<string, () => LogText>> = {
   "yt-age-cookies-invalid": L.reason.ytAgeCookiesInvalid,
   "age-content-off": L.reason.ageContentOff,
