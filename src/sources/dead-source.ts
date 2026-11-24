@@ -16,9 +16,9 @@ function deadSourceCode(error: unknown): string | null {
   if (code === "pinned-live") return "live";
   if (code === "unavailable-contents" || code === "sc-preview-only" || code === "unsupported-link") return code;
   if (code === "direct-unavailable") {
-    const cause = (error as { cause?: unknown } | null)?.cause;
-    const text = cause instanceof Error ? cause.message : String(cause ?? "");
-    if (/HTTP (?:404|410)\b/.test(text)) return code;
+    // 링크를 여는 곳(infra/safe-url)이 응답 상태를 status에 담는다
+    const status = (error as { cause?: { status?: unknown } | null } | null)?.cause?.status;
+    if (status === 404 || status === 410) return code;
   }
   return null;
 }

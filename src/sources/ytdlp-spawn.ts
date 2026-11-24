@@ -345,12 +345,13 @@ async function spawnOnce(url: string, flags: YtDlpFlags, opts: SpawnOptions, job
     // 실행 래퍼(ytdlp-exec)의 오류를 message = stderr 모양으로 맞춘다.
     // spawn 자체가 실패하면(ENOENT 등) stderr가 없으므로 원래 message를 쓴다.
     // 어떤 실패인지는 여기서 한 번 구분해 code로 붙인다. 호출부는 메시지 텍스트가 아니라 code를 본다.
-    const failed = error as { stderr?: string; stdout?: string; exitCode?: number; message?: string; code?: string };
-    const shaped: YtDlpError = Object.assign(new Error(failed.stderr || failed.message), {
-      stderr: failed.stderr,
-      stdout: failed.stdout,
-      exitCode: failed.exitCode,
-    });
+    const failed = error as { stderr?: string; stdout?: string; exitCode?: number; message?: string; code?: string; logText?: LogText };
+    const shaped: YtDlpError = Object.assign(
+      new Error(failed.stderr || failed.message),
+      { stderr: failed.stderr, stdout: failed.stdout, exitCode: failed.exitCode },
+      // stderr가 없으면 message는 실행 래퍼가 쓴 우리 글(명령줄이 든 종료 줄)이다. 서술자를 옮겨 판정이 그 글을 읽지 않게 한다
+      failed.stderr || !failed.logText ? {} : { logText: failed.logText },
+    );
     shaped.code = errors.codeOf(shaped) || failed.code;
     throw shaped;
   } finally {

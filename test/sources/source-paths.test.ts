@@ -489,8 +489,9 @@ test("사라졌다는 판정: 확실히 사라진 것만(일시 오류, 연령 �
   assert.equal(deadSourceCode(new Error("ERROR: [youtube] abc: Video unavailable")), "unavailable-contents");
   assert.equal(deadSourceCode(codedError("unavailable-contents", testText("HTTP Error 404"))), "unavailable-contents");
   assert.equal(deadSourceCode(codedError("sc-preview-only", testText("미리듣기"))), "sc-preview-only");
-  assert.equal(deadSourceCode(codedError("direct-unavailable", testText("x"), { cause: new Error("요청 실패: HTTP 404") })), "direct-unavailable");
-  assert.equal(deadSourceCode(codedError("direct-unavailable", testText("x"), { cause: new Error("요청 실패: HTTP 503") })), null, "5xx는 일시 오류");
+  assert.equal(deadSourceCode(codedError("direct-unavailable", testText("x"), { cause: Object.assign(new Error("요청 실패: HTTP 404"), { status: 404 }) })), "direct-unavailable");
+  assert.equal(deadSourceCode(codedError("direct-unavailable", testText("x"), { cause: new Error("HTTP 404") })), null, "message는 보지 않고 응답 상태(status)만 본다");
+  assert.equal(deadSourceCode(codedError("direct-unavailable", testText("x"), { cause: Object.assign(new Error("요청 실패: HTTP 503"), { status: 503 }) })), null, "5xx는 일시 오류");
   assert.equal(deadSourceCode(codedError("direct-unavailable", testText("x"), { cause: networkError("ECONNRESET") })), null);
   assert.equal(deadSourceCode(codedError("rate-limited", testText("HTTP Error 403"))), null);
   assert.equal(deadSourceCode(new Error("ERROR: Sign in to confirm your age")), null, "연령 제한은 사라진 것이 아니다");

@@ -1,13 +1,24 @@
 // yt-dlp 오류를 구분한다(영상 없음, 연령 제한, 클라이언트 탓, 낡은 미디어 주소).
 
-// 오류에서 읽을 텍스트. yt-dlp 오류는 stderr에, 나머지는 message에 담긴다
-
 import { L } from "../../infra/log/text.ts";
-import { asText } from "../../infra/log/log-text.ts";
+import { asText, isLogText } from "../../infra/log/log-text.ts";
+
+// 오류에서 로그에 남길 텍스트. yt-dlp 오류는 stderr에, 나머지는 message에 담긴다
 function textOf(error: unknown): string {
   const e = error && typeof error === "object" ? (error as { stderr?: unknown; message?: unknown }) : null;
   const found = e && (e.stderr || e.message);
   return found ? String(found) : String(error || "");
+}
+
+/**
+ * 판정이 읽는 텍스트: yt-dlp의 stderr와 외부 라이브러리의 message만. 우리 예외(로그 문구 서술자를 가진 것)의 message는 로그 언어로 그린 글이라
+ * 번역하면 아래 영어 패턴에 걸릴 수 있어 읽지 않고, 그 원인(cause)을 depth 단계까지 읽는다
+ */
+function saidOf(error: unknown, depth = 4): string {
+  const e = error && typeof error === "object" ? (error as { stderr?: unknown; logText?: unknown; cause?: unknown }) : null;
+  if (e?.stderr) return String(e.stderr);
+  if (e && isLogText(e.logText)) return e.cause === undefined || depth <= 1 ? "" : saidOf(e.cause, depth - 1);
+  return textOf(error);
 }
 
 /**
@@ -36,7 +47,7 @@ function briefError(error: unknown, maxLines = 4) {
 
 /** yt-dlp 오류가 연령 제한(로그인 필요)인지 판별. yt-dlp의 연령 제한 판정(_is_agegated)처럼 "inappropriate"가 들어 있으면 연령 제한으로 본다 */
 function isAgeRestrictedError(error: unknown) {
-  const msg = textOf(error);
+  const msg = saidOf(error);
   return /confirm your age|inappropriate|age.?restricted|only available to registered users/i.test(msg);
 }
 
@@ -45,7 +56,7 @@ function isAgeRestrictedError(error: unknown) {
  * 브라우저에서 그 계정을 계속 쓰면 세션이 갱신되며 내보낸 쿠키가 무효가 된다(만료 시각과 무관)
  */
 function isCookiesInvalidError(error: unknown) {
-  return /cookies are no longer valid/i.test(textOf(error));
+  return /cookies are no longer valid/i.test(saidOf(error));
 }
 
 /**
@@ -60,7 +71,7 @@ function isVideoUnavailableError(error: unknown) {
   // 옆의 isClientFault, isStaleMediaError도 같은 가드를 갖고 있다.
   if (isAgeRestrictedError(error)) return false;
 
-  const msg = textOf(error);
+  const msg = saidOf(error);
   // 요청 한도도 "This content isn't available, try again later"로 온다(yt-dlp가 "rate-limited by YouTube for up to an hour"를 덧붙인다). 영상은 살아 있다
   if (RATE_LIMITED.test(msg)) return false;
   return /video (?:is )?unavailable|no longer available|has been removed|removed by (the )?(uploader|user)|private video|account associated with this video has been terminated|this video is not available|content isn.?t available|violat(?:ing|ion) of youtube/i.test(msg);
@@ -77,7 +88,7 @@ function isVideoUnavailableError(error: unknown) {
  * 이유를 적어 주므로 그것을 읽는다. 표를 박아 두면 유튜브나 yt-dlp가 바뀔 때 먼저 어긋난다.
  */
 function isSkippedClientError(error: unknown) {
-  const msg = textOf(error);
+  const msg = saidOf(error);
   return /Skipping client "[\w-]+"/i.test(msg);
 }
 
@@ -86,11 +97,11 @@ const NO_AUDIO_ONLY = "no-audio-only";
 const isNoAudioOnly = (error: unknown) => (error as { code?: unknown } | null)?.code === NO_AUDIO_ONLY;
 
 /** 시작 전 라이브라 열 것이 없는가 */
-const isUpcomingError = (error: unknown) => UPCOMING.test(textOf(error));
+const isUpcomingError = (error: unknown) => UPCOMING.test(saidOf(error));
 
 /** 이 실패가 클라이언트 탓으로 보이는가 (영상, 네트워크 문제와 구별) */
 function isClientFault(error: unknown) {
-  const msg = textOf(error);
+  const msg = saidOf(error);
   if (isNoAudioOnly(error)) return true;
   if (isVideoUnavailableError(error) || isAgeRestrictedError(error) || isUpcomingError(error)) return false;
   // 실행조차 안 된 것을 실패로 세면 멀쩡한 클라이언트가 제외된다. 연령 제한 영상 몇 편이면
@@ -110,7 +121,7 @@ function isClientFault(error: unknown) {
  * 그래서 여기서는 주소를 다시 받는 것만 한다.
  */
 function isStaleMediaError(error: unknown) {
-  const msg = textOf(error);
+  const msg = saidOf(error);
   if (isVideoUnavailableError(error) || isAgeRestrictedError(error)) return false;
   // "unable to download video data" 만으로는 안 된다. 네트워크 타임아웃도 같은 문구로 온다.
   // 유튜브가 거절한 것(403/429)과 세그먼트가 어긋난 것만 본다.
@@ -136,7 +147,7 @@ const UPCOMING = /this live event will begin|premieres? (?:in|on)\b|premiere wil
  * (다시 받을지는 ytdlp-run의 runYtDlp가 isStaleMediaError로 따로 본다).
  */
 function codeOf(error: unknown) {
-  const msg = textOf(error);
+  const msg = saidOf(error);
   // 쿠키로 다시 시도했는데 쿠키가 무효였다. 운영자가 쿠키를 다시 입력하면 풀린다
   if (isAgeRestrictedError(error) && isCookiesInvalidError(error)) return "yt-age-cookies-invalid";
   if (isAgeRestrictedError(error)) return "yt-age-no-cookies";
@@ -156,7 +167,7 @@ function codeOf(error: unknown) {
 }
 
 function faultReason(error: unknown) {
-  const msg = textOf(error);
+  const msg = saidOf(error);
   if (isNoAudioOnly(error)) return L.youtube.faultNoAudioOnly();
   if (/PO Token/i.test(msg)) return L.youtube.faultPotRequired();
   if (/only images are available/i.test(msg)) return L.youtube.faultImagesOnly();
@@ -164,4 +175,4 @@ function faultReason(error: unknown) {
   return L.youtube.faultFormatFailed();
 }
 
-export { NO_AUDIO_ONLY, briefError, isAgeRestrictedError, isCookiesInvalidError, isVideoUnavailableError, isUpcomingError, isSkippedClientError, isClientFault, isStaleMediaError, codeOf, faultReason };
+export { NO_AUDIO_ONLY, saidOf, briefError, isAgeRestrictedError, isCookiesInvalidError, isVideoUnavailableError, isUpcomingError, isSkippedClientError, isClientFault, isStaleMediaError, codeOf, faultReason };

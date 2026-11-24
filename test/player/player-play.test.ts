@@ -601,7 +601,7 @@ test("직접 지정한 직접 링크가 여는 순간 사라졌으면 이번 재
   p.currentTrack = track;
   behavior.stream = (t) => (t.audioUrl?.startsWith("https://files.test/") ? { url: t.audioUrl, platform: "direct" } : { url: "https://media.test/orig", duration: 100 });
   behavior.directStream = () => {
-    throw codedError("direct-unavailable", testText("재생할 수 없는 링크입니다"), { cause: new Error("요청 실패: HTTP 404") });
+    throw codedError("direct-unavailable", testText("재생할 수 없는 링크입니다"), { cause: Object.assign(new Error("요청 실패: HTTP 404"), { status: 404 }) });
   };
   behavior.download = () => Promise.reject(new Error("받기도 실패"));
 
