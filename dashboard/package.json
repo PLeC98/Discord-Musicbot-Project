@@ -11,24 +11,24 @@
   "dependencies": {
     "@material/material-color-utilities": "catalog:",
     "@vueuse/core": "^15.0.0",
-    "axios": "^1.21.0",
+    "axios": "^1.21.1",
     "hls.js": "^1.7.4",
     "pinia": "^4.1.0",
     "pretendard": "catalog:",
-    "vue": "^3.5.44",
-    "vue-router": "^5.4.0"
+    "vue": "^3.5.45",
+    "vue-router": "^5.5.0"
   },
   "devDependencies": {
     "@discordapp/twemoji": "16.0.1",
     "@fontsource-variable/google-sans-flex": "catalog:",
     "@fontsource-variable/material-symbols-rounded": "^5.3.9",
-    "@tailwindcss/vite": "^4.3.3",
+    "@tailwindcss/vite": "^4.3.5",
     "@types/node": "catalog:",
     "@vitejs/plugin-vue": "^6.0.10",
     "@vue/tsconfig": "^0.9.1",
-    "tailwindcss": "^4.3.3",
+    "tailwindcss": "^4.3.5",
     "typescript": "catalog:",
-    "vite": "^8.3.5",
+    "vite": "^8.3.7",
     "vue-tsc": "^3.3.14"
   }
 }
