@@ -23,6 +23,7 @@ import sink from "../../src/infra/log/sink.ts";
 import { stateDb } from "../../src/store/state-db.ts";
 import * as stores from "../../src/store/stores.ts";
 import { textOf } from "../helpers/cv2.ts";
+import { testText } from "../helpers/log-text.ts";
 
 const DB_DIR = path.join(os.tmpdir(), `musicbot-session-test-${process.pid}`);
 const removeDb = () => {
@@ -814,7 +815,7 @@ test("복원: 종료 중이라 음성에 붙지 않았으면 error 줄 없이 �
   trackState.setCurrent(saved, t("now"));
   const record = loaded(saved.guild.id);
   const { p, sp } = makeRestorePlayer({ guild: { id: saved.guild.id }, connection: null });
-  p.voice = fake<Player["voice"]>({ connect: async () => Promise.reject(codedError("bot-shutting-down", "종료 중")) });
+  p.voice = fake<Player["voice"]>({ connect: async () => Promise.reject(codedError("bot-shutting-down", testText("종료 중"))) });
   const start = sink.buffer.at(-1)?.id ?? -1;
   await assert.rejects(sp.restoreSession(record), { code: "bot-shutting-down" });
   assert.deepEqual(

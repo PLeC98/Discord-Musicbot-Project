@@ -6,6 +6,7 @@ import { httpFor, type HttpClient } from "../../infra/http.ts";
 import { messageOf } from "../../rules/error-kind.ts";
 import logger from "../../infra/log/logger.ts";
 import { L } from "../../infra/log/text.ts";
+import { logTextError } from "../../infra/log/log-text.ts";
 const log = logger.child({ category: "autoplay" });
 
 const userAgent = () => config.userAgents.bot;
@@ -30,7 +31,7 @@ const pick = <T>(list: T[]): T | null => (list.length ? list[rand(list.length)] 
 // T: 받는 쪽이 읽는 필드만 적은 응답 모양. 검사하지 않으므로 필드는 모두 없을 수 있게 적는다
 async function getJson<T = unknown>(service: SourceService, url: string, headers: Record<string, string> = {}, timeoutMs = TIMEOUT_MS): Promise<T> {
   const res = await send(service, url, { headers: { Accept: "application/json", "User-Agent": userAgent(), ...headers }, signal: AbortSignal.timeout(timeoutMs) });
-  if (!res.ok) throw new Error(`HTTP ${res.status} (${new URL(url).host})`);
+  if (!res.ok) throw logTextError(L.net.httpStatusFrom({ status: res.status, host: new URL(url).host, detail: "" }));
   return (await res.json()) as T;
 }
 
@@ -58,7 +59,7 @@ async function postJson<T = unknown>(service: SourceService, url: string, body: 
   if (!res.ok) {
     // 본문을 읽지 못해도 상태 오류는 그대로 던진다. 덧붙일 본문만 빠진다
     const detail = res.status === 422 ? await res.text().catch(() => "") : "";
-    throw new Error(`HTTP ${res.status} (${new URL(url).host})${detail ? `: ${detail.slice(0, 200)}` : ""}`);
+    throw logTextError(L.net.httpStatusFrom({ status: res.status, host: new URL(url).host, detail: detail.slice(0, 200) }));
   }
   return (await res.json()) as T;
 }

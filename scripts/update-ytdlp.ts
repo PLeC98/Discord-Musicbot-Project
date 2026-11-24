@@ -28,7 +28,7 @@ import { L } from "../src/infra/log/text.ts";
 const SETTINGS_DB = path.join(PROJECT.database, "settings.db");
 
 const log = logger.child({ category: "ytdlp" });
-const say = (level: "info" | "warn", line: string | LogText) => log[level](line);
+const say = (level: "info" | "warn", line: LogText) => log[level](line);
 
 // 설정 DB의 채널과 버전 고정을 설정 객체에 올린다. 읽지 못했으면 false
 async function loadTarget(): Promise<boolean> {

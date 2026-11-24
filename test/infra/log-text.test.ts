@@ -95,3 +95,28 @@ test("로그 문구 함수의 값 이름이 가리기 키 이름이 아니다", 
     [],
   );
 });
+
+test("값 이름 text는 바깥 글을 그대로 내는 문구에만 쓴다(로거가 레코드의 값에서 빼므로 글이 그 값으로 시작해야 msg에 남는다)", () => {
+  const dir = path.join(import.meta.dirname, "..", "..", "locales", "ko", "log");
+  const wrong: string[] = [];
+  let found = 0;
+  for (const name of fs.readdirSync(dir).filter((one) => one.endsWith(".ts"))) {
+    const source = ts.createSourceFile(name, fs.readFileSync(path.join(dir, name), "utf8"), ts.ScriptTarget.Latest, true);
+    const visit = (node: ts.Node) => {
+      if (ts.isPropertyAssignment(node) && ts.isArrowFunction(node.initializer)) {
+        const binding = node.initializer.parameters[0]?.name;
+        const names = binding && ts.isObjectBindingPattern(binding) ? binding.elements.map((element) => element.name.getText(source)) : [];
+        if (names.includes("text")) {
+          found++;
+          const body = node.initializer.body;
+          const starts = ts.isTemplateExpression(body) && body.head.text === "" && body.templateSpans[0]?.expression.getText(source) === "text";
+          if (!starts) wrong.push(`${name}: ${node.name.getText(source)}`);
+        }
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(source);
+  }
+  assert.ok(found > 0, "따라가기가 text 값을 받는 문구까지 닿는다");
+  assert.deepEqual(wrong, []);
+});

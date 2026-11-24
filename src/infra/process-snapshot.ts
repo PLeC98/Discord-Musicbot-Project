@@ -47,7 +47,7 @@ const PROC_GONE_OR_HIDDEN = new Set<unknown>(["ENOENT", "ESRCH", "EACCES", "EPER
 const SKIP_IDENTITY = L.proc.snapshotSkipIdentity();
 const SKIP_PROCESS = L.proc.snapshotSkipProcess();
 
-function readText(file: string, action: string | LogText, perPid = false) {
+function readText(file: string, action: LogText, perPid = false) {
   try {
     return fs.readFileSync(file, "utf8");
   } catch (error) {

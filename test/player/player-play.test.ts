@@ -27,6 +27,7 @@ import type { Player } from "../../src/player/player.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import type { StreamInfo } from "../../src/sources/stream-url.ts";
 import type { Segments, SkipSegment } from "../../src/sources/sponsor-block.ts";
+import { testText } from "../helpers/log-text.ts";
 
 const { calls, behavior } = h;
 
@@ -90,7 +91,7 @@ test("재생 단계: 틀지 못하면 idle로 돌아오고, 정지하면 dispose
   assert.equal(p.lifecycle.phase, "idle");
   assert.equal(p.isPlayStarting, false);
 
-  await p.dispose({ reason: "정지", session: "remove", end: "stop" });
+  await p.dispose({ reason: testText("정지"), session: "remove", end: "stop" });
   assert.equal(p.lifecycle.phase, "disposed");
 });
 
@@ -295,7 +296,7 @@ test("위치 이동 뒤 입력이 깨져 그 위치부터 다시 열 때도 같�
   try {
     assert.equal((await p.play(4_500_000)).ok, true);
     Object.assign(p.playback!.resource!, { playbackDuration: 30_000 });
-    p.playback!.input!.mark("입력 스트림 오류: ECONNRESET");
+    p.playback!.input!.mark(testText("입력 스트림 오류: ECONNRESET"));
 
     await p.onTrackEnd("idle");
 
@@ -600,7 +601,7 @@ test("직접 지정한 직접 링크가 여는 순간 사라졌으면 이번 재
   p.currentTrack = track;
   behavior.stream = (t) => (t.audioUrl?.startsWith("https://files.test/") ? { url: t.audioUrl, platform: "direct" } : { url: "https://media.test/orig", duration: 100 });
   behavior.directStream = () => {
-    throw codedError("direct-unavailable", "재생할 수 없는 링크입니다", { cause: new Error("요청 실패: HTTP 404") });
+    throw codedError("direct-unavailable", testText("재생할 수 없는 링크입니다"), { cause: new Error("요청 실패: HTTP 404") });
   };
   behavior.download = () => Promise.reject(new Error("받기도 실패"));
 
@@ -1429,7 +1430,7 @@ test("리소스를 만든 뒤 voice에 넘기기 전에 실패하면 그 출력�
   p.currentTrack = track;
   // 재생을 확정하기 전에 기다리는 SponsorBlock 조회가 DB 닫힘으로 예외를 던진다(종료 중)
   behavior.sponsor = () => {
-    throw codedError("DB_NOT_OPEN", "DB가 닫혔다");
+    throw codedError("DB_NOT_OPEN", testText("DB가 닫혔다"));
   };
 
   await playOnce(p, 3000);
@@ -1450,7 +1451,7 @@ test("트는 사이에 플레이어가 버려지면 틀지 않고 출력을 dest
   // 위치 이동(0이 아님)이라 인트로 조회를 건너뛰고, 리소스를 만든 뒤 SponsorBlock 응답을 기다린다
   const playing = p.play(3000);
   while (calls.resources.length === 0) await new Promise((r) => setImmediate(r));
-  await p.dispose({ reason: "테스트", session: "keep", end: "stop" });
+  await p.dispose({ reason: testText("테스트"), session: "keep", end: "stop" });
   answer(null);
   const r = await playing;
   h.dispose(p);

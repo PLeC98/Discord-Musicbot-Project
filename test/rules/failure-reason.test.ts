@@ -9,6 +9,7 @@ import { ytDlpError } from "../helpers/errors.ts";
 import { codedError } from "../../src/rules/error-kind.ts";
 import { plainText } from "../helpers/notice.ts";
 import { textFor } from "../../src/ui/text/index.ts";
+import { testText } from "../helpers/log-text.ts";
 const KO = textFor("ko");
 
 const HINT = " Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ  for how to manually pass cookies.";
@@ -58,16 +59,16 @@ test("봇 감지, 요청 제한: 운영자 안내는 로그 줄에만 붙고 사
 
 // 사용자 문장을 일반화하려 감싼 오류(직접 링크)는 사유가 원인에만 있다. 로그 한 줄에 붙인다
 test("감싼 오류는 원인의 첫 줄을 붙인다", () => {
-  const wrapped = codedError("direct-unavailable", "재생할 수 없는 링크입니다", { cause: new Error("요청 실패: HTTP 404\n자세한 것") });
+  const wrapped = codedError("direct-unavailable", testText("재생할 수 없는 링크입니다"), { cause: new Error("요청 실패: HTTP 404\n자세한 것") });
   assert.equal(failureReason(wrapped, false), "재생할 수 없는 링크입니다 (요청 실패: HTTP 404)");
 });
 
 // 원인의 ERROR 줄을 그대로 글로 삼은 오류(사운드클라우드)는 같은 줄이 두 번 찍힐 수 있다
 test("원인의 첫 줄이 오류와 같으면 다시 붙이지 않는다. 이름이 있는 종류는 이름으로", () => {
   const line = "ERROR: [soundcloud] a/weird: Unable to download JSON metadata: HTTP Error 500";
-  const same = codedError("stream-failed", line, { cause: new Error(`${line}\nmore`) });
+  const same = codedError("stream-failed", testText(line), { cause: new Error(`${line}\nmore`) });
   assert.equal(failureReason(same, false), line);
-  const gone = codedError("unavailable-playlist", "ERROR: [soundcloud:set] discover/sets/x: HTTP Error 404", { cause: new Error("ERROR: [soundcloud:set] discover/sets/x: HTTP Error 404") });
+  const gone = codedError("unavailable-playlist", testText("ERROR: [soundcloud:set] discover/sets/x: HTTP Error 404"), { cause: new Error("ERROR: [soundcloud:set] discover/sets/x: HTTP Error 404") });
   assert.equal(failureReason(gone, false), "없거나 비공개인 재생목록");
 });
 

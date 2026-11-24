@@ -12,6 +12,7 @@ import { cpuQuota } from "../infra/cpu-quota.ts";
 import { Worker, MessageChannel, receiveMessageOnPort, type MessagePort } from "worker_threads";
 import logger from "../infra/log/logger.ts";
 import { codedError, messageOf } from "../rules/error-kind.ts";
+import { errorText } from "../rules/text/index.ts";
 import type { FromWorker, Reply, ToWorker } from "./encode-worker.ts";
 import { sec } from "../infra/log/seconds.ts";
 import { L } from "../infra/log/text.ts";
@@ -466,7 +467,7 @@ class EncodePool {
     this.#spawn().then(
       (entry) => (this.#closing ? void entry.thread.terminate() : this.#adopt(entry)),
       (error: unknown) => {
-        log.warn(messageOf(error));
+        log.warn(L.player.encodeWorkerStartFailed({ error: errorText(error) }));
         this.#noteDeath();
         this.#rehome();
       },

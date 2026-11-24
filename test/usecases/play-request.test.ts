@@ -26,6 +26,7 @@ import { addFailureMessage } from "../../src/ui/error-messages.ts";
 import { plainText } from "../helpers/notice.ts";
 import { frame } from "../../src/ui/frame.ts";
 import { textFor } from "../../src/ui/text/index.ts";
+import { testText } from "../helpers/log-text.ts";
 const KO = textFor("ko");
 const errors = textFor("ko").errors;
 
@@ -747,7 +748,7 @@ test("이어 넣기: 넣지 못하면 그 원인. 플레이어가 없다, 불러
 
 test("이어 넣기: 다음 배치를 못 불러오면 모은 곡까지만 넣고, 첫 배치부터 못 불러오면 그 오류를 던진다", () =>
   withLimits(0, 50, async () => {
-    const gone = codedError("unavailable-playlist", "목록이 사라졌다");
+    const gone = codedError("unavailable-playlist", testText("목록이 사라졌다"));
     const whole = listSource(1000);
     const secondFails = (range: Range) => {
       if (collectionCalls.length > 1) throw gone;

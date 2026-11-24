@@ -14,7 +14,7 @@ import { L } from "../../infra/log/text.ts";
 import { logTextError, type LogText } from "../../infra/log/log-text.ts";
 
 const log = logger.child({ category: "commands" });
-const failing = (what: string | LogText) => repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, what);
+const failing = (what: LogText) => repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, what);
 
 /** 그리는 일. 워커가 kind로 고른다 */
 type Job = { kind: "system"; data: CardData } | { kind: "queue"; data: MosaicData };

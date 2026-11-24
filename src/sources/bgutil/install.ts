@@ -24,17 +24,17 @@ type InstallIo = {
   npmCi(serverDir: string): Promise<void>;
   npmRebuild(serverDir: string, names: string[]): Promise<void>;
   tsc(serverDir: string): Promise<void>;
-  trial(serverDir: string, expected: string): Promise<{ ok: true } | { ok: false; reason: string | LogText }>;
+  trial(serverDir: string, expected: string): Promise<{ ok: true } | { ok: false; reason: LogText }>;
   now(): number;
   pid: number;
-  log(line: string | LogText): void;
+  log(line: LogText): void;
 };
 
 /**
  * unchanged: 이미 그 태그와 커밋이다(다른 프로세스가 먼저 옮긴 경우 포함). installed: 받아서 가리킴을 바꿨다.
  * failed: 받거나 빌드하지 못했거나 실행 테스트를 통과하지 못했다(가리킴은 그대로). busy: 다른 프로세스가 폴더 잠금을 풀지 않았다. notes: 운영자에게 알릴 줄(깨진 기록을 옮긴 경우)
  */
-type InstallOutcome = ({ kind: "unchanged"; tag: string; version: string } | { kind: "installed"; tag: string; version: string; from: string | null } | { kind: "failed"; tag: string; reason: string | LogText } | { kind: "busy"; holder: number | null }) & { notes: Array<string | LogText> };
+type InstallOutcome = ({ kind: "unchanged"; tag: string; version: string } | { kind: "installed"; tag: string; version: string; from: string | null } | { kind: "failed"; tag: string; reason: string | LogText } | { kind: "busy"; holder: number | null }) & { notes: LogText[] };
 
 /** 기록의 빌드가 이 태그와 커밋이고 실행 파일이 있으면 그 빌드, 아니면 null */
 const sameBuild = (dir: string, build: BgutilBuild | null, tag: string, commit: string): BgutilBuild | null => (build && build.tag === tag && build.commit === commit && fs.existsSync(path.join(dir, build.folder, "server", ENTRY)) ? build : null);
@@ -65,7 +65,7 @@ async function build(serverDir: string, io: InstallIo): Promise<string> {
 }
 
 /** 잠금 안에서 기록을 새로 읽고, 같은 것이 이미 있으면 버리고, 아니면 버전 폴더로 옮겨 가리킴을 쓴다 */
-async function publish({ dir, tag, commit, version, repoDir, io, notes, force, lockWaitMs }: { dir: string; tag: string; commit: string; version: string; repoDir: string; io: InstallIo; notes: Array<string | LogText>; force: boolean; lockWaitMs?: number }): Promise<InstallOutcome> {
+async function publish({ dir, tag, commit, version, repoDir, io, notes, force, lockWaitMs }: { dir: string; tag: string; commit: string; version: string; repoDir: string; io: InstallIo; notes: LogText[]; force: boolean; lockWaitMs?: number }): Promise<InstallOutcome> {
   const held = await withLock(
     dir,
     async (): Promise<InstallOutcome> => {
@@ -94,7 +94,7 @@ async function publish({ dir, tag, commit, version, repoDir, io, notes, force, l
  * force: 이미 그 태그와 커밋이어도 새 폴더에 다시 받는다(망가진 설치를 고칠 때). lockWaitMs: 옮길 때 다른 프로세스의 잠금을 기다리는 상한(테스트용, 기본 15분)
  */
 async function installBgutil({ dir, tag, commit, force = false, io, lockWaitMs }: { dir: string; tag: string; commit: string; force?: boolean; io: InstallIo; lockWaitMs?: number }): Promise<InstallOutcome> {
-  const notes: Array<string | LogText> = [];
+  const notes: LogText[] = [];
   const read = readState(dir);
   const same = !force && read.kind === "ok" ? sameBuild(dir, read.state.active, tag, commit) : null;
   if (same) return { kind: "unchanged", tag, version: same.version, notes };

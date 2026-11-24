@@ -3,13 +3,11 @@
 // 그 밖(다른 알고리즘, 부분 길이 패킷, 모르는 중요 하위 패킷)은 거절한다. 형식은 RFC 4880
 
 import crypto from "node:crypto";
-import type { RuleCode, RuleParams, RuleProblem } from "../rules/rule-problem.ts";
+import type { RuleCode, RuleParams } from "../rules/rule-problem.ts";
+import { problemError } from "./error-text.ts";
 
-// 기반 층이라 오류 도구(rules)를 부르지 않는다. 코드는 같은 형식(code 필드), 이유는 규칙 문제(problem 필드, 문장은 받는 쪽이 그린다)
-const bad = (why: RuleCode, params?: RuleParams) => {
-  const problem: RuleProblem = { code: "pgp-failed", cause: { code: why, ...(params ? { params } : {}) } };
-  return Object.assign(new Error(`BAD_SIGNATURE ${why}`), { code: "BAD_SIGNATURE", problem });
-};
+// 이유는 규칙 문제(problem 필드, 문장은 받는 쪽이 그린다)
+const bad = (why: RuleCode, params?: RuleParams) => problemError("BAD_SIGNATURE", { code: "pgp-failed", cause: { code: why, ...(params ? { params } : {}) } });
 
 const TAG = { signature: 2, publicKey: 6 } as const;
 const RSA = 1;

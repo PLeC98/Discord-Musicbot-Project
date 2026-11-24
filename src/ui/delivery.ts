@@ -42,7 +42,7 @@ const GONE_CODES = new Set<unknown>([RESTJSONErrorCodes.UnknownMessage, RESTJSON
  * 응답, 메시지를 지우거나 고친 실패를 받는 catch 핸들러. 누가 이미 지웠으면 넘기고, 그 밖은 부른 쪽 로거에 warn으로 남긴다.
  * 상호작용 오류도 남긴다: 10062는 3초 안에 응답하지 못함, 답하지 않은 응답, 같은 토큰의 다른 봇, 40060은 두 번 응답함, 50027은 응답 수명이 토큰(15분)을 넘김
  */
-function unlessGone(log: { warn(line: LogText): unknown }, what: string | LogText) {
+function unlessGone(log: { warn(line: LogText): unknown }, what: LogText) {
   return (error: unknown) => {
     if (GONE_CODES.has(codeOf(error))) return;
     log.warn(L.failure.messageActionFailed({ what, reason: describeError(error) }));
@@ -68,7 +68,7 @@ function expireSelf(interaction: RepliableInteraction, ms: number | null, messag
 const expiries = new Map<string, NodeJS.Timeout>();
 
 /** 메시지를 ms 뒤 remove로 삭제한다. 같은 메시지에 다시 부르면 새로 센다. stopExpiry로 멈춘다 */
-function expireMessage(messageId: string, remove: () => unknown, ms: number, what: string | LogText = L.events.menuDelete()) {
+function expireMessage(messageId: string, remove: () => unknown, ms: number, what: LogText = L.events.menuDelete()) {
   stopExpiry(messageId);
   const timer = setTimeout(() => {
     expiries.delete(messageId);

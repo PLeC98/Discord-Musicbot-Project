@@ -11,7 +11,7 @@
 // 불러온 뒤 다시 시작해야 적용되는 값이 바뀌었거나 쿠키 출처가 바뀌었으면 응답이 알린다(화면이 다시 시작 창, 연령 제한 탭 안내를 연다).
 
 import { rule, type RuleCode, type RuleProblem } from "../rules/rule-problem.ts";
-import { logRuleLine } from "../rules/text/index.ts";
+import { logRuleLine, ruleLogText } from "../rules/text/index.ts";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -72,7 +72,7 @@ type ArchiveJson = {
 type Parsed = { json: Partial<ArchiveJson>; favicons: Array<{ name: string; data: Buffer }>; file: string };
 
 /** 이 봇의 내보내기가 아닌 파일. 메시지는 로그 언어로 그린 이유, problem은 화면이 그릴 이유 */
-const badArchive = (problem: RuleProblem) => Object.assign(codedError("BAD_ARCHIVE", logRuleLine(problem)), { problem });
+const badArchive = (problem: RuleProblem) => Object.assign(codedError("BAD_ARCHIVE", ruleLogText(problem)), { problem });
 const isTable = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
 const digest = (data: Buffer) => crypto.createHash("sha256").update(data).digest("hex");
 
@@ -294,7 +294,7 @@ async function checkChosen(parsed: Parsed, items: ArchiveItem[]): Promise<{ favi
   const causes = rows.flatMap((row) => [...(row.inFile ? [] : [rule("archive-missing")]), ...row.problems].map((cause) => ({ item: row.item, cause })));
   if (causes.length) {
     const problems = causes.map(({ item, cause }) => rule("archive-item", { item }, cause));
-    throw Object.assign(codedError("CONFIG_INVALID", causes.map(({ item, cause }) => `${asText(ITEM_LABELS[item])}: ${logRuleLine(cause)}`).join("\n")), { problems });
+    throw Object.assign(codedError("CONFIG_INVALID", L.config.problemLines({ lines: causes.map(({ item, cause }) => `${asText(ITEM_LABELS[item])}: ${logRuleLine(cause)}`).join("\n") })), { problems });
   }
   const checked = items.includes("favicon") ? await appearance.checkFavicons(parsed.favicons) : null;
   return { favicons: checked?.ok ? checked.prepared : null, background: background?.plan ?? null };

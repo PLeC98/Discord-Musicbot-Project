@@ -1,6 +1,6 @@
 import type { HelpEntry } from "../ui/help-lines.ts";
 import { rule, type RuleProblem } from "../rules/rule-problem.ts";
-import { logRuleLine } from "../rules/text/index.ts";
+import { ruleLogText } from "../rules/text/index.ts";
 import { REST, RESTJSONErrorCodes, Routes, type AutocompleteInteraction, type ChatInputCommandInteraction, type RESTPostAPIApplicationCommandsJSONBody, type RESTPutAPIApplicationCommandsResult } from "discord.js";
 import crypto from "crypto";
 import fs from "fs";
@@ -184,7 +184,7 @@ function deployHint(scope: string, guildId: string | null, error: unknown): Rule
 
 /** 배포 실패를 로그, 터미널에 남길 줄. 원인 안내(hint)가 있으면 둘째 줄 */
 function deployErrorLines(result: { scope: string; error: unknown; hint: RuleProblem | null }) {
-  return [L.core.commandDeployScopeFailed({ scope: result.scope, error: messageOf(result.error) }), ...(result.hint ? [logRuleLine(result.hint)] : [])];
+  return [L.core.commandDeployScopeFailed({ scope: result.scope, error: messageOf(result.error) }), ...(result.hint ? [ruleLogText(result.hint)] : [])];
 }
 
 export { enabledCommands, followEnabledCommands, definitions, deployCommands, clearCommands, deployErrorLines };

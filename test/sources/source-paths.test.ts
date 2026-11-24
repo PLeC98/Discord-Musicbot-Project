@@ -22,6 +22,7 @@ import sink from "../../src/infra/log/sink.ts";
 import { plainText } from "../helpers/notice.ts";
 import { inputKind } from "../../src/rules/input-kind.ts";
 import { textFor } from "../../src/ui/text/index.ts";
+import { testText } from "../helpers/log-text.ts";
 const KO = textFor("ko");
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "resolver-paths-"));
@@ -100,7 +101,7 @@ test("조회: 유튜브 재생목록은 구간을 넘겨 받는다. 영상도 �
     ),
     { success: false, code: "no-song-result" },
   );
-  const gone = codedError("unavailable-playlist", "ERROR: [youtube:tab] PL3: The playlist does not exist.");
+  const gone = codedError("unavailable-playlist", testText("ERROR: [youtube:tab] PL3: The playlist does not exist."));
   const failed = await lookup.findTracks(
     "https://www.youtube.com/playlist?list=PL3",
     undefined,
@@ -318,7 +319,7 @@ test("캐시 지름길: 직접 링크는 음원이 요청 그대로인 행만 �
   const direct = {
     getInfo: async (url: string) => {
       opened.push(url);
-      throw codedError("unsupported-link", "음원이 아닌 링크입니다(page)");
+      throw codedError("unsupported-link", testText("음원이 아닌 링크입니다(page)"));
     },
   };
 
@@ -353,7 +354,7 @@ test("지정한 음원: 링크 데이터가 표시 정보를 기억하면 조회
 test("지정한 음원: 원래 영상이 죽었어도 지정한 음원에서 읽은 제목으로 곡을 만든다. 요청 키, 링크, 출처는 원래 요청의 것", async () => {
   const url = "https://www.youtube.com/watch?v=pindead0001";
   pinnedSources.setPin(url, "https://soundcloud.com/alive/song");
-  const dead = { youtube: { ...youtubeSource, getInfo: async () => Promise.reject(codedError("unavailable-contents", "ERROR: [youtube] pindead0001: Video unavailable")) }, soundcloud: { find: async (scUrl: string) => ({ kind: "track" as const, track: { ...scTrack(scUrl), title: "살아 있는 음원의 제목" } }) } };
+  const dead = { youtube: { ...youtubeSource, getInfo: async () => Promise.reject(codedError("unavailable-contents", testText("ERROR: [youtube] pindead0001: Video unavailable"))) }, soundcloud: { find: async (scUrl: string) => ({ kind: "track" as const, track: { ...scTrack(scUrl), title: "살아 있는 음원의 제목" } }) } };
 
   const got = await lookup.resolveQuery(url, undefined, undefined, dead);
 
@@ -486,19 +487,19 @@ test("스트림: 링크 데이터에서 온 영상이 내려갔으면 한 번 �
 test("사라졌다는 판정: 확실히 사라진 것만(일시 오류, 연령 제한으로 지정을 버리지 않는다)", async () => {
   const { deadSourceCode } = await import("../../src/sources/dead-source.ts");
   assert.equal(deadSourceCode(new Error("ERROR: [youtube] abc: Video unavailable")), "unavailable-contents");
-  assert.equal(deadSourceCode(codedError("unavailable-contents", "HTTP Error 404")), "unavailable-contents");
-  assert.equal(deadSourceCode(codedError("sc-preview-only", "미리듣기")), "sc-preview-only");
-  assert.equal(deadSourceCode(codedError("direct-unavailable", "x", { cause: new Error("요청 실패: HTTP 404") })), "direct-unavailable");
-  assert.equal(deadSourceCode(codedError("direct-unavailable", "x", { cause: new Error("요청 실패: HTTP 503") })), null, "5xx는 일시 오류");
-  assert.equal(deadSourceCode(codedError("direct-unavailable", "x", { cause: networkError("ECONNRESET") })), null);
-  assert.equal(deadSourceCode(codedError("rate-limited", "HTTP Error 403")), null);
+  assert.equal(deadSourceCode(codedError("unavailable-contents", testText("HTTP Error 404"))), "unavailable-contents");
+  assert.equal(deadSourceCode(codedError("sc-preview-only", testText("미리듣기"))), "sc-preview-only");
+  assert.equal(deadSourceCode(codedError("direct-unavailable", testText("x"), { cause: new Error("요청 실패: HTTP 404") })), "direct-unavailable");
+  assert.equal(deadSourceCode(codedError("direct-unavailable", testText("x"), { cause: new Error("요청 실패: HTTP 503") })), null, "5xx는 일시 오류");
+  assert.equal(deadSourceCode(codedError("direct-unavailable", testText("x"), { cause: networkError("ECONNRESET") })), null);
+  assert.equal(deadSourceCode(codedError("rate-limited", testText("HTTP Error 403"))), null);
   assert.equal(deadSourceCode(new Error("ERROR: Sign in to confirm your age")), null, "연령 제한은 사라진 것이 아니다");
-  assert.equal(deadSourceCode(codedError("pinned-live", "라이브")), "live", "라이브는 지정할 수 없다");
-  assert.equal(deadSourceCode(codedError("unsupported-link", "음원이 아닌 링크입니다(page)")), "unsupported-link", "지운 파일 자리에 웹 페이지를 주는 서버");
+  assert.equal(deadSourceCode(codedError("pinned-live", testText("라이브"))), "live", "라이브는 지정할 수 없다");
+  assert.equal(deadSourceCode(codedError("unsupported-link", testText("음원이 아닌 링크입니다(page)"))), "unsupported-link", "지운 파일 자리에 웹 페이지를 주는 서버");
 });
 
 // 사운드클라우드 지정이 404로 죽는다
-const deadSoundCloud = { getStream: async () => Promise.reject(codedError("unavailable-contents", "HTTP Error 404")) };
+const deadSoundCloud = { getStream: async () => Promise.reject(codedError("unavailable-contents", testText("HTTP Error 404"))) };
 
 test("스트림: 지정한 음원이 사라졌으면 원래 링크로 한 번 더 열고, 실패를 재생 테스트 결과로 남긴다. 지정은 그대로", async () => {
   const url = "https://www.youtube.com/watch?v=pindeadstr1";
@@ -568,7 +569,7 @@ test("스트림: 지정한 음원이 라이브(방송 중, 시작 전, 인터넷
 });
 
 test("스트림: 지정한 음원의 일시 오류는 지정을 건너뛰지 않는다", async () => {
-  const flaky = { getStream: async () => Promise.reject(codedError("rate-limited", "HTTP Error 403")) };
+  const flaky = { getStream: async () => Promise.reject(codedError("rate-limited", testText("HTTP Error 403"))) };
   const track: Seeking = { title: "곡", platform: "youtube", requestKey: "https://www.youtube.com/watch?v=pinflaky001", audioUrl: "https://soundcloud.com/flaky/one", audioFoundBy: "pinned" };
   await assert.rejects(streamUrl.getStream(track, { soundcloud: flaky, equivalent }), /403/);
   assert.equal(track.audioFoundBy, "pinned");

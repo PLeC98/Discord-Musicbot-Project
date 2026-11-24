@@ -353,7 +353,7 @@ class NowPlayingPanel {
    * 서버당 한 번만 돈다. 5초 갱신과 명령, 버튼 경로가 동시에 들어온다.
    * 보내는 사이에 재생이 끝나거나 다른 경로가 새 메시지를 올렸으면 방금 보낸 것을 도로 삭제한다.
    */
-  async _repostNowPlaying(player: Player, reason: string | LogText) {
+  async _repostNowPlaying(player: Player, reason: LogText) {
     const guildId = player.guild?.id;
     if (!guildId || this.reposting.has(guildId) || !player.currentTrack) return;
 

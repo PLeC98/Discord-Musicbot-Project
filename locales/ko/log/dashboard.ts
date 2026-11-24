@@ -397,6 +397,12 @@ const dashboard = {
   clientRequestReadFailed: ({ address, error }: { address: string | null; error: string }) => `대시보드 요청 읽기 실패(${address ?? "주소 모름"}): ${error}`,
   inviteGuildsFailed: ({ status, error }: { status: number | null; error: string }) => `디스코드에서 초대 화면의 서버 목록 불러오기 실패: ${status ? `상태 코드 ${status}` : error}`,
   searchResults: ({ who, query, youtube, spotify, gated }: { who: string; query: string; youtube: number; spotify: number; gated: boolean }) => `곡 검색: 대시보드 | ${who} | "${query}" → ${youtube + spotify ? `유튜브 ${youtube}, 스포티파이 ${spotify}` : "결과 없음"}${gated ? "(유튜브 연령 인증 안내)" : ""}`,
+  /** 처리하지 못한 요청 오류(5xx). 뒤에 스택이 붙는다 */
+  requestFailed: ({ errorId, method, url, status }: { errorId: string; method: string; url: string; status: number }) => `[${errorId}] ${method} ${url} → ${status}`,
+  /** 보낸 쪽이 잘못한 요청(4xx). kind: 오류의 종류 이름(type, code, name. 없으면 빈 글) */
+  requestRejected: ({ errorId, method, url, status, kind }: { errorId: string; method: string; url: string; status: number; kind: string }) => `[${errorId}] ${method} ${url} → ${status} ${kind}`.trimEnd(),
+  emojiTooLargeBytes: ({ bytes }: { bytes: number }) => `${bytes}B`,
+  emojiTooLargeAnimated: ({ gif, webp }: { gif: number; webp: number }) => `GIF ${gif}B, WebP ${webp}B`,
 };
 
 export { dashboard };

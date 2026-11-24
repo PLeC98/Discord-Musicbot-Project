@@ -21,7 +21,7 @@ const flog = logger.child({ category: "core", sub: "fatal" });
 const coreLog = logger.child({ category: "core" });
 
 /** 치명적 오류로 내릴 때 세션을 저장하고 연결을 정리할 플레이어 */
-type Savable = { persistence: { saveNow(reason: string): unknown }; voice: { release(reason: string | LogText): unknown } };
+type Savable = { persistence: { saveNow(reason: string): unknown }; voice: { release(reason: LogText): unknown } };
 /** 서버마다의 플레이어 */
 type Savables = Pick<Map<string, Savable | null>, "forEach">;
 /** 오류 핸들러를 걸 클라이언트 */
@@ -48,7 +48,7 @@ function makeFloodGuard(windowMs = FLOOD_WINDOW_MS, max = FLOOD_MAX) {
  * 스택은 error(권한, 그 밖)면 같은 줄에, warn(상호작용 수명, 사라진 대상)이면 debug로.
  * 이벤트 경계(app/main의 onFault)와 프로세스 수준(loose)이 같이 쓴다. guildId: 그 서버(모르면 null), where: 어디서 새어 나왔나
  */
-function logRejection(error: unknown, guildId: string | null, where: string | LogText): boolean {
+function logRejection(error: unknown, guildId: string | null, where: LogText): boolean {
   const rejected = discordRejection(error);
   if (!rejected) return false;
   const line = rejectionLine(rejected, guildId, where);
@@ -94,7 +94,7 @@ type Options = { players?: Savables; fault?: GuildFault; proc?: Proc; exit?: () 
 function installErrorHandlers(client: WatchedClient, { players, fault, proc = process, exit, record }: Options = {}) {
   const flooding = makeFloodGuard();
 
-  const loose = (error: unknown, source: string) => {
+  const loose = (error: unknown, source: LogText) => {
     const guildId = currentGuild();
     if (logRejection(error, guildId, source)) return;
     if (guildId && fault) {
@@ -111,9 +111,9 @@ function installErrorHandlers(client: WatchedClient, { players, fault, proc = pr
   };
 
   // discord.js가 알리는 오류. 핸들러의 거부는 경계(app/event-boundary)가 받으므로 여기는 라이브러리 안의 오류다
-  client.on(Events.Error, (error) => loose(error, "client"));
-  proc.on("unhandledRejection", (reason) => loose(reason, "rejection"));
-  proc.on("uncaughtException", (error) => loose(error, "exception"));
+  client.on(Events.Error, (error) => loose(error, L.core.looseFromClient()));
+  proc.on("unhandledRejection", (reason) => loose(reason, L.core.looseFromRejection()));
+  proc.on("uncaughtException", (error) => loose(error, L.core.looseFromException()));
 }
 
 export { installErrorHandlers, fatalShutdown, makeFloodGuard, logRejection, FLOOD_WINDOW_MS, FLOOD_MAX };

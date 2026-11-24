@@ -40,6 +40,7 @@ const spotify = {
   /** more: 첫 곡 밖의 곡 수 */
   collectionHead: ({ title, artist, more }: { title: string; artist: string; more: number }) => `"${title}" - ${artist}${more > 0 ? ` 외 ${more}곡` : ""}`,
   graphqlError: () => `GraphQL 오류`,
+  apiFailed: ({ status, path }: { status: number; path: string }) => `API ${status} (${path})`,
 };
 
 export { spotify };

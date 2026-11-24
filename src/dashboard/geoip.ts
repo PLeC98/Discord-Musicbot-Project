@@ -25,6 +25,7 @@ import type { DevicePlace } from "./contract/identity.ts";
 import { nameFor, type Language } from "../rules/languages.ts";
 import type { GeoipCheck, GeoipStatus } from "./contract/admin.ts";
 import { L } from "../infra/log/text.ts";
+import { logTextError } from "../infra/log/log-text.ts";
 import { ruleLogText } from "../rules/text/index.ts";
 const log = logger.child({ category: "dashboard", sub: "geoip" });
 
@@ -175,7 +176,7 @@ async function download(version: string) {
   progress = { received: 0, total: null };
   try {
     const res = await http.fetch(urlOf(version), { signal: AbortSignal.timeout(30 * 60_000) });
-    if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok || !res.body) throw logTextError(L.net.httpStatus({ status: res.status }));
     progress.total = Number(res.headers.get("content-length")) || null;
     const body = Readable.fromWeb(res.body as import("node:stream/web").ReadableStream<Uint8Array>);
     body.on("data", (chunk: Buffer) => {

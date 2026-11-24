@@ -18,6 +18,12 @@ const discord = {
   gatewayReconnected: ({ how, attempt, cause }: { how: string; attempt: number; cause: string }) => `게이트웨이 재연결: ${how} | 시도 ${attempt}회 | 원인=${cause}`,
   gatewaySessionResumed: () => `세션 재개`,
   gatewayNewSession: () => `새 세션`,
+  /** discord.js가 알린 경고. text: 라이브러리의 글 그대로(바깥 글) */
+  libraryWarning: ({ text }: { text: string }) => `${text}`,
+  /** discord.js의 진행 기록(하트비트, 게이트웨이). text: 라이브러리의 글 그대로(바깥 글) */
+  libraryDebug: ({ text }: { text: string }) => `${text}`,
+  /** discord.js REST의 진행 기록. text: 라이브러리의 글 그대로(바깥 글) */
+  restDebug: ({ text }: { text: string }) => `${text}`,
 };
 
 export { discord };

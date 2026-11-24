@@ -249,7 +249,7 @@ const official = {
     const url = path.startsWith("http") ? path : `${API_BASE}${path}`;
     const r = await send(url, { headers: { Authorization: `Bearer ${tok}`, "User-Agent": ua() }, signal: AbortSignal.timeout(TIMEOUT_MS) });
     // 없는 곡, 앨범, 가수는 없음이다(resolveType). 요청 제한은 rate-limited 코드를 단다
-    if (!r.ok) throw codedError(r.status === 404 ? "not-found" : r.status === 429 ? "rate-limited" : "spotify-failed", `API ${r.status} (${path.slice(0, 40)})`);
+    if (!r.ok) throw codedError(r.status === 404 ? "not-found" : r.status === 429 ? "rate-limited" : "spotify-failed", L.spotify.apiFailed({ status: r.status, path: path.slice(0, 40) }));
     return r.json();
   },
 

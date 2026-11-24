@@ -46,7 +46,7 @@ type HlsFragments = {
   next(): Promise<HlsPart | null>;
   fetch(part: HlsPart, signal: AbortSignal, progress?: () => void): Promise<Buffer | HlsPour>;
   startedAtMs: number;
-  describe(sent: number): string | LogText;
+  describe(sent: number): LogText;
   close(): void;
 };
 type Hls = {

@@ -1,6 +1,7 @@
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "error" });
-import { errorKind, messageOf } from "../rules/error-kind.ts";
+import { errorKind } from "../rules/error-kind.ts";
+import { errorText } from "../rules/text/index.ts";
 import type { SharedText } from "./text/shared.ts";
 import config from "../config/index.ts";
 import { isCode, type Code, type LooseProblem } from "../rules/problems.ts";
@@ -34,7 +35,7 @@ function addFailureMessage(T: SharedText, result: AddFailure) {
 /** 처리하지 못한 오류를 로그에 남기고 사용자 안내를 돌려준다(catch 블록에서) */
 function reportError(T: SharedText, error: unknown, context = "") {
   // context → sub(하위 카테고리), 분류 결과 → kind(구조화 필드, 터미널 배지엔 안 뜸)
-  log.error({ sub: context || undefined, kind: errorKind(error) }, messageOf(error));
+  log.error({ sub: context || undefined, kind: errorKind(error) }, L.error.unhandled({ error: errorText(error) }));
   return errorMessage(T, error);
 }
 

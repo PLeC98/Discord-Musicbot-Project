@@ -12,6 +12,8 @@ import { KEPT_LINES } from "../../src/infra/log/levels.ts";
 import { FAILED_MARK, logText, renderLogText, takeRenderFailures, type LogText } from "../../src/infra/log/log-text.ts";
 import { logRuleLine, ruleLogText } from "../../src/rules/text/index.ts";
 import { rule } from "../../src/rules/rule-problem.ts";
+import { testText } from "../helpers/log-text.ts";
+import { L } from "../../src/infra/log/text.ts";
 const { buildRecord, createLogger, LEVELS } = logger._internals;
 const { LogSink } = sink;
 // 터미널 소음 억제
@@ -143,8 +145,8 @@ test("buildRecord: (obj) 단독. msg 빈 문자열", () => {
 test("레벨 게이팅: 현재 레벨 미만은 기록하지 않는다", () => {
   const calls: LogRecord[] = [];
   const log = createLogger({}, "info", (r) => calls.push(r));
-  log.debug("이건 무시"); // 20 < 30
-  log.info("이건 통과"); // 30 >= 30
+  log.debug(testText("이건 무시")); // 20 < 30
+  log.info(testText("이건 통과")); // 30 >= 30
   assert.equal(calls.length, 1);
   assert.equal(calls[0].msg, "이건 통과");
 });
@@ -154,7 +156,7 @@ test("level 세터로 게이팅 조정 가능", () => {
   const log = createLogger({}, "info", (r) => calls.push(r));
   log.level = "debug";
   assert.equal(log.level, "debug");
-  log.debug("이제 통과");
+  log.debug(testText("이제 통과"));
   assert.equal(calls.length, 1);
 });
 
@@ -163,7 +165,7 @@ test("child: 바인딩 병합, 부모 레벨 상속", () => {
   const parent = createLogger({ category: "a" }, "warn", (r) => calls.push(r));
   const child = parent.child({ sub: "b" });
   assert.equal(child.level, "warn");
-  child.error("x");
+  child.error(testText("x"));
   assert.equal(calls[0].category, "a");
   assert.equal(calls[0].sub, "b");
 });
@@ -216,8 +218,8 @@ test("레드액션: 메시지 패턴은 msg 밖의 글 값에도 건다(Error의
   const got: LogRecord[] = [];
   lm.destinations.push((r) => got.push(r));
   const log = createLogger({ category: "test" }, null, (rec) => lm.record(rec));
-  log.error(new Error("요청 실패 Bearer abcDEF123456ghized"));
-  log.error({ body: JSON.stringify({ error: "x", token: "body-token-5678" }), status: 401 }, "토큰 교환 실패");
+  log.error(new Error("요청 실패 Bearer abcDEF123456ghized"), testText("요청 실패"));
+  log.error({ body: JSON.stringify({ error: "x", token: "body-token-5678" }), status: 401 }, testText("토큰 교환 실패"));
   const [thrown, bound] = got;
   for (const field of [thrown.msg, thrown.err]) {
     assert.match(String(field), /Bearer \[REDACTED\]/);
@@ -243,6 +245,19 @@ test("레드액션: 문구 값(args)은 모든 깊이에서 키 이름과 글 �
   assert.ok(args.long.length < 20_000, "글 값 길이 상한도 건다");
   assert.equal(label.args.token, "inner-secret-1", "원본 서술자는 그대로");
   assert.equal((text.args.long as string).length, 20_000);
+});
+
+test("바깥 글을 그대로 싣는 문구(값 이름 text)는 글을 msg에만 싣고(가린다) 값에는 다시 싣지 않는다", () => {
+  const lm = new LogSink({ intercept: false, terminal: quiet });
+  const got: LogRecord[] = [];
+  lm.destinations.push((r) => got.push(r));
+  const log = createLogger({}, "trace", (rec) => lm.record(rec));
+  const identify = `[WS] >> ${JSON.stringify({ op: 0, d: { server_id: "1", session_id: "abc", token: "voice-token-1234" } })}`;
+  log.trace(L.voice.connectionDebug({ text: identify, channel: "채널" }));
+  const msg = String(got[0].msg);
+  assert.doesNotMatch(msg, /voice-token-1234/, msg);
+  assert.match(msg, /"token":"\[REDACTED\]"/);
+  assert.deepEqual([got[0].event, got[0].args], ["voice.connectionDebug", { channel: "채널" }]);
 });
 
 // ── sink: 글 값의 길이 상한 ──────────────────────────────────

@@ -22,6 +22,7 @@ import { openTempStore } from "../helpers/temp-store.ts";
 import { sessions } from "../../src/store/player-sessions.ts";
 import { SessionPersistence } from "../../src/player/session-mirror.ts";
 import { textFor } from "../../src/ui/text/index.ts";
+import { testText } from "../helpers/log-text.ts";
 const KO = textFor("ko");
 const errors = textFor("ko").errors;
 
@@ -79,7 +80,7 @@ function setup({ current = null, queue = [], plays = [{ ok: true }], connected =
     voice: {
       connect: async () => {
         calls.push("connect");
-        if (connects !== true) throw codedError(connects || "voice-failed", "음성 채널에 붙지 못했습니다");
+        if (connects !== true) throw codedError(connects || "voice-failed", testText("음성 채널에 붙지 못했습니다"));
         Object.assign(player, { connection: {} });
         return true;
       },

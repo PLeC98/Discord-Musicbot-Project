@@ -41,7 +41,7 @@ function unzipEntry(zip: Buffer, name: string) {
 }
 
 const response = await fetch(SOURCE);
-if (!response.ok) throw new Error(`${SOURCE} → ${response.status}`);
+if (!response.ok) throw logTextError(L.build.kanjiSourceFailed({ url: SOURCE, status: response.status }));
 const text = unzipEntry(Buffer.from(await response.arrayBuffer()), ENTRY).toString("utf8");
 
 const header = text.split("\n").slice(0, 3).join(" ");

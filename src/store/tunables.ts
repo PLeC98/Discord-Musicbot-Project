@@ -86,7 +86,7 @@ const cardPart = (values: Record<string, string>) => Object.fromEntries(Object.e
 const about = (problems: RuleProblem[], keys: (key: string) => boolean) => problems.filter((problem) => keys(tuneKeyOf(problem) ?? ""));
 
 // 저장 거절의 예외. 메시지는 로그 언어로 그린 문제, problems는 화면이 그릴 문제
-const invalidError = (problems: RuleProblem[]) => Object.assign(codedError("CONFIG_INVALID", problems.map(logRuleLine).join("\n")), { problems });
+const invalidError = (problems: RuleProblem[]) => Object.assign(codedError("CONFIG_INVALID", L.config.problemLines({ lines: problems.map(logRuleLine).join("\n") })), { problems });
 
 /**
  * 저장 바의 저장. values는 필드 전부(빈 필드는 기본값), revision은 화면이 읽은 번호. 도구 카드의 값은 values에서 읽지 않고 저장된 값을 이어 쓴다.

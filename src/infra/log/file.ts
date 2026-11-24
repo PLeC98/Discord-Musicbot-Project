@@ -50,7 +50,7 @@ function nextBackupPath(file: string, exists: (target: string) => boolean = fs.e
 }
 
 /** file에서 떼어 낸 파일들의 이름(같은 폴더). 이름순이 곧 시간순이다(파일명이 로컬 시각이라). 폴더를 못 읽으면 빈 목록 */
-function rotatedFilesOf(file: string, report?: { caller: string | LogText; line: (text: LogText) => unknown }): string[] {
+function rotatedFilesOf(file: string, report?: { caller: LogText; line: (text: LogText) => unknown }): string[] {
   const base = path.basename(file);
   const ext = path.extname(base);
   const stem = ext ? base.slice(0, -ext.length) : base;

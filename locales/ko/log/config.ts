@@ -80,6 +80,8 @@ const config = {
   modelsUnchanged: ({ count, fetchedAt }: { count: number; fetchedAt: string | null }) => `바뀐 것이 없습니다. 모델 ${count}개 (${fetchedAt ?? "없음"})`,
   modelsRefreshFailed: () => `실패:`,
   envSetupFailed: ({ error }: { error: string }) => `.env 준비 실패: ${error}`,
+  /** 저장을 거절한 문제들. lines: 문제마다 로그 언어로 그린 줄을 줄바꿈으로 이은 것 */
+  problemLines: ({ lines }: { lines: string }) => `${lines}`,
 };
 
 export { config };

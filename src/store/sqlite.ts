@@ -21,11 +21,11 @@ const AUTO_VACUUM = { INCREMENTAL: 2 } as const;
  * lost: 삭제해도 되는 파일. 삭제하면 무엇을 잃는지(안내는 "이 파일을 삭제하고 다시 시작하라")
  * hint: 삭제하면 안 되는 파일의 안내(설정 DB)
  */
-type OnMismatch = { lost: string | LogText } | { hint: (found: number, file: string) => string | LogText };
+type OnMismatch = { lost: LogText } | { hint: (found: number, file: string) => LogText };
 
 type DbSpec = {
   /** 로그, 오류에 쓰는 이름 */
-  label: string | LogText;
+  label: LogText;
   /** 기본 파일 이름(stores가 폴더와 잇는다) */
   fileName: string;
   /** 구조를 맞지 않게 바꿀 때마다 올린다. 표를 더하기만 하면 올리지 않는다(CREATE TABLE IF NOT EXISTS) */

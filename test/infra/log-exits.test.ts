@@ -32,8 +32,8 @@ function fakeStream() {
   };
 }
 
-/** 네 출구를 붙인 로거로 한 줄을 찍고, 출구마다 받은 것 */
-async function throughExits(write: (log: ReturnType<typeof createLogger>) => void) {
+/** 네 출구를 붙인 로거로 한 줄을 찍고, 출구마다 받은 것. record: 로거를 거치지 않고 sink에 바로 넣는다(서드파티 console 줄처럼 문구가 없는 줄) */
+async function throughExits(write: (log: ReturnType<typeof createLogger>, record: (rec: LogRecord) => void) => void) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "log-exits-"));
   dirs.push(dir);
   const file = path.join(dir, "bot.log");
@@ -43,7 +43,10 @@ async function throughExits(write: (log: ReturnType<typeof createLogger>) => voi
   lm.destinations.push(dest.write);
   const stream = fakeStream();
   lm.addClient(stream.res, "operator");
-  write(createLogger({ category: "config" }, null, (rec) => lm.record(rec)));
+  write(
+    createLogger({ category: "config" }, null, (rec) => lm.record(rec)),
+    (rec) => lm.record(rec),
+  );
   dest.close();
   lm.drop(stream.res);
   const sse = stream.frames.filter((frame) => frame.startsWith("id:") || frame.includes("\ndata:") || frame.startsWith("data:")).map((frame) => JSON.parse(/data: (.*)/.exec(frame)![1]) as { text: string });
@@ -75,9 +78,9 @@ test("문구 한 줄이 터미널, SSE, 파일, 로그 파일 보기에 같은 �
 
 test("실시간 로그와 로그 파일 보기의 줄에 문구 코드가 실리고(값 안의 라벨 것까지), 문구 코드로 찾을 수 있다", async () => {
   const label = L.core.runRecordUpdate();
-  const got = await throughExits((log) => {
+  const got = await throughExits((log, record) => {
     log.warn(L.failure.started({ what: label, reason: "x" }));
-    log.info("문구 없는 줄");
+    record({ level: 30, time: Date.now(), msg: "문구 없는 줄" });
   });
   const sse = got.sse as Array<{ text: string; events?: string[] }>;
   assert.deepEqual(sse.find((entry) => entry.text.startsWith("실행 기록 갱신 실패"))?.events, ["failure.started", "core.runRecordUpdate"]);

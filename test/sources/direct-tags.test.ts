@@ -17,6 +17,7 @@ import { codeOf, codedError } from "../../src/rules/error-kind.ts";
 import { openTempStore } from "../helpers/temp-store.ts";
 import type { Tags } from "../../src/sources/file-tags.ts";
 import { spawnFfmpeg } from "../../src/media/ffmpeg/process.ts";
+import { testText } from "../helpers/log-text.ts";
 
 const store = openTempStore("direct-tags-");
 after(() => store.close());
@@ -168,7 +169,7 @@ test("음원이 아닌 직접 링크(웹 페이지, 그림): getInfo는 unsuppor
   await assert.rejects(directSource.getInfo("https://files.test/page.mp3", { net: page.net }), (e: unknown) => codeOf(e) === "unsupported-link");
   const direct = {
     getInfo: async () => {
-      throw codedError("unsupported-link", "음원이 아닌 링크입니다(page)");
+      throw codedError("unsupported-link", testText("음원이 아닌 링크입니다(page)"));
     },
   };
   assert.deepEqual(await lookup.findTracks("https://files.test/page.mp3", undefined, undefined, { direct }), { success: false, code: "unsupported-link" });

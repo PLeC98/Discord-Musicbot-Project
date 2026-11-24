@@ -7,6 +7,7 @@ import { PassThrough, Readable, Writable } from "node:stream";
 import { createFragmentStream, openFragmentStream, streamFragments, startOf, type FragmentFetch, type FragmentSource } from "../../src/media/fragment-stream.ts";
 import { asText } from "../../src/infra/log/log-text.ts";
 import { failureScope } from "../../src/player/failure-scope.ts";
+import { testText } from "../helpers/log-text.ts";
 
 const base = "https://rr.test/videoplayback?live=1";
 
@@ -100,7 +101,7 @@ test("출처를 넘기면: 다음 세그먼트가 늦게 나와도(라이브) �
     next: () => new Promise((resolve) => setTimeout(() => resolve(names[given++] ?? null), 5)),
     fetch: async (name) => Buffer.from(`${name}|`),
     startedAtMs: 1_000,
-    describe: (sent) => `내보냄 ${sent}`,
+    describe: (sent) => testText(`내보냄 ${sent}`),
     close: () => closed++,
   };
   const s = streamFragments(source, { retryDelaysMs: [] });
@@ -138,7 +139,7 @@ test("닫으면 받는 중인 세그먼트(미리 받는 것까지)를 끊는다
       return new Promise((_, reject) => signal.addEventListener("abort", () => reject(signal.reason)));
     },
     startedAtMs: 0,
-    describe: () => "",
+    describe: () => testText(""),
   };
   const s = streamFragments(source, { retryDelaysMs: [1], stallMs: 60_000 });
   s.on("error", () => {});
@@ -165,7 +166,7 @@ function sourceOf(parts: Array<() => Buffer | Readable | Promise<Buffer | Readab
     next: async () => (given < parts.length ? given++ : null),
     fetch: async (index) => parts[index](),
     startedAtMs: 0,
-    describe: (sent) => `내보냄 ${sent}`,
+    describe: (sent) => testText(`내보냄 ${sent}`),
     ...extra,
   };
   return source;

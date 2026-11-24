@@ -14,6 +14,7 @@ import { cleanupBgutil } from "../../src/sources/bgutil/cleanup.ts";
 import { trialRun } from "../../src/sources/bgutil/trial.ts";
 import { asText } from "../../src/infra/log/log-text.ts";
 import { acquireInstanceLock } from "../../src/infra/instance-lock.ts";
+import { testText } from "../helpers/log-text.ts";
 
 const base = fs.mkdtempSync(path.join(os.tmpdir(), "bgutil-install-"));
 after(() => fs.rmSync(base, { recursive: true, force: true, maxRetries: 5 }));
@@ -69,7 +70,7 @@ function fakeIo(over: { version?: string; scripts?: Record<string, string>; tria
       fs.mkdirSync(path.join(serverDir, "build"), { recursive: true });
       fs.writeFileSync(path.join(serverDir, "build", "main.js"), "");
     },
-    trial: async (_dir, expected) => (calls.push(`trial ${expected}`), over.trialOk === false ? { ok: false, reason: "응답하지 않음" } : { ok: true }),
+    trial: async (_dir, expected) => (calls.push(`trial ${expected}`), over.trialOk === false ? { ok: false, reason: testText("응답하지 않음") } : { ok: true }),
     now: () => clock++,
     pid: 4242,
     log: () => undefined,

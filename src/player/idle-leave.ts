@@ -126,7 +126,7 @@ class IdleLeave {
 
   // ── 틀 게 없음 ──
 
-  scheduleEmpty(reason: string | LogText = L.player.queueDrained()) {
+  scheduleEmpty(reason: LogText = L.player.queueDrained()) {
     const player = this.player;
     this.cancelEmpty();
     if (this.seated()) return;

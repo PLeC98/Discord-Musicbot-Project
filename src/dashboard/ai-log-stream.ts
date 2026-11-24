@@ -37,7 +37,7 @@ function pushedOf(entry: AiLogEntry): AiLogPushed {
 }
 
 // 프레임을 쓴다. 쌓인 양이 상한을 넘었으면 쓰지 않고 연결을 끊는다(end만으로는 읽지 않는 소켓이 남으므로 destroy로 닫는다. 브라우저가 Last-Event-ID로 이어 받는다)
-function send(res: Response, frame: string, what: string | LogText) {
+function send(res: Response, frame: string, what: LogText) {
   try {
     if (res.writableLength > MAX_PENDING_BYTES) {
       drop(res);

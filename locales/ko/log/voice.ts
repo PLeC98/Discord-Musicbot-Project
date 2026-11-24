@@ -89,6 +89,8 @@ const voice = {
   reasonCleanup: () => `정리`,
   /** lastError: 마지막 복구 시도의 오류(없으면 null이나 빈 글) */
   recoveryGaveUp: ({ channel, maxAttempts, lastError }: { channel: string; maxAttempts: number; lastError: string | null }) => `연결 복구 포기: ${channel} | 최대 ${maxAttempts}회 넘음(세션을 저장하고 정리)${lastError ? ` | 마지막 오류=${lastError}` : ""}`,
+  /** 음성 연결의 진행 기록(웹소켓 메시지, 상태 바뀜). text: 라이브러리의 글 그대로(바깥 글), channel: 채널 라벨 */
+  connectionDebug: ({ text, channel }: { text: string; channel: string }) => `${text} | ${channel}`,
 };
 
 export { voice };

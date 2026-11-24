@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { InputHealth, refusedStatus } from "../../src/media/input-health.ts";
 import { asText } from "../../src/infra/log/log-text.ts";
+import { testText } from "../helpers/log-text.ts";
 
 const child = () => new EventEmitter();
 
@@ -34,15 +35,16 @@ test("0이 아닌 코드나 신호로 끝나면 깨진 것이다. 신호는 -1�
 test("먼저 온 원인을 지킨다. 입력을 닫아 ffmpeg가 0으로 끝나도 깨진 채로 남는다", () => {
   const ffmpeg = child();
   const health = new InputHealth("파일").watch(ffmpeg);
-  health.mark("입력 스트림 오류");
+  const broken = testText("입력 스트림 오류");
+  health.mark(broken);
   ffmpeg.emit("exit", 1, null);
-  assert.equal(health.broken, "입력 스트림 오류");
+  assert.equal(health.broken, broken);
 
   const closed = child();
   const h2 = new InputHealth("파일").watch(closed);
-  h2.mark("입력 스트림 오류");
+  h2.mark(broken);
   closed.emit("exit", 0, null);
-  assert.equal(h2.broken, "입력 스트림 오류");
+  assert.equal(h2.broken, broken);
 });
 
 test("주소가 거절된 오류: 4xx면 그 상태, 범위 탓(416), 5xx, 네트워크 오류는 아니다", () => {

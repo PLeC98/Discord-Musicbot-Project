@@ -109,7 +109,7 @@ async function call(url: string, formats: Formats, what: What, extra: YtDlpFlags
     }
     if (!name) throw error;
     const text = textOf(error);
-    throw codedError(name, text.split("\n").find((line) => /^ERROR/.test(line)) || text, { cause: error });
+    throw codedError(name, L.track.soundcloudYtdlpError({ text: text.split("\n").find((line) => /^ERROR/.test(line)) || text }), { cause: error });
   }
 }
 

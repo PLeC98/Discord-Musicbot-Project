@@ -5,7 +5,7 @@ import { inGuild } from "../infra/guild-context.ts";
 import type { LogText } from "../infra/log/log-text.ts";
 
 /** 새어 나온 오류를 받는 곳. guildId: 그 서버(모르면 null), where: 어느 핸들러 */
-type OnFault = (error: unknown, guildId: string | null, where: string | LogText) => unknown;
+type OnFault = (error: unknown, guildId: string | null, where: LogText) => unknown;
 
 // 이벤트 인자 중 서버를 가진 것(상호작용, 메시지, 음성 상태 등)
 function guildOf(args: unknown[]): string | null {
@@ -18,7 +18,7 @@ function guildOf(args: unknown[]): string | null {
 }
 
 /** 핸들러를 경계로 감싼다. 돌려주는 함수는 Promise를 돌려주지 않는다(실패는 onFault가 받는다) */
-function guarded<A extends unknown[]>(where: string | LogText, listener: (...args: A) => unknown, onFault: OnFault) {
+function guarded<A extends unknown[]>(where: LogText, listener: (...args: A) => unknown, onFault: OnFault) {
   return (...args: A) => {
     const guildId = guildOf(args);
     const run = () => {

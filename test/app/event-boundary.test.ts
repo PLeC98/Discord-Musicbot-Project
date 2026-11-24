@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { guarded, guildOf } from "../../src/app/event-boundary.ts";
 import { currentGuild } from "../../src/infra/guild-context.ts";
 import { asText, type LogText } from "../../src/infra/log/log-text.ts";
+import { testText } from "../helpers/log-text.ts";
 
 const settle = () => new Promise((done) => setImmediate(done));
 
@@ -19,16 +20,16 @@ test("핸들러는 그 서버의 문맥에서 돈다. 예외, 거부는 서버�
   const onFault = (error: unknown, guildId: string | null, where: string | LogText) => faults.push(`${asText(where)}:${guildId}:${(error as Error).message}`);
   const seen: Array<string | null> = [];
 
-  guarded("버튼", (_i: { guildId: string }) => void seen.push(currentGuild()), onFault)({ guildId: "g1" });
+  guarded(testText("버튼"), (_i: { guildId: string }) => void seen.push(currentGuild()), onFault)({ guildId: "g1" });
   guarded(
-    "메시지",
+    testText("메시지"),
     (_m: object) => {
       throw new Error("예외");
     },
     onFault,
   )({ guildId: "g2" });
-  guarded("음성 상태", async (_old: object, _new: object) => Promise.reject(new Error("거부")), onFault)({ guild: { id: "g3" } }, {});
-  guarded("준비", async (_c: object) => Promise.reject(new Error("서버 없음")), onFault)({});
+  guarded(testText("음성 상태"), async (_old: object, _new: object) => Promise.reject(new Error("거부")), onFault)({ guild: { id: "g3" } }, {});
+  guarded(testText("준비"), async (_c: object) => Promise.reject(new Error("서버 없음")), onFault)({});
   await settle();
 
   assert.deepEqual(seen, ["g1"]);

@@ -44,7 +44,7 @@ const Shortcodes = z.record(z.string(), z.union([z.string(), z.array(z.string())
 
 const json = async <T extends z.ZodType>(url: string, schema: T): Promise<z.output<T>> => {
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`${url} → HTTP ${res.status}`);
+  if (!res.ok) throw logTextError(L.build.emojiSourceFailed({ url, status: res.status }));
   return schema.parse(await res.json());
 };
 const base = <T extends z.ZodType>(file: string, schema: T) => json(`https://cdn.jsdelivr.net/npm/emojibase-data@${EMOJIBASE}/${file}`, schema);

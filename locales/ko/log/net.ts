@@ -19,6 +19,9 @@ const net = {
   contentTypeNotAllowed: ({ type }: { type: string }) => `허용되지 않는 Content-Type: ${type}`,
   tooBigDeclared: ({ maxBytes, length }: { maxBytes: number; length: string }) => `파일이 최대 크기(${maxBytes} bytes)를 초과: ${length}`,
   tooBig: ({ maxBytes }: { maxBytes: number }) => `파일이 최대 크기(${maxBytes} bytes)를 초과함`,
+  httpStatus: ({ status }: { status: number }) => `HTTP ${status}`,
+  /** detail: 응답 본문 앞부분(바깥 글. 없으면 빈 글) */
+  httpStatusFrom: ({ status, host, detail }: { status: number; host: string; detail: string }) => `HTTP ${status} (${host})${detail ? `: ${detail}` : ""}`,
 };
 
 export { net };

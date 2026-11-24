@@ -257,8 +257,8 @@ class AppEmojis {
   add(name: string, image: Buffer, go?: () => void): Promise<Remote> {
     return this.serial(async () => {
       const list = await this.api.list();
-      if (list.some((one) => one.name === name)) throw codedError("EMOJI_NAME_TAKEN", name);
-      if (roomOf(list.length) < 1) throw codedError("EMOJI_FULL", String(list.length));
+      if (list.some((one) => one.name === name)) throw codedError("EMOJI_NAME_TAKEN", L.core.appEmojiErrorSubject({ subject: name }));
+      if (roomOf(list.length) < 1) throw codedError("EMOJI_FULL", L.core.appEmojiErrorSubject({ subject: String(list.length) }));
       go?.();
       const created = await this.api.create(name, image);
       this.remember?.(created.id);
@@ -272,9 +272,9 @@ class AppEmojis {
     return this.serial(async () => {
       const list = await this.api.list();
       const target = list.find((one) => one.id === id);
-      if (!target) throw codedError("EMOJI_NOT_FOUND", id);
-      if (isManagedEmojiName(target.name)) throw codedError("EMOJI_IS_ICON", target.name);
-      if (list.some((one) => one.name === name && one.id !== id)) throw codedError("EMOJI_NAME_TAKEN", name);
+      if (!target) throw codedError("EMOJI_NOT_FOUND", L.core.appEmojiErrorSubject({ subject: id }));
+      if (isManagedEmojiName(target.name)) throw codedError("EMOJI_IS_ICON", L.core.appEmojiErrorSubject({ subject: target.name }));
+      if (list.some((one) => one.name === name && one.id !== id)) throw codedError("EMOJI_NAME_TAKEN", L.core.appEmojiErrorSubject({ subject: name }));
       go?.();
       await this.api.rename(id, name);
       await this.reload();
@@ -285,8 +285,8 @@ class AppEmojis {
   remove(id: string, go?: () => void): Promise<void> {
     return this.serial(async () => {
       const target = (await this.api.list()).find((one) => one.id === id);
-      if (!target) throw codedError("EMOJI_NOT_FOUND", id);
-      if (isManagedEmojiName(target.name)) throw codedError("EMOJI_IS_ICON", target.name);
+      if (!target) throw codedError("EMOJI_NOT_FOUND", L.core.appEmojiErrorSubject({ subject: id }));
+      if (isManagedEmojiName(target.name)) throw codedError("EMOJI_IS_ICON", L.core.appEmojiErrorSubject({ subject: target.name }));
       go?.();
       await this.api.remove(id);
       await this.reload();

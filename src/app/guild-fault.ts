@@ -25,7 +25,7 @@ function createGuildFaults({ players, restore, now = () => Date.now() }: Deps) {
   const resetting = new Set<string>();
 
   /** 서버 guildId에서 모르는 오류가 났다. where: 어디서 새어 나왔나(로그) */
-  return async function fault(guildId: string, error: unknown, where: string | LogText) {
+  return async function fault(guildId: string, error: unknown, where: LogText) {
     log.error(L.core.guildUnknownError({ guildId, where }), error);
     const player = players.get(guildId);
     // 복원할 플레이어가 없다(명령, 대시보드 작업). 로그만 남긴다. 다시 시작하는 중에 난 오류는 진행 중인 다시 시작이 처리한다.

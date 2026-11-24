@@ -23,7 +23,7 @@ import { isPublicIp } from "./public-address.ts";
 import { codeOf, messageOf, timeoutError } from "./error-text.ts";
 import config from "../config/index.ts";
 import { L } from "./log/text.ts";
-import { isLogText, logTextError, renderLogText, type LogText } from "./log/log-text.ts";
+import { logTextError, renderLogText, type LogText } from "./log/log-text.ts";
 
 // 보안 상수. 잘못 설정해 방어가 꺼지지 않게 설정으로 빼지 않는다
 const ALLOWED_SCHEMES = new Set(["http:", "https:"]);
@@ -48,13 +48,13 @@ type Accept = { contentType: RegExp; maxBytes: number; timeoutMs: number; allowU
 /** 직접 링크(음원)의 조건 */
 const DIRECT_LINK: Accept = { contentType: ALLOWED_CONTENT_TYPE, maxBytes: MAX_BYTES, timeoutMs: GET_TIMEOUT_MS };
 
-/** 받지 않는 주소, 응답이라 막은 요청. message가 로그 문구 서술자면 메시지는 로그 언어로 그린 글이고 서술자(logText)를 함께 갖는다 */
+/** 받지 않는 주소, 응답이라 막은 요청. 메시지는 로그 언어로 그린 글이고 서술자(logText)를 함께 갖는다 */
 class SsrfError extends Error {
-  readonly logText?: LogText;
-  constructor(message: string | LogText) {
-    super(isLogText(message) ? renderLogText(message) : message);
+  readonly logText: LogText;
+  constructor(message: LogText) {
+    super(renderLogText(message));
     this.name = "SsrfError";
-    if (isLogText(message)) this.logText = message;
+    this.logText = message;
   }
 }
 

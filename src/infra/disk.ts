@@ -14,7 +14,7 @@ const failureLog: FailureLog = { error: (line) => log.warn(line), info: (line) =
 const driveFailures = new Map<string, ReturnType<typeof repeatingFailure>>();
 const freeFailures = new Map<string, ReturnType<typeof repeatingFailure>>();
 
-function failuresOf(byTarget: Map<string, ReturnType<typeof repeatingFailure>>, target: string, what: string | LogText) {
+function failuresOf(byTarget: Map<string, ReturnType<typeof repeatingFailure>>, target: string, what: LogText) {
   let failures = byTarget.get(target);
   if (!failures) byTarget.set(target, (failures = repeatingFailure(failureLog, what)));
   return failures;

@@ -4,6 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { discordRejection, rejectionLine as lineOf } from "../../src/rules/discord-rejection.ts";
 import { asText } from "../../src/infra/log/log-text.ts";
+import { testText } from "../helpers/log-text.ts";
 
 // 로그 줄은 로그 문구다. 글로 비교하려고 그린다
 const rejectionLine = (...args: Parameters<typeof lineOf>) => asText(lineOf(...args));
@@ -48,7 +49,7 @@ test("요청: 메서드와 경로만(쿼리 뺌), 웹훅과 상호작용 콜백 
 
 test("로그 줄: 뜻(모르는 코드는 일반 문장), 코드와 디스코드 메시지, 요청, 서버, 어디서", () => {
   const known = discordRejection(rejected(10003, { url: "https://discord.com/api/v10/channels/9/messages", method: "post" }))!;
-  assert.equal(rejectionLine(known, "g1", "음성 상태"), "채널이 없음 (10003 거절 10003) | POST /channels/9/messages | 서버 g1 | 음성 상태");
+  assert.equal(rejectionLine(known, "g1", testText("음성 상태")), "채널이 없음 (10003 거절 10003) | POST /channels/9/messages | 서버 g1 | 음성 상태");
   const other = discordRejection(rejected(50035))!;
-  assert.equal(rejectionLine(other, null, "rejection"), "디스코드가 요청을 거절함 (50035 거절 50035) | 요청 모름 | 서버 모름 | rejection");
+  assert.equal(rejectionLine(other, null, testText("rejection")), "디스코드가 요청을 거절함 (50035 거절 50035) | 요청 모름 | 서버 모름 | rejection");
 });

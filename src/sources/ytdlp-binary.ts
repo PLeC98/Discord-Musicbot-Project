@@ -509,7 +509,7 @@ class YtdlpBinary {
    */
   async forgetPrevious(go?: () => void): Promise<string | null> {
     const unlock = await this._lock();
-    if (!unlock) throw codedError("folder-busy", logRuleLine(this._busy()));
+    if (!unlock) throw codedError("folder-busy", ruleLogText(this._busy()));
     let gone: string | null;
     try {
       const state = this._read();

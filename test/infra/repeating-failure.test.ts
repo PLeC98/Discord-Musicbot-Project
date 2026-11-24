@@ -4,6 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { repeatingFailure } from "../../src/infra/repeating-failure.ts";
 import { logText, renderLogText, type LogText } from "../../src/infra/log/log-text.ts";
+import { testText } from "../helpers/log-text.ts";
 
 function recorder() {
   const lines: Array<[string, string]> = [];
@@ -26,7 +27,7 @@ test("줄은 문구(서술자)로 넘기고, 원인이 서술자면 문구 코�
 
 test("같은 원인의 잇단 실패는 한 번만 남기고, 풀리면 횟수와 함께 한 줄", () => {
   const { lines, log } = recorder();
-  const save = repeatingFailure(log, "재생 위치 저장");
+  const save = repeatingFailure(log, testText("재생 위치 저장"));
   save.ok();
   for (let i = 0; i < 165; i++) save.fail("database is locked");
   save.ok();
@@ -39,7 +40,7 @@ test("같은 원인의 잇단 실패는 한 번만 남기고, 풀리면 횟수�
 
 test("원인이 바뀌면 새 사건으로 다시 남긴다", () => {
   const { lines, log } = recorder();
-  const save = repeatingFailure(log, "재생 위치 저장");
+  const save = repeatingFailure(log, testText("재생 위치 저장"));
   save.fail("database is locked");
   save.fail("disk I/O error");
   assert.deepEqual(

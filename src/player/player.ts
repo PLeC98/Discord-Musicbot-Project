@@ -123,7 +123,7 @@ function dropUnplayed(player: Pick<Player, "_trackLabel">, pb: CurrentPlayback |
 }
 
 // 곡이 어떻게 끝났나. dropped: 사고로 끊겼다, live: 그중 라이브가 끊긴 것
-type EndShape = { playedMs: number; label: string; dropped: boolean; live: boolean; why: string | LogText; cause?: string | null };
+type EndShape = { playedMs: number; label: string; dropped: boolean; live: boolean; why: LogText; cause?: string | null };
 
 // 끝 판정에 넘길 사실. 판정은 rules/end-verdict
 function endFactsOf(pb: CurrentPlayback | null, reason: string, positionMs: number): EndFacts {
@@ -148,7 +148,7 @@ const streamEndedOf = (pb: CurrentPlayback | null) => pb?.resource?.playStream?.
 function starvedDetail(pb: CurrentPlayback | null) {
   const input = pb?.input;
   const tracked = input && !input.cacheSwitch && pb.inputProgressAt;
-  const parts: Array<string | LogText> = [L.player.starvedInput({ kind: input?.kind ?? "?" })];
+  const parts: Array<LogText> = [L.player.starvedInput({ kind: input?.kind ?? "?" })];
   if (tracked) parts.push(L.player.starvedInputQuiet({ seconds: sec(Date.now() - tracked) }));
   const detail = input?.detail();
   if (detail) parts.push(detail);
@@ -183,7 +183,7 @@ function clearVoiceStatus(player: Pick<Player, "guild" | "voiceChannel" | "updat
     log.warn(L.player.voiceStatusClearFailed({ guild: guildLabel(player), channel: channel ?? "?", connected: connected ? "y" : "n", error: withCode(error) }));
   });
 }
-const refreshPanel = (player: Player, content: string | LogText) => playerEvents.refresh(player).catch((error: unknown) => log.warn(L.player.panelRefreshFailed({ guild: guildLabel(player), content, error: messageOf(error) })));
+const refreshPanel = (player: Player, content: LogText) => playerEvents.refresh(player).catch((error: unknown) => log.warn(L.player.panelRefreshFailed({ guild: guildLabel(player), content, error: messageOf(error) })));
 
 /** 다운로드가 고칠 수 있는 곡 정보 */
 const infoOf = (track: QueuedTrack) => ({ title: track.title, artist: track.artist, album: track.album, duration: track.duration });
@@ -1011,9 +1011,9 @@ class Player {
    * @param o.end  곡이 있었으면 끝 줄에 남길 원인(kicked, alone-timeout, leave 등). 기본 stop
    * @param o.stay  음성 채널에는 남는다(곧 재연결한다. 서버 하나 다시 시작). 기본은 나간다
    */
-  async dispose({ reason: given, session, panel, end, stay = false }: { reason: string | LogText; session: "remove" | "save" | "save-for-join" | "keep"; panel?: "stop" | "leave" | "disconnected"; end: PlayerEnd; stay?: boolean }) {
+  async dispose({ reason: given, session, panel, end, stay = false }: { reason: LogText; session: "remove" | "save" | "save-for-join" | "keep"; panel?: "stop" | "leave" | "disconnected"; end: PlayerEnd; stay?: boolean }) {
     if (this.lifecycle.disposed) return;
-    // 원인을 넘겨받는 곳(재생 단계, 음성 연결, 버림 알림)은 글을 받는다
+    // 재생 단계와 버림 알림은 글을 받는다
     const reason = asText(given);
     this.lifecycle.to("disposed", reason);
     try {
@@ -1029,8 +1029,8 @@ class Player {
       this._stopTimers();
       this.releaseAudioProtection(); // currentTrack을 읽으므로 비우기 전에
       this._endPlayback(end);
-      if (stay) this.voice.release(reason);
-      else this.voice.disconnect(reason);
+      if (stay) this.voice.release(given);
+      else this.voice.disconnect(given);
     } catch (error) {
       log.error(L.player.disposeError(), error);
     }

@@ -10,6 +10,7 @@ import assert from "node:assert/strict";
 import * as youtubeSource from "../../src/sources/youtube/index.ts";
 import { errorKind, codedError } from "../../src/rules/error-kind.ts";
 import { ytDlpError } from "../helpers/errors.ts";
+import { testText } from "../helpers/log-text.ts";
 const T = true;
 const F = false;
 // 문장, 분류, 판별 열(내려감, 연령 제한, 클라이언트 탓, 낡은 주소, 건너뛴 클라이언트)
@@ -146,7 +147,7 @@ test("errorKind는 이름(code)이 있으면 글보다 먼저 본다", () => {
 test("errorKind는 오류 자신 → 원인(cause) → 시스템, 디스코드 번호 순서로 이름을 본다", () => {
   // 글에 기대지 않는다: 글만 보면 unknown인 것들
   const quiet = (code: string | number) => Object.assign(new Error("무언가"), { code });
-  assert.equal(errorKind(codedError("stream-failed", "무언가")), "stream-failed");
+  assert.equal(errorKind(codedError("stream-failed", testText("무언가"))), "stream-failed");
   assert.equal(errorKind(new Error("무언가", { cause: quiet("ENOTFOUND") })), "network-error", "fetch는 원인에 시스템 이름을 단다");
   assert.equal(errorKind(quiet("UND_ERR_CONNECT_TIMEOUT")), "network-error");
   // 감싼 오류의 원인의 원인(fetch 오류는 원인에 시스템 이름이 붙는다)
@@ -163,8 +164,8 @@ test("errorKind는 오류 자신 → 원인(cause) → 시스템, 디스코드 �
   assert.equal(errorKind(refused(50013, "https://discord.com/api/v10/guilds/1/members/2")), "permission-other");
   assert.equal(errorKind(refused(50013)), "permission-other", "주소가 없으면 그 밖");
   assert.equal(errorKind(refused(10062, "https://discord.com/api/v10/channels/123/messages")), "unknown-error", "권한이 아닌 번호는 종류가 아니다");
-  assert.equal(errorKind(new Error("음성 채널에 다시 연결하지 못했습니다", { cause: codedError("voice-failed", "음성 채널에 붙지 못했습니다") })), "voice-failed");
+  assert.equal(errorKind(new Error("음성 채널에 다시 연결하지 못했습니다", { cause: codedError("voice-failed", testText("음성 채널에 붙지 못했습니다")) })), "voice-failed");
   // 포맷을 끝내 얻지 못한 소스 쪽 이름은 사슬에 다른 종류가 없을 때만 stream-failed
   for (const name of ["no-audio-only", "client-fault", "stale-media", "skipped-client", "no-formats"]) assert.equal(errorKind(quiet(name)), "stream-failed", name);
-  assert.equal(errorKind(Object.assign(new Error("포맷 없음", { cause: codedError("network-error", "연결 실패") }), { code: "client-fault" })), "network-error", "원인 사슬의 종류가 먼저 이긴다");
+  assert.equal(errorKind(Object.assign(new Error("포맷 없음", { cause: codedError("network-error", testText("연결 실패")) }), { code: "client-fault" })), "network-error", "원인 사슬의 종류가 먼저 이긴다");
 });

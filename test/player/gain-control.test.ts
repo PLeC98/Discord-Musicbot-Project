@@ -12,6 +12,8 @@ import assert from "node:assert/strict";
 import { openTempStore } from "../helpers/temp-store.ts";
 import type { PathFacts } from "../../src/media/gain-tap.ts";
 import type { TapInfo } from "../../src/player/gain-control.ts";
+import { testText } from "../helpers/log-text.ts";
+import type { LogText } from "../../src/infra/log/log-text.ts";
 
 const store = openTempStore("gain-control-");
 after(() => store.close());
@@ -242,7 +244,7 @@ test("이어 트는 재생의 새 탭은 확정 전의 블록을 쌓아 두고, 
 });
 
 test("저장: 정상 종료이고 0초부터 끊김 없이 끝까지 측정했고 길이와 크기를 알면 끝까지 재생하며 측정한 값, 아니면 일부만 측정한 값. 30초 이하는 저장하지 않는다", () => {
-  const clean: { reason: string; live: boolean; streamEnded: boolean; broken: string | null; lengthMs: number } = { reason: "idle", live: false, streamEnded: true, broken: null, lengthMs: 60_000 };
+  const clean: { reason: string; live: boolean; streamEnded: boolean; broken: LogText | null; lengthMs: number } = { reason: "idle", live: false, streamEnded: true, broken: null, lengthMs: 60_000 };
   const play = (key: string, more: Partial<TapInfo>, facts: PathFacts, n: number, end = clean) => {
     const { gain } = control(true);
     const tap = gain.openTap(info(key, { lengthSec: 60, ...more }), facts);
@@ -257,7 +259,7 @@ test("저장: 정상 종료이고 0초부터 끊김 없이 끝까지 측정했�
   assert.ok(play("yt:offset", { startMs: 5000 }, sized, 597)["heard-part"], "0초에서 시작하지 않았다");
   assert.ok(play("dl:nosize", {}, STREAM, 597)["heard-part"], "크기를 모른다");
   assert.ok(play("yt:stopped", {}, sized, 597, { ...clean, reason: "stop" })["heard-part"], "사람이 멈췄다");
-  assert.ok(play("yt:broken", {}, sized, 597, { ...clean, broken: "끊김" })["heard-part"], "입력이 깨졌다");
+  assert.ok(play("yt:broken", {}, sized, 597, { ...clean, broken: testText("끊김") })["heard-part"], "입력이 깨졌다");
   assert.deepEqual(play("yt:tiny", {}, sized, 250), {}, "들은 양 30초 이하");
 
   const { gain } = control(true);

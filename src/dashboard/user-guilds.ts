@@ -9,6 +9,7 @@ import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { DISCORD_API, discordHttp, type DiscordHttp } from "./discord-api.ts";
 import { tokenStoreOf } from "./session-store.ts";
 import { L } from "../infra/log/text.ts";
+import { logTextError } from "../infra/log/log-text.ts";
 
 /** 디스코드가 주는 서버 목록에서 읽는 필드. permissions는 서버 단위 권한 비트 */
 type UserGuild = { id: string; name: string; icon: string | null; owner: boolean; permissions: string };
@@ -74,7 +75,7 @@ type ListOptions = { fresh?: boolean; stale?: boolean; http?: DiscordHttp; now?:
 function keptList(hit: Kept | undefined, now: number, fresh: boolean) {
   if (!hit) return null;
   hit.usedAt = now;
-  if (!hit.guilds) throw Object.assign(new Error("HTTP 401"), { response: { status: 401 } });
+  if (!hit.guilds) throw Object.assign(logTextError(L.net.httpStatus({ status: 401 })), { response: { status: 401 } });
   return now - hit.at < (fresh ? FRESH_GAP_MS : KEEP_MS) ? hit.guilds : null;
 }
 

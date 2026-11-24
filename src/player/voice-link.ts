@@ -230,7 +230,7 @@ class VoiceLink {
       bindToGuild(guildId, (error: Error) => this._onError(error)),
     );
     // 음성 웹소켓 메시지, 상태 바뀜마다 나오는 양이라 trace. 실린 토큰, 암호 키는 로그 sink가 가린다
-    connection.on("debug", (message: string) => log.trace(`${message} | ${this._label()}`));
+    connection.on("debug", (message: string) => log.trace(L.voice.connectionDebug({ text: message, channel: this._label() })));
   }
 
   _onStateChange(oldState: VoiceConnectionState, newState: VoiceConnectionState) {
@@ -376,7 +376,7 @@ class VoiceLink {
   // ── 복구: 우리가 재연결한다 ──
 
   /** 연결을 재연결한다. 붙어 있거나 끊겨 기다리는 중일 때만 받는다(이미 복구 중, 끝남, 붙는 중이면 아무것도 안 한다) */
-  recover(why: string | LogText) {
+  recover(why: LogText) {
     // 붙는 중에 부서지면 connect()가 실패를 받는다
     if (this.state !== "ready" && this.state !== "waiting") return;
     this._clearWait();
@@ -753,7 +753,7 @@ class VoiceLink {
   }
 
   /** 나가기 요청을 보내지 않고 이 쪽 연결만 정리한다. 채널에서 빠지는 것은 게이트웨이 세션에 따른다: 정상 종료는 연결을 닫자마자, 프로세스가 죽으면 세션이 끝날 때 디스코드가 뺀다 */
-  release(reason: string | LogText) {
+  release(reason: LogText) {
     this.stop();
     this.state = "closed";
     const connection = this._detach();
@@ -767,7 +767,7 @@ class VoiceLink {
   }
 
   /** 연결을 부수고 채널에서 나간다. 로그 없이 나가면 왜 나갔는지 나중에 알 수 없으므로 원인을 남긴다 */
-  disconnect(reason: string | LogText = L.voice.reasonCleanup()) {
+  disconnect(reason: LogText = L.voice.reasonCleanup()) {
     this.stop();
     this.state = "closed";
     const connection = this._detach();

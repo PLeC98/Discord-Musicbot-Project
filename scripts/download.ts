@@ -16,7 +16,7 @@ async function download(url: string, { idleMs = IDLE_MS }: { idleMs?: number } =
   arm();
   try {
     const res = await fetch(url, { redirect: "follow", signal: abort.signal });
-    if (!res.ok) throw Object.assign(new Error(`${res.status} ${res.statusText}. ${url}`), { status: res.status });
+    if (!res.ok) throw Object.assign(logTextError(L.ffmpeg.downloadFailed({ status: res.status, statusText: res.statusText, url })), { status: res.status });
     const chunks: Uint8Array[] = [];
     if (res.body) {
       for await (const chunk of res.body) {

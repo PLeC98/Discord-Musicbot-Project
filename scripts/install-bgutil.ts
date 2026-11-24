@@ -47,7 +47,7 @@ const show = (dir: string) => path.relative(PROJECT.root, dir);
 
 const SETTINGS_DB = path.join(PROJECT.database, "settings.db");
 
-let say: (level: ScriptLevel, line: string | LogText) => void = scriptLine("bgutil");
+let say: (level: ScriptLevel, line: LogText) => void = scriptLine("bgutil");
 
 // 설정 DB를 읽는 모듈을 부른 뒤로는 로거로 찍는다(같은 모양)
 async function sayWithLogger() {
@@ -64,7 +64,7 @@ async function npm(serverDir: string, args: string[], timeoutMs: number) {
 }
 
 const io: InstallIo = {
-  checkout: (repoDir, tag, commit) => checkoutPinned({ dir: repoDir, repo: REPO, tag, commit, git: gitWith(env), log: (line) => say("info", `${line} (${show(repoDir)})`) }),
+  checkout: (repoDir, tag, commit) => checkoutPinned({ dir: repoDir, repo: REPO, tag, commit, git: gitWith(env), log: (line) => say("info", L.bgutil.gitCommand({ command: line, dir: show(repoDir) })) }),
   npmCi: (serverDir) => npm(serverDir, ["ci", "--ignore-scripts"], NPM_CI_MS),
   npmRebuild: (serverDir, names) => npm(serverDir, ["rebuild", ...names], NPM_REBUILD_MS),
   // build/main.js 생성(tsconfig outDir=./build). npx를 거치지 않고 잠금 파일의 typescript를 쓴다

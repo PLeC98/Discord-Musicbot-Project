@@ -8,6 +8,7 @@ import type { Guild, GuildMember, GuildTextBasedChannel, VoiceBasedChannel } fro
 import type { Player } from "../../src/player/player.ts";
 import { fake } from "../helpers/fake.ts";
 import { openTempStore } from "../helpers/temp-store.ts";
+import { testText } from "../helpers/log-text.ts";
 
 const { join, joinChannel } = await import("../../src/usecases/join.ts");
 const { beginShutdown, _resetShutdown } = await import("../../src/infra/shutdown-state.ts");
@@ -72,7 +73,7 @@ test("세션을 복원하다 종료 중이라 붙지 못하면 bot-shutting-down
   const player = fake<Player>({
     voice: { isAlive: () => false },
     bindChannels: () => {},
-    persistence: { restoreSession: async () => Promise.reject(codedError("bot-shutting-down", "종료 중")) },
+    persistence: { restoreSession: async () => Promise.reject(codedError("bot-shutting-down", testText("종료 중"))) },
     dispose: async (o: { end: string }) => void disposed.push(o.end),
   });
   const result = await join({ players: new Map([["g-rs", player]]) }, { guild, member, textChannel: fake<GuildTextBasedChannel>({ id: "t1" }) });
@@ -88,7 +89,7 @@ test("붙는 사이 종료가 시작돼 연결이 거절되면 voice-failed가 �
   const member = fake<GuildMember>({ id: "u1", voice: { channel } });
   const disposed: unknown[] = [];
   const player = fake<Player>({
-    voice: { isAlive: () => false, connect: async () => Promise.reject(codedError("bot-shutting-down", "종료 중")) },
+    voice: { isAlive: () => false, connect: async () => Promise.reject(codedError("bot-shutting-down", testText("종료 중"))) },
     bindChannels: () => {},
     dispose: async (o: { end: string; session: string }) => void disposed.push(`${o.end}:${o.session}`),
   });

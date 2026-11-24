@@ -63,6 +63,8 @@ const autoplay = {
   vocaLangFailed: ({ site, lang, error }: { site: string; lang: string | null; error: string }) => `${site} ${lang || "전체"}: ${error}`,
   vocaLangFailedKept: ({ site, lang, error }: { site: string; lang: string | null; error: string }) => `${site} 언어별 곡 조회 실패(나머지 언어 결과만 사용): 언어=${lang || "전체"} | ${error}`,
   vocaArtistResolved: ({ site, name, resolved, id }: { site: string; name: string; resolved: string | null; id: number }) => `${site} 이름 조회: ${name} → ${resolved ?? "없음"} (${id})`,
+  /** AI 판정 하나의 실패. reason: 원인, detail: 저쪽 문구(없으면 빈 글) */
+  askFailed: ({ reason, detail }: { reason: string; detail: string }) => (detail ? `${reason} (${detail})` : `${reason}`),
 };
 
 export { autoplay };

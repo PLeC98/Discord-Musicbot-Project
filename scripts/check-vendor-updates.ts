@@ -38,7 +38,7 @@ async function github(pathname: string) {
     headers: { Accept: "application/vnd.github+json", "User-Agent": "Discord-Musicbot-Project vendor-updates", ...(token && { Authorization: `Bearer ${token}` }) },
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
-  if (!res.ok) throw new Error(`GitHub ${pathname}: ${res.status}`);
+  if (!res.ok) throw logTextError(L.vendor.githubFailed({ pathname, status: res.status }));
   return res.json();
 }
 
@@ -78,7 +78,7 @@ async function auditBgutil(commit: string): Promise<AuditCounts> {
 // Cloudflare가 공개하는 IP 대역 목록(한 줄에 CIDR 하나). 대역마다 프리픽스까지 검사한다
 async function cloudflareList(family: "v4" | "v6") {
   const res = await fetch(`https://www.cloudflare.com/ips-${family}`, { signal: AbortSignal.timeout(TIMEOUT_MS) });
-  if (!res.ok) throw new Error(`Cloudflare ips-${family}: ${res.status}`);
+  if (!res.ok) throw logTextError(L.vendor.cloudflareFailed({ family, status: res.status }));
   const list = (await res.text()).split(/\s+/).filter(Boolean);
   if (!list.length || !list.every((c) => c.includes("/") && parseCidr(c)?.family === (family === "v4" ? "ipv4" : "ipv6"))) throw logTextError(L.vendor.cloudflareListMalformed({ family }));
   return list;
@@ -90,7 +90,7 @@ async function cloudflareList(family: "v4" | "v6") {
  */
 async function ytdlpSigningKey() {
   const res = await fetch("https://raw.githubusercontent.com/yt-dlp/yt-dlp/master/public.key", { signal: AbortSignal.timeout(TIMEOUT_MS) });
-  if (!res.ok) throw new Error(`yt-dlp public.key: ${res.status}`);
+  if (!res.ok) throw logTextError(L.vendor.ytdlpPublicKeyFailed({ status: res.status }));
   let problem: string | null = null;
   try {
     pinnedKey(await res.text(), SIGNING_FINGERPRINT);
@@ -104,7 +104,7 @@ async function ytdlpSigningKey() {
     const [list, signature] = await Promise.all(
       ["SHA2-256SUMS", "SHA2-256SUMS.sig"].map(async (name) => {
         const file = await fetch(`${base}/${name}`, { signal: AbortSignal.timeout(TIMEOUT_MS) });
-        if (!file.ok) throw new Error(`${repo} ${tag} ${name}: ${file.status}`);
+        if (!file.ok) throw logTextError(L.vendor.releaseFileFailed({ repo, tag, name, status: file.status }));
         return Buffer.from(await file.arrayBuffer());
       }),
     );
@@ -124,7 +124,7 @@ const latestBgutil = String(((await github(`/repos/${BGUTIL_REPO}/releases/lates
 const ffmpegTags = ((await github(`/repos/${FFMPEG_REPO}/releases?per_page=100`)) as Array<{ tag_name?: unknown }>).map((r) => String(r.tag_name ?? ""));
 // 실패해도 다른 확인(특히 고정한 태그의 상태)을 이어 가는 것. 실패는 errors에 모아 결과를 찍은 뒤 종료 코드 1로 알린다
 const errors: string[] = [];
-async function attempt<T>(what: string | LogText, run: () => Promise<T>): Promise<T | null> {
+async function attempt<T>(what: LogText, run: () => Promise<T>): Promise<T | null> {
   try {
     return await run();
   } catch (error) {

@@ -13,6 +13,7 @@ import { openHls, type Hls, type HlsPart } from "../../src/sources/hls.ts";
 import type { AudioStream, OpenOptions } from "../../src/sources/direct-open.ts";
 import sink from "../../src/infra/log/sink.ts";
 import { asText } from "../../src/infra/log/log-text.ts";
+import { testText } from "../helpers/log-text.ts";
 
 const file =
   (radio: boolean, length: number | null, headers: Record<string, unknown> = {}) =>
@@ -33,7 +34,7 @@ function hlsOf(live: boolean, asked: number[] = []): () => Promise<DirectOpen> {
         },
         fetch: async (part) => Buffer.from(part.url),
         startedAtMs: 4000,
-        describe: (sent) => `내보냄 ${sent}`,
+        describe: (sent) => testText(`내보냄 ${sent}`),
         close: () => {},
       };
     },
@@ -112,7 +113,7 @@ test("Range 어댑터: 구간, If-Range를 가드에 넘기고, 상태 오류는
     });
   const gone = await failing(Object.assign(new Error("요청 실패: HTTP 416"), { status: 416 }))("https://f.test/a", { headers: { Range: "bytes=9-" }, signal: new AbortController().signal });
   assert.deepEqual([gone.status, gone.body], [416, null]);
-  await assert.rejects(failing(new SafeUrl.SsrfError("내부 주소"))("https://f.test/a", { headers: { Range: "bytes=1-" }, signal: new AbortController().signal }), (e: unknown) => (e as { permanent?: boolean }).permanent === true);
+  await assert.rejects(failing(new SafeUrl.SsrfError(testText("내부 주소")))("https://f.test/a", { headers: { Range: "bytes=1-" }, signal: new AbortController().signal }), (e: unknown) => (e as { permanent?: boolean }).permanent === true);
   await assert.rejects(failing(new Error("ECONNRESET"))("https://f.test/a", { headers: { Range: "bytes=1-" }, signal: new AbortController().signal }), (e: unknown) => (e as { permanent?: boolean }).permanent !== true);
 });
 

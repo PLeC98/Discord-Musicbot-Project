@@ -20,6 +20,7 @@ import { asText } from "../../src/infra/log/log-text.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { fakePlayer as asPlayer } from "../helpers/fake.ts";
 import * as tracks from "../helpers/tracks.ts";
+import { testText } from "../helpers/log-text.ts";
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "pcs-"));
 const realDir = audioCache.cacheDir();
@@ -184,7 +185,7 @@ test("갈아타면 재생이 가리키는 입력이 캐시 디코더의 것으�
   const fileSide = player.playback?.input;
   assert.notEqual(fileSide, streamSide);
 
-  streamSide.mark("입력 스트림이 덜 받고 끝남");
+  streamSide.mark(testText("입력 스트림이 덜 받고 끝남"));
   assert.equal(fileSide?.broken, null, "버린 스트림의 표시는 캐시 쪽과 무관하다");
   decoder.emit("exit", 1, null);
   assert.match(asText(fileSide?.broken ?? ""), /종료 코드 1/, "캐시 디코더의 종료 코드를 본다");

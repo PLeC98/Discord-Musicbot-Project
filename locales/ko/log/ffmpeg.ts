@@ -73,6 +73,7 @@ const ffmpeg = {
   switched: ({ release, version }: { release: string; version: string }) => `받아 둔 ${release}(${version})${josa(version, "으로")} 교체`,
   installed: ({ release, version, from }: { release: string; version: string; from: string | null }) => `${release}(${version}) 설치 완료${from ? `(이전 ${from})` : ""}`,
   busy: ({ holder }: { holder: number | null }) => `설치 건너뜀: 다른 프로세스(${holder ? `PID ${holder}` : "PID 모름"})가 vendor/ffmpeg 사용 중`,
+  downloadFailed: ({ status, statusText, url }: { status: number; statusText: string; url: string }) => `${status} ${statusText}. ${url}`,
 };
 
 export { ffmpeg };

@@ -196,7 +196,7 @@ async function writeZip(inputs: ZipInput[], sink: Sink, { at = new Date(), zip64
 // ── 읽기 ──
 
 // 기반 층이라 오류 도구(rules)를 부르지 않는다. 코드는 같은 형식(code 필드)
-const bad = (why: string | LogText) => Object.assign(logTextError(L.zip.readFailed({ why })), { code: "BAD_ZIP" });
+const bad = (why: LogText) => Object.assign(logTextError(L.zip.readFailed({ why })), { code: "BAD_ZIP" });
 
 /** 읽을 곳: 크기, 그 위치의 바이트, 그 위치부터 스트림 읽기 */
 type Source = { size: number; read(at: number, length: number): Buffer; stream(at: number, length: number): Readable };

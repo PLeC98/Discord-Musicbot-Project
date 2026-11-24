@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { bestEffort } from "../../src/infra/best-effort.ts";
 import { renderLogText, type LogText } from "../../src/infra/log/log-text.ts";
 import { L } from "../../src/infra/log/text.ts";
+import { testText } from "../helpers/log-text.ts";
 
 const recorder = () => {
   const lines: string[] = [];
@@ -13,29 +14,29 @@ const recorder = () => {
 
 test("성공하면 아무것도 남기지 않는다", async () => {
   const log = recorder();
-  await bestEffort(log, Promise.resolve(1), "패널 고치기");
+  await bestEffort(log, Promise.resolve(1), testText("패널 고치기"));
   assert.deepEqual(log.lines, []);
 });
 
 test("실패는 삼키고 무엇이 왜 실패했는지 debug 한 줄로 남긴다", async () => {
   const log = recorder();
-  await bestEffort(log, Promise.reject(new Error("권한 없음")), "패널 고치기");
+  await bestEffort(log, Promise.reject(new Error("권한 없음")), testText("패널 고치기"));
   assert.deepEqual(log.lines, ["패널 고치기 실패: 권한 없음"]);
-  await bestEffort(log, Promise.reject("글자"), "지우기");
+  await bestEffort(log, Promise.reject("글자"), testText("지우기"));
   assert.equal(log.lines[1], "지우기 실패: 글자");
 });
 
 test("수준을 주면 그 수준으로 남긴다", async () => {
   const lines: string[] = [];
   const log = { warn: (line: LogText) => lines.push(`warn ${renderLogText(line)}`), error: (line: LogText) => lines.push(`error ${renderLogText(line)}`) };
-  await bestEffort(log, Promise.reject(new Error("끊김")), "알림 전송", "warn");
-  await bestEffort(log, Promise.reject(new Error("버그")), "기동", "error");
+  await bestEffort(log, Promise.reject(new Error("끊김")), testText("알림 전송"), "warn");
+  await bestEffort(log, Promise.reject(new Error("버그")), testText("기동"), "error");
   assert.deepEqual(lines, ["warn 알림 전송 실패: 끊김", "error 기동 실패: 버그"]);
 });
 
 test("오류 코드가 있으면 메시지 뒤에 붙인다", async () => {
   const lines: string[] = [];
-  await bestEffort({ warn: (line: LogText) => lines.push(renderLogText(line)) }, Promise.reject(Object.assign(new Error("Missing Permissions"), { code: 50013 })), "알림 전송", "warn");
+  await bestEffort({ warn: (line: LogText) => lines.push(renderLogText(line)) }, Promise.reject(Object.assign(new Error("Missing Permissions"), { code: 50013 })), testText("알림 전송"), "warn");
   assert.deepEqual(lines, ["알림 전송 실패: Missing Permissions (50013)"]);
 });
 

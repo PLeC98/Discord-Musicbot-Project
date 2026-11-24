@@ -54,7 +54,7 @@ const POLL_MS = 5_000;
 const WAIT_MAX_MS = 30 * 60_000;
 
 /** 남은 메모리가 bytes 이상이 될 때까지 기다린다. 멈추면(signal) 바로 끝난다 */
-async function enoughMemory(need: number, what: string | LogText, signal: AbortSignal): Promise<void> {
+async function enoughMemory(need: number, what: LogText, signal: AbortSignal): Promise<void> {
   const started = Date.now();
   let told = false;
   while (availableMemory() < need && !signal.aborted && Date.now() - started < WAIT_MAX_MS) {
@@ -65,7 +65,7 @@ async function enoughMemory(need: number, what: string | LogText, signal: AbortS
 }
 
 /** AV1 하나를 인코딩할 병렬 단계: 지금 드는 가장 높은 것. 2도 들지 않으면 2가 들 때까지 기다리고, 그래도 모자라면 드는 것(없으면 1) */
-async function av1LpFor(uhd: boolean, what: string | LogText, signal: AbortSignal): Promise<number> {
+async function av1LpFor(uhd: boolean, what: LogText, signal: AbortSignal): Promise<number> {
   const now = av1Lp(uhd);
   if (now !== null && now >= AV1_LP_WAIT) return now;
   await enoughMemory(needOf({ codec: "av1", uhd, lp: AV1_LP_WAIT }), what, signal);

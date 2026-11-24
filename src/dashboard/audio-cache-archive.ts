@@ -10,7 +10,7 @@
 // 연령 제한을 먼저 불러온다(퇴거 점수가 읽는다). 파일은 임시 이름으로 받아 옮긴다(받는 동안 정리가 지우지 않게 지킨다). 설정 DB가 아니라 스냅샷을 뜨지 않는다.
 
 import { rule, type RuleProblem } from "../rules/rule-problem.ts";
-import { logRuleLine } from "../rules/text/index.ts";
+import { ruleLogText } from "../rules/text/index.ts";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
@@ -115,7 +115,7 @@ const isAudioItem = (item: ArchiveItem): item is AudioItem => (AUDIO_ITEMS as re
 type Bundle = { rows: Rows; entries: Map<string, ZipItem> };
 
 // 이 봇의 오디오 캐시 내보내기가 아닌 파일(settings-archive의 badArchive와 같은 모양)
-const archiveError = (problem: RuleProblem) => Object.assign(codedError("BAD_ARCHIVE", logRuleLine(problem)), { problem });
+const archiveError = (problem: RuleProblem) => Object.assign(codedError("BAD_ARCHIVE", ruleLogText(problem)), { problem });
 /** 올린 ZIP의 행 목록을 읽는다. 없거나 모양이 틀리면 BAD_ARCHIVE */
 function readBundle(file: string): Bundle {
   const zipped = openZip(file);

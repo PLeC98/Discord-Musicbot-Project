@@ -11,9 +11,9 @@ type Level = "debug" | "warn" | "error";
 type Line = (line: LogText) => unknown;
 
 /** 작업이 끝나기를 기다릴 수 있는 Promise를 돌려준다. 작업이 실패해도 이 Promise는 resolve 된다 */
-function bestEffort(log: { debug: Line }, work: PromiseLike<unknown>, what: string | LogText): Promise<void>;
-function bestEffort<V extends Level>(log: Record<V, Line>, work: PromiseLike<unknown>, what: string | LogText, level: V): Promise<void>;
-function bestEffort(log: Partial<Record<Level, Line>>, work: PromiseLike<unknown>, what: string | LogText, level: Level = "debug"): Promise<void> {
+function bestEffort(log: { debug: Line }, work: PromiseLike<unknown>, what: LogText): Promise<void>;
+function bestEffort<V extends Level>(log: Record<V, Line>, work: PromiseLike<unknown>, what: LogText, level: V): Promise<void>;
+function bestEffort(log: Partial<Record<Level, Line>>, work: PromiseLike<unknown>, what: LogText, level: Level = "debug"): Promise<void> {
   return Promise.resolve(work).then(
     () => undefined,
     (error: unknown) => {

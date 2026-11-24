@@ -42,7 +42,7 @@ type Done = (err?: unknown) => void;
 type Ended = (sid: string) => void;
 // 부른 쪽이 결과를 기다리지 않을 때. 실패는 여기서 남긴다
 const unheard =
-  (what: string | LogText): Done =>
+  (what: LogText): Done =>
   (err) => {
     if (err) log.error(L.dashboard.sessionOpFailed({ what, error: messageOf(err) }));
   };

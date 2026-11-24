@@ -39,7 +39,7 @@ type OpenedStream = Readable & {
   resumable?: Resumable;
   stats?(): { requests: number; received: number; totalBytes: number; idleMs: number | null; expiresInS: number | null; resuming?: boolean; startByte?: number };
   startedAtMs?: number;
-  describe?(): string | LogText;
+  describe?(): LogText;
 };
 type InputIo<R> = {
   spawnFfmpeg(args: string[], label: string): FfmpegChild;

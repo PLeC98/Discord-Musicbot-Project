@@ -34,7 +34,7 @@ import { sec } from "../../infra/log/seconds.ts";
 import { UNSAFE_KEYS, delPath, setPath } from "../../rules/dot-path.ts";
 import { readExtra, type Extra } from "../../rules/ai-extra.ts";
 import { L } from "../../infra/log/text.ts";
-import { asText, logTextError, type LogText } from "../../infra/log/log-text.ts";
+import { asText, logTextError, renderLogText, type LogText } from "../../infra/log/log-text.ts";
 import { errorText, ruleError } from "../../rules/text/index.ts";
 import { bug } from "../../infra/bug.ts";
 
@@ -621,13 +621,16 @@ function skipped(error: unknown) {
   log.warn(L.autoplay.aiAssistFailed({ callsSuffix: calls, error: messageOf(error) }));
 }
 
-/** 판정 하나(재시도, 다시 묻기까지 끝낸 것)의 실패. reason은 원인, detail은 저쪽 문구, calls는 부른 수 */
+/** 판정 하나(재시도, 다시 묻기까지 끝낸 것)의 실패. reason은 원인, detail은 저쪽 문구, calls는 부른 수. 메시지는 로그 언어로 그린 글이고 서술자(logText)를 함께 갖는다 */
 class AskFailure extends Error {
+  readonly logText: LogText;
   reason: string | LogText;
   detail: string;
   calls: number;
   constructor(reason: string | LogText, detail: string, calls: number) {
-    super(detail ? `${asText(reason)} (${detail})` : asText(reason));
+    const text = L.autoplay.askFailed({ reason, detail });
+    super(renderLogText(text));
+    this.logText = text;
     this.reason = reason;
     this.detail = detail;
     this.calls = calls;

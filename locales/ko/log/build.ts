@@ -35,6 +35,8 @@ const build = {
   twemojiFontWritten: ({ family, kb, codepoints, ligatures, added }: { family: string; kb: string; codepoints: number; ligatures: number; added: number }) => `${family}: ${kb}KB, 문자 ${codepoints}개, 합자 ${ligatures}개(뒤처리로 ${added}개 더함)`,
   fontNotSfnt: ({ tag }: { tag: string }) => `글꼴 하나(sfnt)여야 합니다: ${tag}`,
   fontNameTableMissing: () => `name 테이블이 없습니다`,
+  emojiSourceFailed: ({ url, status }: { url: string; status: number }) => `${url} → HTTP ${status}`,
+  kanjiSourceFailed: ({ url, status }: { url: string; status: number }) => `${url} → ${status}`,
 };
 
 export { build };

@@ -1,13 +1,13 @@
 // pino와 표면이 같은 얇은 facade. 앱 코드는 이걸로 로그를 찍고, 저장, 렌더, 배포는 sink(LogSink)가 한다.
 //
-//   logger.warn({ guildId }, "무언가 %s", x);
+//   log.warn({ guildId }, L.<이름공간>.<키>({ 값 }));
 //   const yt = logger.child({ category: "youtube" });
-//   yt.error(err, "다운로드 실패");
+//   yt.error(err, L.youtube.<키>());
 //
 // 지켜야 할 표면:
 //   - 레벨: trace/debug/info/warn/error/fatal (10~60). logger.level을 바꿀 수 있고 그보다 낮은 레벨은 찍지 않는다
-//   - 호출: fn(문구) | fn(바인딩, 문구) | fn(err, 문구). 문구는 서술자(infra/log/text의 L)이고 레코드에 msg(그린 글), event, args로 나눠 싣는다.
-//     마이그레이션 중의 글 형식: fn(mergingObj?, msg?, ...interp) | fn(err) | fn(msg, ...interp)
+//   - 호출: fn(문구) | fn(바인딩, 문구) | fn(err, 문구), 문구 뒤에 값 하나. 문구는 서술자(infra/log/text의 L)이고 레코드에 msg(그린 글), event, args로 나눠 싣는다.
+//     글(fn("글"), fn(바인딩, "글"))과 오류만 넘기는 fn(err)는 타입이 받지 않는다(새 로그 줄이 문구표를 건너뛰지 않게). 실행 중에는 타입을 거치지 않은 호출도 글로 남긴다(buildRecord)
 //   - child(bindings): bindings 병합된 자식 (카테고리도 그냥 바인딩이다)
 //   - pino에 없는 logger.log()는 노출하지 않는다 (서드파티의 console.* 는 sink의 console 브리지가 받는다)
 
@@ -15,9 +15,9 @@ import util from "util";
 import sink from "./sink.ts";
 import type { LogRecord } from "./sink.ts";
 import { LEVELS, isLevel, levelNameOf, type LevelName } from "./levels.ts";
-import { isLogText, recordArgs, renderLogText, type LogBindings, type LogText } from "./log-text.ts";
+import { isLogText, recordArgs, renderLogText, type LogArgs, type LogBindings, type LogText } from "./log-text.ts";
 
-/** 레벨마다 찍는 함수. 문구(서술자) 뒤에 값을 덧붙이는 형식은 받지 않는다(글이 형식 문자열이 되지 않게) */
+/** 레벨마다 찍는 함수. 문구(서술자)만 받고, 문구 뒤에는 값 하나를 받는다(형식 문자열로 쓰지 않고 inspect해 뒤에 붙인다) */
 interface LogFn {
   (text: LogText): void;
   (bindings: LogBindings, text: LogText): void;
@@ -25,10 +25,6 @@ interface LogFn {
   // 문구 뒤의 값 하나(대개 catch의 오류): 글 형식의 util.format처럼 inspect해 뒤에 붙인다(Error는 err로도)
   (text: LogText, value: unknown): void;
   (bindings: LogBindings, text: LogText, value: unknown): void;
-  // 글 형식(마이그레이션 중)
-  (msg: string, ...extra: unknown[]): void;
-  (bindings: LogBindings, msg?: string, ...extra: unknown[]): void;
-  (err: unknown, msg?: string, ...extra: unknown[]): void;
 }
 
 /** 레벨마다 찍는 함수, 자식 만들기, 레벨(읽으면 이름, 쓸 때는 레벨 이름 글자를 받고 모르는 이름은 무시한다) */
@@ -56,6 +52,9 @@ function textRecord(args: unknown[]): { merge: Record<string, unknown> | null; m
   return { merge: attach ? { ...merge, err: error } : merge, msg, text, inspected: Boolean(attach) };
 }
 
+// 값 이름 text는 바깥 글을 그대로 내는 문구의 값이다(discord.js, 음성 연결의 진행 줄 등). 글이 msg에 이미 있어 레코드의 값에는 다시 싣지 않는다(양이 많은 trace 줄이 두 배가 되지 않게)
+const withoutPassThrough = ({ text: _text, ...rest }: LogArgs): LogArgs => rest;
+
 // pino 호환 인자 → sink 레코드로 정규화.
 function buildRecord(levelNum: number, bindings: Record<string, unknown>, args: unknown[]): LogRecord & { msg: string } {
   let merge: Record<string, unknown> | null = null;
@@ -77,7 +76,7 @@ function buildRecord(levelNum: number, bindings: Record<string, unknown>, args: 
     msg = util.format(...args);
   }
 
-  const rec: LogRecord = { level: levelNum, time: Date.now(), ...bindings, ...(merge || {}), ...(described ? { event: described.text.event, args: recordArgs(described.text.args) } : {}) };
+  const rec: LogRecord = { level: levelNum, time: Date.now(), ...bindings, ...(merge || {}), ...(described ? { event: described.text.event, args: recordArgs(withoutPassThrough(described.text.args)) } : {}) };
 
   return Object.assign(rec, { msg: withStack(rec, msg, described?.inspected ?? false) });
 }

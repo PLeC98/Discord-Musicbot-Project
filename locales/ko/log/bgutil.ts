@@ -53,6 +53,8 @@ const bgutil = {
   busy: ({ holder }: { holder: number | null }) => `설치 건너뜀: 다른 프로세스(${holder ? `PID ${holder}` : "PID 모름"})가 vendor/bgutil 사용 중`,
   pinBotRunning: ({ holder }: { holder: number | null }) => `봇이 실행 중이라(${holder ? `PID ${holder}` : "PID 모름"}) bgutil 고정을 바꾸지 않습니다. 대시보드 운영자 패널의 업데이트 탭에서 바꾸거나, 봇을 끄고 다시 실행하세요`,
   pinChanged: ({ was, now }: { was: string; now: string }) => `터미널에서 bgutil 고정 변경: ${was} → ${now}`,
+  /** 설치가 돌린 git 명령. command: 명령 그대로, dir: 체크아웃 폴더 */
+  gitCommand: ({ command, dir }: { command: string; dir: string }) => `${command} (${dir})`,
 };
 
 export { bgutil };

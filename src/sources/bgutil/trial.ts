@@ -16,7 +16,7 @@ const EXIT_MS = 5_000;
 /** 실패 사유에 붙일 서버 출력(stderr) 끝부분의 길이 */
 const TAIL_CHARS = 600;
 
-type TrialResult = { ok: true } | { ok: false; reason: string | LogText };
+type TrialResult = { ok: true } | { ok: false; reason: LogText };
 
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
 

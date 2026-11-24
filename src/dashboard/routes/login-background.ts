@@ -86,7 +86,7 @@ function itemFor(req: Request<{ id: string }>, res: Response) {
   return one;
 }
 /** 바꾼 것을 적고 로그를 남기고 상태로 응답한다 */
-function changed<P>(req: Request<P>, res: Response, what: string | LogText) {
+function changed<P>(req: Request<P>, res: Response, what: LogText) {
   store.save();
   log.info({ sub: "admin" }, L.dashboard.backgroundChanged({ what, by: ranBy(req) }));
   reply(res);

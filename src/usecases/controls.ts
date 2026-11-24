@@ -113,7 +113,7 @@ async function skip(player: MaybePlayer, actor: Actor, { onTrack }: OnTrack = {}
  * 정리를 시작해 둔 채 응답한다. 정리의 동기 부분(레지스트리에서 빠짐, 대기열 비움)은 work를 만들 때 이미 끝나, 답을 기다리는 사이 다른 명령이 정리 전의 플레이어를 보지 않는다.
  * 정리의 실패는 곧바로 잡아 warn으로 남긴다(답을 기다리는 사이 처리되지 않은 거부가 되지 않게). 답이 실패해도 정리는 끝까지 기다린 뒤 그 오류를 올린다
  */
-async function answerDuring<T>(work: Promise<unknown>, what: string | LogText, facts: T, onAccepted: ((facts: T) => unknown) | undefined) {
+async function answerDuring<T>(work: Promise<unknown>, what: LogText, facts: T, onAccepted: ((facts: T) => unknown) | undefined) {
   const ending = work.catch((error: unknown) => log.warn(L.control.stopWorkFailed({ what, error: messageOf(error) })));
   try {
     await onAccepted?.(facts);

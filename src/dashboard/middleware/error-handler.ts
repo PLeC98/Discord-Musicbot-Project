@@ -84,10 +84,10 @@ function errorHandler(err: unknown, req: Request, res: Response, next: NextFunct
   //
   // 4xx는 보낸 쪽이 잘못한 것이라 우리 스택을 남길 이유가 없다. 긴 공지 한 번에 열 줄짜리
   // PayloadTooLargeError 스택이 쌓이면 그게 곧 도배다. 한 줄로 사실만 남긴다.
-  const line = `[${errorId}] ${req.method} ${req.originalUrl} → ${status}`;
+  const at = { errorId, method: req.method, url: req.originalUrl, status };
   const e = fieldsOf(err);
-  if (status >= 500) log.error(line, e.stack || e.message || err);
-  else log.warn(`${line} ${String(e.type || e.code || e.name || "")}`.trimEnd());
+  if (status >= 500) log.error(L.dashboard.requestFailed(at), e.stack || e.message || err);
+  else log.warn(L.dashboard.requestRejected({ ...at, kind: String(e.type || e.code || e.name || "") }));
 
   // 헤더가 나간 뒤에 또 쓰면 ERR_HTTP_HEADERS_SENT로 사고가 커진다. 연결 정리는 express에 맡긴다.
   if (res.headersSent) return next(err);

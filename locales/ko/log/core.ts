@@ -160,6 +160,12 @@ const core = {
   newGuildWelcome: ({ guildId }: { guildId: string }) => `새 서버 ${guildId}의 안내 메시지`,
   returnedGuildSubscribersFetch: () => `다시 쓸 수 있게 된 서버의 대시보드 구독자 가져오기`,
   voiceStateEvent: () => `음성 상태`,
+  /** 디스코드 이벤트 핸들러(새어 나온 오류의 자리). name: 이벤트 이름 그대로 */
+  eventHandler: ({ name }: { name: string }) => `${name}`,
+  /** 서버를 모른 채 새어 나온 오류의 자리: 클라이언트 오류 이벤트, 처리되지 않은 거부, 잡히지 않은 예외 */
+  looseFromClient: () => `client`,
+  looseFromRejection: () => `rejection`,
+  looseFromException: () => `exception`,
   startupInit: () => `기동`,
   guildLanguagePanelRedraw: () => `서버 언어를 바꾼 뒤 재생 패널 다시 그리기`,
   botLanguagePanelRedraw: () => `봇 기본 언어를 바꾼 뒤 재생 패널 다시 그리기`,
@@ -252,6 +258,12 @@ const core = {
   /** lastError: 마지막 확인의 실패(없으면 빈 글) */
   potServerNoAnswer: ({ seconds, lastError }: { seconds: number; lastError: string }) => `POToken 서버가 ${seconds}초 안에 응답하지 않아 POToken 없이 봇 기동.${lastError ? ` 마지막 확인: ${lastError}` : ""}`,
   iconGlyphMissing: ({ name }: { name: string }) => `아이콘 SVG 패스가 없음: ${name} (node scripts/build-discord-icons.ts로 다시 만드세요)`,
+  /** bgutil(POToken 서버)이 출력한 줄. text: 그 줄 그대로(바깥 글, 토큰은 가린 뒤) */
+  bgutilOutput: ({ text }: { text: string }) => `${text}`,
+  /** 기동 검사가 던진 오류로 멈춘다. error: 오류 글 그대로 */
+  startupCheckFailed: ({ error }: { error: string }) => `${error}`,
+  /** 앱 이모지 예외의 대상(이모지 이름, ID, 개수) 그대로 */
+  appEmojiErrorSubject: ({ subject }: { subject: string }) => `${subject}`,
 };
 
 export { core };

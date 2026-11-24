@@ -11,9 +11,6 @@
   "src/dashboard/session-store.ts": {
     "bug": 1
   },
-  "src/infra/error-text.ts": {
-    "outside": 6
-  },
   "src/media/encode-worker.ts": {
     "bug": 4
   },

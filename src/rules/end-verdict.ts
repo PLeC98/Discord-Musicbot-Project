@@ -15,13 +15,13 @@ type EndFacts = {
   reason: string; // 멈춘 이유. 저절로 멈췄으면 "idle"
   live: boolean; // 라이브를 주소 경로로 틀었다
   streamEnded: boolean; // 재생 스트림이 끝까지 읽혔다(playStream.readableEnded)
-  broken: string | LogText | null; // 입력 깨짐 표시
+  broken: LogText | null; // 입력 깨짐 표시
   exitCode: number | null; // 지금 소스 ffmpeg의 종료 코드. 아직 살아 있으면 null
   positionMs: number; // 곡 안의 멈춘 위치
   lengthMs: number | null; // 트는 음원의 길이(표시 길이가 아니다). 되감기를 막는 데만 쓴다. 모르면 null
 };
 
-type Verdict = { dropped: boolean; why: string | LogText };
+type Verdict = { dropped: boolean; why: LogText };
 
 // 우리가 멈췄지만 재생이 깨져서 멈춘 이유. 같은 곡을 멈춘 위치부터 다시 연다
 const BROKEN_STOPS: Record<string, LogText> = {
@@ -33,10 +33,10 @@ const BROKEN_STOPS: Record<string, LogText> = {
 // 다시 열 위치가 끝에서 이만큼 안이면 다시 열지 않고 끝난 것으로 본다. 출처가 준 길이는 정수 초라 실제 끝보다 1초 넘게 길 수 있어 그보다 조금 크게 잡는다
 const REWIND_GUARD_MS = 1500;
 
-const ended = (why: string | LogText): Verdict => ({ dropped: false, why });
+const ended = (why: LogText): Verdict => ({ dropped: false, why });
 
 // 끊긴 원인. 끊기지 않았으면 null
-function dropCause(f: EndFacts): string | LogText | null {
+function dropCause(f: EndFacts): LogText | null {
   if (f.reason !== "idle") return BROKEN_STOPS[f.reason] ?? null;
   if (f.live) return f.exitCode === 0 && !f.broken ? null : (f.broken ?? L.player.ffmpegExit({ code: f.exitCode }));
   if (!f.streamEnded) return L.player.stopPacketsCut();

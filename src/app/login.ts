@@ -28,7 +28,7 @@ type Retry = { waits?: number[]; wait?: (ms: number) => Promise<unknown> };
  * 디스코드가 답할 때까지 간격을 두고 재시도한다. 토큰이 틀리면(401) 곧바로 TokenInvalid를 던지고, 재시도를 다 쓰면 마지막 오류를 던진다.
  * 상태를 바꾸지 않는 조회에만 쓴다(게이트웨이 정보, 앱 설정). what: 로그에 쓰는 이름
  */
-async function untilDiscordAnswers<T>(what: string | LogText, call: () => Promise<T>, { waits = GATEWAY_RETRY_MS, wait = sleep }: Retry = {}): Promise<T> {
+async function untilDiscordAnswers<T>(what: LogText, call: () => Promise<T>, { waits = GATEWAY_RETRY_MS, wait = sleep }: Retry = {}): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     try {
       return await call();

@@ -10,6 +10,7 @@ import { addFailureMessage } from "../../src/ui/error-messages.ts";
 import { plainText } from "../helpers/notice.ts";
 import { codedError } from "../../src/rules/error-kind.ts";
 import { textFor } from "../../src/ui/text/index.ts";
+import { testText } from "../helpers/log-text.ts";
 const KO = textFor("ko");
 const lookup = await import("../../src/sources/lookup.ts");
 const { canonicalUrl } = await import("../../src/rules/canonical-url.ts");
@@ -89,7 +90,7 @@ test("모르는 사이트의 웹 페이지는 열어 보고 거절한다", async
   const direct = {
     getInfo: async (url: string) => {
       opened.push(url);
-      throw codedError("unsupported-link", "음원이 아닌 링크입니다(page)");
+      throw codedError("unsupported-link", testText("음원이 아닌 링크입니다(page)"));
     },
   };
   for (const url of ["https://anilist.co/anime/21827", "https://chzzk.naver.com/live/abc", "http://example.com/page"]) {

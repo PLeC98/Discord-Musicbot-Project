@@ -222,7 +222,7 @@ class BgutilAutoInstall {
   }
 
   /** 예약을 푼다. 예약이 있었으면 true */
-  unreserve(why: string | LogText): boolean {
+  unreserve(why: LogText): boolean {
     if (!this.reserved) return false;
     this.reserved = null;
     log.info(L.core.bgutilRestartUnreserved({ why }));

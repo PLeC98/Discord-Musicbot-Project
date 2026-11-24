@@ -71,7 +71,7 @@ async function makeEmojiImage(source: Buffer, edit: EmojiEdit): Promise<EmojiIma
     const data = await sharp(edited[0], { raw: { width: EMOJI_SIZE, height: EMOJI_SIZE, channels: 4 } })
       .png({ compressionLevel: 9 })
       .toBuffer();
-    if (data.length > EMOJI_MAX_BYTES) throw codedError("EMOJI_TOO_LARGE", `${data.length}B`);
+    if (data.length > EMOJI_MAX_BYTES) throw codedError("EMOJI_TOO_LARGE", L.dashboard.emojiTooLargeBytes({ bytes: data.length }));
     return { data, animated: false, format: "png" };
   }
   const strip = () => sharp(Buffer.concat(edited), { raw: { width: EMOJI_SIZE, height: EMOJI_SIZE * edited.length, channels: 4, pageHeight: EMOJI_SIZE } });
@@ -79,7 +79,7 @@ async function makeEmojiImage(source: Buffer, edit: EmojiEdit): Promise<EmojiIma
   if (gif.length <= EMOJI_MAX_BYTES) return { data: gif, animated: true, format: "gif" };
   const webp = await strip().webp({ delay, loop, quality: 80 }).toBuffer();
   if (webp.length <= EMOJI_MAX_BYTES) return { data: webp, animated: true, format: "webp" };
-  throw codedError("EMOJI_TOO_LARGE", `GIF ${gif.length}B, WebP ${webp.length}B`);
+  throw codedError("EMOJI_TOO_LARGE", L.dashboard.emojiTooLargeAnimated({ gif: gif.length, webp: webp.length }));
 }
 
 export { makeEmojiImage, EMOJI_SIZE, EMOJI_MAX_BYTES, MAX_FRAMES, MAX_FRAME_PIXELS };

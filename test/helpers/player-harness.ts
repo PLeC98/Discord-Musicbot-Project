@@ -74,6 +74,7 @@ const calls = {
 import { AudioPlayerStatus } from "@discordjs/voice";
 import { cacheDb } from "../../src/store/cache-db.ts";
 import * as stores from "../../src/store/stores.ts";
+import { renderLogText, type LogText } from "../../src/infra/log/log-text.ts";
 
 class FakeAudioPlayer extends EventEmitter {
   state: { status: AudioPlayerStatus; resource?: unknown };
@@ -259,8 +260,8 @@ const fakeConnection = () =>
     subscribe() {},
   }) as unknown as VoiceConnection & { destroyed: string[] };
 class FakeVoice extends VoiceLink {
-  override recover(why: string) {
-    calls.recoveries.push(why);
+  override recover(why: LogText) {
+    calls.recoveries.push(renderLogText(why));
   }
   override async connect() {
     await behavior.connect?.();

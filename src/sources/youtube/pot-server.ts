@@ -59,9 +59,10 @@ const BIND_FAILED = /could not listen/i;
 function relay(chunk: Buffer | string, stream: "out" | "err") {
   for (const raw of chunk.toString().split("\n").filter(Boolean)) {
     const line = scrubBgutilLine(raw);
-    if (stream === "out" || BIND_FAILED.test(line)) log.debug({ sub: "bgutil" }, line);
-    else if (/EADDRINUSE|^\s+at /i.test(line)) log.error({ sub: "bgutil" }, line);
-    else log.warn({ sub: "bgutil" }, line);
+    const text = L.core.bgutilOutput({ text: line });
+    if (stream === "out" || BIND_FAILED.test(line)) log.debug({ sub: "bgutil" }, text);
+    else if (/EADDRINUSE|^\s+at /i.test(line)) log.error({ sub: "bgutil" }, text);
+    else log.warn({ sub: "bgutil" }, text);
   }
 }
 

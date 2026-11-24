@@ -89,7 +89,7 @@ import { nudgeOnSettingsChange } from "./settings-nudge.ts";
 import * as guildSettings from "../store/guild-settings.ts";
 import { AppEmojis, apiOf } from "./app-emojis.ts";
 import { missingText } from "../ui/text/index.ts";
-import { missingRuleText } from "../rules/text/index.ts";
+import { errorText, missingRuleText } from "../rules/text/index.ts";
 import { missingLogText } from "../infra/log/text.ts";
 import { asText, type LogText } from "../infra/log/log-text.ts";
 import { BASE_LANGUAGE } from "../rules/languages.ts";
@@ -324,9 +324,9 @@ function listenToLibrary(client: Client) {
   watchGateway(client);
   watchGoneGuilds(client);
   watchGatewaySessions(client);
-  client.on(Events.Warn, (message) => dlog.warn(message));
+  client.on(Events.Warn, (message) => dlog.warn(L.discord.libraryWarning({ text: message })));
   // 하트비트마다 나오는 양이라 trace
-  client.on(Events.Debug, (message) => dlog.trace(message));
+  client.on(Events.Debug, (message) => dlog.trace(L.discord.libraryDebug({ text: message })));
   // 경로마다의 제한은 라이브러리가 줄 세워 기다리는 정상 흐름이다. 전역 제한은 봇 전체가 멈추니 운영자가 알아야 한다
   client.rest.on(RESTEvents.RateLimited, (info) => {
     const line = L.discord.rateLimited({ method: info.method.toUpperCase(), route: info.route, ms: info.timeToReset, global: info.global });
@@ -335,7 +335,7 @@ function listenToLibrary(client: Client) {
   });
   // 거절된 요청(401, 403, 429)이 10분에 1만 번을 넘으면 디스코드가 IP를 한동안 막는다
   client.rest.on(RESTEvents.InvalidRequestWarning, ({ count, remainingTime }) => dlog.warn(L.discord.invalidRequestWarning({ count, seconds: Math.round(remainingTime / 1000) })));
-  client.rest.on(RESTEvents.Debug, (message) => dlog.trace(message));
+  client.rest.on(RESTEvents.Debug, (message) => dlog.trace(L.discord.restDebug({ text: message })));
 }
 
 // 서버 언어가 바뀌면 재생 패널을 다시 그린다. 서버가 고른 언어는 그 서버만, 봇 기본 언어나 쓸 수 있는 언어(테스트 언어 스위치)가 바뀌면 모든 서버
@@ -494,11 +494,11 @@ async function startEncoding() {
   }
 }
 
-function stopIfThrows(check: () => unknown, hint: string | null = null) {
+function stopIfThrows(check: () => unknown, hint: LogText | null = null) {
   try {
     check();
   } catch (error) {
-    log.error(messageOf(error));
+    log.error(L.core.startupCheckFailed({ error: errorText(error) }));
     if (hint) log.error(hint);
     throw new StartupStopped(messageOf(error), { cause: error });
   }
@@ -519,7 +519,7 @@ function loadEvents(bot: BotContext, onFault: OnFault) {
     // 핸들러마다 서버 경계로 감싼다(app/event-boundary). 새어 나온 오류는 그 서버의 오류로 받는다
     register(
       event.name,
-      guarded(event.name, (...args: unknown[]) => event.execute(bot, ...args), onFault),
+      guarded(L.core.eventHandler({ name: event.name }), (...args: unknown[]) => event.execute(bot, ...args), onFault),
     );
   }
   log.info({ tags: ["startup"] }, L.core.eventHandlersRegistered({ count: events.length }));

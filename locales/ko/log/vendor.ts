@@ -10,6 +10,10 @@ const vendor = {
   bgutilNewerCommit: ({ tag }: { tag: string }) => `bgutil ${tag}의 커밋`,
   bgutilAuditCurrent: () => `bgutil lockfile 취약점 점검`,
   bgutilAuditNewer: ({ tag }: { tag: string }) => `bgutil ${tag} lockfile 취약점 점검`,
+  githubFailed: ({ pathname, status }: { pathname: string; status: number }) => `GitHub ${pathname}: ${status}`,
+  cloudflareFailed: ({ family, status }: { family: string; status: number }) => `Cloudflare ips-${family}: ${status}`,
+  ytdlpPublicKeyFailed: ({ status }: { status: number }) => `yt-dlp public.key: ${status}`,
+  releaseFileFailed: ({ repo, tag, name, status }: { repo: string; tag: string; name: string; status: number }) => `${repo} ${tag} ${name}: ${status}`,
 };
 
 export { vendor };

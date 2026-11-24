@@ -10,7 +10,7 @@ type FailureLog = { error(line: LogText): unknown; info(line: LogText): unknown 
 /** 원인이 같은지 비교하는 키. 서술자는 객체라 같은 실패라도 매번 새로 만들어지므로 문구 코드와 값으로 비교한다 */
 const reasonKey = (reason: string | LogText) => (isLogText(reason) ? JSON.stringify({ event: reason.event, args: recordArgs(reason.args) }) : reason);
 
-function repeatingFailure(log: FailureLog, what: string | LogText) {
+function repeatingFailure(log: FailureLog, what: LogText) {
   let failing: string | null = null;
   let count = 0;
   return {

@@ -49,7 +49,7 @@ class SessionEndedError extends Error {
 }
 
 /** 묶인 요청. stream: 스트림이면 그 이름(로그), drop: 그 스트림 모듈의 정리 */
-type Entry = { req: Request; res: Response; socket: Socket; sid: string; userId: string; name: string; deadline: number; store: SqliteSessionStore; stream: string | LogText | null; drop: () => void };
+type Entry = { req: Request; res: Response; socket: Socket; sid: string; userId: string; name: string; deadline: number; store: SqliteSessionStore; stream: LogText | null; drop: () => void };
 
 /** 진행 중인 묶인 요청(응답이 닫히면 빠진다) */
 const entries = new Map<Response, Entry>();
@@ -200,7 +200,7 @@ function admit(req: Request): boolean {
  * 연 스트림을 그 요청의 항목에 스트림으로 적고 요청에서 세션을 뗀다. 헤더를 보낸 뒤에 부른다. kind: 로그에 적을 스트림 이름,
  * drop: 그 스트림 모듈의 정리(끊을 때 곧바로 부른다. 닫힘을 기다리면 그사이 하트비트가 끝낸 응답에 쓴다)
  */
-function track(req: Request, res: Response, kind: string | LogText, drop?: () => void) {
+function track(req: Request, res: Response, kind: LogText, drop?: () => void) {
   const store = tokenStoreOf(req);
   if (!store || !req.session?.user) return;
   const entry = entryOf.get(req);
@@ -238,7 +238,7 @@ function sweepSockets(sid: string, live: Set<Request>) {
 
 // 끝난 요청을 멈춘다. 스트림은 끝 이벤트와 함께 끊고, 헤더를 보냈는데 다 나가지 않은 응답(end를 불렀어도 버퍼에 남은 것 포함)과 받는 중인 본문은 소켓을 강제로 닫는다.
 // 나머지는 표시만 한다(감싸기와 확인이 멈춘다)
-function stop(entry: Entry, why: string | LogText) {
+function stop(entry: Entry, why: LogText) {
   const { req, res } = entry;
   ended.add(req);
   if (entry.stream) return closeStream(entry, why);
@@ -258,7 +258,7 @@ function receiving(req: Request) {
 }
 
 // 스트림을 끊는다. 목록에서 곧바로 빼고 모듈 정리를 부른다
-function closeStream(entry: Entry, why: string | LogText) {
+function closeStream(entry: Entry, why: LogText) {
   if (entries.get(entry.res) !== entry) return;
   entries.delete(entry.res);
   if (!entries.size) disarm();

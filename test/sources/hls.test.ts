@@ -11,6 +11,7 @@ import { codeOf, messageOf } from "../../src/rules/error-kind.ts";
 import * as directSource from "../../src/sources/direct.ts";
 import type { AudioStream, OpenOptions } from "../../src/sources/direct-open.ts";
 import * as SafeUrl from "../../src/infra/safe-url.ts";
+import { testText } from "../helpers/log-text.ts";
 
 // raw: 그대로 돌려줄 상태 코드와 헤더(구간을 어긋나게 주는 서버). 없으면 구간을 따르는 서버는 206과 Content-Range를 붙인다
 type Reply = { body?: Buffer | string; status?: number; url?: string; honorsRange?: boolean; raw?: { status: number; headers: Record<string, string> } };
@@ -146,7 +147,7 @@ test("세그먼트, 키: 4xx와 가드가 막은 주소는 재시도해도 같�
   const { net } = netOf({ "https://e.test/gone.ts": { status: 404 }, "https://e.test/busy.ts": { status: 503 } });
   const blocked = {
     getStream: async (url: string, deps?: undefined, opts?: OpenOptions) => {
-      if (url.includes("10.0.0.1")) throw new SafeUrl.SsrfError("내부 주소로 가는 요청은 막힙니다");
+      if (url.includes("10.0.0.1")) throw new SafeUrl.SsrfError(testText("내부 주소로 가는 요청은 막힙니다"));
       return net.getStream(url, deps, opts);
     },
   };

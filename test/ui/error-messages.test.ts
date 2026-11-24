@@ -8,6 +8,7 @@ import { codedError } from "../../src/rules/error-kind.ts";
 import { networkError, ytDlpError } from "../helpers/errors.ts";
 import { plainText } from "../helpers/notice.ts";
 import { textFor } from "../../src/ui/text/index.ts";
+import { testText } from "../helpers/log-text.ts";
 const KO = textFor("ko");
 const text = textFor("ko").errors;
 
@@ -19,11 +20,11 @@ const CASES: Array<[Error, string]> = [
   [ytDlpError("ERROR: [youtube] xyz: Video unavailable. This video has been removed"), "unavailable-contents"],
   [ytDlpError("Video not available in your country"), "geo-blocked"],
   [ytDlpError("HTTP Error 429: Too Many Requests"), "rate-limited"],
-  [codedError("sp-no-youtube-match", "유튜브에서 같은 곡을 찾지 못함: 곡"), "sp-no-youtube-match"], // Player, streamUrl
+  [codedError("sp-no-youtube-match", testText("유튜브에서 같은 곡을 찾지 못함: 곡")), "sp-no-youtube-match"], // Player, streamUrl
   [Object.assign(new Error("read ECONNRESET"), { code: "ECONNRESET" }), "network-error"],
   [Object.assign(new Error("connect ETIMEDOUT 1.2.3.4:443"), { code: "ETIMEDOUT" }), "network-error"],
   [networkError(), "network-error"],
-  [codedError("stream-failed", "오디오 리소스를 만들지 못했습니다"), "stream-failed"],
+  [codedError("stream-failed", testText("오디오 리소스를 만들지 못했습니다")), "stream-failed"],
   [Object.assign(new Error("Missing Permissions"), { code: 50013, url: "https://discord.com/api/v10/channels/1/messages" }), "permission-text"], // DiscordAPIError
   [new Error("완전히 알 수 없는 무언가"), "unknown-error"],
 ];

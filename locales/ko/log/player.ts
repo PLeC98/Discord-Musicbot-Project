@@ -311,6 +311,8 @@ const player = {
   placeholderCleanup: () => `자리표시자 정리`,
   sourceDashboard: () => `대시보드`,
   sourceDashboardMore: () => `대시보드 더 넣기`,
+  /** 인코딩 워커를 띄우지 못했다. error: 오류 글 그대로 */
+  encodeWorkerStartFailed: ({ error }: { error: string }) => `${error}`,
 };
 
 export { player };

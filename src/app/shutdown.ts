@@ -47,7 +47,7 @@ const REAL: Boundary = {
 /** 내릴 POToken 서버, 닫을 로그 파일(없으면 null), 나머지는 바깥 경계(생략하면 실제 구현) */
 type ShutdownDeps = { potServer: { stop(): Promise<PotStop> }; logFile: { close(): unknown } | null } & Partial<Boundary>;
 /** 종료할 때 세션을 저장하고 음성 연결을 정리할 플레이어 */
-type Saver = { persistence: { save(reason: string): Promise<unknown> }; gain?: { checkpoint(): void }; voice: { release(reason: string | LogText): unknown }; updateVoiceStatus(status: string): Promise<unknown> };
+type Saver = { persistence: { save(reason: string): Promise<unknown> }; gain?: { checkpoint(): void }; voice: { release(reason: LogText): unknown }; updateVoiceStatus(status: string): Promise<unknown> };
 // 음성 채널 상태 문구를 지우는 데 기다리는 상한. 넘으면 그대로 끝낸다
 const STATUS_CLEAR_MS = 2000;
 // 다시 시작 공지를 보내는 데 기다리는 상한(모든 서버 합쳐). 넘으면 보낸 것만 세고 종료를 잇는다

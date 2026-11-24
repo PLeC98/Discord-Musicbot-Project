@@ -17,6 +17,7 @@ import { charsFor } from "../store/app-emoji-records.ts";
 import { buildEmojiFont, type EmojiFontFormat } from "./app-emoji-font.ts";
 import type { AppEmojiItem } from "./contract/app-emojis.ts";
 import { L } from "../infra/log/text.ts";
+import { logTextError } from "../infra/log/log-text.ts";
 const log = logger.child({ category: "dashboard" });
 
 let dir = path.join(PROJECT.dashboardData, "app-emojis");
@@ -46,7 +47,7 @@ async function imageOf(id: string): Promise<Image | null> {
 async function download(id: string, animated: boolean, file: string): Promise<Image | null> {
   try {
     const res = await cdn.fetch(`https://cdn.discordapp.com/emojis/${id}.${animated ? "gif" : "png"}`, { signal: AbortSignal.timeout(CDN_TIMEOUT_MS) });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw logTextError(L.net.httpStatus({ status: res.status }));
     const data = Buffer.from(await res.arrayBuffer());
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(file, data);

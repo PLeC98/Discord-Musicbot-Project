@@ -14,6 +14,7 @@ import type { QueuedTrack } from "../../src/player/track.ts";
 import type { PanelStore } from "../../src/ui/panel-location.ts";
 import type { PanelRecord } from "../../src/store/panel-records.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
+import { testText } from "../helpers/log-text.ts";
 
 const BOT_CHANNEL = "chan-1";
 
@@ -247,7 +248,7 @@ test("보내는 사이 재생이 끝나면 방금 올린 메시지를 도로 지
     return { message: { id: "999", channel_id: BOT_CHANNEL }, webhook: panels.webhook };
   };
 
-  await panels._repostNowPlaying(player, "테스트");
+  await panels._repostNowPlaying(player, testText("테스트"));
 
   assert.equal(player.nowPlayingMessage, null, "끝난 재생의 임베드를 되살리지 않는다");
   assert.ok(calls.deleted.includes("999"), "뒤늦게 올라간 메시지는 지운다");

@@ -6,6 +6,7 @@ import { scriptLine, stripScriptPrefix } from "../../src/infra/script-line.ts";
 import { L } from "../../src/infra/log/text.ts";
 import { renderLogText } from "../../src/infra/log/log-text.ts";
 import { useTestLogLanguage } from "../../src/infra/log/language.ts";
+import { testText } from "../helpers/log-text.ts";
 
 /** console.log, console.error로 나간 줄을 모은다 */
 function printed(run: () => void): { out: string[]; err: string[] } {
@@ -24,9 +25,9 @@ function printed(run: () => void): { out: string[]; err: string[] } {
 test("앞머리는 수준과 분류, info는 표준 출력, warn과 error는 표준 오류", () => {
   const say = scriptLine("ffmpeg");
   const seen = printed(() => {
-    say("info", "하나");
-    say("warn", "둘");
-    say("error", "셋");
+    say("info", testText("하나"));
+    say("warn", testText("둘"));
+    say("error", testText("셋"));
   });
   assert.deepEqual(seen, { out: ["INFO  [ffmpeg] 하나"], err: ["WARN  [ffmpeg] 둘", "ERROR [ffmpeg] 셋"] });
 });

@@ -52,7 +52,7 @@ function discordRejection(error: unknown): Rejection | null {
 }
 
 /** 로그 한 줄. guildId: 그 서버(모르면 null), where: 어디서 새어 나왔나 */
-function rejectionLine(r: Rejection, guildId: string | null, where: string | LogText): LogText {
+function rejectionLine(r: Rejection, guildId: string | null, where: LogText): LogText {
   return L.core.rejectionLine({ what: r.meaning ?? L.core.rejectUnknown(), code: r.code, message: r.message, request: r.request, guild: guildId, where });
 }
 

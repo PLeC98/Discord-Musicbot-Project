@@ -7,8 +7,9 @@ import path from "node:path";
 import { failureScope, servedDirectly, TRACK, ENVIRONMENT, UNKNOWN } from "../../src/player/failure-scope.ts";
 import { codedError } from "../../src/rules/error-kind.ts";
 import { SsrfError } from "../../src/infra/safe-url.ts";
+import { testText } from "../helpers/log-text.ts";
 
-const coded = (code: string, extra: object = {}) => Object.assign(codedError(code, code), extra);
+const coded = (code: string, extra: object = {}) => Object.assign(codedError(code, testText(code)), extra);
 
 test("이름: 곡의 성질, 그 곡에만 걸리는 설정은 곡 탓, 다음 곡도 막히는 것은 환경 탓, 근거 없는 것은 모름", () => {
   for (const code of ["unavailable-contents", "sc-preview-only", "geo-blocked", "age-content-off", "age-channel-only", "yt-age-no-cookies", "yt-age-cookies-invalid", "sp-no-youtube-match", "unsupported-link", "shoutcast-v1", "pinned-live"]) {
@@ -57,7 +58,7 @@ test("직접 링크: 없어졌으면 곡 탓, 그 밖의 상태, 연결 실패�
   assert.equal(failureScope(coded("network-error"), direct), "unknown");
   assert.equal(failureScope(coded("encoder-unavailable"), direct), "environment");
   assert.equal(failureScope(coded("stream-failed", { scope: "environment" }), direct), "environment");
-  assert.equal(failureScope(coded("direct-unavailable", { cause: new SsrfError("내부 주소") }), direct), "track", "안전하지 않은 주소");
+  assert.equal(failureScope(coded("direct-unavailable", { cause: new SsrfError(testText("내부 주소")) }), direct), "track", "안전하지 않은 주소");
 });
 
 test("죽은 음원 판정(deadSourceCode)과 어긋나지 않는다: 그것이 사라졌다고 보면 곡 탓", () => {

@@ -39,7 +39,7 @@ type FragmentSource<F> = {
   /** 내보내기 시작하는 곡 안의 위치(ms). 받는 첫 세그먼트의 시작 */
   startedAtMs: number;
   /** 지금 상태 한 줄. sent는 내보낸 세그먼트 수 */
-  describe(sent: number): string | LogText;
+  describe(sent: number): LogText;
   /** 스트림이 닫혔다(라이브 목록 다시 받기를 멈춘다) */
   close?(): void;
 };

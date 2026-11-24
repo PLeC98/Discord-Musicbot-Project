@@ -84,6 +84,8 @@ const track = {
   pinnedRefind: ({ title, audioUrl, code }: { title: string; audioUrl: string | null; code: string }) => `직접 지정한 음원을 재생할 수 없어 이번에는 다시 찾음(지정은 그대로): "${title}" | ${audioUrl ?? "없음"} | ${code}`,
   pinnedLive: ({ audioUrl }: { audioUrl: string | null }) => `직접 지정한 음원이 라이브임: ${audioUrl ?? "없음"}`,
   unsupportedAudioUrl: ({ platform }: { platform: string | null }) => `지원되지 않는 음원 주소: ${platform ?? "없음"}`,
+  /** 사운드클라우드를 받은 yt-dlp의 오류. text: 오류 줄 그대로(바깥 글) */
+  soundcloudYtdlpError: ({ text }: { text: string }) => `${text}`,
 };
 
 export { track };
