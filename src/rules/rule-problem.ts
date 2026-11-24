@@ -145,6 +145,8 @@ const RULE_CODES = [
   "archive-potoken",
   "archive-ytdlp-pin",
   "archive-bgutil-pin",
+  "archive-operator-scope",
+  "archive-operator-scope-kept",
   "archive-ai-target",
   "archive-status-links",
   "archive-prompt-shape",

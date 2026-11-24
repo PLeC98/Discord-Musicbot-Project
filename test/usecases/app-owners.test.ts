@@ -8,10 +8,10 @@ import sink from "../../src/infra/log/sink.ts";
 import { isBotOwner } from "../../src/usecases/permissions.ts";
 import { personalApp, teamApp } from "../helpers/app-owners.ts";
 
-const saved = { ownerId: config.dashboard.ownerId, scope: config.dashboard.operatorScope };
+const saved = { ownerId: config.dashboard.ownerId, scope: config.dashboard.operators.scope };
 afterEach(() => {
   config.dashboard.ownerId = saved.ownerId;
-  config.dashboard.operatorScope = saved.scope;
+  config.dashboard.operators.scope = saved.scope;
   _setAppOwners(null);
 });
 
@@ -38,7 +38,7 @@ test("앱 정보가 없으면(테스트가 기동 없이 연 경우 등) 덮어�
 
 test("넓히는 범위는 설정 객체를 따르고, 마지막 성공이 1시간을 넘으면 소유자만 남긴다", () => {
   config.dashboard.ownerId = null;
-  config.dashboard.operatorScope = "admin";
+  config.dashboard.operators.scope = "admin";
   const app = teamApp("t1", [{ id: "t2", role: "admin" }]);
   _setAppOwners(app);
   assert.deepEqual(operators(), ["t1", "t2"]);

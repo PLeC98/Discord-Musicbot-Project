@@ -31,6 +31,8 @@ const uploads = await import("../../src/dashboard/archive-uploads.ts");
 const { settingsArchiveRouter } = await import("../../src/dashboard/routes/settings-archive.ts");
 const { uploadsRouter } = await import("../../src/dashboard/routes/uploads.ts");
 const { uploadVia } = await import("../helpers/chunk-upload.ts");
+const { _setAppOwners } = await import("../../src/usecases/app-owners.ts");
+const { teamApp } = await import("../helpers/app-owners.ts");
 
 const store = openTempStore("settings-archive-");
 const faviconDir = fs.mkdtempSync(path.join(os.tmpdir(), "settings-archive-favicon-"));
@@ -423,4 +425,23 @@ test("불러오기: 스냅샷을 뜬 뒤 중단되면(go가 예외를 던짐, �
   assert.equal(snapped, 1, "스냅샷은 떴다(그 뒤에 go를 확인한다)");
   assert.deepEqual(settingsDocs.read("genres"), now, "쓰지 않았다");
   fs.rmSync(file, { force: true });
+});
+
+test("봇 운영자 범위는 앱 소유자(팀 소유자)가 불러올 때만 바뀐다. 아니면 미리 보기가 알리고 지금 값을 그대로 둔다", async () => {
+  tunables.saveCard({ OPERATOR_SCOPE: "developer" });
+  const file = await exported();
+  tunables.saveCard({ OPERATOR_SCOPE: null });
+  try {
+    _setAppOwners(teamApp("someone-else", [{ id: "owner", role: "admin" }]));
+    assert.deepEqual(rowsOf((await preview(file)).json).tunables.warnings, ["봇 운영자 범위는 디스코드 팀 소유자만 바꿀 수 있어서 지금 값을 그대로 둬요"]);
+    assert.equal((await send("import?items=tunables", file)).status, 200);
+    assert.equal(tunables.view().values.OPERATOR_SCOPE, undefined, "팀 소유자가 아니면 그대로");
+
+    _setAppOwners(teamApp("owner", []));
+    assert.deepEqual(rowsOf((await preview(file)).json).tunables.warnings, ["봇 운영자 범위가 바뀌어요: 팀 소유자만 → 팀 소유자, Admin, Developer"]);
+    assert.equal((await send("import?items=tunables", file)).status, 200);
+    assert.deepEqual([tunables.view().values.OPERATOR_SCOPE, config.dashboard.operators.scope], ["developer", "developer"]);
+  } finally {
+    _setAppOwners(null);
+  }
 });

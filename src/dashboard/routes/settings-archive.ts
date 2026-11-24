@@ -22,6 +22,8 @@ import type { Response } from "express";
 import { assertSignedIn, sessionEnded } from "../session-requests.ts";
 import { L } from "../../infra/log/text.ts";
 import type { LogText } from "../../infra/log/log-text.ts";
+import { signedIn } from "../middleware/require-auth.ts";
+import { isAppOwner } from "../../usecases/app-owners.ts";
 
 const settingsArchiveRouter = express.Router();
 settingsArchiveRouter.use(requireOwner);
@@ -103,7 +105,7 @@ settingsArchiveRouter.post("/preview", async (req, res) => {
     throw error;
   }
   try {
-    res.json({ ...(await archive.preview(file)), token } satisfies ArchivePreview);
+    res.json({ ...(await archive.preview(file, { keepScope: !isAppOwner(signedIn(req).id) })), token } satisfies ArchivePreview);
   } catch (error) {
     archiveUploads.drop(token);
     if (!unreadable(res, error)) throw error;
@@ -129,6 +131,7 @@ settingsArchiveRouter.post("/import", requireRecentLogin, async (req, res) => {
         snapshot = true;
       },
       go: () => assertSignedIn(req),
+      keepScope: !isAppOwner(signedIn(req).id),
     });
     if (snapshot) snapshots.tidy();
     archiveUploads.drop(token);

@@ -16,7 +16,7 @@ import { KNOWN_TAGS } from "../rules/languages.ts";
 import { BGUTIL_COMMIT, BGUTIL_VERSION } from "./vendor-versions.ts";
 import { bgutilTarget } from "../rules/bgutil-install.ts";
 import { isSnowflake } from "../rules/snowflake.ts";
-import { overrideIds, type OperatorScope } from "../rules/app-owners.ts";
+import { OPERATOR_SCOPES, overrideIds } from "../rules/app-owners.ts";
 import { L } from "../infra/log/text.ts";
 import type { LogText } from "../infra/log/log-text.ts";
 import { ruleLogText } from "../rules/text/index.ts";
@@ -431,8 +431,8 @@ function serviceConfig({ env, envInt, envEnum, envUrl, envOrigin, envAddress, en
       tlsKey: env("DASHBOARD_TLS_KEY"),
       // 운영자 덮어쓰기. 있으면 앱 소유자 대신 적힌 그대로(usecases/app-owners)
       ownerId: env("OWNER_ID"),
-      // 팀 앱에서 운영자를 넓히는 범위. 기본은 팀 소유자만
-      operatorScope: "owner" as OperatorScope,
+      // 팀 앱에서 운영자를 넓히는 범위. 기본은 팀 소유자만(usecases/app-owners)
+      operators: { scope: tuneEnum("OPERATOR_SCOPE", OPERATOR_SCOPES) },
       // Vite 개발 서버(5173)를 CORS 허용 목록에 넣을지. `pnpm run dev`가 켠다. 평상시 실행은 닫힌다.
       devOrigin: env("DASHBOARD_DEV_ORIGIN") === "true",
       // 세션 쿠키 서명 비밀. 비우면 기동마다 무작위로 만든다(다시 시작하면 대시보드 로그인이 풀린다). 기동 로그에 경고

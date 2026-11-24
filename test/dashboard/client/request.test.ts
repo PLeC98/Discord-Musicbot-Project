@@ -37,8 +37,9 @@ function harness(route: (req: Sent, sent: Sent[]) => Reply, { signsIn = false, u
     return Promise.resolve(signsIn);
   };
   const changed: string[] = [];
-  installRequests(http, { onSessionEnd: () => ends.push("end"), onReauth, onReach: (ok) => reach.push(ok), user: () => user, onAccountChanged: () => changed.push("changed"), switched: () => blocked.on });
-  return { http, sent, ends, reach, reauths, changed };
+  const notOwner: string[] = [];
+  installRequests(http, { onNotOwner: () => notOwner.push("not-owner"), onSessionEnd: () => ends.push("end"), onReauth, onReach: (ok) => reach.push(ok), user: () => user, onAccountChanged: () => changed.push("changed"), switched: () => blocked.on });
+  return { http, sent, ends, reach, reauths, changed, notOwner };
 }
 
 let issued = 0;
@@ -236,4 +237,10 @@ test("막힌 뒤로는 보내지 않고(알림 없는 취소로) 거절한다. �
     ["/api/csrf-token"],
   );
   slow.http.interceptors.request.eject(tokenWait);
+});
+
+test("must-owner를 받으면 알리고(운영자에서 빠졌을 수 있다) 요청은 그대로 실패한다. 세션 끝이 아니다", async () => {
+  const { http, ends, notOwner } = harness((req) => tokenRoute(req) ?? { problem: "must-owner" });
+  await assert.rejects(http.get("/api/admin/status"));
+  assert.deepEqual([notOwner, ends], [["not-owner"], []]);
 });

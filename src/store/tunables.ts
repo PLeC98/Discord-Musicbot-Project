@@ -38,7 +38,7 @@ function shape(data: unknown): Record<string, string> {
  * 운영 설정값이 반영되는 설정 객체의 영역(경로). 저장하면 이 영역만 새 값으로 덮어쓴다. 설정 객체 전체를 덮지 않는 까닭은
  * 실행 중 다른 곳에서 채워 넣는 값(store/service-keys의 서비스 키)이 있기 때문이다. 운영 설정값을 추가해 새 영역이 생기면 여기에도 추가한다(빠진 영역이 있으면 테스트가 잡아낸다)
  */
-const TUNED_SECTIONS = ["bot", "ytdlp", "bgutil", "sponsorblock", "voiceStatus", "cache", "stream", "dashboard.rateLimit", "dashboard.sse", "aiLog", "geoip", "i18n"] as const;
+const TUNED_SECTIONS = ["bot", "ytdlp", "bgutil", "sponsorblock", "voiceStatus", "cache", "stream", "dashboard.rateLimit", "dashboard.sse", "dashboard.operators", "aiLog", "geoip", "i18n"] as const;
 
 type Section = Record<string, unknown>;
 const sectionOf = (root: object, path: string) => path.split(".").reduce<Section>((at, key) => at[key] as Section, root as Section);

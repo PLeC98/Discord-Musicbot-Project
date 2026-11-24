@@ -48,6 +48,8 @@ const FAVICON_MAX_BYTES = 64 * 1024 * 1024;
 // (쿠키 출처를 남이 정하면 봇이 이 PC의 브라우저 쿠키를 읽는다. POToken은 설치 여부에 매인다)
 const COOKIES_KEY = "COOKIES_SOURCE";
 const POTOKEN_KEY = "BGUTIL_ENABLED";
+// 봇 운영자 범위. 앱 소유자(팀 소유자)만 바꾼다(dashboard/routes/operators)
+const SCOPE_KEY = "OPERATOR_SCOPE";
 
 type DocItem = Extract<ArchiveItem, documents.DocName>;
 const DOC_ITEMS: readonly DocItem[] = ["genres", "status", "ai", "ai-prompt"];
@@ -155,11 +157,14 @@ function pinWarnings(value: Record<string, unknown>, now: Record<string, string>
   return [...(ytdlp[0] !== ytdlp[1] ? [rule("archive-ytdlp-pin", { from: ytdlp[1], to: ytdlp[0] })] : []), ...(bgutilMoved ? [rule("archive-bgutil-pin", { from: bgutil[1], to: bgutil[0] })] : [])];
 }
 
-function tunablesRow(json: Partial<ArchiveJson>): ArchiveRow {
+/** keepScope: 불러오는 사람이 앱 소유자가 아니다. 봇 운영자 범위는 지금 값을 그대로 둔다(store/tunables 의 OPERATOR_SCOPE) */
+function tunablesRow(json: Partial<ArchiveJson>, keepScope: boolean): ArchiveRow {
   if (!isTable(json.tunables)) return absent("tunables");
   const value = json.tunables;
   const now = tunables.view().values;
   const warnings: RuleProblem[] = [];
+  const scope = [textOf(value, SCOPE_KEY), now[SCOPE_KEY] ?? ""];
+  if (scope[0] !== scope[1]) warnings.push(keepScope ? rule("archive-operator-scope-kept") : rule("archive-operator-scope", { from: scope[1], to: scope[0] }));
   const [website, cookies] = [textOf(value, "WEBSITE"), textOf(value, COOKIES_KEY)];
   if (website !== (now.WEBSITE ?? "")) warnings.push(website ? rule("archive-website", { url: website }) : rule("archive-website-cleared"));
   if (cookies !== (now[COOKIES_KEY] ?? "")) warnings.push(rule("archive-cookies", { from: now[COOKIES_KEY] ?? "", to: cookies }));
@@ -238,8 +243,8 @@ function aiDocFor(json: Partial<ArchiveJson>, takingAi: boolean) {
 }
 
 // 항목 하나의 미리 보기
-async function rowFor(item: ArchiveItem, parsed: Parsed, aiDoc: unknown): Promise<ArchiveRow> {
-  if (item === "tunables") return tunablesRow(parsed.json);
+async function rowFor(item: ArchiveItem, parsed: Parsed, aiDoc: unknown, keepScope: boolean): Promise<ArchiveRow> {
+  if (item === "tunables") return tunablesRow(parsed.json, keepScope);
   if (item === "favicon") return faviconRow(parsed);
   if (item === "login-background") return (await loginBackground.check(parsed.file)).row;
   if (!isDocItem(item)) return absent(item);
@@ -258,13 +263,14 @@ function itemsOf(parsed: Parsed): ArchiveItem[] {
 }
 
 /** 파일을 읽어 항목마다 지금과 같은지, 검사 문제, 바깥으로 나가는 값의 변화를 본다. 아무것도 바꾸지 않는다 */
-async function preview(file: string): Promise<Omit<ArchivePreview, "token">> {
+/** keepScope: 불러오는 사람이 앱 소유자가 아니다(봇 운영자 범위는 그대로 둔다) */
+async function preview(file: string, { keepScope = false }: { keepScope?: boolean } = {}): Promise<Omit<ArchivePreview, "token">> {
   const parsed = parse(file);
   const { json } = parsed;
   const head = { kind: kindOf(json), exportedAt: typeof json.exportedAt === "string" ? json.exportedAt : null, botVersion: typeof json.botVersion === "string" ? json.botVersion : null };
   if (head.kind === "audio-cache") return { ...head, rows: audioArchive.previewRows(audioArchive.readBundle(file)), room: audioArchive.roomForCache() };
   const aiDoc = aiDocFor(json, true);
-  return { ...head, rows: await Promise.all(itemsOf(parsed).map((item) => rowFor(item, parsed, aiDoc))) };
+  return { ...head, rows: await Promise.all(itemsOf(parsed).map((item) => rowFor(item, parsed, aiDoc, keepScope))) };
 }
 
 /** 항목 이름(검사 문제, 로그) */
@@ -284,13 +290,13 @@ const ITEM_LABELS: Record<ArchiveItem, LogText> = {
 };
 
 // 선택한 항목이 모두 파일에 있고 검사를 지나는지. 아니면 CONFIG_INVALID(problems: 항목마다 감싼 문제, 메시지는 "항목: 원인" 줄). 지나면 저장할 파비콘, 불러올 로그인 배경(선택하지 않았으면 null)
-async function checkChosen(parsed: Parsed, items: ArchiveItem[]): Promise<{ favicons: appearance.Prepared | null; background: loginBackground.Plan | null }> {
+async function checkChosen(parsed: Parsed, items: ArchiveItem[], keepScope: boolean): Promise<{ favicons: appearance.Prepared | null; background: loginBackground.Plan | null }> {
   const aiDoc = aiDocFor(parsed.json, items.includes("ai"));
   const background = items.includes("login-background") ? await loginBackground.check(parsed.file) : null;
   // 오디오 캐시 항목은 오디오 캐시 파일에만 있다(행 목록이 없는 파일이면 읽기가 BAD_ARCHIVE)
   const audioRows = items.some(audioArchive.isAudioItem) ? (kindOf(parsed.json) === "audio-cache" ? audioArchive.previewRows(audioArchive.readBundle(parsed.file)) : []) : [];
   const audioRow = (item: ArchiveItem) => audioRows.find((one) => one.item === item) ?? { item, inFile: false, same: false, problems: [], warnings: [], count: null };
-  const rows = await Promise.all(items.map((item) => (item === "login-background" ? background!.row : audioArchive.isAudioItem(item) ? audioRow(item) : rowFor(item, parsed, aiDoc))));
+  const rows = await Promise.all(items.map((item) => (item === "login-background" ? background!.row : audioArchive.isAudioItem(item) ? audioRow(item) : rowFor(item, parsed, aiDoc, keepScope))));
   const causes = rows.flatMap((row) => [...(row.inFile ? [] : [rule("archive-missing")]), ...row.problems].map((cause) => ({ item: row.item, cause })));
   if (causes.length) {
     const problems = causes.map(({ item, cause }) => rule("archive-item", { item }, cause));
@@ -300,13 +306,21 @@ async function checkChosen(parsed: Parsed, items: ArchiveItem[]): Promise<{ favi
   return { favicons: checked?.ok ? checked.prepared : null, background: background?.plan ?? null };
 }
 
+// 앱 소유자가 아니면 봇 운영자 범위는 지금 값을 그대로 쓴다(파일의 값을 버린다)
+function keptScope(value: Record<string, unknown>, keepScope: boolean): Record<string, unknown> {
+  if (!keepScope) return value;
+  const { [SCOPE_KEY]: _ignored, ...rest } = value;
+  const now = tunables.view().values[SCOPE_KEY];
+  return now ? { ...rest, [SCOPE_KEY]: now } : rest;
+}
+
 // DB에 쓴다(한 트랜잭션)
-function writeChosen(json: Partial<ArchiveJson>, items: ArchiveItem[]) {
+function writeChosen(json: Partial<ArchiveJson>, items: ArchiveItem[], keepScope: boolean) {
   const docs = isTable(json.documents) ? json.documents : {};
   const docItems = items.filter(isDocItem);
   settingsDb.get().transaction(() => {
     if (docItems.length) settingsDocs.writeAll(docItems.map((name) => ({ name, data: docs[name], revision: settingsDocs.read(name).revision })));
-    if (items.includes("tunables")) tunables.writeRaw(isTable(json.tunables) ? json.tunables : {});
+    if (items.includes("tunables")) tunables.writeRaw(keptScope(isTable(json.tunables) ? json.tunables : {}, keepScope));
   })();
   return docItems;
 }
@@ -323,9 +337,10 @@ async function beforeWrite(items: ArchiveItem[], before?: () => Promise<unknown>
  * 결과의 restart: 다시 시작해야 적용되는 값이 기동 시 값과 다르다, cookiesSource: 쿠키 출처가 바뀌었으면 새 값(꺼졌거나 그대로면 null).
  * 쓴 뒤의 오디오 캐시 합치기는 끝까지 한다
  */
-async function apply(file: string, items: ArchiveItem[], { before, go }: { before?: () => Promise<unknown>; go?: () => void } = {}): Promise<ArchiveImported> {
+/** keepScope: 불러오는 사람이 앱 소유자가 아니다(봇 운영자 범위는 그대로 둔다) */
+async function apply(file: string, items: ArchiveItem[], { before, go, keepScope = false }: { before?: () => Promise<unknown>; go?: () => void; keepScope?: boolean } = {}): Promise<ArchiveImported> {
   const parsed = parse(file);
-  const { favicons, background } = await checkChosen(parsed, items);
+  const { favicons, background } = await checkChosen(parsed, items, keepScope);
   // 로그인 배경은 먼저 풀어 둔다(오래 걸리고 디스크가 차면 실패한다. 아직 보이지 않는다)
   const staged = background ? await loginBackground.stage(file, background) : null;
   const cookiesBefore = tunables.view().values[COOKIES_KEY] ?? "";
@@ -333,7 +348,7 @@ async function apply(file: string, items: ArchiveItem[], { before, go }: { befor
   try {
     // 스냅샷은 설정 DB의 것이라 DB 항목을 불러올 때만(파비콘, 로그인 배경만이면 뜨지 않는다. 불러오기 전 스냅샷은 몇 개만 남는다)
     await beforeWrite(items, before, go);
-    docItems = writeChosen(parsed.json, items);
+    docItems = writeChosen(parsed.json, items, keepScope);
   } catch (error) {
     staged?.abort();
     throw error;

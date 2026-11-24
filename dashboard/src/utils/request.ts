@@ -84,8 +84,9 @@ function blockedError(request: InternalAxiosRequestConfig) {
  * onReauth: reauth-required(위험한 조작인데 로그인한 지 오래됐다)를 받았을 때. 세션은 살아 있다.
  *   다시 로그인을 마치면 true로 풀린다. 그러면 그 요청을 새 세션으로 한 번 다시 보낸다(부른 쪽은 기다리기만 한다). false면 거절대로 실패한다
  * onReach(ok): 서버에 닿았는지(응답이 왔다, 연결이 안 됐다). 시간 한도, 끊음은 알리지 않는다
+ * onNotOwner: must-owner(봇 운영자 전용)를 받았을 때. 운영자에서 빠졌을 수 있다(봇이 앱 정보를 다시 받았다). 요청은 그대로 실패한다
  */
-export function installRequests(http: AxiosInstance, { onSessionEnd, onReauth, onReach, onBoot = () => undefined, user = () => null, onAccountChanged = () => undefined, switched = () => false }: { onSessionEnd: () => void; onReauth?: () => Promise<boolean>; onReach: (ok: boolean) => void; onBoot?: (id: string) => void } & AccountHooks): void {
+export function installRequests(http: AxiosInstance, { onSessionEnd, onReauth, onReach, onBoot = () => undefined, onNotOwner = () => undefined, user = () => null, onAccountChanged = () => undefined, switched = () => false }: { onSessionEnd: () => void; onReauth?: () => Promise<boolean>; onReach: (ok: boolean) => void; onBoot?: (id: string) => void; onNotOwner?: () => void } & AccountHooks): void {
   let token: string | null = null;
   let tokenRequest: Promise<string> | null = null;
 
@@ -149,10 +150,16 @@ export function installRequests(http: AxiosInstance, { onSessionEnd, onReauth, o
         token = null;
         if (request && !request.csrfRetried) return http.request({ ...request, csrfRetried: true });
       }
-      if (response?.status === 401 && !request?.quietSession) onSessionEnd();
+      tell(response, request);
       return afterReauth(problemCodeOf(response?.data), request, error) ?? Promise.reject(error);
     },
   );
+
+  // 거절 응답을 알린다: 세션이 끝났다(401), 봇 운영자 전용이다(must-owner)
+  function tell(response: { status?: number; data?: unknown } | undefined, request: InternalAxiosRequestConfig | undefined) {
+    if (response?.status === 401 && !request?.quietSession) onSessionEnd();
+    if (problemCodeOf(response?.data) === "must-owner") onNotOwner();
+  }
 
   // 서버에 연결됐는지 알린다(응답이 왔거나 연결에 실패한 경우). 타임아웃이나 요청 취소는 알리지 않는다
   function reached(error: unknown, answered: boolean) {

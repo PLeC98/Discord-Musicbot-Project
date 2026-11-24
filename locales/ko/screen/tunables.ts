@@ -2,6 +2,7 @@
 
 /** 그룹마다 제목, 아이콘, 설명 */
 const groups = {
+  operators: { title: "봇 운영자", icon: "admin_panel_settings", desc: "" },
   language: { title: "언어", icon: "translate", desc: "" },
   queue: { title: "대기열 및 나가기", icon: "queue_music", desc: "" },
   look: { title: "디스코드", icon: "forum", desc: "" },
@@ -34,6 +35,7 @@ const fields: Record<string, { label: string; help: string; short?: string }> = 
   VOICE_IDLE_STATUS: { label: "음성 상태: 대기 중 문구", help: "재생할 곡이 없을 때 음성 채널 상태에 표시해요." },
   YTDLP_CHANNEL: { label: "yt-dlp 채널", help: "" },
   YTDLP_UPDATE: { label: "yt-dlp 자동 업데이트", help: "" },
+  OPERATOR_SCOPE: { label: "봇 운영자 범위", help: "" },
   YTDLP_VERSION: { label: "yt-dlp 버전 고정", help: "" },
   BGUTIL_VERSION: { label: "bgutil 버전 고정", help: "" },
   BGUTIL_COMMIT: { label: "bgutil 고정 커밋", help: "" },
@@ -112,4 +114,25 @@ const saveFailed = "운영 설정값을 저장하지 못했어요.";
 const problemLine = (label: string, value: string, reason: string) => `${label} [${value}]: ${reason}`;
 const loadFailed = "운영 설정값을 불러오지 못했어요.";
 
-export { groups, fields, boxes, title, visibility, defaultWith, restartTip, pending, restartBadge, pickColor, youtubeDoc, cookies, on, off, savedDone, savedRestart, saveFailed, problemLine, loadFailed };
+/** 봇 운영자 카드(설정 탭). 운영자는 디스코드 앱 소유자로 정한다 */
+const operators = {
+  desc: "운영자 패널과 /system을 쓸 수 있는 사람이에요. 디스코드 개발자 포털의 앱 소유자로 정해요.",
+  current: "지금 운영자",
+  fromOverride: "OWNER_ID로 정함",
+  scopeLabel: "팀에서 운영자로 볼 사람",
+  scopes: { owner: "팀 소유자만", admin: "팀 소유자와 Admin", developer: "팀 소유자, Admin, Developer" },
+  /** 넓히는 범위를 고를 때의 안내 */
+  widenNote: "Admin은 디스코드에서 팀원을 초대할 수 있어서, Admin까지 넓히면 Admin이 운영자를 늘릴 수 있어요.",
+  locks: {
+    "not-app-owner": "디스코드 팀 소유자만 바꿀 수 있어요.",
+    override: "OWNER_ID로 운영자를 정해서 범위 설정은 쓰지 않아요.",
+    unknown: "디스코드 앱 정보를 아직 받지 못했어요.",
+    personal: "",
+  },
+  stale: "디스코드 앱 정보를 오랫동안 받지 못해 팀 소유자만 운영자로 보고 있어요.",
+  saved: "봇 운영자 범위를 바꿨어요",
+  saveFailed: "봇 운영자 범위를 바꾸지 못했어요.",
+  loadFailed: "봇 운영자를 불러오지 못했어요.",
+};
+
+export { operators, groups, fields, boxes, title, visibility, defaultWith, restartTip, pending, restartBadge, pickColor, youtubeDoc, cookies, on, off, savedDone, savedRestart, saveFailed, problemLine, loadFailed };

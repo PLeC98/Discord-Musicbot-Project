@@ -10,6 +10,8 @@ import { sendProblem } from "../problem.ts";
 import { ranBy } from "../ran-by.ts";
 import { codeOf, errorProblem, messageOf } from "../../rules/error-kind.ts";
 import * as snapshots from "../../store/snapshots.ts";
+import { signedIn } from "../middleware/require-auth.ts";
+import { isAppOwner } from "../../usecases/app-owners.ts";
 import type { SnapshotsView } from "../../rules/snapshots.ts";
 import { L } from "../../infra/log/text.ts";
 
@@ -25,7 +27,8 @@ snapshotsRouter.post("/restore", requireRecentLogin, (req, res) => {
   const name: unknown = req.body?.name;
   if (typeof name !== "string" || !name) return sendProblem(res, "nothing-to-save");
   try {
-    snapshots.stage(name);
+    // 앱 소유자가 아니면 봇 운영자 범위는 지금 값을 그대로 둔다(store/snapshots)
+    snapshots.stage(name, { keepScope: !isAppOwner(signedIn(req).id) });
   } catch (error) {
     if (codeOf(error) === "SNAPSHOT_NOT_FOUND") return sendProblem(res, "snapshot-not-found");
     if (codeOf(error) === "SNAPSHOT_MISMATCH") return sendProblem(res, "snapshot-mismatch", {}, { errors: [{ code: "snapshot-mismatch", rule: errorProblem(error) }] });

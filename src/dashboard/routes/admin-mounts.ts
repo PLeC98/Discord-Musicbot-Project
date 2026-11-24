@@ -6,6 +6,7 @@ import { adminRouter } from "./admin.ts";
 import { aiLogRouter } from "./ai-log.ts";
 import { appearanceRouter } from "./appearance.ts";
 import { logFilesRouter } from "./log-files.ts";
+import { operatorsRouter } from "./operators.ts";
 import { loginBackgroundRouter } from "./login-background.ts";
 import { resetRouter } from "./reset.ts";
 import { serviceKeysRouter } from "./service-keys.ts";
@@ -30,6 +31,7 @@ const ADMIN_MOUNTS: ReadonlyArray<readonly [string, Router]> = [
   ["/api/admin/logs", logFilesRouter],
   ["/api/admin/uploads", uploadsRouter],
   ["/api/admin/vendor", vendorRouter],
+  ["/api/admin/operators", operatorsRouter],
   ["/api/admin", adminRouter],
 ];
 

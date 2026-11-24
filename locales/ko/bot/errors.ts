@@ -39,7 +39,7 @@ const TEXT: ErrorTable = {
   // 설정 화면은 서버 관리 권한이 있어야 만진다
   "must-server-manager": () => warning("permission", "이 조작을 할 권한이 없어요.", "이 조작에는 서버 관리 권한이 필요해요!"),
   "stay-stage": () => warning("voice", "스테이지 채널에는 자리를 잡을 수 없어요.", "상주 모드는 일반 음성 채널에서만 쓸 수 있어요."),
-  // 봇 운영자(OWNER_ID)만 쓰는 화면을 다른 사람이 열었다
+  // 봇 운영자만 쓰는 화면을 다른 사람이 열었다
   "must-owner": () => warning("permission", "이 조작을 할 권한이 없어요.", "이 조작은 봇 운영자 전용이에요."),
   // 검색 결과 버튼은 검색한 사람만 누른다
   "search-owner-only": () => warning("permission", "다른 사람의 패널이에요!", "검색한 사람만 선택할 수 있어요."),
@@ -243,6 +243,7 @@ const TEXT: ErrorTable = {
   "config-changed": () => warning("stale", "설정이 그사이 바뀌었어요!", "다른 탭이나 다른 사람이 먼저 저장했어요. 새로 불러온 뒤 다시 고쳐 주세요."),
   "settings-changed": () => warning("stale", "설정이 그사이 바뀌었어요!", "다른 곳에서 먼저 바뀐 설정은 덮어쓰지 않고 지금 값을 불러왔어요. 바뀐 값을 확인하고 그래도 바꾸려면 다시 고쳐 주세요."),
   "config-save-failed": () => error("failed", "설정을 저장하지 못했어요!", "설정 DB에 저장하다 실패했어요. 아래 오류 내용을 확인해 주세요."),
+  "operator-scope-owner-only": () => warning("permission", "봇 운영자 범위를 바꿀 수 없어요!", "디스코드 팀 소유자만 바꿀 수 있어요."),
   "bad-archive": () => warning("input", "불러올 수 없는 파일이에요!", "이 봇의 설정 내보내기 ZIP이 아니거나 파일이 깨졌어요. 아래 오류 내용을 확인해 주세요."),
   "disk-full": ({ size }) => warning("state", "저장 공간이 모자라요!", `남은 공간이 ${formatBytes(size ?? 0)} 뿐이에요. 디스크를 비운 뒤 다시 시도해 주세요.`),
   "archive-too-many-files": ({ max }) => warning("state", "캐시 파일이 너무 많아요!", `한 번에 ${max ?? 0}개까지 내보낼 수 있어요. 캐시 파일 제외로 내보내 주세요.`),

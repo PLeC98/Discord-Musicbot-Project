@@ -6,6 +6,7 @@ import config from "../config/index.ts";
 import logger from "../infra/log/logger.ts";
 import { L } from "../infra/log/text.ts";
 import { messageOf } from "../rules/error-kind.ts";
+import { onTunablesChanged } from "../config/tunables-changed.ts";
 import { nameOf, operatorsOf, overrideIds, readAppOwners, type AppOwners, type OperatorScope } from "../rules/app-owners.ts";
 import type { LogText } from "../infra/log/log-text.ts";
 
@@ -37,9 +38,12 @@ const listeners = new Set<() => void>();
 
 /** 넓히는 범위(운영 설정값). 마지막 성공이 오래됐으면 소유자만 */
 function scopeAt(now: number): OperatorScope {
-  if (held && now - held.at > STALE_MS) return "owner";
-  return config.dashboard.operatorScope;
+  if (isStale(now)) return "owner";
+  return config.dashboard.operators.scope;
 }
+
+/** 앱 정보를 오랫동안 받지 못해 넓힌 범위를 되돌린 상태인가 */
+const isStale = (now = Date.now()) => held !== null && now - held.at > STALE_MS;
 
 /** 앱 정보로 정한 운영자(덮어쓰기는 보지 않는다). 앱 정보가 없으면 빈 목록 */
 function appOperators(now = Date.now()): string[] {
@@ -165,8 +169,11 @@ function refreshOnLogin(waitMs = 2000): Promise<void> {
   return Promise.race([done, new Promise<void>((resolve) => setTimeout(resolve, waitMs).unref())]);
 }
 
-/** 넓히는 범위를 바꾼 뒤: 운영자를 다시 계산해 알린다 */
-const operatorScopeChanged = () => announce(Date.now());
+// 넓히는 범위(운영 설정값)를 바꾸거나 불러오면 운영자를 다시 계산해 알린다
+onTunablesChanged(() => announce(Date.now()));
+
+/** 앱 소유자(개인 앱의 소유자, 팀 앱의 팀 소유자)인가. 넓히는 범위는 이 사람만 바꾼다(덮어쓰기로 운영자가 된 사람은 제외) */
+const isAppOwner = (userId: string) => held !== null && held.app.ownerId === userId;
 
 // 테스트용: 앱 정보를 넣고(null 이면 비움) 다시 받기를 멈춘다
 function _setAppOwners(raw: unknown, { at = Date.now(), reader = null }: { at?: number; reader?: Read | null } = {}) {
@@ -183,4 +190,4 @@ function _setAppOwners(raw: unknown, { at = Date.now(), reader = null }: { at?: 
   else applied = ++started;
 }
 
-export { startAppOwners, refreshAppOwners, refreshOnLogin, operators, appOwners, onOperatorsChanged, operatorScopeChanged, _setAppOwners, REFRESH_MS, STALE_MS };
+export { startAppOwners, refreshAppOwners, refreshOnLogin, operators, appOperators, appOwners, isAppOwner, isStale, onOperatorsChanged, _setAppOwners, REFRESH_MS, STALE_MS };

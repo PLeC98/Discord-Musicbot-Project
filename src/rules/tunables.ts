@@ -6,14 +6,14 @@
 // 나머지는 저장하면 바로 적용된다. 기동 시 만들어 둔 것(요청 제한기, 하트비트, 캐시 정리 타이머, 클라이언트 표)은 바뀐 것을 듣고 다시 만든다
 // advanced: 동작을 알아야 고치는 값. 운영자 패널은 "고급 설정 보기"를 켰을 때만 보인다
 // box: 카드 안에서 한 박스로 묶어 그리는 항목들(같은 용도의 출처별 값)
-// card: 그 도구의 카드가 버튼으로 고치는 값(yt-dlp, bgutil의 버전 고정). 저장 바의 저장으로는 바뀌지 않는다(store/tunables의 saveCard).
-//   값을 바꾸는 것이 곧 다운로드를 시작하는 조작이고 최근 로그인을 요구하기 때문이다
+// card: 그 카드의 버튼으로 고치는 값(yt-dlp, bgutil의 버전 고정, 봇 운영자 범위). 저장 바의 저장으로는 바뀌지 않는다(store/tunables의 saveCard).
+//   값을 바꾸면 곧바로 다운로드를 시작하거나 팀 소유자만 바꿀 수 있는 값이라 최근 로그인을 요구하기 때문이다
 // lockedBy: 그 이름의 값이 있는 동안 바꿀 수 없다(저장 바의 저장이 거절한다)
 
 import { bug } from "../infra/bug.ts";
 
 /** 그룹(화면의 카드 순서) */
-const TUNABLE_GROUPS = ["language", "queue", "look", "ytdlp", "bgutil", "youtube", "sponsorblock", "ageyoutube", "cache", "stream", "geoip", "dashboard", "ailog"] as const;
+const TUNABLE_GROUPS = ["operators", "language", "queue", "look", "ytdlp", "bgutil", "youtube", "sponsorblock", "ageyoutube", "cache", "stream", "geoip", "dashboard", "ailog"] as const;
 type TunableGroup = (typeof TUNABLE_GROUPS)[number];
 
 /**
@@ -29,6 +29,8 @@ type TunableBox = "recheck";
 type Tunable = { key: string; group: TunableGroup; kind: TunableKind; def: string; min?: number; max?: number; restart?: boolean; advanced?: boolean; box?: TunableBox; card?: boolean; lockedBy?: string };
 
 const TUNABLES: readonly Tunable[] = [
+  // 팀 앱에서 봇 운영자를 넓히는 범위(rules/app-owners의 OPERATOR_SCOPES). 팀 소유자만 운영자 카드에서 바꾼다(dashboard/routes/operators)
+  { key: "OPERATOR_SCOPE", group: "operators", kind: "token", def: "owner", card: true },
   // 봇 기본 언어: 서버 언어를 정하지 않은 서버, 앱 언어가 지원 언어에 없는 사람에게 쓴다(ui/language)
   { key: "BOT_LANGUAGE", group: "language", kind: "language", def: "ko" },
   // 대기열, 나가기
@@ -104,7 +106,7 @@ const TUNABLES: readonly Tunable[] = [
 
 /** 그룹을 둘 운영자 패널 탭(id): 표시는 디스플레이, 유튜브, SponsorBlock은 유튜브, 연령 제한 콘텐츠의 쿠키는 연령 제한, AI 리퀘스트 로그는 AI 보조, 테스트 언어는 개발자 옵션, 나머지는 설정. 화면은 탭마다 그 그룹만 그린다 */
 type TunableTab = "settings" | "appearance" | "youtube" | "age" | "update" | "ai";
-const GROUP_TAB: Readonly<Record<TunableGroup, TunableTab>> = { language: "settings", queue: "settings", look: "appearance", ytdlp: "update", bgutil: "update", youtube: "youtube", sponsorblock: "youtube", ageyoutube: "age", cache: "settings", stream: "settings", geoip: "settings", dashboard: "settings", ailog: "ai" };
+const GROUP_TAB: Readonly<Record<TunableGroup, TunableTab>> = { operators: "settings", language: "settings", queue: "settings", look: "appearance", ytdlp: "update", bgutil: "update", youtube: "youtube", sponsorblock: "youtube", ageyoutube: "age", cache: "settings", stream: "settings", geoip: "settings", dashboard: "settings", ailog: "ai" };
 /** 제거된 운영 설정값. 예전 설정 내보내기 파일에 남아 있어도 모르는 이름이라고 거부하지 않고 무시한다 */
 const RETIRED_TUNABLES: ReadonlySet<string> = new Set(["TEST_LANGUAGE_ENABLED"]);
 const groupsIn = (tab: TunableTab) => TUNABLE_GROUPS.filter((group) => GROUP_TAB[group] === tab);
@@ -112,7 +114,7 @@ const groupsIn = (tab: TunableTab) => TUNABLE_GROUPS.filter((group) => GROUP_TAB
 const TUNABLE_KEYS: ReadonlySet<string> = new Set(TUNABLES.map((one) => one.key));
 const RESTART_KEYS: ReadonlySet<string> = new Set(TUNABLES.filter((one) => one.restart).map((one) => one.key));
 /** 그룹 중 자기 카드가 그리는 것(운영 설정값 카드에는 그리지 않는다. 값은 같은 저장 바에서 저장한다) */
-const OWN_CARD_GROUPS: ReadonlySet<TunableGroup> = new Set(["ytdlp", "bgutil"]);
+const OWN_CARD_GROUPS: ReadonlySet<TunableGroup> = new Set(["operators", "ytdlp", "bgutil"]);
 /** 도구 카드가 버튼으로 고치는 이름 */
 const CARD_KEYS: ReadonlySet<string> = new Set(TUNABLES.filter((one) => one.card).map((one) => one.key));
 

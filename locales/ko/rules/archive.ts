@@ -6,6 +6,8 @@ import type { RuleParams, RuleSentences } from "../../../src/rules/rule-problem.
 const cookiesName = (value: unknown) => (value === "" ? "쓰지 않음" : value === "file" ? "쿠키 직접 입력" : String(value));
 // 버전 고정 값: 빈 값은 없음
 const pinName = (value: unknown) => String(value) || "없음";
+// 봇 운영자 범위 값: 빈 값은 기본(팀 소유자만)
+const scopeName = (value: unknown) => ({ admin: "팀 소유자와 Admin", developer: "팀 소유자, Admin, Developer" })[String(value)] ?? "팀 소유자만";
 // 로그인 배경 하나(이름)
 const background = (p: RuleParams) => `"${p.name}"`;
 
@@ -26,6 +28,8 @@ const archive = {
   "archive-cookies": (p) => `쿠키 출처가 바뀌어요: ${cookiesName(p.from)} → ${cookiesName(p.to)}`,
   "archive-potoken": () => "POToken 사용이 바뀌어요(다시 시작해야 적용돼요)",
   "archive-ytdlp-pin": (p) => `yt-dlp 버전 고정이 바뀌어요: ${pinName(p.from)} → ${pinName(p.to)}(불러오면 바로 그 버전으로 맞춰요)`,
+  "archive-operator-scope": (p) => `봇 운영자 범위가 바뀌어요: ${scopeName(p.from)} → ${scopeName(p.to)}`,
+  "archive-operator-scope-kept": () => "봇 운영자 범위는 디스코드 팀 소유자만 바꿀 수 있어서 지금 값을 그대로 둬요",
   "archive-bgutil-pin": (p) => `bgutil 버전 고정이 바뀌어요: ${pinName(p.from)} → ${pinName(p.to)}(업데이트 탭의 bgutil 카드에서 설치해요)`,
   "archive-ai-target": (p) => `AI 요청이 가는 곳이 바뀌어요: ${p.target}`,
   "archive-status-links": (p) => `활동 문구에 새 링크가 들어와요: ${p.links}`,

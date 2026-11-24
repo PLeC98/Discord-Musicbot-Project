@@ -191,8 +191,11 @@ function checkSnapshot(file: string) {
   }
 }
 
-/** 선택한 스냅샷을 복원으로 예약한다(다음 기동에 교체한다). 없는 이름이면 SNAPSHOT_NOT_FOUND */
-function stage(name: string) {
+/**
+ * 선택한 스냅샷을 복원으로 예약한다(다음 기동에 교체한다). 없는 이름이면 SNAPSHOT_NOT_FOUND.
+ * keepScope: 예약한 사람이 앱 소유자가 아니다. 교체할 때 봇 운영자 범위는 지금 값을 그대로 둔다(그 사람이 범위를 바꾸지 못하게)
+ */
+function stage(name: string, { keepScope = false }: { keepScope?: boolean } = {}) {
   const dir = dbDir();
   const found = NAME.test(name) ? list(dir).find((one) => one.name === name) : undefined;
   if (!found) throw codedError("SNAPSHOT_NOT_FOUND", L.core.snapshotNotFound({ name }));
@@ -201,7 +204,7 @@ function stage(name: string) {
   const to = path.join(dir, STAGED);
   fs.copyFileSync(from, `${to}.tmp`);
   fs.renameSync(`${to}.tmp`, to);
-  fs.writeFileSync(path.join(dir, `${STAGED}.json`), JSON.stringify({ from: found.name }));
+  fs.writeFileSync(path.join(dir, `${STAGED}.json`), JSON.stringify({ from: found.name, ...(keepScope ? { keepScope: true } : {}) }));
   ownerOnly(to);
 }
 
@@ -210,6 +213,45 @@ function unstage() {
   const dir = dbDir();
   fs.rmSync(path.join(dir, STAGED), { force: true });
   fs.rmSync(path.join(dir, `${STAGED}.json`), { force: true });
+}
+
+// 봇 운영자 범위(운영 설정값 OPERATOR_SCOPE). 앱 소유자만 바꾸므로 앱 소유자가 예약하지 않은 복원은 지금 값을 옮겨 둔다
+const SCOPE_KEY = "OPERATOR_SCOPE";
+
+// 예약 설명 파일에 범위를 그대로 두라고 적혀 있나(읽지 못하면 아니다)
+function keepsScope(dir: string) {
+  try {
+    return (JSON.parse(fs.readFileSync(path.join(dir, `${STAGED}.json`), "utf8")) as { keepScope?: unknown }).keepScope === true;
+  } catch {
+    return false;
+  }
+}
+
+// 운영 설정값 문서(documents 의 tunables)
+function tunablesIn(db: Database.Database): Record<string, unknown> {
+  const row = db.prepare("SELECT data_json FROM documents WHERE name = 'tunables'").get() as { data_json: string } | undefined;
+  const data: unknown = row ? JSON.parse(row.data_json) : {};
+  return data && typeof data === "object" ? (data as Record<string, unknown>) : {};
+}
+
+// 지금 DB 의 봇 운영자 범위를 복원할 DB 에 옮긴다(값이 없으면 복원할 DB 에서도 뺀다)
+function carryScope(current: string, staged: string) {
+  const from = new Database(current, { readonly: true, fileMustExist: true });
+  let scope: unknown;
+  try {
+    scope = tunablesIn(from)[SCOPE_KEY];
+  } finally {
+    from.close();
+  }
+  const to = new Database(staged, { fileMustExist: true });
+  try {
+    const { [SCOPE_KEY]: _replaced, ...rest } = tunablesIn(to);
+    const next = JSON.stringify(typeof scope === "string" ? { ...rest, [SCOPE_KEY]: scope } : rest);
+    const done = to.prepare("UPDATE documents SET data_json = ?, revision = revision + 1 WHERE name = 'tunables'").run(next);
+    if (!done.changes) to.prepare("INSERT INTO documents (name, data_json, revision) VALUES ('tunables', ?, 1)").run(next);
+  } finally {
+    to.close();
+  }
 }
 
 /** 예약한 스냅샷 이름(없으면 null) */
@@ -261,6 +303,7 @@ function applyStaged(dir: string): string | null {
     throw Object.assign(codedError("RESTORE_FAILED", L.core.stagedSettingsDbSkipped({ source: from, error: messageOf(error), stagedFile: STAGED })), { dbFile: "settings.db" });
   }
   try {
+    if (fs.existsSync(current) && keepsScope(dir)) carryScope(current, path.join(dir, STAGED));
     if (fs.existsSync(current)) keepCurrent(dir, current);
     for (const leftover of [current, `${current}-wal`, `${current}-shm`]) fs.rmSync(leftover, { force: true });
     fs.renameSync(path.join(dir, STAGED), current);

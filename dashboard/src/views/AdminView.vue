@@ -100,6 +100,7 @@
 
         <!-- 설정: 운영 설정값(봇 전역의 기본값, 한도. 유튜브, SponsorBlock 그룹은 유튜브 탭, 쿠키는 연령 제한 탭, 표시 그룹은 디스플레이 탭, 로그인 기기 접속 지역 카드 안에 버전, 업데이트), 설정 표시(고급 설정 보기), 연령 제한 콘텐츠, 디스코드 명령(곧바로 하는 재배포) -->
         <div class="admin-page" v-show="tab === 'settings'">
+          <ConfigOperators v-if="opened.has('settings')" class="mb-(--gap-in)" />
           <ConfigTunables v-if="opened.has('settings')" :groups="groupsIn('settings')" tab="settings" :can-restart="status?.env.launcher ?? false">
             <!-- 로그인 기기 접속 지역: 현재 버전, 업데이트 확인, 업데이트(누르면 바로) -->
             <template #in-geoip><ConfigGeoip class="mt-4" /></template>
@@ -206,6 +207,7 @@ import ConfigSnapshots from "../components/ConfigSnapshots.vue";
 import ConfigReset from "../components/ConfigReset.vue";
 import ConfigCommands from "../components/ConfigCommands.vue";
 import ConfigVisibility from "../components/ConfigVisibility.vue";
+import ConfigOperators from "../components/ConfigOperators.vue";
 import ConfigAgeContent from "../components/ConfigAgeContent.vue";
 import ConfigGeoip from "../components/ConfigGeoip.vue";
 import type YtdlpPanel from "../components/ConfigYtdlp.vue";

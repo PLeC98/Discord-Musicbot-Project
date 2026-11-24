@@ -1,0 +1,21 @@
+// 운영자 패널 설정 탭의 봇 운영자 카드(/api/admin/operators)가 주고받는 형식
+
+import type { OperatorScope } from "../../rules/app-owners.ts";
+
+/** 범위를 바꿀 수 없는 까닭. personal: 개인 앱(넓힐 팀이 없다), override: OWNER_ID 로 정했다, not-app-owner: 팀 소유자가 아니다, unknown: 앱 정보를 받지 못했다 */
+type ScopeLock = "personal" | "override" | "not-app-owner" | "unknown";
+
+/**
+ * 봇 운영자. kind: 앱 종류(모르면 null), source: 운영자를 정한 곳(app: 앱 정보, override: OWNER_ID), operators: 지금 운영자,
+ * scope: 넓히는 범위(저장한 값), stale: 앱 정보를 오랫동안 받지 못해 넓힌 범위를 되돌렸다, lock: 바꿀 수 없으면 그 까닭
+ */
+type OperatorsView = {
+  kind: "personal" | "team" | null;
+  source: "app" | "override";
+  operators: Array<{ id: string; name: string }>;
+  scope: OperatorScope;
+  stale: boolean;
+  lock: ScopeLock | null;
+};
+
+export type { OperatorsView, ScopeLock };

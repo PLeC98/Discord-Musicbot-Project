@@ -14,7 +14,7 @@ type VoiceEntryDenied = Extract<Code, "permission-voice" | "bot-timed-out" | "vo
 /**
  * 서버 관리자(상위 계층)인가: 서버 관리 권한. 설정 화면 버튼, 대시보드 서버 설정, 재생 조작의 면제(늘 DJ, 동일 음성 채널 규칙 면제)가 이 판정을 본다.
  * 설정 명령은 같은 권한을 디스코드 기본 권한(default_member_permissions)으로 걸고, 서버 관리자가 연동 탭에서 다른 역할에 열어 줄 수 있으므로 명령 실행 진입점(events/interaction-create)에서 다시 확인한다.
- * 서버 소유자와 Administrator는 discord.js 권한 검사가 통과시킨다. 봇 운영자(OWNER_ID, 아래 isBotOwner)와는 다르다.
+ * 서버 소유자와 Administrator는 discord.js 권한 검사가 통과시킨다. 봇 운영자(아래 isBotOwner)와는 다르다.
  */
 function isServerManager(member: GuildMember) {
   return member.permissions.has(PermissionFlagsBits.ManageGuild);
