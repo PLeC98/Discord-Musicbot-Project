@@ -39,7 +39,7 @@ test("그리는 동안은 한 줄과 비활성화된 새로고침 버튼, 그리
 });
 
 test("새로고침 옆에 운영자 패널의 봇 상태 탭 링크. 대시보드 주소가 이 기기에서만 열리면 링크가 없다", () => {
-  const linkOf = (url: string) => withConfig({ dashboard: { url } }, () => [...json(systemView(KO, { ...base, images: "drawing" })).matchAll(/"url":"(https?:[^"]+)"/g)].map((m) => m[1]).filter((u) => !u.startsWith("https://avatar.test")));
+  const linkOf = (url: string) => withConfig({ dashboard: { url } }, () => [...json(systemView(KO, { ...base, images: "drawing" })).matchAll(/"url":"(https?:[^"]+)"/g)].map((m) => m[1]).filter((u) => new URL(u).host !== "avatar.test"));
   assert.deepEqual(linkOf("https://music.example.com"), ["https://music.example.com/admin?tab=status"]);
   assert.deepEqual(linkOf("https://example.com/bot/"), ["https://example.com/bot/admin?tab=status"], "하위 경로에 둔 대시보드");
   assert.deepEqual(linkOf("http://localhost:33333"), []);

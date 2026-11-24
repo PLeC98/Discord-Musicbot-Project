@@ -43,6 +43,8 @@ function holder<T>(value: T): T {
 /** 그릇에 새 값을 넣는다. 둘 다 객체면 안쪽 그릇을 지키고 채운다 */
 function fillInto(target: Record<string, unknown>, next: Record<string, unknown>) {
   for (const [key, one] of Object.entries(next)) {
+    // 문구 키가 아니다. 이 키로 안쪽까지 채우면 Object.prototype이 오염된다
+    if (key === "__proto__" || key === "constructor" || key === "prototype") continue;
     const now = target[key];
     if (isPlain(one) && isPlain(now)) fillInto(now, one);
     else target[key] = holder(one);
