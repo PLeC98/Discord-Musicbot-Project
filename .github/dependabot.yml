@@ -33,3 +33,8 @@ updates:
       timezone: "Asia/Seoul"
     cooldown:
       default-days: 14
+    groups:
+      # CodeQL의 init과 analyze는 같은 버전이어야 한다(다르면 분석이 실패한다). 두 업데이트를 한 PR로 함께 올린다
+      codeql-action:
+        patterns:
+          - "github/codeql-action*"
