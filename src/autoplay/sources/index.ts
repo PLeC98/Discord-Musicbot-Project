@@ -19,7 +19,7 @@ import type { GenreSource } from "../../config/genres.ts";
 import type { Candidate } from "./candidate.ts";
 import type { Search } from "./keyword.ts";
 import type { AnisongStats } from "./anisongdb.ts";
-import { getJson, remembered } from "./http.ts";
+import { postGraphql, remembered } from "./http.ts";
 import { keyword } from "./keyword.ts";
 import { lastfm } from "./lastfm.ts";
 import { lbradio, PLACEHOLDER } from "./lbradio.ts";
@@ -37,7 +37,7 @@ type FetchDeps = { search?: Search };
 type Fetcher = (source: GenreSource, deps: FetchDeps) => Promise<Candidate[]>;
 type YearRange = { min: number; max: number };
 // 여기서 읽는 필드만
-type AnimePage = { anime?: Array<{ year?: number }> };
+type AnimeYears = { animeyears?: Array<{ year?: number }> };
 
 const FETCHERS: Record<string, Fetcher> = { keyword, lastfm, lbradio, animethemes, anisongdb, vocadb: vocaFamily, utaitedb: vocaFamily, touhoudb: vocaFamily, spotify, youtube };
 
@@ -48,9 +48,8 @@ const TYPES = Object.keys(FETCHERS);
 const yearRange = remembered<YearRange>(
   async () => {
     try {
-      const ends = await Promise.all([getJson<AnimePage | null>("animethemes", "https://api.animethemes.moe/anime?sort=year&page[size]=1"), getJson<AnimePage | null>("animethemes", "https://api.animethemes.moe/anime?sort=-year&page[size]=1")]);
-      const [min, max] = ends.map((r) => Number(r?.anime?.[0]?.year));
-      return min && max && min <= max ? { min, max } : null;
+      const years = ((await postGraphql<AnimeYears>("animethemes", "https://rs.animethemes.moe/graphql", "{ animeyears { year } }"))?.animeyears || []).map((one) => Number(one.year)).filter((year) => year > 0);
+      return years.length ? { min: Math.min(...years), max: Math.max(...years) } : null;
     } catch (error) {
       log.warn(L.autoplay.animeThemesYearsFailed({ error: messageOf(error) }));
       return null;

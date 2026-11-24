@@ -47,6 +47,7 @@ const sources = {
     hint: "애니 주제가 DB. 유튜브에 풀버전이 있으면 그쪽을, 없으면 TV 사이즈 음원을 재생해요.",
     fields: {
       themeType: { label: "주제가 종류", emptyLabel: "OP/ED" },
+      sort: { label: "고르는 방식", emptyLabel: "무작위", hint: "인기순은 사용자 재생목록에 많이 담긴 상위 500개 판본에서 골라요. 다른 조건은 그 안에서 걸러요" },
       mediaFormat: { label: "매체", hint: "비우면 전부" },
       yearFrom: { label: "방영 연도", hint: "양 끝까지 벌리면 전체" },
       seasonFrom: { label: "시작 분기", emptyLabel: "그 해 처음부터" },
@@ -90,7 +91,7 @@ const sources = {
 /** 선택지 이름 묶음: API 값 → 보일 이름 */
 const options = {
   // 정렬 이름은 저쪽 코드 값이다
-  sort: { RatingScore: "평가 점수 높은 순", FavoritedTimes: "즐겨찾기 많은 순", PublishDate: "발표 최신순", AdditionDate: "등록 최신순", TagUsageCount: "태그 많은 순", SongType: "곡 종류순", Name: "이름순" },
+  sort: { popular: "인기순", RatingScore: "평가 점수 높은 순", FavoritedTimes: "즐겨찾기 많은 순", PublishDate: "발표 최신순", AdditionDate: "등록 최신순", TagUsageCount: "태그 많은 순", SongType: "곡 종류순", Name: "이름순" },
   season: { Winter: "1분기", Spring: "2분기", Summer: "3분기", Fall: "4분기" },
   anisongSongTypes: { opening: "OP", ending: "ED", insert: "삽입곡" },
   anisongAnimeTypes: { tv: "TV", movie: "극장판", ova: "OVA", ona: "ONA", special: "스페셜", other: "기타" },

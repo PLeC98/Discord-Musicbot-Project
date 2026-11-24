@@ -3,7 +3,7 @@
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
 import { ANISONG_SONG_TYPES, ANISONG_ANIME_TYPES, ANISONG_CATEGORIES, ANISONG_BROADCASTS } from "../../config/schema/genre-sources.ts";
-import { getJson, postJson, remembered } from "./http.ts";
+import { getJson, postGraphql, postJson, remembered } from "./http.ts";
 import { messageOf } from "../../rules/error-kind.ts";
 import type { GenreSource } from "../../config/genres.ts";
 import type { Candidate } from "./candidate.ts";
@@ -12,7 +12,7 @@ import { L } from "../../infra/log/text.ts";
 // 여기서 읽는 필드만
 type RawStats = { songs_by_season?: Record<string, unknown>; songs_by_difficulty?: number[]; songs_by_genre?: Record<string, unknown>; songs_by_tag?: Record<string, unknown> };
 type Song = { songName?: string; amqSongId?: number; annSongId?: number; annId?: number; audio?: string; HQ?: string; songArtist?: string; animeENName?: string; linked_ids?: { anilist?: number | null } };
-type Covers = { data?: { Page?: { media?: Array<{ id?: number; coverImage?: { extraLarge?: string; large?: string } }> } } };
+type Covers = { Page?: { media?: Array<{ id?: number; coverImage?: { extraLarge?: string; large?: string } }> } };
 /** 화면이 선택할 값과 분포. 연도는 불러왔을 때만 */
 type AnisongStats = { genres: string[]; tags: string[]; difficulty: number[]; min?: number; max?: number };
 /** 저쪽이 받는 filters. 안 적은 필드는 아예 뺀다 */
@@ -135,7 +135,7 @@ const COVER_QUERY = `query($ids:[Int]){Page(perPage:${ANILIST_BATCH}){media(id_i
 
 // AniList 응답 하나의 (작품 ID, 표지 주소). 큰 이미지가 없으면 작은 것
 function coversIn(body: Covers | null): Array<[number, string]> {
-  return (body?.data?.Page?.media || []).flatMap((media) => {
+  return (body?.Page?.media || []).flatMap((media) => {
     const url = media?.coverImage?.extraLarge || media?.coverImage?.large;
     return media?.id && url ? [[media.id, url] as [number, string]] : [];
   });
@@ -146,7 +146,7 @@ async function anilistCovers(ids: number[]): Promise<Map<number, string>> {
   const covers = new Map<number, string>();
   for (let i = 0; i < ids.length; i += ANILIST_BATCH) {
     try {
-      const body = await postJson<Covers | null>("anilist", ANILIST, { query: COVER_QUERY, variables: { ids: ids.slice(i, i + ANILIST_BATCH) } });
+      const body = await postGraphql<Covers>("anilist", ANILIST, COVER_QUERY, { ids: ids.slice(i, i + ANILIST_BATCH) });
       for (const [id, url] of coversIn(body)) covers.set(id, url);
     } catch (error) {
       // 표지가 없어도 곡은 튼다. 소스를 죽일 이유가 아니다

@@ -81,6 +81,9 @@ const MEDIA_FORMATS = ["TV", "TV Short", "Movie", "OVA", "ONA", "Special"];
 
 const LB_MODES = ["easy", "medium", "hard"];
 
+// AnimeThemes 고르는 방식(이름은 rules/text의 sort 묶음). 빈 값은 무작위
+const ANIMETHEMES_SORTS = ["popular"];
+
 // 정렬은 저쪽 코드 값(이름은 rules/text의 sort 묶음)
 const SONG_SORTS = ["RatingScore", "FavoritedTimes", "PublishDate", "AdditionDate", "TagUsageCount", "SongType", "Name"];
 
@@ -174,9 +177,11 @@ const SPEC: Record<string, SourceSpec> = {
   },
   animethemes: {
     need: [],
-    enums: { themeType: ["OP", "ED"], season: SEASONS, seasonFrom: SEASONS, seasonTo: SEASONS, mediaFormat: MEDIA_FORMATS },
+    enums: { themeType: ["OP", "ED"], season: SEASONS, seasonFrom: SEASONS, seasonTo: SEASONS, mediaFormat: MEDIA_FORMATS, sort: ANIMETHEMES_SORTS },
     fields: [
       f("themeType", "enum", { width: "halfWide", options: ["OP", "ED"] }),
+      // 고르는 방식. 비우면 무작위, popular는 사용자 재생목록에 많이 담긴 상위(autoplay/sources/animethemes의 POPULAR_DEPTH)
+      f("sort", "enum", { width: "halfWide", options: ANIMETHEMES_SORTS, optionText: "sort" }),
       f("mediaFormat", "enumList", { width: "halfWide", options: MEDIA_FORMATS }),
       // 두 점으로 잡는 구간. 선택할 수 있는 범위는 저쪽에 물어 채운다(catalog)
       f("yearFrom", "range", { to: "yearTo" }),

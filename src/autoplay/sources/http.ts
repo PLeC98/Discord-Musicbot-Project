@@ -64,6 +64,25 @@ async function postJson<T = unknown>(service: SourceService, url: string, body: 
   return (await res.json()) as T;
 }
 
+/**
+ * GraphQL 질의(AnimeThemes, AniList). 응답의 data를 돌려준다. GraphQL은 실패해도 200에 errors를 실어 보내므로
+ * errors가 있으면 그 메시지로 예외를 던진다(200이라고 성공으로 보면 오류 없이 빈 결과가 된다). T: data에서 읽는 필드만
+ */
+async function postGraphql<T = unknown>(service: SourceService, url: string, query: string, variables: Record<string, unknown> = {}, timeoutMs = TIMEOUT_MS): Promise<T | null> {
+  const body = await postJson<{ data?: T | null; errors?: Array<{ message?: string }> } | null>(service, url, { query, variables }, timeoutMs);
+  if (body?.errors?.length)
+    throw logTextError(
+      L.net.graphqlErrors({
+        host: new URL(url).host,
+        errors: body.errors
+          .map((one) => one.message ?? "")
+          .join("; ")
+          .slice(0, 300),
+      }),
+    );
+  return body?.data ?? null;
+}
+
 // 배열 옵션은 이름 뒤에 []를 붙여야 듣는다. 안 붙이면 400도 아니고 조용히 무시된다
 // VocaDB 계열에서 가장 흔한 함정이라 여기 한 곳에서 책임진다.
 function query(params: Record<string, unknown>): string {
@@ -120,5 +139,5 @@ function remembered<T>(load: () => Promise<T | null>, { ttlMs, retryMs, waitMs }
   };
 }
 
-export { getJson, postJson, probe, pick, rand, query, remembered, useFetch };
+export { getJson, postJson, postGraphql, probe, pick, rand, query, remembered, useFetch };
 export type { SourceService };

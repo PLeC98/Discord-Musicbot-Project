@@ -22,6 +22,8 @@ const net = {
   httpStatus: ({ status }: { status: number }) => `HTTP ${status}`,
   /** detail: 응답 본문 앞부분(바깥 글. 없으면 빈 글) */
   httpStatusFrom: ({ status, host, detail }: { status: number; host: string; detail: string }) => `HTTP ${status} (${host})${detail ? `: ${detail}` : ""}`,
+  /** GraphQL은 실패해도 200에 errors를 싣는다 */
+  graphqlErrors: ({ host, errors }: { host: string; errors: string }) => `GraphQL 오류 (${host}): ${errors}`,
 };
 
 export { net };

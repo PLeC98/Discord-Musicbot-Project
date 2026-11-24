@@ -18,6 +18,8 @@ const autoplay = {
   poolFilled: ({ type, count }: { type: string; count: number }) => `자동재생 풀 채움(${type}): ${count}곡`,
   markedUnplayable: ({ id }: { id: string }) => `재생 불가 영상으로 표시: ${id}`,
   sourceAudioKept: ({ confidence, sourceKey, title }: { confidence: string; sourceKey: string; title: string }) => `음원을 그대로 씀(유튜브 매칭 근거 부족: ${confidence}) [${sourceKey}]: ${title}`,
+  /** 쓸 음원이 없는 곡(대사가 겹친 판본뿐)이 유튜브에서 확실한 풀버전을 못 찾아 건너뛴다 */
+  strictNotMatched: ({ confidence, sourceKey, title }: { confidence: string; sourceKey: string; title: string }) => `건너뜀(쓸 음원이 없고 유튜브 매칭 근거 부족: ${confidence}) [${sourceKey}]: ${title}`,
   anisongListFailed: ({ error }: { error: string }) => `AnisongDB 목록 불러오기 실패: ${error}`,
   anilistCoverFailed: ({ error }: { error: string }) => `AniList 커버 이미지 불러오기 실패: ${error}`,
   keyCheckRequestFailed: ({ service, error }: { service: string; error: string }) => `${service} 키 확인 요청 실패: ${error}`,

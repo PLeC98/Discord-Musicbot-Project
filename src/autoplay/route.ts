@@ -243,16 +243,16 @@ async function findOnYouTube(cand: Candidate, genre: string | undefined, { searc
 }
 
 /**
- * 음원을 이미 가진 후보를 유튜브 것으로 바꿔도 되는가.
+ * 음원을 이미 가진 후보를 유튜브 것으로 바꿔도 되는가. 음원이 없지만 같은 기준을 적용하는 후보(strict)도 여기서 본다(기준을 못 넘으면 버린다).
  *
  * medium은 "나쁜 신호가 없다"일 뿐 "같은 곡이다"가 아니다. 애니송 DB는 길이를 주지 않고(AMQ 클립 길이라 곡 길이가 아니다)
  * 가수 이름이 채널명과 같은 일도 드물어, high로 가는 세 길이 전부 막히고 "정크 단어가 없는 검색 1위"만 남아 medium이 된다.
  * 올바른 녹음을 이미 쥐고 있을 때는 그만큼으로는 부족하다. 영상 제목에 곡 제목이 들어 있어야 바꾸고, 아니면 음원을 그대로 튼다.
  */
 function upgradeWorthIt(cand: Candidate, confidence: string, top: { breakdown?: { title?: number } } | undefined) {
-  if (!cand.audioUrl) return true;
+  if (!cand.audioUrl && !cand.strict) return true;
   const ok = confidence === "high" || !!top?.breakdown?.title;
-  if (!ok) log.debug(L.autoplay.sourceAudioKept({ confidence, sourceKey: cand.sourceKey, title: cand.title }));
+  if (!ok) log.debug(cand.audioUrl ? L.autoplay.sourceAudioKept({ confidence, sourceKey: cand.sourceKey, title: cand.title }) : L.autoplay.strictNotMatched({ confidence, sourceKey: cand.sourceKey, title: cand.title }));
   return ok;
 }
 
@@ -302,8 +302,7 @@ async function resolve(cand: Candidate, limits: Limits, genre?: string, deps: De
       const verdict = autoplayFilter.judge(track, limits);
       // 길이를 넘긴 후보는 youtubeMatch가 이미 필터링했다. 모르는 후보만 여기서 한 번 더 본다.
       const needsFilter = !cand.durationSec;
-      // 음원이 따로 있는데 찾은 것이 짧으면 TV 사이즈 립이다. 그럴 바엔 음원을 쓴다
-      const tooShort = cand.audioUrl && track.duration < FULL_SEC;
+      const tooShort = ripOnly(cand, track.duration);
       if ((!needsFilter || verdict.ok) && !tooShort) return track;
     }
   }
@@ -313,6 +312,9 @@ async function resolve(cand: Candidate, limits: Limits, genre?: string, deps: De
 
   return null;
 }
+
+// 음원이 따로 있는데 찾은 것이 짧으면 TV 사이즈 립이다. 그럴 때는 음원을 쓴다(쓸 음원이 없는 strict 후보는 버린다)
+const ripOnly = (cand: Candidate, duration: number) => Boolean(cand.audioUrl || cand.strict) && duration < FULL_SEC;
 
 /** 직접 지정한 음원으로 트랙을 만든다. 곡 정보는 후보의 것, 음원, 길이는 applyPin이 정한다. 지정이 없으면 null */
 function fromPin(cand: Candidate, pin: Pin | null): PickedTrack | null {
