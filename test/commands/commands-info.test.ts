@@ -28,6 +28,7 @@ import { useUploaded } from "../../src/ui/icons.ts";
 import { screenOf, textOf, thumbnailOf } from "../helpers/cv2.ts";
 import { COMMANDS as COMMAND_LIST } from "../../src/discord/commands/index.ts";
 import { textFor } from "../../src/ui/text/index.ts";
+import { warmRenderWorker } from "../helpers/render-warm.ts";
 const KO = textFor("ko");
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "commands-info-"));
@@ -435,6 +436,8 @@ test("/invite: 초대 버튼, 웹사이트가 있으면 웹사이트 버튼. 끄
 });
 
 test("/system: 봇 운영자만. 운영자면 그리는 중 자리표시자(V2, 본인에게만)를 먼저 보여 주고 이미지 두 장을 첨부해 고친다", async () => {
+  // 이 테스트가 확인하는 것은 그린 결과다. 워커를 처음 띄우는 시간은 느린 러너에서 그리기 시간 상한에 가까워 미리 띄워 둔다
+  await warmRenderWorker();
   const saved = config.dashboard.ownerId;
   config.dashboard.ownerId = "owner";
   try {
@@ -467,6 +470,8 @@ test("/system: 봇 운영자만. 운영자면 그리는 중 자리표시자(V2, 
 });
 
 test("/system: 자리표시자를 보여 준 뒤 실패하면(이미지 첨부 거부 등) 그 자리표시자를 오류 안내로 바꾼다", async () => {
+  // 이 테스트가 확인하는 것은 그린 결과다. 워커를 처음 띄우는 시간은 느린 러너에서 그리기 시간 상한에 가까워 미리 띄워 둔다
+  await warmRenderWorker();
   const saved = config.dashboard.ownerId;
   config.dashboard.ownerId = "owner";
   try {

@@ -7,7 +7,7 @@ import sharp from "sharp";
 import { MessageFlags, type Guild, type GuildMember, type RepliableInteraction } from "discord.js";
 import { openQueue, WAIT } from "../../src/discord/commands/queue.ts";
 import * as thumbnails from "../../src/ui/queue-mosaic/thumbnails.ts";
-import { renderQueueMosaic } from "../../src/ui/card-render/render.ts";
+import { warmRenderWorker } from "../helpers/render-warm.ts";
 import { ROUTES } from "../../src/discord/interactions/index.ts";
 import { routeOf, type Kind } from "../../src/discord/interactions/route.ts";
 import * as playerEvents from "../../src/player/events.ts";
@@ -224,7 +224,7 @@ test("열기: 썸네일이 제때 오면 모자이크를 붙이고, 늦으면 �
   const it = (calls: string[]) => fake<RepliableInteraction<"cached">>({ id: `o${calls.length}`, member: member(), replied: false, deferred: false, isChatInputCommand: () => true, reply: async (payload: (typeof replied)[number]) => (calls.push("reply"), replied.push(payload)) });
 
   // 첫 그리기는 워커 띄우기와 글꼴 등록이 더해져 전체 테스트로 부하가 걸리면 1.2초를 넘는다. 여기서 확인하려는 것은 썸네일을 기다리는 시간이라 미리 한 번 그려 둔다
-  await renderQueueMosaic({ seed: null, cells: [{ number: 1, jpeg: null }] });
+  await warmRenderWorker();
   thumbnails._internals.useFetch(async () => jpeg);
   await openQueue(it([]), withArt([11, 12]));
   assert.deepEqual(
