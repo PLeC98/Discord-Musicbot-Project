@@ -9,6 +9,8 @@
 import os from "node:os";
 import type { ChildProcess, SpawnOptions } from "node:child_process";
 import { EXIT, LAUNCHER_ENV } from "./exit-codes.ts";
+import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
 
 const SIGNALS = ["SIGINT", "SIGTERM", "SIGHUP"] as const;
 
@@ -18,7 +20,7 @@ type LauncherDeps = {
   proc: Pick<NodeJS.Process, "on" | "platform" | "execPath" | "execArgv" | "env">;
   exit(code: number): void;
   /** 실행기 자신의 알림(봇 로그 모듈은 쓰지 않는다. 봇과 같은 터미널에 한 줄) */
-  say(line: string): void;
+  say(line: LogText): void;
 };
 
 /** 끝난 자식의 종료 코드. 신호로 끝났으면 셸 관례대로 128 + 번호 */
@@ -35,13 +37,13 @@ function launch(entry: string, { spawn, proc, exit, say }: LauncherDeps) {
   const run = () => {
     child = spawn(proc.execPath, [...proc.execArgv, entry], { stdio: "inherit", env: { ...proc.env, [LAUNCHER_ENV]: "1" } });
     child.on("error", (error: Error) => {
-      say(`[실행기] 봇 실행 실패: ${error.message}`);
+      say(L.core.launcherSpawnFailed({ error: error.message }));
       exit(1);
     });
     child.on("exit", (code: number | null, signal: NodeJS.Signals | null) => {
       child = null;
       if (code === EXIT.restart && !stopping) {
-        say("[실행기] 봇 다시 실행");
+        say(L.core.launcherRestarting());
         run();
         return;
       }

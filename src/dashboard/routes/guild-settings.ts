@@ -1,8 +1,9 @@
-// 서버 설정(DJ 역할, 전용 채널, SponsorBlock, 재생목록 곡 수, 연령 제한 콘텐츠 재생 위치). 카드마다 볼 수 있는 계층은 dashboard/settings-cards의 표(봇 운영자도 해당 서버의 권한을 따른다)
+// 서버 설정(DJ 역할, 전용 채널, SponsorBlock, 재생목록 곡 수, 연령 제한 콘텐츠 재생 위치, 서버 언어). 카드마다 볼 수 있는 계층은 dashboard/settings-cards의 표(봇 운영자도 해당 서버의 권한을 따른다)
 
 import express from "express";
 import logger from "../../infra/log/logger.ts";
-import { messageOf } from "../../rules/error-kind.ts";
+import { errorProblem, messageOf } from "../../rules/error-kind.ts";
+import { asText } from "../../infra/log/log-text.ts";
 const log = logger.child({ category: "dashboard" });
 import { ChannelType, PermissionFlagsBits, type Guild, type GuildMember } from "discord.js";
 import type { z } from "zod";
@@ -28,6 +29,10 @@ import * as normalize from "../../usecases/normalize.ts";
 import * as replies from "../../ui/control-replies.ts";
 import { announcer, dashboardActor } from "../discord-notice.ts";
 import { viewerOf, shownCards, editsAny, noCardRefusal, noBodyCardRefusal, cardRefusal, fieldRefusal } from "../settings-cards.ts";
+import { botLanguage, languagesNow, publicText } from "../../ui/language.ts";
+import { isAvailable, type Language } from "../../rules/languages.ts";
+import type { LanguageChoice } from "../contract/identity.ts";
+import { L } from "../../infra/log/text.ts";
 
 /** 검사를 통과한 본문. 필드마다 { from, to }가 들어 있고, 없는 필드는 그대로 둔다 */
 type SettingsBody = z.output<ReturnType<typeof settingsPatch>>;
@@ -80,10 +85,22 @@ function planSettings(guild: Guild, body: SettingsBody): SettingsPlan | { refuse
     patch.agePlace = body.agePlace.to;
     put("agePlace", body.agePlace.from, body.agePlace.to);
   }
+
+  const languageRefused = planLanguage(body.language, patch, put);
+  if (languageRefused) return { refused: languageRefused };
   return { patch, keys: keysOf(to), from, to };
 }
 
-const fieldNames = (fields: guildSettings.GuildField[]) => fields.map((field) => guildSettings.FIELD_LABEL[field]).join(", ");
+// 서버 언어를 반영한다. 지금 쓸 수 없는 언어면 그 문제를 돌려준다(null은 봇 기본 언어를 따름이라 받는다)
+function planLanguage(change: SettingsBody["language"], patch: guildSettings.GuildPatch, put: (key: SettingsKey, read: unknown, value: unknown) => void): Problem | null {
+  if (!change) return null;
+  if (change.to !== null && !isAvailable(change.to, languagesNow())) return { code: "bad-request" };
+  patch.language = change.to;
+  put("language", change.from, change.to);
+  return null;
+}
+
+const fieldNames = (fields: guildSettings.GuildField[]) => fields.map((field) => asText(guildSettings.FIELD_LABEL[field])).join(", ");
 
 // 상주 모드 카드: 켜졌는지, 머무는 채널(보는 사람이 볼 수 있는 채널만. 비공개 채널의 이름을 알리지 않는다), 지금 바꿀 수 없는 이유(켜고 끄기와 같은 확인, usecases/stay)
 async function stayCardOf(bot: BotContext, guild: Guild, member: GuildMember): Promise<StayCard> {
@@ -98,7 +115,7 @@ async function normalizeCardOf(guild: Guild, member: GuildMember): Promise<Norma
   return { on: normalize.normalizeOn(guild.id), refusal: await normalize.normalizeRefusal(member) };
 }
 
-// 값이 있는 카드(전용 채널, DJ 역할, SponsorBlock, 곡 수, 연령 제한)의 GET 응답. 보이는 카드만 담고, 고를 목록과 범위도 함께 싣는다
+// 값이 있는 카드(전용 채널, DJ 역할, SponsorBlock, 곡 수, 연령 제한, 서버 언어)의 GET 응답. 보이는 카드만 담고, 고를 목록과 범위도 함께 싣는다
 function cardValuesOf(guild: Guild, cards: readonly SettingsCard[], values: SettingsValues): Partial<GuildSettings> {
   const reply: Partial<GuildSettings> = {};
   if (cards.includes("channel")) {
@@ -129,6 +146,10 @@ function cardValuesOf(guild: Guild, cards: readonly SettingsCard[], values: Sett
   }
 
   if (cards.includes("agePlace")) reply.agePlace = values.agePlace;
+
+  if (cards.includes("language")) {
+    reply.language = { value: values.language ?? null, botLanguage: botLanguage(), languages: languagesNow().map((one): LanguageChoice => ({ tag: one.tag as Language, name: one.name })) };
+  }
 
   return reply;
 }
@@ -182,7 +203,7 @@ function createGuildSettingsRouter() {
     try {
       result = guildSettings.update(guild.id, plan.patch, (doc) => conflictsOf(guild, doc, plan.keys, plan.from, plan.to));
     } catch (error) {
-      log.error(`서버 설정 저장 실패: ${guild.name} (${guild.id}) | ${fieldNames(Object.keys(plan.patch) as guildSettings.GuildField[])} | ${messageOf(error)}`);
+      log.error(L.dashboard.guildSettingsSaveFailed({ guild: guild.name, id: guild.id, fields: fieldNames(Object.keys(plan.patch) as guildSettings.GuildField[]), error: messageOf(error) }));
       // 원래 오류 메시지는 응답에 싣지 않는다(어느 서버의 관리자든 부르는 경로다)
       return sendProblem(res, "settings-save-failed");
     }
@@ -190,12 +211,12 @@ function createGuildSettingsRouter() {
       return sendProblem(res, "settings-changed", {}, { conflicts: result.conflicts, current: pickValues(shownValues(guild, result.doc), result.conflicts) } satisfies SettingsConflict);
     }
     if (result.changed.includes("botChannelId")) {
-      bot.panels.onBotChannelChanged(guild).catch((error) => log.warn(`전용 채널 변경 후 패널 이동 실패: ${messageOf(error)}`));
+      bot.panels.onBotChannelChanged(guild).catch((error) => log.warn(L.dashboard.panelMoveFailed({ error: messageOf(error) })));
     }
 
     if (result.changed.length) {
       const user = signedIn(req);
-      log.info(`서버 설정 변경: ${guild.name} (${guild.id}) | ${fieldNames(result.changed)} | 실행 ${user.username || user.id}`);
+      log.info(L.dashboard.guildSettingsChanged({ guild: guild.name, id: guild.id, fields: fieldNames(result.changed), by: user.username || user.id }));
     }
     res.json({ values: pickValues(shownValues(guild, result.doc), plan.keys) } satisfies SettingsSaved);
   });
@@ -213,7 +234,8 @@ function createGuildSettingsRouter() {
     const r = body.value.on ? await stay.turnOn(bot, { guild, member }, { go: () => assertSignedIn(req) }) : await stay.turnOff(bot, { guild, member });
     if (!r.ok) return sendProblem(res, r.code);
     if (!r.already) {
-      const view = r.kind === "on" ? replies.stayOn(r.channelId, false, dashboardActor(req)) : replies.stayOff(false, dashboardActor(req));
+      const T = publicText(guild.id);
+      const view = r.kind === "on" ? replies.stayOn(T, r.channelId, false, dashboardActor(req, publicText(req.params.guildId))) : replies.stayOff(T, false, dashboardActor(req, publicText(req.params.guildId)));
       announcer(bot, bot.players.get(guild.id))(view);
     }
     res.json(await stayCardOf(bot, guild, member));
@@ -231,7 +253,7 @@ function createGuildSettingsRouter() {
 
     const r = await normalize.setNormalize({ guild, member }, body.value.on);
     if (!r.ok) return sendProblem(res, r.code);
-    if (!r.already) announcer(bot, bot.players.get(guild.id))(replies.normalizeSet(r.on, false, dashboardActor(req)));
+    if (!r.already) announcer(bot, bot.players.get(guild.id))(replies.normalizeSet(publicText(guild.id), r.on, false, dashboardActor(req, publicText(req.params.guildId))));
     res.json(await normalizeCardOf(guild, member));
   });
 
@@ -247,13 +269,13 @@ function createGuildSettingsRouter() {
     const user = signedIn(req);
     const who = `${user.username || "?"} (${user.id})`;
     try {
-      await leaveGuild(bot.players, guild, { reason: "대시보드 서버 설정에서 봇 내보내기", end: "dashboard-leave", go: () => assertSignedIn(req) });
-      log.info(`대시보드 서버 설정에서 봇 내보내기: ${guild.name} (${guild.id}). 실행 ${who}`);
+      await leaveGuild(bot.players, guild, { reason: L.dashboard.guildSettingsLeaveReason(), end: "dashboard-leave", go: () => assertSignedIn(req) });
+      log.info(L.dashboard.botRemovedFromGuild({ guild: guild.name, id: guild.id, by: who }));
       res.json({ success: true } satisfies Saved);
     } catch (error) {
-      if (sessionEnded(res, error)) return void log.warn(`대시보드에서 봇 내보내기 중단(로그인 세션 끝남): ${guild.name} (${guild.id}). 실행 ${who}`);
-      log.error(`대시보드에서 봇 내보내기 실패: ${guild.name} (${guild.id}). 실행 ${who}:`, error);
-      sendProblem(res, "leave-guild-failed", {}, { detail: messageOf(error) });
+      if (sessionEnded(res, error)) return void log.warn(L.dashboard.botRemoveStopped({ guild: guild.name, id: guild.id, by: who }));
+      log.error(L.dashboard.botRemoveFailed({ guild: guild.name, id: guild.id, by: who }), error);
+      sendProblem(res, "leave-guild-failed", {}, { errors: [{ code: "leave-guild-failed", rule: errorProblem(error) }] });
     }
   });
 

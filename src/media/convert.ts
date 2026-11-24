@@ -9,6 +9,7 @@ import { AUDIO_FORMATS, inputFilter } from "./ffmpeg/input-filter.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
 import { planFor, REMUX_MAX_KBPS, REMUX_SLACK, TRANSCODE_TARGET_KBPS, type CodecPlan, type ConvertPlan } from "../rules/convert-plan.ts";
+import { L } from "../infra/log/text.ts";
 
 type Converted = ConvertPlan & { durationSec: number | null };
 /** 캐시 파일에 적을 것: 받은 파일의 태그 중 우리가 쓰는 것과 다시 인코딩한 앨범아트 */
@@ -59,7 +60,7 @@ async function toCacheOpus(srcFile: string, outFile: string, { tags, cover }: Ca
   } finally {
     if (pictureFile) fs.rmSync(pictureFile, { force: true });
   }
-  log.debug(`캐시 변환: ${plan.action === "copy" ? "리먹싱" : `변환 ${plan.bitrateKbps}k`} (${plan.why})`);
+  log.debug(plan.action === "copy" ? L.track.cacheRemuxed({ why: plan.why }) : L.track.cacheTranscoded({ kbps: plan.bitrateKbps, why: plan.why }));
 
   return { ...plan, durationSec: info.durationSec };
 }
@@ -77,8 +78,8 @@ async function run(args: string[]): Promise<void> {
   const done = await runFfmpeg([...PROGRESS_ARGS, ...args], { label: "download", stallMs, discardStdout: true });
   if (done.code === 0) return;
   const tail = done.stderr.trim().slice(-1000);
-  const why = done.timedOut ? `진행이 ${stallMs / 1000}초 동안 멈춰 끊음` : `FFmpeg 종료 (code=${done.code ?? "없음"}, signal=${done.signal ?? "없음"})`;
-  throw codedError("stream-failed", tail ? `${why}: ${tail}` : why);
+  const why = done.timedOut ? L.track.convertStalled({ seconds: stallMs / 1000 }) : L.track.convertExited({ code: done.code, signal: done.signal });
+  throw codedError("stream-failed", tail ? L.track.convertFailedTail({ why, tail }) : why);
 }
 
 export { toCacheOpus, useConvertStall, planFor, ytdlpPostprocessorArgs, REMUX_MAX_KBPS, REMUX_SLACK, TRANSCODE_TARGET_KBPS };

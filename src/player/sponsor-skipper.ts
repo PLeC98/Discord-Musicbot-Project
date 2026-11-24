@@ -6,6 +6,7 @@ import type { SkipSegment } from "../sources/sponsor-block.ts";
 import { repeatingFailure } from "../infra/repeating-failure.ts";
 import { messageOf } from "../rules/error-kind.ts";
 import { logTitle } from "../infra/log/title.ts";
+import { L } from "../infra/log/text.ts";
 
 /** 구간을 넘기며 읽고 부르는 플레이어 필드 */
 type SkipHost = Pick<Player, "audioPlayer" | "currentTrack" | "getCurrentTime" | "isPlayStarting" | "isStopping" | "paused" | "play" | "skip" | "sponsor" | "playback"> & { guild?: Pick<Player["guild"], "id"> };
@@ -31,7 +32,7 @@ const lengthSecOf = (p: SkipHost) => (p.playback?.lengthMs ?? 0) / 1000 || Numbe
 const tickFailures = new Map<string, ReturnType<typeof repeatingFailure>>();
 function tickFailureOf(guildId: string) {
   let failures = tickFailures.get(guildId);
-  if (!failures) tickFailures.set(guildId, (failures = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, `SponsorBlock 구간 건너뛰기 확인(서버=${guildId})`)));
+  if (!failures) tickFailures.set(guildId, (failures = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.sponsor.segmentSkipCheck({ guildId }))));
   return failures;
 }
 
@@ -110,13 +111,13 @@ class SponsorSkipper {
 
     if (d.action === "end") {
       // 스킵과 트랙 종료 줄이 원인=sponsorblock을 달고 따라나온다. 세 줄이 한 사건이다.
-      log.debug(`${logTitle(p.currentTrack?.title)}: 종료 구간 도달, 트랙 종료`);
+      log.debug(L.sponsor.endSegmentReached({ title: logTitle(p.currentTrack?.title) }));
       p.skip("sponsorblock"); // 스킵 버튼과 같다(다음 곡, 반복을 따른다)
     } else if (d.action === "seek") {
-      log.info(`${logTitle(p.currentTrack?.title)}: 구간 건너뜀 → ${Math.round(d.toSec)}s`);
+      log.info(L.sponsor.segmentSkipped({ title: logTitle(p.currentTrack?.title), toSeconds: Math.round(d.toSec) }));
       // play()가 onPlayStart를 다시 호출해 prevSec를 seek 지점으로 재설정한다.
       const title = logTitle(p.currentTrack?.title);
-      Promise.resolve(p.play(Math.round(d.toSec * 1000), { continued: true })).catch((error: unknown) => log.error(`SponsorBlock 구간 건너뛰기 실패: ${title} | 이동 지점=${Math.round(d.toSec)}초 | ${messageOf(error)}`));
+      Promise.resolve(p.play(Math.round(d.toSec * 1000), { continued: true })).catch((error: unknown) => log.error(L.sponsor.segmentSkipFailed({ title, toSeconds: Math.round(d.toSec), error: messageOf(error) })));
     }
   }
 }

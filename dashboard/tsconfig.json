@@ -6,5 +6,6 @@
     "lib": ["es2024", "dom", "dom.iterable"],
     "erasableSyntaxOnly": true
   },
-  "include": ["src/**/*.ts", "src/**/*.vue"]
+  // 화면 문구는 언어 폴더(../locales/<언어>/screen)에 있다
+  "include": ["src/**/*.ts", "src/**/*.vue", "../locales/*/screen/**/*.ts"]
 }

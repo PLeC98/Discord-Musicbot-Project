@@ -6,6 +6,8 @@
 
 import logger from "../../infra/log/logger.ts";
 import { availableMemory } from "../../infra/available-memory.ts";
+import { L } from "../../infra/log/text.ts";
+import type { LogText } from "../../infra/log/log-text.ts";
 const log = logger.child({ category: "dashboard" });
 
 const GB = 1024 ** 3;
@@ -52,18 +54,18 @@ const POLL_MS = 5_000;
 const WAIT_MAX_MS = 30 * 60_000;
 
 /** 남은 메모리가 bytes 이상이 될 때까지 기다린다. 멈추면(signal) 바로 끝난다 */
-async function enoughMemory(need: number, what: string, signal: AbortSignal): Promise<void> {
+async function enoughMemory(need: number, what: LogText, signal: AbortSignal): Promise<void> {
   const started = Date.now();
   let told = false;
   while (availableMemory() < need && !signal.aborted && Date.now() - started < WAIT_MAX_MS) {
-    if (!told) log.info({ sub: "admin" }, `로그인 배경 ${what}: 여유 메모리가 부족해 대기(${(availableMemory() / GB).toFixed(1)}GB / ${(need / GB).toFixed(1)}GB)`);
+    if (!told) log.info({ sub: "admin" }, L.dashboard.backgroundMemoryWait({ what, freeGb: (availableMemory() / GB).toFixed(1), needGb: (need / GB).toFixed(1) }));
     told = true;
     await new Promise((resolve) => setTimeout(resolve, POLL_MS));
   }
 }
 
 /** AV1 하나를 인코딩할 병렬 단계: 지금 드는 가장 높은 것. 2도 들지 않으면 2가 들 때까지 기다리고, 그래도 모자라면 드는 것(없으면 1) */
-async function av1LpFor(uhd: boolean, what: string, signal: AbortSignal): Promise<number> {
+async function av1LpFor(uhd: boolean, what: LogText, signal: AbortSignal): Promise<number> {
   const now = av1Lp(uhd);
   if (now !== null && now >= AV1_LP_WAIT) return now;
   await enoughMemory(needOf({ codec: "av1", uhd, lp: AV1_LP_WAIT }), what, signal);

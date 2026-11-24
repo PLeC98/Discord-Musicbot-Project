@@ -3,6 +3,8 @@
 
 import { z } from "zod";
 import logger from "../infra/log/logger.ts";
+import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
 const log = logger.child({ category: "cache" });
 
 const text = z.string().min(1);
@@ -42,12 +44,13 @@ const LookupRow = z.object({
 });
 
 /** 맞으면 그 행, 틀리면 null(한 줄 남긴다) */
-function checked<T extends z.ZodType>(schema: T, row: unknown, what: string): z.infer<T> | null {
+function checked<T extends z.ZodType>(schema: T, row: unknown, what: LogText): z.infer<T> | null {
   if (!row) return null;
   const result = schema.safeParse(row);
   if (result.success) return result.data;
   const where = result.error.issues.map((i) => i.path.join(".")).join(", ");
-  log.warn(`${what} 행의 형식이 올바르지 않아 무시(${where}): ${String((row as { request_key?: unknown }).request_key ?? "없음")}`);
+  const key = (row as { request_key?: unknown }).request_key;
+  log.warn(L.cache.rowShapeInvalid({ what, where, key: key == null ? null : String(key) }));
   return null;
 }
 

@@ -1,8 +1,8 @@
-// src/rules/josa.ts: 앞말의 끝소리를 보고 조사를 선택한다. 모르면 괄호 형태
+// src/infra/josa.ts: 앞말의 끝소리를 보고 조사를 선택한다. 모르면 괄호 형태
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { josa, finalOf } from "../../src/rules/josa.ts";
+import { josa, finalOf } from "../../src/infra/josa.ts";
 
 // 단어마다 [을/를 선택한 것]을 적어 둔다
 const picks = (words: string[], particle: Parameters<typeof josa>[1] = "을") => words.map((w) => `${w}${josa(w, particle)}`);
@@ -55,6 +55,8 @@ test("숫자: 읽는 소리의 끝. 끝의 0은 자릿수(십, 백, 천, 만, �
     ["2.5", "를"],
     ["Vol.2", "를"],
     ["Version 2.0", "을"],
+    ["Version 2.0.3", "을"],
+    ["Version 2.55", "를"],
     ["007", "을"],
   ];
   assert.deepEqual(
@@ -89,4 +91,55 @@ test("한자: 일본어 읽기가 모두 같은 쪽으로 끝나면 안다. 나�
 
 test("모르는 글자, 빈 말", () => {
   assert.deepEqual([finalOf(""), finalOf("   "), finalOf("!!!"), finalOf("Привет"), finalOf("ㅋㅋ")], [null, null, null, null, null]);
+});
+
+test("영어 바로 뒤 숫자: 한 자리는 영어로, 두 자리 이상은 읽기가 모두 같을 때만", () => {
+  const cases: Array<[string, string]> = [
+    // 한 자리는 영어로 읽는다(붙여도, 띄어도, 점이나 하이픈이 있어도)
+    ["MP3", "를"],
+    ["PS4", "를"],
+    ["BF1", "을"],
+    ["iPhone 6", "를"],
+    ["Windows 7", "을"],
+    ["Take 2", "를"],
+    ["Kaiju No. 8", "를"],
+    // 두 자리: 한자어 수, 한 자리씩, 영어 수
+    ["iPhone 16", "을"],
+    ["Windows 11", "을(를)"],
+    ["Windows 98", "을(를)"],
+    // 세 자리 이상: 한자어 수와 한 자리씩
+    ["BF2042", "를"],
+    ["XBOX 360", "을"],
+    ["Live 2019", "를"],
+    // 영어 뒤가 아니면 한자어 수
+    ["시즌2", "를"],
+    ["2024", "를"],
+  ];
+  assert.deepEqual(
+    cases.map(([w]) => josa(w, "을")),
+    cases.map(([, p]) => p),
+  );
+  assert.deepEqual([josa("BF1", "으로"), josa("Windows 7", "으로")], ["으로", "으로"], "원, 세븐은 ㄹ이 아닌 받침");
+});
+
+test("큰 수: 만 단위는 극(10의 48제곱)까지, 그 위는 모른다", () => {
+  const big = (zeros: number) => `1${"0".repeat(zeros)}`;
+  assert.deepEqual(
+    [20, 24, 28, 32, 36, 40, 44, 48, 52].map((zeros) => josa(big(zeros), "을")),
+    ["를", "를", "을", "를", "을", "을", "를", "을", "을(를)"],
+  );
+});
+
+test("악센트가 붙은 라틴 문자로 끝나면 악센트를 떼고 영어로 읽는다", () => {
+  assert.deepEqual(
+    ["Café", "Beyoncé", "Pokémon", "Motörhead"].map((w) => josa(w, "을")),
+    ["를", "를", "을", "를"],
+  );
+});
+
+test("예외 표: 관용 표기, 고유 독법이 사전이나 규칙과 다른 말", () => {
+  assert.deepEqual(
+    ["ILLIT", "KPOP", "TV アニメ OP", "IRIS OUT", "Knock Out"].map((w) => josa(w, "을")),
+    ["을", "을", "를", "을", "을"],
+  );
 });

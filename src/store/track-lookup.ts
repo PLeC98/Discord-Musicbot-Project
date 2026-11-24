@@ -9,6 +9,7 @@ import { audioKeyOf } from "../rules/audio-key-of.ts";
 import { LookupRow, checked } from "./rows.ts";
 import { DONE, GONE, changedTo, type Guarded } from "./guarded-write.ts";
 import type { TrackInfo } from "../player/track.ts";
+import { L } from "../infra/log/text.ts";
 
 /** 캐시 파일로 만든 트랙. 여기 필드는 링크 데이터와 캐시에서 온다 */
 type CachedTrack = TrackInfo & { audioUrl: string };
@@ -20,7 +21,7 @@ const conn = () => cacheDb.get();
 // 읽기
 
 function rowOf(requestKey: string) {
-  return checked(LookupRow, conn().prepare("SELECT * FROM track_lookup WHERE request_key = ?").get(canonicalUrl(requestKey)), "링크 데이터");
+  return checked(LookupRow, conn().prepare("SELECT * FROM track_lookup WHERE request_key = ?").get(canonicalUrl(requestKey)), L.cache.linkDataRow());
 }
 
 /**
@@ -149,7 +150,7 @@ function allRows(): LookupRow[] {
   return conn()
     .prepare("SELECT * FROM track_lookup")
     .all()
-    .flatMap((row) => checked(LookupRow, row, "링크 데이터") ?? []);
+    .flatMap((row) => checked(LookupRow, row, L.cache.linkDataRow()) ?? []);
 }
 
 /** 자동 검색 결과 삭제(캐시 DB 화면). 행의 음원이 본 값일 때만 삭제한다. 다음에 그 요청을 틀면 다시 찾는다 */

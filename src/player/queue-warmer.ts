@@ -10,6 +10,7 @@ import { tooLongToCache } from "../media/cache-download.ts";
 import { logTitle } from "../infra/log/title.ts";
 import { messageOf } from "../rules/error-kind.ts";
 import { failureScope, servedDirectly } from "./failure-scope.ts";
+import { L } from "../infra/log/text.ts";
 
 /** 예열이 읽는 플레이어 필드. 뺀 슬롯을 메울 때 자동재생을 부른다 */
 type WarmerHost = Pick<Tracks, "queue" | "currentTrack" | "loop" | "trackSink"> & { guild?: { id: string; name?: string } | null; autoplay?: string | false; ensureAutoplayNext?(): Promise<unknown> };
@@ -148,11 +149,11 @@ class QueueWarmer {
       const keys = this.targets()
         .map((t) => this.keyOf(t))
         .filter((key): key is string => Boolean(key));
-      log.debug(`사전 캐싱 보호 갱신: ${keys.length}곡`);
+      log.debug(L.track.warmProtectionUpdated({ count: keys.length }));
       this.setProtection(guildId, keys);
     }
 
-    this._run().catch((err) => log.error(`사전 캐싱 실패: ${messageOf(err)}`));
+    this._run().catch((err) => log.error(L.track.warmFailed({ error: messageOf(err) })));
   }
 
   /**
@@ -171,11 +172,11 @@ class QueueWarmer {
 
     autoplayRoute.markDead(track);
     trackState.removeAt(this.player, index);
-    log.info(`자동재생 곡을 대기열에서 제거(영상 없음): "${logTitle(track.title)}". 다른 곡 선택`);
+    log.info(L.track.warmAutoplayRemoved({ title: logTitle(track.title) }));
 
     const player = this.player;
     // 뺀 슬롯을 메운다. 기다리지 않는다. 예열 루프를 잡아 두면 뒤 곡이 밀린다.
-    if (player.ensureAutoplayNext) Promise.resolve(player.ensureAutoplayNext()).catch((error: unknown) => log.warn(`재생 불가 자동재생 곡 제거 후 대체 곡 미리 추가 실패(곡 종료 시 재시도): 서버=${player.guild?.name ?? "?"} (${player.guild?.id ?? "?"}), 장르=${player.autoplay || "off"} | ${messageOf(error)}`));
+    if (player.ensureAutoplayNext) Promise.resolve(player.ensureAutoplayNext()).catch((error: unknown) => log.warn(L.track.warmAutoplayRefillFailed({ guildName: player.guild?.name ?? "?", guildId: player.guild?.id ?? "?", genre: player.autoplay || "off", error: messageOf(error) })));
     return true;
   }
 
@@ -235,7 +236,7 @@ class QueueWarmer {
         try {
           // 예열은 조용히 도는 배경 작업이라, 이게 없으면 "왜 지금 이 곡을 다운로드하고 있나"를
           // 사후에 알 방법이 없다. 다운로드 완료는 track 카테고리가 따로 남긴다.
-          log.debug(`사전 캐싱: "${logTitle(track.title)}" | 대상 ${this.targets().length}곡`);
+          log.debug(L.track.warmStarted({ title: logTitle(track.title), targets: this.targets().length }));
           await this.warm(track);
         } catch (err) {
           // 영상이 내려간 자동재생 곡은 여기서 버린다. 그냥 두면 재생할 때 스트림도 실패해
@@ -246,7 +247,7 @@ class QueueWarmer {
           // 이 서명 동안은 다시 시도하지 않는다. 일시적인 실패는 대기열이 움직이면 다시 시도하고,
           // 곡 자체의 문제면 그 뒤로도 하지 않는다. 어느 쪽이든 재생 시점의 다운로드 경로가 다시 시도한다.
           // 원인은 다운로드가 남겼다(캐시 다운로드 실패 줄)
-          log.debug(`사전 캐싱 실패(재생할 때 다시 다운로드): "${logTitle(track.title)}"`);
+          log.debug(L.track.warmTrackFailed({ title: logTitle(track.title) }));
           this._failed.add(track);
           if (failureScope(err, { direct: servedDirectly(track) }) === "track") this._gaveUp.add(track);
         }

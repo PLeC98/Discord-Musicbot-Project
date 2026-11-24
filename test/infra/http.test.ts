@@ -1,5 +1,6 @@
 // src/infra/http.ts, link-status.ts: 바깥 서비스로 나가는 요청은 한 클라이언트를 지나고, 서비스마다 부른 결과를 남긴다
 
+import { logRuleLine } from "../../src/rules/text/index.ts";
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { httpFor } from "../../src/infra/http.ts";
@@ -11,7 +12,7 @@ const answer = (status: number) => async () => new Response("{}", { status });
 const fail = (error: Error) => async (): Promise<Response> => {
   throw error;
 };
-const outcomes = () => linkStatus("lastfm")?.recent.map((one) => [one.ok, one.error]);
+const outcomes = () => linkStatus("lastfm")?.recent.map((one) => [one.ok, one.error && logRuleLine(one.error)]);
 
 test("응답을 받으면 성공(4xx 포함), 5xx, 429, 401, 403은 실패. 마지막 성공 때를 둔다", async () => {
   const http = httpFor("lastfm");
@@ -58,7 +59,7 @@ test("서비스마다 따로, 최근 몇 번만 둔다", async () => {
   await vocadb.fetch("https://example.test/");
   assert.equal(linkStatus("lastfm")!.recent.length, RECENT);
   assert.deepEqual(
-    linkStatus("vocadb")!.recent.map((one) => one.error),
+    linkStatus("vocadb")!.recent.map((one) => one.error && logRuleLine(one.error)),
     ["HTTP 500"],
   );
 });

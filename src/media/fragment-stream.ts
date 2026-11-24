@@ -12,6 +12,8 @@
 import { Readable, finished } from "stream";
 import { messageOf, timeoutError } from "../rules/error-kind.ts";
 import logger from "../infra/log/logger.ts";
+import { L } from "../infra/log/text.ts";
+import { asText, logTextError, type LogText } from "../infra/log/log-text.ts";
 const log = logger.child({ category: "player" });
 
 const RETRY_DELAYS_MS = [500, 1000, 2000];
@@ -37,7 +39,7 @@ type FragmentSource<F> = {
   /** 내보내기 시작하는 곡 안의 위치(ms). 받는 첫 세그먼트의 시작 */
   startedAtMs: number;
   /** 지금 상태 한 줄. sent는 내보낸 세그먼트 수 */
-  describe(sent: number): string;
+  describe(sent: number): LogText;
   /** 스트림이 닫혔다(라이브 목록 다시 받기를 멈춘다) */
   close?(): void;
 };
@@ -46,13 +48,13 @@ type FragmentStream = Readable & {
   /** 이 스트림이 내보내기 시작하는 곡의 위치(ms). 받는 첫 세그먼트의 시작 */
   startedAtMs: number;
   /** 입력 상태 한 줄(끊겼을 때 남긴다) */
-  describe(): string;
+  describe(): LogText;
   /** 첫 세그먼트를 받아 둔다. 못 받으면 예외를 던진다(읽기는 받아 둔 것부터 내보낸다) */
   prime(): Promise<void>;
 };
 
 /** 다시 받아도 결과가 같은 실패. 4xx(만료, 차단, 없는 세그먼트) */
-const permanent = (status: number) => Object.assign(new Error(`세그먼트 요청 실패: HTTP ${status}`), { status, permanent: status < 500 });
+const permanent = (status: number) => Object.assign(logTextError(L.player.segmentHttpFailed({ status })), { status, permanent: status < 500 });
 
 function streamFragments<F>(source: FragmentSource<F>, { retryDelaysMs = RETRY_DELAYS_MS, stallMs = STALL_MS }: StreamOptions = {}): FragmentStream {
   let sent = 0; // 내보낸 세그먼트
@@ -67,7 +69,7 @@ function streamFragments<F>(source: FragmentSource<F>, { retryDelaysMs = RETRY_D
   // 세그먼트 하나를 받는다. 멈추거나(무응답) 5xx, 네트워크 오류면 다시 받고, 4xx는 곧바로 실패한다
   async function fetchOne(fragment: F): Promise<Buffer | Readable> {
     for (let attempt = 0; ; attempt++) {
-      if (closed) throw new Error("세그먼트 스트림이 닫힘");
+      if (closed) throw logTextError(L.player.segmentStreamClosed());
       const controller = new AbortController();
       fetching.add(controller);
       let timer: NodeJS.Timeout | undefined;
@@ -75,7 +77,7 @@ function streamFragments<F>(source: FragmentSource<F>, { retryDelaysMs = RETRY_D
       const arm = () => {
         if (settled) return;
         clearTimeout(timer);
-        timer = setTimeout(() => controller.abort(timeoutError(`세그먼트가 ${stallMs / 1000}초 동안 오지 않음`)), stallMs);
+        timer = setTimeout(() => controller.abort(timeoutError(L.player.segmentStalled({ seconds: stallMs / 1000 }))), stallMs);
       };
       arm();
       try {
@@ -85,7 +87,7 @@ function streamFragments<F>(source: FragmentSource<F>, { retryDelaysMs = RETRY_D
         return got;
       } catch (error) {
         if ((error as { permanent?: boolean }).permanent || attempt >= retryDelaysMs.length || closed) throw error;
-        log.trace(`세그먼트 다운로드 실패(재시도 ${attempt + 1}/${retryDelaysMs.length}): ${messageOf(error)}`);
+        log.trace(L.player.segmentRetry({ attempt: attempt + 1, maxAttempts: retryDelaysMs.length, error: messageOf(error) }));
         retries++;
         await sleep(retryDelaysMs[attempt]);
       } finally {
@@ -150,7 +152,7 @@ function streamFragments<F>(source: FragmentSource<F>, { retryDelaysMs = RETRY_D
     },
     destroy(error, callback) {
       closed = true;
-      for (const controller of fetching) controller.abort(new Error("세그먼트 스트림이 닫힘"));
+      for (const controller of fetching) controller.abort(logTextError(L.player.segmentStreamClosed()));
       pouring?.destroy();
       void ahead?.then((chunk) => chunk && !Buffer.isBuffer(chunk) && chunk.destroy(), ignore);
       source.close?.();
@@ -160,7 +162,7 @@ function streamFragments<F>(source: FragmentSource<F>, { retryDelaysMs = RETRY_D
 
   return Object.assign(stream, {
     startedAtMs: source.startedAtMs,
-    describe: () => `${source.describe(sent)}${retries ? ` · 다시 받음 ${retries}회` : ""}`,
+    describe: () => L.player.fragmentProgress({ position: source.describe(sent), retries }),
     async prime() {
       ahead ??= take();
       await ahead;
@@ -198,7 +200,7 @@ function startOf(fragments: Fragments, durationMs: number, startMs: number) {
 
 /** 유튜브 세그먼트 목록의 출처. 위치가 든 세그먼트부터 번호 차례로 */
 function numberedFragments({ fragments, durationMs, startMs, headers = {}, fetchImpl = fetch as unknown as FragmentFetch }: FragmentOptions): FragmentSource<number> {
-  if (!Number.isInteger(fragments.count) || fragments.count <= 0) throw new TypeError(`세그먼트 수가 올바르지 않음: ${fragments.count}`);
+  if (!Number.isInteger(fragments.count) || fragments.count <= 0) throw new TypeError(asText(L.player.fragmentCountInvalid({ count: fragments.count })));
   const start = startOf(fragments, durationMs, startMs);
   let index = start.index;
   return {
@@ -209,7 +211,7 @@ function numberedFragments({ fragments, durationMs, startMs, headers = {}, fetch
       return Buffer.from(await res.arrayBuffer());
     },
     startedAtMs: start.atMs,
-    describe: (sent) => `세그먼트 ${start.index + sent}/${fragments.count}(시작 ${start.index})`,
+    describe: (sent) => L.player.fragmentPosition({ index: start.index + sent, count: fragments.count, startIndex: start.index }),
   };
 }
 

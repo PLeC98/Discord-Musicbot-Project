@@ -1,7 +1,8 @@
 // 봇 활동 문구 설정("status" 문서)의 스키마.
 
 import { NUMERIC_NAME } from "./genres.ts";
-import { z, ALWAYS, present, plain, problemsOf } from "./problems.ts";
+import { z, ALWAYS, coded, present, plain, problemsOf } from "./problems.ts";
+import { rule, type RuleProblem } from "../../rules/rule-problem.ts";
 
 const ACTIVITY_TYPES = ["Playing", "Listening", "Watching", "Competing", "Custom"] as const;
 type ActivityType = (typeof ACTIVITY_TYPES)[number];
@@ -17,14 +18,14 @@ const INTERVAL_MIN = 10;
 // 형식이 틀린 게 아니라 "엉뚱한 날에 걸린다". 그래서 모양까지 본다.
 type RangeKind = "date" | "lunar" | "time";
 
-function rangeProblem(value: unknown, kind: RangeKind): string | null {
-  if (typeof value !== "string") return "글자로 적어야 해요";
+function rangeProblem(value: unknown, kind: RangeKind): RuleProblem | null {
+  if (typeof value !== "string") return rule("range-not-text");
   const parts = value.split("~");
-  if (parts.length !== 2) return `"${kind === "time" ? "22:00 ~ 06:00" : "12-24 ~ 12-26"}"처럼 ~로 나눠 적어야 해요`;
+  if (parts.length !== 2) return rule("range-split", { example: kind === "time" ? "22:00 ~ 06:00" : "12-24 ~ 12-26" });
 
   const shape = kind === "time" ? /^([01][0-9]|2[0-3]):[0-5][0-9]$/ : /^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/;
   for (const part of parts.map((p) => p.trim())) {
-    if (!shape.test(part)) return `"${part}"는 ${kind === "time" ? "HH:MM" : "MM-DD"} 두 자리로 적어야 해요`;
+    if (!shape.test(part)) return rule("range-part", { part, shape: kind === "time" ? "HH:MM" : "MM-DD" });
   }
   return null;
 }
@@ -35,7 +36,7 @@ const range = (kind: RangeKind) =>
     .superRefine((value, ctx) => {
       if (value == null) return;
       const problem = rangeProblem(value, kind);
-      if (problem) ctx.addIssue({ code: "custom", message: `{name}의 ${kind}: ${problem}` });
+      if (problem) ctx.addIssue({ code: "custom", message: coded("status-range", { kind }, problem) });
     })
     .optional();
 
@@ -46,37 +47,37 @@ const message = z.preprocess(
   z.object(
     {
       text: z
-        .string({ error: "{where}: 빈 문구가 있어요" })
-        .refine((text) => text.trim(), { error: "{where}: 빈 문구가 있어요" })
+        .string({ error: "status-empty-text" })
+        .refine((text) => text.trim(), { error: "status-empty-text" })
         // 빈 문구면 길이는 따지지 않는다(한 문구에 하나만 알린다)
-        .refine((text) => !text.trim() || text.length <= MAX_TEXT, { error: (issue) => `{where}: 문구가 ${MAX_TEXT}자를 넘어요("${String(issue.input).slice(0, 20)}…")` }),
+        .refine((text) => !text.trim() || text.length <= MAX_TEXT, { error: (issue) => coded("status-long-text", { max: MAX_TEXT, head: String(issue.input).slice(0, 20) }) }),
       // 종류를 잘못 적으면 조용히 "듣는 중"이 된다. 오타가 말을 안 해 주는 종류라 여기서 잡는다
       type: present(
         (type) => isActivityType(type),
-        (issue) => `{where}: ${JSON.stringify(issue.input)}은 쓸 수 없는 활동 종류예요(${ACTIVITY_TYPES.join(", ")})`,
+        (issue) => coded("status-type", { type: JSON.stringify(issue.input), types: ACTIVITY_TYPES.join(", ") }),
       ),
     },
-    { error: "{where}: 문구는 글자로 적거나 text/type으로 나눠 적어야 해요" },
+    { error: "status-message-shape" },
   ),
 );
 
-const messages = z.array(message, { error: "{where}: 문구가 하나는 있어야 해요" }).min(1, { error: "{where}: 문구가 하나는 있어야 해요" });
+const messages = z.array(message, { error: "status-no-messages" }).min(1, { error: "status-no-messages" });
 
 const entry = z
-  .object({ date: range("date"), lunar: range("lunar"), time: range("time"), messages }, { error: "{name}: 내용이 비어 있어요" })
+  .object({ date: range("date"), lunar: range("lunar"), time: range("time"), messages }, { error: "status-entry-empty" })
   // 조건이 하나도 없으면 항상 맞아서 아래 항목이 전부 죽는다. 손으로 고치다 범위만 지우면 밟는다
   .superRefine((one, ctx) => {
     if (!one || typeof one !== "object" || Array.isArray(one)) return; // 표가 아니면 위에서 이미 알렸다
-    if (!(["date", "lunar", "time"] as const).some((k) => one[k] != null)) ctx.addIssue({ code: "custom", message: "{name}: date, lunar, time 중 하나는 있어야 해요(없으면 항상 이 문구만 나와요)" });
+    if (!(["date", "lunar", "time"] as const).some((k) => one[k] != null)) ctx.addIssue({ code: "custom", message: "status-entry-no-when" });
   }, ALWAYS);
 
 const special = z
-  .record(z.string(), entry, { error: "special은 이름을 붙인 목록이어야 해요" })
+  .record(z.string(), entry, { error: "status-special-shape" })
   .superRefine((all, ctx) => {
     if (!all || typeof all !== "object" || Array.isArray(all)) return; // 표가 아니면 위에서 이미 알렸다
     for (const name of Object.keys(all)) {
-      if (!name.trim()) ctx.addIssue({ code: "custom", message: "문구 이름이 비어 있어요" });
-      if (NUMERIC_NAME.test(name)) ctx.addIssue({ code: "custom", message: `"${name}": 숫자만으로 된 이름은 순서가 어긋나요. "${name}년"처럼 글자를 붙여 주세요` });
+      if (!name.trim()) ctx.addIssue({ code: "custom", message: "status-name-empty" });
+      if (NUMERIC_NAME.test(name)) ctx.addIssue({ code: "custom", message: coded("status-name-numeric", { name }) });
     }
   }, ALWAYS)
   .nullish();
@@ -84,19 +85,15 @@ const special = z
 const statusFile = z.preprocess(
   plain,
   z.object({
-    interval: present((v) => Number(v) >= INTERVAL_MIN, `interval은 ${INTERVAL_MIN}초 이상이어야 해요`),
+    interval: present((v) => Number(v) >= INTERVAL_MIN, coded("status-interval", { min: INTERVAL_MIN })),
     messages,
     special,
   }),
 );
 
-/** 상태 설정의 문제 목록. 없으면 빈 배열 */
-function statusProblems(data: unknown): string[] {
-  // messages는 평소 문구거나 special 아래 이름의 문구다
-  return problemsOf(statusFile, data, (path) => {
-    const name = path[0] === "special" ? path[1] : undefined;
-    return { name, where: name ?? "평소 문구" };
-  });
+/** 상태 설정의 문제 목록. 없으면 빈 배열. 위치 값은 special 아래 문구의 이름(name, 평소 문구면 없다) */
+function statusProblems(data: unknown): RuleProblem[] {
+  return problemsOf(statusFile, data, (path) => ({ name: path[0] === "special" && path[1] !== undefined ? String(path[1]) : undefined }));
 }
 
 export { statusProblems, ACTIVITY_TYPES, MAX_TEXT, INTERVAL_DEFAULT, INTERVAL_MIN, isActivityType };

@@ -1,11 +1,11 @@
-// 화면에 쓰는 길이, 크기 표기. 값이 없을 때의 문구처럼 위치마다 다른 것은 호출부가 넘긴다
+// 화면에 쓰는 길이, 크기 표기. 값이 없을 때의 문구처럼 위치마다 다른 것은 호출부가 넘기고, 말로 쓰는 표기(길이를 말로, 예정된 라이브)는 문구표(labels)에 있다
+
+import type { SharedText } from "./text/shared.ts";
 
 /** 라이브의 길이 표기(대기열 메뉴, 진행 막대, 검색 결과) */
 const LIVE_MARK = "🔴LIVE";
-/** 시작 전 라이브(예정된 방송, 최초 공개)의 길이 표기 */
-const UPCOMING_MARK = "예정된 라이브";
-/** 라이브 곡의 길이 자리 */
-const liveMarkOf = (track: { liveStatus?: string | null }) => (track.liveStatus === "is_upcoming" ? UPCOMING_MARK : LIVE_MARK);
+/** 라이브 곡의 길이 자리. 시작 전 라이브(예정된 방송, 최초 공개)는 문구표의 표기 */
+const liveMarkOf = (T: SharedText, track: { liveStatus?: string | null }) => (track.liveStatus === "is_upcoming" ? T.labels.upcomingLive() : LIVE_MARK);
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -23,18 +23,6 @@ function formatDuration(seconds: number | null | undefined, unknown: string) {
 /** 밀리초를 formatDuration과 같은 모양으로 */
 function formatMs(ms: number, unknown: string) {
   return formatDuration(ms / 1000, unknown);
-}
-
-/** 길이를 말로. "3일 4시간 5분", "1시간 5분". 0인 단위는 빼고, 다 0이면 "0분" */
-function formatSpan(seconds: number) {
-  const total = Math.floor(seconds);
-  const units: Array<[number, string]> = [
-    [Math.floor(total / 86400), "일"],
-    [Math.floor((total % 86400) / 3600), "시간"],
-    [Math.floor((total % 3600) / 60), "분"],
-  ];
-  const parts = units.filter(([n]) => n > 0).map(([n, unit]) => `${n}${unit}`);
-  return parts.length ? parts.join(" ") : "0분";
 }
 
 const BYTE_UNITS = [
@@ -71,4 +59,4 @@ function formatBytes(bytes: number) {
   return `${value} ${unit}`;
 }
 
-export { LIVE_MARK, UPCOMING_MARK, liveMarkOf, formatDuration, formatMs, formatSpan, formatBytes, byteUnit, scaledText };
+export { LIVE_MARK, liveMarkOf, formatDuration, formatMs, formatBytes, byteUnit, scaledText };

@@ -1,4 +1,4 @@
-// src 전체: 봇 쪽 모듈을 전부 불러 본다.
+// src 전체와 언어 폴더의 봇 문구, 규칙 문장(locales/<언어>/bot, rules): 봇 쪽 모듈을 전부 불러 본다.
 //
 // 옮기기만 하는 파일은 다른 테스트가 덜 덮어서, 경로가 깨져도 아무도 모를 수 있다. 파일을 옮길 때의
 // 불러오기 실패를 여기서 먼저 잡는다. 진입 파일(src/index.ts)은 불러오는 순간 봇이 디스코드에 로그인하므로 꼭 뺀다.
@@ -13,7 +13,14 @@ import { pathToFileURL } from "node:url";
 const load = (file: string) => import(pathToFileURL(file).href);
 
 const ROOT = path.join(import.meta.dirname, "..");
-const DIRS = ["src"];
+// 화면 문구(locales/<언어>/screen)는 Vue를 부르므로 Node에서는 부르지 않는다
+const DIRS = [
+  "src",
+  ...fs
+    .readdirSync(path.join(ROOT, "locales"), { withFileTypes: true })
+    .filter((one) => one.isDirectory())
+    .flatMap((one) => [`locales/${one.name}/bot`, `locales/${one.name}/rules`]),
+];
 
 function walk(dir: string, out: string[] = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {

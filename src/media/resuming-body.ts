@@ -10,6 +10,8 @@ import { Readable, finished } from "stream";
 import * as SafeUrl from "../infra/safe-url.ts";
 import { messageOf } from "../rules/error-kind.ts";
 import logger from "../infra/log/logger.ts";
+import { L } from "../infra/log/text.ts";
+import { logTextError, type LogText } from "../infra/log/log-text.ts";
 const log = logger.child({ category: "link" });
 
 /** 이을 때의 요청(가드를 지난다). 2xx가 아니면 status를 단 오류를 던진다 */
@@ -37,7 +39,7 @@ const RETRY_DELAYS_MS = [500, 1000, 2000];
 const DISCARD_MAX_BYTES = 64 * 1024 * 1024;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-const permanent = (message: string) => Object.assign(new Error(message), { permanent: true });
+const permanent = (message: LogText) => Object.assign(logTextError(message), { permanent: true });
 const CONTENT_RANGE = /^\s*bytes\s+(\d+)-\d+\/(\d+|\*)\s*$/i;
 
 /** 응답이 알린 전체 길이(처음 응답의 Content-Length). 모르면 null */
@@ -74,7 +76,7 @@ function createResumingBody(options: ResumingOptions): Readable {
       current?.resume();
     },
     destroy(error, callback) {
-      aborter.abort(new Error("본문 스트림이 닫힘"));
+      aborter.abort(logTextError(L.link.bodyStreamClosed()));
       current?.destroy();
       options.body.destroy();
       callback(error);
@@ -109,7 +111,7 @@ function createResumingBody(options: ResumingOptions): Readable {
         body.removeAllListeners("data");
         current = null;
         if (error) return reject(error);
-        if (left > 0) return reject(permanent(`구간을 무시한 응답이 이미 받은 위치(${pos + left}B)보다 짧음`));
+        if (left > 0) return reject(permanent(L.link.ignoredRangeShort({ offsetBytes: pos + left })));
         resolve();
       });
     });
@@ -141,9 +143,9 @@ function createResumingBody(options: ResumingOptions): Readable {
   // 206: 받은 위치부터인지, 전체 크기가 그대로인지 본다
   function acceptedRange(headers: Record<string, unknown>): number {
     const [, start, size] = CONTENT_RANGE.exec(String(headers["content-range"] ?? "")) ?? [];
-    if (start === undefined || Number(start) !== pos) throw permanent(`이어 받은 구간이 어긋남: ${pos}B부터 요청, ${String(headers["content-range"] ?? "Content-Range 없음")}`);
+    if (start === undefined || Number(start) !== pos) throw permanent(L.link.resumedRangeMismatch({ offsetBytes: pos, contentRange: headers["content-range"] === undefined || headers["content-range"] === null ? null : String(headers["content-range"]) }));
     if (size !== "*") {
-      if (total !== null && Number(size) !== total) throw permanent(`이어 받은 본문의 전체 크기가 다름: 처음 ${total}B, 지금 ${size}B`);
+      if (total !== null && Number(size) !== total) throw permanent(L.link.resumedTotalChanged({ totalBytes: total, size }));
       total = Number(size);
     }
     return 0;
@@ -151,11 +153,11 @@ function createResumingBody(options: ResumingOptions): Readable {
 
   // 200(구간을 무시했다): 같은 본문인지(검증값, 전체 크기), 버릴 앞부분이 상한 안인지 본다
   function acceptedWhole(headers: Record<string, unknown>): number {
-    if (!validator) throw permanent("서버가 구간을 무시했는데 검증값이 없어 같은 본문인지 알 수 없음");
-    if (!sameValidator(headers, validator)) throw permanent("본문이 바뀜(검증값이 다름)");
+    if (!validator) throw permanent(L.link.ignoredRangeNoValidator());
+    if (!sameValidator(headers, validator)) throw permanent(L.link.bodyChanged());
     const size = lengthOf(headers);
-    if (total !== null && size !== null && size !== total) throw permanent(`다시 받은 본문의 전체 크기가 다름: 처음 ${total}B, 지금 ${size}B`);
-    if (pos > discardMaxBytes) throw permanent(`서버가 구간을 무시해서, 버릴 앞부분(${pos}B)이 상한(${discardMaxBytes}B)을 넘음`);
+    if (total !== null && size !== null && size !== total) throw permanent(L.link.refetchedTotalChanged({ totalBytes: total, size }));
+    if (pos > discardMaxBytes) throw permanent(L.link.ignoredRangeDiscardOverCap({ discardBytes: pos, maxBytes: discardMaxBytes }));
     return pos;
   }
 
@@ -168,14 +170,14 @@ function createResumingBody(options: ResumingOptions): Readable {
         await pour(next.body, next.skip);
         next = null;
         if (total === null || pos >= total) return void out.push(null);
-        throw Object.assign(new Error(`본문을 다 받기 전에 끝남(${pos}/${total}B)`), { code: "ERR_STREAM_PREMATURE_CLOSE" });
+        throw Object.assign(logTextError(L.link.bodyEndedEarly({ receivedBytes: pos, totalBytes: total })), { code: "ERR_STREAM_PREMATURE_CLOSE" });
       } catch (error) {
         next?.body.destroy();
         next = null;
         if (out.destroyed) return;
         if ((error as { permanent?: boolean }).permanent || failures >= retryDelaysMs.length) return void out.destroy(error as Error);
         interruptedAt ||= Date.now();
-        log.trace(`본문 이어 받기(재시도 ${failures + 1}/${retryDelaysMs.length}, ${pos}B): ${messageOf(error)}`);
+        log.trace(L.link.bodyResumeRetry({ attempt: failures + 1, maxAttempts: retryDelaysMs.length, offsetBytes: pos, error: messageOf(error) }));
         await sleep(retryDelaysMs[failures++]);
         if (out.destroyed) return;
       }

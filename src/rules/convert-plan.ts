@@ -2,6 +2,9 @@
 // 상한(REMUX_MAX_KBPS)은 Opus를 Opus로 다시 인코딩할지에만 걸린다. 코덱이 다르면 비트레이트를 비교할 수 없다(mp3 128k와 Opus 128k는 다르다).
 // 변환 목표는 소스 비트레이트와 무관하다. 송출이 128k라 그 위는 버려진다.
 
+import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
+
 /** Opus 소스에만 걸리는 상한(kbps). 상시 작동하는 값이 아니라 폭주를 막는 안전망이다. */
 const REMUX_MAX_KBPS = 320;
 
@@ -17,7 +20,7 @@ const TRANSCODE_TARGET_KBPS = 128;
 type CacheAudioInfo = { codec?: string | null; bitrateKbps?: number | string | null };
 /** 무엇을 할지와 비트레이트. 다시 인코딩할 때는 늘 정해져 있다 */
 type CodecPlan = { action: "copy"; bitrateKbps: number | null } | { action: "transcode"; bitrateKbps: number };
-type ConvertPlan = CodecPlan & { why: string };
+type ConvertPlan = CodecPlan & { why: string | LogText };
 
 /**
  * probe 결과로 무엇을 할지 정한다. 부수 효과가 없어 정책은 여기만 보면 되고,
@@ -29,12 +32,12 @@ function planFor(info: CacheAudioInfo | null | undefined): ConvertPlan {
 
   if (codec !== "opus") {
     // 코덱을 못 읽은 경우도 여기로 온다. 모르면 인코딩하는 쪽이 안전하다(리먹싱은 컨테이너가 맞아야 한다).
-    return { action: "transcode", bitrateKbps: TRANSCODE_TARGET_KBPS, why: codec ? `${codec} → opus` : "코덱을 읽지 못함" };
+    return { action: "transcode", bitrateKbps: TRANSCODE_TARGET_KBPS, why: codec ? `${codec} → opus` : L.track.codecUnread() };
   }
   if (kbps !== null && kbps > REMUX_MAX_KBPS * REMUX_SLACK) {
-    return { action: "transcode", bitrateKbps: REMUX_MAX_KBPS, why: `opus ${kbps}k, 상한 ${REMUX_MAX_KBPS}k를 크게 넘음` };
+    return { action: "transcode", bitrateKbps: REMUX_MAX_KBPS, why: L.track.opusOverCap({ kbps, cap: REMUX_MAX_KBPS }) };
   }
-  return { action: "copy", bitrateKbps: kbps, why: kbps ? `이미 opus ${kbps}k` : "이미 opus" };
+  return { action: "copy", bitrateKbps: kbps, why: kbps ? L.track.alreadyOpusKbps({ kbps }) : L.track.alreadyOpus() };
 }
 
 export { planFor, REMUX_MAX_KBPS, REMUX_SLACK, TRANSCODE_TARGET_KBPS };

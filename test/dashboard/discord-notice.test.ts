@@ -4,12 +4,14 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Request } from "express";
 import { announceEmbed, announcer, dashboardActor, dashboardResponder, restartNotices } from "../../src/dashboard/discord-notice.ts";
-import * as announceText from "../../src/ui/text/ko/announce.ts";
 import { LIFETIME } from "../../src/ui/delivery.ts";
 import { frame } from "../../src/ui/frame.ts";
 import type { Player } from "../../src/player/player.ts";
 import { textsOf } from "../helpers/cv2.ts";
 import { fake, fakeBot } from "../helpers/fake.ts";
+import { textFor } from "../../src/ui/text/index.ts";
+const KO = textFor("ko");
+const announceText = textFor("ko").announce;
 
 type Sent = { components: Array<{ toJSON(): unknown }> };
 
@@ -41,7 +43,7 @@ function world(found = true) {
 const settle = () => new Promise(setImmediate);
 
 test("누가 했나: 로그인한 사람의 멘션 뒤에 (대시보드)", () => {
-  assert.equal(dashboardActor(fake<Request>({ session: { user: { id: "u1" } } })), "<@u1> (대시보드)");
+  assert.equal(dashboardActor(fake<Request>({ session: { user: { id: "u1" } } }), KO), "<@u1> (대시보드)");
 });
 
 test("조작 안내: 패널 채널에 보내고 수명 뒤 삭제한다. 채널은 알리기 전에 찾아 둔다(정지 뒤에는 플레이어가 없다)", async (t) => {
@@ -74,7 +76,7 @@ test("곡 넣기: 추가 안내를 그때의 패널 채널에 잠깐 보인다. 
   const w = world();
   const responder = dashboardResponder(w.bot, "g1");
   assert.equal(w.lookups(), 0, "곡을 넣기 전에는 찾지 않는다(글자 채널은 코어가 정한다)");
-  await responder.notifyQueued(frame({ title: "담았어요" }));
+  await responder.notifyQueued(() => frame({ title: "담았어요" }));
   await responder.dismissPlaceholder();
   assert.deepEqual(w.sent, ["### 담았어요"]);
   t.mock.timers.tick(LIFETIME.glance);
@@ -82,7 +84,7 @@ test("곡 넣기: 추가 안내를 그때의 패널 채널에 잠깐 보인다. 
   assert.deepEqual(w.deleted, ["### 담았어요"]);
 
   const empty = world();
-  await dashboardResponder(empty.bot, "없는 서버").notifyQueued(frame({ title: "담았어요" }));
+  await dashboardResponder(empty.bot, "없는 서버").notifyQueued(() => frame({ title: "담았어요" }));
   assert.deepEqual(empty.sent, []);
 });
 
@@ -108,7 +110,7 @@ test("다시 시작 공지: 소리를 내는 서버만 패널 채널에 점검 �
   const bot = fakeBot({ players, panels: { panelChannel: async (player: Player) => player.textChannel } });
   assert.deepEqual(await Promise.all(restartNotices(bot)), [true, false, false], "재생 중인 셋(g1, g4, g5)만. 일시정지, 곡 없음은 보내지 않는다");
   assert.equal(sent.length, 1);
-  const maintenance = announceEmbed("maintenance", "x").toJSON();
+  const maintenance = announceEmbed(KO, "maintenance", "x").toJSON();
   assert.match(sent[0].title ?? "", /봇 다시 시작 안내$/);
   assert.match(sent[0].description ?? "", /^안정적인 서비스를 위해 봇을 다시 시작해요\./);
   assert.deepEqual([sent[0].color, sent[0].footer?.text, maintenance.title?.endsWith(announceText.titles.maintenance)], [maintenance.color, "봇 운영자", true], "색, 바닥글은 점검 공지와 같다");

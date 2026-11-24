@@ -68,20 +68,42 @@ test("청크 검사: 위치가 어긋나면 받은 위치, 선언한 크기를 �
   assert.deepEqual(await codeOf(await json("POST", "/api/admin/uploads", { purpose: "nope", size: 1 })), [400, "bad-request"]);
 });
 
-/** 원시 소켓으로 요청 하나를 본문까지 다 보내고, 같은 연결로 GET을 하나 더 보낸다. 받은 것과 연결이 끊겼는지 */
+/** 응답 두 개나 서버의 연결 닫기를 기다리는 상한(ms). 부하에서도 넉넉하고, 넘으면 멈추지 않고 실패한다 */
+const RAW_LIMIT_MS = 15_000;
+
+const CLOSING = ["drain", "end", "close"] as const;
+/** 소켓에 다시 쓸 수 있거나 서버가 연결을 닫으면 끝난다. 서버가 읽지 않고 FIN으로 닫으면 drain도 close도 오지 않고 end만 온다 */
+const writable = (socket: net.Socket) =>
+  new Promise<void>((done) => {
+    const finish = () => {
+      for (const name of CLOSING) socket.off(name, finish);
+      done();
+    };
+    for (const name of CLOSING) socket.on(name, finish);
+  });
+
+/** 원시 소켓으로 요청 하나를 본문까지 다 보내고, 같은 연결로 GET을 하나 더 보낸다. 받은 것과 연결이 끊겼는지. 상한 안에 응답 두 개도 닫힘도 없으면 실패한다 */
 async function rawTwice(head: string, body: Buffer) {
   const socket = net.connect(port, "127.0.0.1");
   await once(socket, "connect");
   let got = "";
   let error: string | null = null;
+  let timedOut = false;
+  // 서버가 응답을 보내는 쪽을 닫았다(FIN). 같은 연결로는 더 응답할 수 없다
+  let serverEnded = false;
+  const timer = setTimeout(() => ((timedOut = true), socket.destroy()), RAW_LIMIT_MS);
+  const open = () => !socket.destroyed && !serverEnded;
+  const answeredTwice = () => (got.match(/HTTP\/1\.1 /g) ?? []).length >= 2;
   socket.on("data", (d) => (got += d.toString("latin1")));
+  socket.on("end", () => (serverEnded = true));
   socket.on("error", (e: NodeJS.ErrnoException) => (error = e.code ?? e.message));
   socket.write(head);
-  for (let at = 0; at < body.length && !socket.destroyed; at += 64 * 1024) if (!socket.write(body.subarray(at, at + 64 * 1024))) await once(socket, "drain").catch(() => undefined);
-  if (!socket.destroyed) socket.write("GET /api/bot HTTP/1.1\r\nHost: x\r\n\r\n");
-  const deadline = Date.now() + 3000;
-  while (!socket.destroyed && (got.match(/HTTP\/1\.1 /g) ?? []).length < 2 && Date.now() < deadline) await new Promise((r) => setTimeout(r, 20));
+  for (let at = 0; at < body.length && open(); at += 64 * 1024) if (!socket.write(body.subarray(at, at + 64 * 1024))) await writable(socket);
+  if (open()) socket.write("GET /api/bot HTTP/1.1\r\nHost: x\r\n\r\n");
+  while (open() && !answeredTwice()) await new Promise((r) => setTimeout(r, 20));
+  clearTimeout(timer);
   socket.destroy();
+  assert.ok(!timedOut, `${RAW_LIMIT_MS / 1000}초 안에 응답 두 개도 연결 닫힘도 없다: ${got.slice(0, 200)}`);
   return { statuses: [...got.matchAll(/HTTP\/1\.1 (\d{3})/g)].map((m) => Number(m[1])), error, got };
 }
 const BODY = Buffer.alloc(1024 * 1024, 1);

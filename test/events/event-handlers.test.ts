@@ -27,6 +27,8 @@ import { frame, noticeReply, post } from "../../src/ui/frame.ts";
 import type { Notice } from "../../src/ui/text/notice.ts";
 import * as staySeats from "../../src/store/stay-seats.ts";
 import { useLoggedIn, _resetIntents } from "../../src/infra/gateway-intents.ts";
+import { textFor } from "../../src/ui/text/index.ts";
+import { asText, type LogText } from "../../src/infra/log/log-text.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "event-handlers-"));
 const audioCache = await import("../../src/store/audio-cache.ts");
@@ -34,7 +36,7 @@ audioCache._setCacheDir(path.join(TMP, "audio_cache"));
 stores.open(TMP);
 audioCache.initialize();
 
-const errors = await import("../../src/ui/text/ko/errors.ts");
+const errors = textFor("ko").errors;
 const settings = await import("../../src/store/guild-settings.ts");
 const lookup = await import("../../src/sources/lookup.ts");
 const { useDocument, useDefaultDocuments } = await import("../helpers/config-docs.ts");
@@ -287,7 +289,7 @@ test("전용 채널: 곡을 넣는다. 사용자 메시지를 1.5초 뒤 삭제�
     assert.equal(msg.deleted, true);
     assert.deepEqual(msg.sent[0].payload, post(frame({ body: "🔄 **노래 제목** 검색 중..." })));
     assert.equal(resolved[0].query, "노래 제목");
-    assert.equal(resolved[0].context, "전용채널.resolveQuery");
+    assert.equal(resolved[0].context, "bot-channel.resolveQuery");
     assert.equal(w.handled[0].who?.username, "사용자");
   } finally {
     mock.timers.reset();
@@ -326,14 +328,14 @@ test("서버에서 나가면 그 서버의 플레이어를 내리고 저장된 �
   staySeats.set("g-left", "vc1", "u1");
   await panelRecords.setPanel("g-left", "bot-channel", "m1");
   sessions().append("g-left", [{ title: "a", pageUrl: "https://y/a", requestKey: "https://y/a" }]);
-  const disposed: Array<{ reason: string; session: string }> = [];
-  const player = { dispose: async (how: { reason: string; session: string }) => void disposed.push(how) };
+  const disposed: Array<{ reason: string; event: string; session: string }> = [];
+  const player = { dispose: async (how: { reason: LogText; session: string }) => void disposed.push({ ...how, reason: asText(how.reason), event: how.reason.event }) };
   const bot = fakeBot({ players: new Map([["g-left", player]]) });
   const guild = fake<ClientEvents["guildDelete"][0]>({ id: "g-left", name: "나간 서버", channels: { cache: new Map([["bot-channel", {}]]) } });
 
   await guildDelete.execute(bot, guild);
 
-  assert.deepEqual(disposed, [{ reason: "서버에서 나감", session: "remove", end: "guild-gone" }]);
+  assert.deepEqual(disposed, [{ reason: "서버에서 나감", event: "guild.disposeGuildLeft", session: "remove", end: "guild-gone" }]);
   assert.equal(sessions().load("g-left"), null);
   assert.equal(await panelRecords.getPanel("g-left"), null);
   assert.equal(staySeats.seatOf("g-left"), null, "다시 초대해도 저절로 들어오지 않는다");

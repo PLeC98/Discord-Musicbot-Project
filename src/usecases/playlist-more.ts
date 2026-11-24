@@ -1,25 +1,18 @@
-// 재생목록 "더 넣기". 이어 불러올 위치(상태), 선택지, 메시지 수명. 화면은 ui/playlist-more-menu가 그린다.
+// 재생목록 "더 넣기". 이어 불러올 위치(상태), 선택지, 메시지 수명. 여기서는 메뉴와 결과의 모양(데이터)을 내고, 화면은 ui/playlist-more-menu가 그 독자의 언어로 그린다.
 // 상태는 메뉴의 custom_id에만 둔다(메모리 없음). 재시작해도 메뉴가 그대로 동작한다. 만료는 누를 때 메시지 나이로 다시 본다.
 
 import * as links from "../rules/links.ts";
 import { SET_BATCH as SOUNDCLOUD_BATCH } from "../sources/soundcloud/index.ts";
-import logger from "../infra/log/logger.ts";
-const log = logger.child({ category: "player" });
 import config from "../config/index.ts";
 import { roomFor as roomWithin } from "../rules/queue-room.ts";
-import { MAX_COUNT, moreChoices, type Kind, type MoreState, type More } from "../rules/more-choices.ts";
-import * as labels from "../ui/text/ko/labels.ts";
-import * as moreText from "../ui/text/ko/more.ts";
+import { MAX_COUNT, moreChoices, type Kind, type MoreState, type More, type MoreOutcome } from "../rules/more-choices.ts";
 import { markTransient } from "../ui/transient-messages.ts";
-import { canSend } from "../ui/channels.ts";
 import { LIFETIME, expireMessage, stopExpiry } from "../ui/delivery.ts";
-import { post } from "../ui/frame.ts";
-import { moreView, countModal as moreCountModal } from "../ui/playlist-more-menu.ts";
-import { messageOf } from "../rules/error-kind.ts";
+import type { CountSpec, MoreMenu, OfferSpec, ResultSpec } from "../ui/playlist-more-menu.ts";
 import { PLAYLIST_ADD_DEFAULT } from "../rules/limits.ts";
-import type { RepliableInteraction, TextBasedChannel } from "discord.js";
 import type { Player } from "../player/player.ts";
 import type { Code } from "../rules/problems.ts";
+import { isSnowflake } from "../rules/snowflake.ts";
 
 // 메뉴가 열려 있는 시간(ui/delivery의 메뉴 수명). 마지막으로 누른 뒤 이만큼 지나면 닫힌 메뉴로 본다
 const LIFETIME_MS = LIFETIME.menu;
@@ -51,7 +44,6 @@ const isKind = (kind: unknown): kind is Kind => typeof kind === "string" && Obje
 type RawState = { kind?: unknown; listId?: unknown; offset?: unknown; anchorId?: unknown; insertFirst?: unknown; requesterId?: unknown };
 /** 이어 넣은 결과. 메뉴를 다시 표시할 때 읽는 필드 */
 type MoreResult = { added: number; dropped?: number; skipped?: number; total: number | null; remaining: number; next: More | null };
-const USER_ID = /^\d{17,20}$/;
 
 // collectionId: 곡 찾기가 알려 준 목록 id(주소만으로는 모르는 출처)
 function sourceOf(query: string, collectionId?: string | null): { kind: Kind; listId: string } | null {
@@ -78,7 +70,7 @@ function validState(s: RawState | null | undefined): MoreState | null {
   const offset = Number(s.offset);
   if (!Number.isSafeInteger(offset) || offset < 0 || offset > 1_000_000) return null;
   if (!KINDS[s.kind].anchor.test(String(s.anchorId))) return null;
-  if (s.requesterId != null && !USER_ID.test(String(s.requesterId))) return null;
+  if (s.requesterId != null && !isSnowflake(String(s.requesterId))) return null;
   return { kind: s.kind, listId: String(s.listId), offset, anchorId: String(s.anchorId), insertFirst: s.insertFirst === true, requesterId: s.requesterId == null ? null : String(s.requesterId) };
 }
 
@@ -123,41 +115,39 @@ function clickError(state: MoreState, { userId, lastTouched, now = Date.now() }:
   return null;
 }
 
-/** 헤더 줄과 곡 수 메뉴. menu는 메뉴를 달았는지(자리가 없거나 상태가 custom_id에 안 들어가면 헤더 줄만) */
-function menuView(head: string, state: MoreState, { remaining, room, batch = PLAYLIST_ADD_DEFAULT }: { remaining: number; room: number; batch?: number }) {
+/** 메뉴의 모양. menu가 null이면 헤더 줄만 그린다. 자리가 없을 때(noRoom, 그렇다고 덧붙인다)와 상태가 custom_id에 들어가지 않을 때다 */
+type MenuSpec = { menu: MoreMenu | null; noRoom: boolean };
+
+function menuSpec(state: MoreState, { remaining, room, batch = PLAYLIST_ADD_DEFAULT }: { remaining: number; room: number; batch?: number }): MenuSpec {
   const { perClick } = KINDS[state.kind];
   const { cap, steps } = moreChoices({ remaining, room, batch, perClick });
-  if (cap === 0) return { view: moreView(moreText.noRoom(head), null), menu: false };
+  if (cap === 0) return { menu: null, noRoom: true };
   // 모달 ID가 한 글자 더 길다. 둘 다 100자 안이어야 한다
-  if (encodeState(MODAL_PREFIX, state).length > 100) return { view: moreView(head, null), menu: false };
-  return { view: moreView(head, { customId: encodeState(SELECT_PREFIX, state), remaining, steps, cap, all: cap >= remaining, perClick: cap === perClick }), menu: true };
+  if (encodeState(MODAL_PREFIX, state).length > 100) return { menu: null, noRoom: false };
+  return { menu: { customId: encodeState(SELECT_PREFIX, state), remaining, steps, cap, all: cap >= remaining, perClick: cap === perClick }, noRoom: false };
 }
 
-/** 처음 표시하는 메뉴 */
-function offerView(more: More, room: number) {
-  const label = labels.collection(KINDS[more.kind].collection);
-  return menuView(moreText.offered(label, more.total, more.offset), more, { remaining: more.remaining, room, batch: more.batch });
+/** 처음 표시하는 메뉴: 출처의 종류, 전체 곡 수, 넣은 데까지와 메뉴(ui/playlist-more-menu의 offerView가 그린다) */
+function offerSpec(more: More, room: number): OfferSpec {
+  return { head: { collection: KINDS[more.kind].collection, total: more.total, offset: more.offset }, ...menuSpec(more, { remaining: more.remaining, room, batch: more.batch }) };
 }
 
-/** 이어 넣은 결과의 글. 끝까지 넣었으면 그렇다고, 더 넣을 것이 남았으면 어디까지 넣었는지를 붙인다(디스코드 메뉴와 대시보드가 같이 쓴다) */
-function resultText(kind: Kind, result: MoreResult) {
-  const label = labels.collection(KINDS[kind].collection);
-  const head = moreText.added({ collection: label, added: result.added, skipped: result.skipped, dropped: result.dropped });
-  if (!result.next) return result.remaining > 0 ? head : moreText.finished(head);
-  return moreText.progressed(head, result.total, result.next.offset);
+/** 이어 넣은 결과(디스코드 메뉴와 대시보드가 각자 그린다) */
+function outcomeOf(kind: Kind, result: MoreResult): MoreOutcome {
+  return { collection: KINDS[kind].collection, added: result.added, skipped: result.skipped, dropped: result.dropped, total: result.total, remaining: result.remaining, nextOffset: result.next ? result.next.offset : null };
 }
 
-/** 이어 넣은 결과. 더 넣을 것이 있으면 메뉴를 다시 단다 */
-function resultView(state: MoreState, result: MoreResult, room: number) {
-  const text = moreText.resultMark(resultText(state.kind, result));
-  if (!result.next) return { view: moreView(text, null), menu: false };
-  return menuView(text, result.next, { remaining: result.remaining, room, batch: result.next.batch });
+/** 이어 넣은 결과와, 더 넣을 것이 있으면 다시 달 메뉴 */
+function resultSpec(state: MoreState, result: MoreResult, room: number): ResultSpec {
+  const outcome = outcomeOf(state.kind, result);
+  if (!result.next) return { outcome, menu: null, noRoom: false };
+  return { outcome, ...menuSpec(result.next, { remaining: result.remaining, room, batch: result.next.batch }) };
 }
 
-/** 곡 수를 입력하는 모달. cap은 남은 자리 */
-function countModal(state: MoreState, cap: number, batch = PLAYLIST_ADD_DEFAULT) {
+/** 곡 수를 입력하는 모달의 모양. cap은 남은 자리 */
+function countSpec(state: MoreState, cap: number, batch = PLAYLIST_ADD_DEFAULT): CountSpec {
   const max = Math.min(cap, MAX_COUNT, KINDS[state.kind].perClick);
-  return moreCountModal({ customId: encodeState(MODAL_PREFIX, state), max, suggested: Math.min(max, batch) });
+  return { customId: encodeState(MODAL_PREFIX, state), max, suggested: Math.min(max, batch) };
 }
 
 // ── 메시지 수명. 이어 넣으면 다시 센다 ──
@@ -169,35 +159,5 @@ function expireLater(messageId: string, remove: () => unknown, ms: number = LIFE
   expireMessage(messageId, remove, ms);
 }
 
-// 슬래시 명령. 본인에게만 보이는 "검색 중" 자리표시자를 메뉴로 고친다(후속 메시지는 원래 응답이 삭제되면 "메시지를 불러올 수 없어요"에 매달린다).
-// 메뉴를 표시했으면 true
-async function offerOnInteraction(interaction: RepliableInteraction, more: More, player: Player) {
-  const offer = offerView({ ...more, requesterId: interaction.user.id }, roomFor(player));
-  if (!offer.menu) return false;
-  try {
-    const message = await interaction.editReply(post(offer.view));
-    expireLater(message.id, () => interaction.deleteReply());
-    return true;
-  } catch (error) {
-    log.warn(`더 넣기 메뉴 전송 실패: ${messageOf(error)}`);
-    return false;
-  }
-}
-
-// 공개 메시지. 누를 수 있는 사람은 custom_id의 요청자로 구분한다. 표시했거나 표시할 것이 없으면 true.
-async function offerOnChannel(channel: TextBasedChannel | null | undefined, more: More, player: Player, requesterId: string, { quiet = false } = {}) {
-  const offer = offerView({ ...more, requesterId }, roomFor(player));
-  if (!offer.menu) return true;
-  if (!canSend(channel)) return false;
-  try {
-    const message = await channel.send(post(offer.view));
-    expireLater(message.id, () => message.delete());
-    return true;
-  } catch (error) {
-    if (!quiet) log.warn(`더 넣기 메뉴 전송 실패: ${messageOf(error)}`);
-    return false;
-  }
-}
-
-export { LIFETIME_MS, LOOKBACK, batchFor, SELECT_PREFIX, MODAL_PREFIX, KINDS, continuation, validState, encodeState, decodeState, roomFor, clickError, offerView, resultText, resultView, countModal, expireLater, clearExpiry, offerOnInteraction, offerOnChannel };
+export { LIFETIME_MS, LOOKBACK, batchFor, SELECT_PREFIX, MODAL_PREFIX, KINDS, continuation, validState, encodeState, decodeState, roomFor, clickError, offerSpec, outcomeOf, resultSpec, countSpec, expireLater, clearExpiry };
 export type { MoreResult };

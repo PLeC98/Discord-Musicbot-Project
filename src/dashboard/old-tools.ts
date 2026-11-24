@@ -15,6 +15,8 @@ import { ytdlpBinary } from "../sources/ytdlp-binary.ts";
 import { isYtdlpTag } from "../rules/ytdlp-tag.ts";
 import { codeOf } from "../rules/error-kind.ts";
 import { OLD_TOOLS, type OldTool, type OldToolDone, type OldToolKept, type OldToolView } from "./contract/old-tools.ts";
+import { L } from "../infra/log/text.ts";
+import { asText, type LogText } from "../infra/log/log-text.ts";
 
 /** 테스트가 교체하는 것: yt-dlp, 폴더들, 봇이 정해 둔 ffmpeg 경로(정하지 않았으면 null), 봇이 쓰는 bgutil 서버 실행 파일(설치돼 있지 않았으면 null), PATH */
 type Deps = {
@@ -222,15 +224,15 @@ async function removeOldTools(go?: () => void, d: Deps = REAL, only?: OldTool): 
   return done.filter((t) => worth(t) || t.deferred);
 }
 
-const KEPT_TEXT: Record<OldToolKept, string> = { "in-use": "사용 중", starting: "기동 중", broken: "기록 읽기 실패", "only-build": "유일한 빌드", link: "심볼릭 링크", busy: "다른 프로세스가 사용 중", failed: "삭제 실패" };
-const TOOL_TEXT: Record<OldTool, string> = { ytdlp: "yt-dlp", ffmpeg: "ffmpeg", bgutil: "bgutil", legacy: "예전 설치 위치" };
+const KEPT_TEXT: Record<OldToolKept, LogText> = { "in-use": L.dashboard.oldToolKeptInUse(), starting: L.dashboard.oldToolKeptStarting(), broken: L.dashboard.oldToolKeptBroken(), "only-build": L.dashboard.oldToolKeptOnlyBuild(), link: L.dashboard.oldToolKeptLink(), busy: L.dashboard.oldToolKeptBusy(), failed: L.dashboard.oldToolKeptFailed() };
+const TOOL_TEXT: Record<OldTool, string | LogText> = { ytdlp: "yt-dlp", ffmpeg: "ffmpeg", bgutil: "bgutil", legacy: L.dashboard.oldToolLegacy() };
 const MB = (bytes: number) => Math.round(bytes / 1024 / 1024);
 
 /** 삭제 결과를 로그 한 줄로: 도구마다 삭제한 버전과 크기, 남긴 것과 그 사유 */
-function doneLine(tools: OldToolDone[]): string {
-  const removed = tools.filter((t) => t.bytes > 0 || t.versions.length > 0).map((t) => `${TOOL_TEXT[t.tool]}${t.versions.length ? ` ${t.versions.join(", ")}` : ""}(${MB(t.bytes)}MB${t.deferred ? ", 사용 중인 폴더는 다음 정리 때 삭제" : ""})`);
-  const kept = tools.filter((t) => t.kept.length > 0).map((t) => `${TOOL_TEXT[t.tool]}(${t.kept.map((k) => KEPT_TEXT[k]).join(", ")})`);
-  return `${removed.join(", ") || "삭제한 것 없음"}${kept.length ? `. 남김: ${kept.join(", ")}` : ""}`;
+function doneLine(tools: OldToolDone[]): LogText {
+  const removed = tools.filter((t) => t.bytes > 0 || t.versions.length > 0).map((t) => asText(L.dashboard.oldToolRemoved({ tool: TOOL_TEXT[t.tool], versions: t.versions.join(", "), mb: MB(t.bytes), deferred: t.deferred })));
+  const kept = tools.filter((t) => t.kept.length > 0).map((t) => `${asText(TOOL_TEXT[t.tool])}(${t.kept.map((k) => asText(KEPT_TEXT[k])).join(", ")})`);
+  return L.dashboard.oldToolsDone({ removed: removed.join(", "), kept: kept.join(", ") });
 }
 
 export { previewOldTools, removeOldTools, doneLine };

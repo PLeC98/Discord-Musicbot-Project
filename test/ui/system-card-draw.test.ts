@@ -10,6 +10,7 @@ const series = (n: number, v: number, max: number) => ({ values: Array.from({ le
 
 function sample(over: Partial<CardData> = {}, points = 60): CardData {
   return {
+    language: "ko",
     seed: "#7289da",
     overall: { level: "ok", count: 0 },
     recent: { warn: 2, error: 0 },

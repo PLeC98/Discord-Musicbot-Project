@@ -3,6 +3,8 @@
 // 다른 테이블은 그대로 옮기고 테이블, 글꼴 체크섬을 다시 계산한다. 전자 서명(DSIG)은 고치면 맞지 않으므로 뺀다
 
 import { decompress } from "wawoff2";
+import { L } from "../src/infra/log/text.ts";
+import { logTextError } from "../src/infra/log/log-text.ts";
 
 /** OFL이 권하는 라이선스 설명(13번), 주소(14번). 서브셋마다 라이선스가 따라가게 넣는다(OFL FAQ 2.4) */
 const OFL_NAMES: Record<number, string> = {
@@ -68,7 +70,7 @@ const utf16be = (text: string) => Buffer.from(text, "utf16le").swap16();
 /** name 테이블의 번호마다 글을 바꾼 새 글꼴. 빈 글("")은 그 번호를 지운다 */
 function setNames(font: Buffer, names: Record<number, string>): Buffer {
   const tag = font.subarray(0, 4).toString("latin1");
-  if (tag === "ttcf" || tag === "wOFF" || tag === "wOF2") throw new Error(`글꼴 하나(sfnt)여야 합니다: ${tag}`);
+  if (tag === "ttcf" || tag === "wOFF" || tag === "wOF2") throw logTextError(L.build.fontNotSfnt({ tag }));
   const count = font.readUInt16BE(4);
   const tables = new Map<string, Buffer>();
   for (let i = 0; i < count; i++) {
@@ -77,7 +79,7 @@ function setNames(font: Buffer, names: Record<number, string>): Buffer {
     tables.set(font.subarray(at, at + 4).toString("latin1"), font.subarray(offset, offset + font.readUInt32BE(at + 12)));
   }
   const name = tables.get("name");
-  if (!name) throw new Error("name 테이블이 없습니다");
+  if (!name) throw logTextError(L.build.fontNameTableMissing());
   const changed = new Set(Object.keys(names).map(Number));
   const kept = readNames(name).filter((r) => !changed.has(r.id));
   const added = Object.entries(names)

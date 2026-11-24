@@ -14,6 +14,7 @@ const log = logger.child({ category: "youtube" });
 import { PROJECT } from "../infra/project-paths.ts";
 import * as secrets from "./secrets.ts";
 import { settingsDb } from "./settings-db.ts";
+import { L } from "../infra/log/text.ts";
 
 const NAME = "youtube.cookies";
 const PREFIX = "cookies-";
@@ -65,7 +66,7 @@ function release(held: { file: string; text: string; since: number | null }) {
     if (normalize(now) && normalize(now) !== normalize(held.text) && secrets.status(NAME).updatedAt === held.since) save(now);
   } catch (error) {
     // 되담지 못했으면 쿠키는 그대로다
-    if (codeOf(error) !== "ENOENT") log.warn(`yt-dlp가 갱신한 쿠키 다시 저장 실패: ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(L.youtube.refreshedCookiesSaveFailed({ error: messageOf(error) }));
   } finally {
     fs.rmSync(held.file, { force: true });
   }
@@ -78,18 +79,18 @@ function sweep() {
     left = fs.readdirSync(dir).filter((name) => name.startsWith(PREFIX));
   } catch (error) {
     // 폴더가 없으면 치울 것도 없다
-    if (codeOf(error) !== "ENOENT") log.warn(`잔류 쿠키 파일 조회 실패: ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(L.youtube.leftoverCookieFilesListFailed({ error: messageOf(error) }));
     return;
   }
   for (const name of left) fs.rmSync(path.join(dir, name), { force: true });
-  if (left.length) log.info(`이전 실행에서 남은 쿠키 파일 ${left.length}개 삭제`);
+  if (left.length) log.info(L.youtube.leftoverCookieFilesRemoved({ count: left.length }));
 }
 
 /** 옛 쿠키 파일(config/cookies.txt)이 남아 있으면 기동 시 한 줄. 읽지도 삭제하지도 않는다 */
 function warnLegacyFile(configDir = PROJECT.config) {
   const file = path.join(configDir, "cookies.txt");
   if (fs.existsSync(file) && fs.statSync(file).size > 0) {
-    log.warn("config/cookies.txt는 이제 읽지 않음. 운영자 패널의 연령 제한 탭에서 쿠키를 다시 입력하고 이 파일은 삭제하세요");
+    log.warn(L.youtube.cookiesFileIgnored());
   }
 }
 

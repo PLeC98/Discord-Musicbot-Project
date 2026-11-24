@@ -15,8 +15,10 @@ import { fake, fakePlayer } from "../helpers/fake.ts";
 import { addedView } from "../../src/ui/added-notice.ts";
 import { post } from "../../src/ui/frame.ts";
 import { textsOf } from "../helpers/cv2.ts";
+import { textFor } from "../../src/ui/text/index.ts";
+const KO = textFor("ko");
 // 추가 안내가 보인 글자(ui/added-notice)
-const addedText = (tracks: Array<{ title?: string }>, collection: string | null, insertFirst = false, notice = {}) => textsOf(post(addedView({ tracks, collection, insertFirst, notice })))[0];
+const addedText = (tracks: Array<{ title?: string }>, collection: string | null, insertFirst = false, notice = {}) => textsOf(post(addedView(KO, { tracks, collection, insertFirst, notice })))[0];
 
 const EVIL_MENTION = "@everyone 눌러줘 <@1234567890>";
 const EVIL_LINK = "[여기를 클릭](https://evil.example)";
@@ -124,6 +126,6 @@ test("now-playing 제목은 라벨에 들어가고, 라벨을 닫는 ](만 끊�
 test("/nowplaying 곡 정보: 지금 곡과 다음 곡의 제목이 라벨을 닫지 못한다", () => {
   const song = (n: number): QueuedTrack => ({ title: EVIL_LABEL, pageUrl: `https://ok.example/${n}`, requestKey: `https://ok.example/${n}`, duration: 100, platform: "youtube", thumbnail: null });
   const player = fakePlayer({ getCurrentTime: () => 0, queue: [song(2)], previousTracks: [], loop: false, paused: false, autoplay: null, pause: { heldBy: null, userPaused: false } });
-  const json = JSON.stringify(nowPlayingView(player, song(1)).toJSON());
+  const json = JSON.stringify(nowPlayingView(KO, player, song(1)).toJSON());
   assert.ok(!escapesLabel(json), json);
 });

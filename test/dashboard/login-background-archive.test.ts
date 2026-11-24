@@ -16,6 +16,8 @@ const { listenForFetch, baseUrl } = await import("../helpers/listen.ts");
 const { fake } = await import("../helpers/fake.ts");
 const { openTempStore } = await import("../helpers/temp-store.ts");
 const { unzip } = await import("../../src/infra/zip.ts");
+const { logRuleLine } = await import("../../src/rules/text/index.ts");
+type RuleProblem = import("../../src/rules/rule-problem.ts").RuleProblem;
 const { zipped } = await import("../helpers/zip.ts");
 const store = await import("../../src/dashboard/login-background/store.ts");
 const runner = await import("../../src/dashboard/login-background/runner.ts");
@@ -58,7 +60,7 @@ after(() => {
   fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 });
 });
 
-type Row = { item: string; inFile: boolean; same: boolean; problems: string[]; warnings: string[]; count: number | null };
+type Row = { item: string; inFile: boolean; same: boolean; problems: RuleProblem[]; warnings: RuleProblem[]; count: number | null };
 
 const webp = (width: number) =>
   sharp({ create: { width, height: Math.round((width * 9) / 16), channels: 3, background: { r: 30, g: 60, b: 90 } } })
@@ -105,7 +107,9 @@ async function exported() {
 async function preview(file: Buffer) {
   const res = await fetch(`${base}/preview`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ upload: await uploadVia(origin, "archive", file) }) });
   const json = (await res.json()) as { token: string; kind: string; rows: Row[]; code?: string };
-  return { status: res.status, json, row: json.rows?.[0] };
+  // 행의 문제와 경고는 로그 언어로 그려 비교한다
+  const row = json.rows?.[0];
+  return { status: res.status, json, row: row && { ...row, problems: row.problems.map(logRuleLine), warnings: row.warnings.map(logRuleLine) } };
 }
 async function imported(file: Buffer) {
   const { json } = await preview(file);

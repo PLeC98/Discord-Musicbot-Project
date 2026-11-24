@@ -14,6 +14,8 @@ import sink from "../../src/infra/log/sink.ts";
 import config from "../../src/config/index.ts";
 import { _internals as discordArt } from "../../src/ui/discord-art.ts";
 import { remember } from "../helpers/tagged-audio.ts";
+import { textFor } from "../../src/ui/text/index.ts";
+const KO = textFor("ko");
 
 // 큰 썸네일 확인은 네트워크로 나가지 않게: 모든 영상에 큰 썸네일이 있다고 응답한다
 discordArt.useHead(async () => ({ ok: true, status: 200 }));
@@ -26,7 +28,7 @@ test("점프 메뉴: 값은 대기열 ID(entry:N), 번호는 이름에만. ID가
     return entry === undefined ? track : Object.defineProperty(track, "entry", { value: entry, enumerable: false });
   };
   const a = entered("A", 7);
-  const row = await newPanels().createJumpToRow({ sessionId: "s1", queue: [a, entered("B", 3), a, entered("ID 없음")] });
+  const row = await newPanels().createJumpToRow(KO, { sessionId: "s1", queue: [a, entered("B", 3), a, entered("ID 없음")] });
   const options = row?.toJSON().components[0].options ?? [];
   assert.deepEqual(
     options.map((o) => [o.label, o.value]),
@@ -35,7 +37,7 @@ test("점프 메뉴: 값은 대기열 ID(entry:N), 번호는 이름에만. ID가
       ["2. B", "entry:3"],
     ],
   );
-  assert.equal(await newPanels().createJumpToRow({ sessionId: "s1", queue: [entered("ID 없음")] }), null);
+  assert.equal(await newPanels().createJumpToRow(KO, { sessionId: "s1", queue: [entered("ID 없음")] }), null);
 });
 
 // 디스코드는 컴포넌트 전체가 10,240바이트를 넘으면 패널째 거절한다(413). 한글은 3바이트라 긴 한글 곡이 많으면 메뉴만으로도 상한을 넘긴다
@@ -55,10 +57,10 @@ test("점프 메뉴: 앞 20곡. 크기 상한을 넘으면 설명, 그다음 항
     "길이는 줄이지 않는다",
   );
 
-  const fewer = await newPanels().createJumpToRow(player, 2000);
+  const fewer = await newPanels().createJumpToRow(KO, player, 2000);
   const kept = fewer?.toJSON().components[0].options.length ?? 0;
   assert.ok(kept > 0 && kept < 20 && componentsBytes(fewer!) <= 2000, `${kept}개`);
-  assert.equal(await newPanels().createJumpToRow(player, 100), null, "한 곡도 안 들어가면 메뉴 없이");
+  assert.equal(await newPanels().createJumpToRow(KO, player, 100), null, "한 곡도 안 들어가면 메뉴 없이");
 });
 
 // CV2 Section은 액세서리(썸네일/버튼)가 없으면 전송 시 검증에서 거부된다.
@@ -188,7 +190,7 @@ test("종료 모양: 재생 화면과 구성이 같고, 자동재생만 눌리�
   const player = panelPlayer();
   const { playing, components, files } = await withDashboardUrl("https://music.example.com", async () => ({
     playing: jsonOf(await panels.createNowPlayingContainer(player, { title: "곡", pageUrl: "https://example.org/a", requestKey: "https://example.org/a", duration: 100, platform: "youtube", thumbnail: "https://example.org/t.jpg" })),
-    ...(await panels.createIdleContainer({ reason: "stop" })),
+    ...(await panels.createIdleContainer(KO, { reason: "stop" })),
   }));
   const idle = jsonOf(components[0]);
 
@@ -213,7 +215,7 @@ test("대시보드 링크는 DASHBOARD_URL이 공개 주소이고 서버 화면�
   const draw = (url: string) =>
     withDashboardUrl(url, async () => ({
       playing: JSON.stringify((await panels.createNowPlayingContainer(panelPlayer(), track)).toJSON()),
-      idle: JSON.stringify((await panels.createIdleContainer({ reason: "stop" })).components[0].toJSON()),
+      idle: JSON.stringify((await panels.createIdleContainer(KO, { reason: "stop" })).components[0].toJSON()),
     }));
 
   const shown = await draw("https://music.example.com");
@@ -240,7 +242,7 @@ test("대시보드 링크는 DASHBOARD_URL이 공개 주소이고 서버 화면�
 
 test("종료 모양의 문구는 사유를 따른다", async () => {
   const panels = newPanels();
-  const text = async (opts: Parameters<NowPlayingPanel["createIdleContainer"]>[0]) => JSON.stringify((await panels.createIdleContainer(opts)).components[0].toJSON());
+  const text = async (opts: Parameters<NowPlayingPanel["createIdleContainer"]>[1]) => JSON.stringify((await panels.createIdleContainer(KO, opts)).components[0].toJSON());
 
   const waiting = await text({ reason: "queue-end", leavesAt: 1_600_000 });
   assert.match(waiting, /재생 대기 중/);
@@ -378,14 +380,14 @@ test("패널 내용은 웹훅으로 보내는지를 받는다: 새로 올릴 때
 
 test("24/7 자리에서 기다리는 끝난 패널은 나갈 시각 대신 자리에서 기다린다고 적는다", async () => {
   const panels = newPanels();
-  const json = JSON.stringify((await panels.createIdleContainer({ reason: "queue-end", leavesAt: null, staying: true })).components[0].toJSON());
+  const json = JSON.stringify((await panels.createIdleContainer(KO, { reason: "queue-end", leavesAt: null, staying: true })).components[0].toJSON());
   assert.match(json, /상주 모드라 나가지 않고 다음 곡을 기다려요/);
   assert.doesNotMatch(json, /쉬러 갈게요/);
 });
 
 test("/join만 했을 때: 곡을 기다리는 문구와 퇴장 시각", async () => {
   const panels = newPanels();
-  const json = JSON.stringify((await panels.createIdleContainer({ reason: "joined", leavesAt: 1_600_000 })).components[0].toJSON());
+  const json = JSON.stringify((await panels.createIdleContainer(KO, { reason: "joined", leavesAt: 1_600_000 })).components[0].toJSON());
   assert.match(json, /곡을 기다리고 있어요/);
   assert.match(json, /<t:1600:R> 쉬러 갈게요/);
 });

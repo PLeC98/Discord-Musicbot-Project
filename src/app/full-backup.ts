@@ -1,8 +1,8 @@
-// 전체 백업(봇 폴더의 명령 `pnpm run backup`). .env, 설정 DB, 파비콘, 로그인 배경을 ZIP 하나로 묶는다. 봇을 다른 폴더, 다른 기기로 옮길 때,
+// 전체 백업(봇 폴더의 명령 `pnpm run backup`). .env, 설정 DB, 사용자 데이터 DB, 파비콘, 로그인 배경을 ZIP 하나로 묶는다. 봇을 다른 폴더, 다른 기기로 옮길 때,
 // 받은 ZIP을 (봇을 끈 채) 봇 폴더에 풀어 덮어쓰면 끝난다. 평문 .env가 들어가니 대시보드에는 이 길이 없다(봇 폴더를 쓸 수 있는 사람만).
 //
 // 설정 DB는 database/settings.db가 아니라 database/settings.restore.db로 담는다. 다음 기동이 지금 것을 스냅샷으로 남기고 교체한다
-// (store/snapshots). 풀어서 settings.db를 덮으면 그 폴더에 남은 -wal이 새 파일에 얹혀 깨질 수 있다.
+// (store/snapshots). 풀어서 settings.db를 덮으면 그 폴더에 남은 -wal이 새 파일에 얹혀 깨질 수 있다. 사용자 데이터 DB(users.db)도 같은 까닭으로 users.restore.db로 담는다(store/users-db).
 // 로그인 배경은 대시보드의 로그인 배경 내보내기와 같은 것(다 만든 배경, index.json)을 저장 위치 그대로 담는다. 풀어 덮어쓰면 그 봇에 있던 배경 폴더는
 // 새 index.json에 없어 다음 기동이 치운다(배경을 한 번도 쓰지 않은 봇이면 담지 않는다). 봇이 켜져 있어도 되게 기록은 읽기만 한다(봇의 기록 읽기는 목록에 없는 폴더를 삭제하는데, 그건 켜진 봇이 업로드 받는 중인 폴더일 수 있다).
 // 오디오 캐시는 대시보드의 오디오 캐시 내보내기와 같은 ZIP을 database/audio-cache.restore.zip으로 담는다(기본은 캐시 파일 없이, withAudio면 캐시 파일까지).
@@ -25,8 +25,11 @@ import { isReady, readIndex } from "../dashboard/login-background/store.ts";
 import { exportInputs } from "../dashboard/login-background/archive.ts";
 import * as archive from "../dashboard/settings-archive.ts";
 import { cacheDb } from "../store/cache-db.ts";
+import { STAGED_USERS } from "../store/users-db.ts";
 import { dropWal } from "../store/snapshots.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
+import { L } from "../infra/log/text.ts";
+import { logTextError } from "../infra/log/log-text.ts";
 
 type PartLeft = { path: string; code: string };
 type Paths = { envFile: string; databaseDir: string; faviconDir: string; backgroundDir: string; outDir: string };
@@ -108,7 +111,7 @@ function publish(part: string, dir: string, name: string): { out: string; partLe
       }
       return { out, partLeft: removeLeftPart(part) };
     }
-    throw new Error(`백업 이름 잡기 실패: ${name}부터 ${NAME_TRIES}개가 이미 있음`);
+    throw logTextError(L.core.backupNameTaken({ name, tries: NAME_TRIES }));
   } catch (error) {
     fs.rmSync(part, { force: true });
     throw error;
@@ -151,7 +154,7 @@ async function audioBundle(databaseDir: string, withFiles: boolean): Promise<{ f
   const cache = path.join(databaseDir, "cache.db");
   if (!fs.existsSync(cache)) return null;
   const opened = cacheDb.isOpen();
-  if (opened && path.resolve(cacheDb.get().name) !== path.resolve(cache)) throw Object.assign(new Error(`다른 캐시 DB가 열려 있음: ${cacheDb.get().name}`), { code: "CACHE_DB_OPEN" });
+  if (opened && path.resolve(cacheDb.get().name) !== path.resolve(cache)) throw Object.assign(logTextError(L.core.otherCacheDbOpen({ file: cacheDb.get().name })), { code: "CACHE_DB_OPEN" });
   const copy = opened ? { file: path.join(fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-backup-")), "cache.db"), done: () => undefined } : await dbCopy(cache);
   const folder = path.dirname(copy.file);
   const done = () => {
@@ -177,14 +180,14 @@ async function audioBundle(databaseDir: string, withFiles: boolean): Promise<{ f
 }
 
 /**
- * 전체 백업 ZIP을 만든다. file: 만든 ZIP, replaced: 삭제한 이전 백업, left: 삭제하지 못한 이전 백업(다른 프로그램이 열어 둠 등), hasEnv: .env 포함 여부, favicons, backgrounds: 담은 파비콘 파일과 로그인 배경 수, audioFiles: 담은 캐시 파일 수(오디오 캐시가 없으면 null),
+ * 전체 백업 ZIP을 만든다. file: 만든 ZIP, replaced: 삭제한 이전 백업, left: 삭제하지 못한 이전 백업(다른 프로그램이 열어 둠 등), hasEnv: .env 포함 여부, users: 사용자 데이터 DB 포함 여부, favicons, backgrounds: 담은 파비콘 파일과 로그인 배경 수, audioFiles: 담은 캐시 파일 수(오디오 캐시가 없으면 null),
  * legacyParts: 남아 있는 옛 형식의 중단된 백업(쓰는 프로세스를 알 수 없어 삭제하지 않았다), tempLeft: 삭제하지 못한 임시 사본 폴더, partLeft: 삭제하지 못한 .part
  * @param withAudio  오디오 캐시 번들에 캐시 파일까지(기본은 행 목록만)
  */
 async function makeFullBackup(paths: Partial<Paths> = {}, at = new Date(), { withAudio = false }: { withAudio?: boolean } = {}) {
   const { envFile, databaseDir, faviconDir, backgroundDir, outDir } = { ...REAL, ...paths };
   const settings = path.join(databaseDir, "settings.db");
-  if (!fs.existsSync(settings)) throw Object.assign(new Error(`설정 DB 없음: ${settings}`), { code: "NO_SETTINGS_DB" });
+  if (!fs.existsSync(settings)) throw Object.assign(logTextError(L.core.settingsDbMissing({ file: settings })), { code: "NO_SETTINGS_DB" });
   const name = `musicbot-full-${stamp(at)}.zip`;
   const legacyParts = sweepParts(outDir);
   // .env는 지금 한 번 읽어 ZIP의 마지막 항목으로 넣는다(평문이 .part에 머무는 시간이 짧고, 긴 백업 도중 바뀐 파일을 뒤늦게 읽지 않는다)
@@ -199,7 +202,24 @@ async function makeFullBackup(paths: Partial<Paths> = {}, at = new Date(), { wit
     audio?.done();
     throw error;
   });
-  const inputs: ZipInput[] = [{ name: "database/settings.restore.db", file: copy.file }, { name: "database/settings.restore.db.json", data: Buffer.from(JSON.stringify({ from: `전체 백업 ${name}` })) }, ...(audio ? [{ name: `database/${archive.STAGED_AUDIO}`, file: audio.file }] : []), ...favicons.map((one) => ({ name: `database/dashboard/favicon/${one}`, file: path.join(faviconDir, one) })), ...background, ...(env ? [{ name: ".env", data: env }] : [])];
+  // 사용자 데이터 DB는 백업 시점의 사본(없으면 담지 않는다)
+  const usersFile = path.join(databaseDir, "users.db");
+  const users = fs.existsSync(usersFile)
+    ? await dbCopy(usersFile).catch((error: unknown) => {
+        audio?.done();
+        copy.done();
+        throw error;
+      })
+    : null;
+  const inputs: ZipInput[] = [
+    { name: "database/settings.restore.db", file: copy.file },
+    { name: "database/settings.restore.db.json", data: Buffer.from(JSON.stringify({ from: name })) },
+    ...(users ? [{ name: `database/${STAGED_USERS}`, file: users.file }] : []),
+    ...(audio ? [{ name: `database/${archive.STAGED_AUDIO}`, file: audio.file }] : []),
+    ...favicons.map((one) => ({ name: `database/dashboard/favicon/${one}`, file: path.join(faviconDir, one) })),
+    ...background,
+    ...(env ? [{ name: ".env", data: env }] : []),
+  ];
 
   fs.mkdirSync(outDir, { recursive: true });
   let part: string;
@@ -207,10 +227,10 @@ async function makeFullBackup(paths: Partial<Paths> = {}, at = new Date(), { wit
   try {
     part = await writeTo(path.join(outDir, name), inputs);
   } finally {
-    tempLeft = removeTemps([copy, audio]);
+    tempLeft = removeTemps([copy, users, audio]);
   }
   const { out, replaced, left, partLeft } = replaceEarlier(part, outDir, name);
-  return { file: out, replaced, left, partLeft, hasEnv, favicons: favicons.length, backgrounds: state.items.filter(isReady).length, audioFiles: audio ? audio.files : null, legacyParts, tempLeft };
+  return { file: out, replaced, left, partLeft, hasEnv, users: users !== null, favicons: favicons.length, backgrounds: state.items.filter(isReady).length, audioFiles: audio ? audio.files : null, legacyParts, tempLeft };
 }
 
 // 임시 사본을 삭제한다. 삭제하지 못해도 백업은 계속하고, 남은 폴더를 돌려준다(호출부가 알린다)

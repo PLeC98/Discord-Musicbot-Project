@@ -15,6 +15,7 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "voice" });
 import { messageOf } from "../rules/error-kind.ts";
 import { ChannelType } from "discord.js";
+import { L } from "../infra/log/text.ts";
 
 /** 우리가 쓴 값을 남겨 두는 곳 */
 type Keeper = { load(): Array<[string, string]>; save(channelId: string, status: string): void };
@@ -46,7 +47,7 @@ function mark(channelId: string | null | undefined, status: unknown) {
   try {
     keeper?.save(channelId, value);
   } catch (error) {
-    log.warn(`음성 채널 상태 저장 실패(재시작 후 이 채널의 상태를 봇이 설정한 것으로 인식하지 못함): ${messageOf(error)}`);
+    log.warn(L.voice.channelStatusSaveFailed({ error: messageOf(error) }));
   }
 }
 

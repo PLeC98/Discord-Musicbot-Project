@@ -9,6 +9,7 @@ import { roomIn } from "../infra/disk.ts";
 import logger from "../infra/log/logger.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import type { Target } from "./uploads.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "dashboard" });
 
 const PREFIX = "archive-";
@@ -61,7 +62,7 @@ function sweepUploads() {
   try {
     names = fs.readdirSync(dir);
   } catch (error) {
-    if (codeOf(error) !== "ENOENT") log.warn(`업로드된 백업 임시 파일 정리 실패: ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(L.dashboard.archiveUploadCleanupFailed({ error: messageOf(error) }));
     return;
   }
   for (const name of names) if (name.startsWith(PREFIX)) fs.rmSync(path.join(dir, name), { force: true });

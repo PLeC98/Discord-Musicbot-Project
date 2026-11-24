@@ -12,7 +12,7 @@
       >
       <template v-else-if="bgutilAsk === 'cannot'"
         ><span class="block mb-2"
-          ><BgutilNeeds v-if="restartBgutil?.missing?.length" :needs="restartBgutil.missing" /><span v-else-if="restartBgutil?.failure" class="block wrap-break-word">{{ B.failed(restartBgutil.failure.reason) }}</span
+          ><BgutilNeeds v-if="restartBgutil?.missing?.length" :needs="restartBgutil.missing" /><span v-else-if="restartBgutil?.failure" class="block wrap-break-word">{{ B.failed(ruleLine(restartBgutil.failure.reason)) }}</span
           ><span class="block mt-2">{{ B.dialog.cannotBody }}</span></span
         ></template
       >
@@ -32,6 +32,7 @@ import BaseSwitch from "./BaseSwitch.vue";
 import BgutilNeeds from "./BgutilNeeds.vue";
 import { restartPhase, restartReason, restartCounts, restartBgutil, restartNow, restartAfterInstall, cancelRestart } from "../composables/bot-restart.ts";
 import { text } from "../text/index.ts";
+import { ruleLine } from "../utils/rule-line.ts";
 import type { Job } from "../../../src/infra/process-job.ts";
 const T = text.restart;
 const B = text.bgutil;
@@ -65,9 +66,9 @@ function confirm() {
   else void restartNow(showAnnounce.value && announce.value);
 }
 // 봇 상태 탭의 작업 이름을 그대로 쓴다
-const INSTALL_NAMES: Partial<Record<Job, string>> = { "ffmpeg-install": text.status.jobs.ffmpegInstall, "bgutil-install": text.status.jobs.bgutilInstall };
+const INSTALL_NAMES = computed<Partial<Record<Job, string>>>(() => ({ "ffmpeg-install": text.status.jobs.ffmpegInstall, "bgutil-install": text.status.jobs.bgutilInstall }));
 const installName = computed(() => {
   const job = restartCounts.value?.installJob;
-  return job ? (INSTALL_NAMES[job] ?? job) : null;
+  return job ? (INSTALL_NAMES.value[job] ?? job) : null;
 });
 </script>

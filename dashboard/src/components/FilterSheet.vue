@@ -4,10 +4,10 @@
        시트 드래그: 핸들, 헤더는 늘, 내용은 맨 위에서 아래로 드래그할 때(대기열 시트와 같은 손짓) -->
   <Teleport to="body">
     <!-- 팝업: 뒤는 서서히 어두워지고 창은 가운데서 조금 커지며 나타난다 -->
-    <BaseDialog v-if="!isPhone" :open="open" width="md" padding="none" class="max-h-[calc(100dvh-2rem)] flex flex-col" :aria-label="title" @close="emit('close')">
+    <BaseDialog v-if="!isPhone" :open="open" width="md" padding="none" class="max-h-[calc(100dvh-2rem)] flex flex-col" :aria-label="title ?? text.fields.filter" @close="emit('close')">
       <header class="flex items-center gap-3 px-6 pt-5 pb-3">
         <Icon name="tune" :size="22" class="text-on-surface-variant" />
-        <h2 class="flex-1 text-lg font-semibold">{{ title }}</h2>
+        <h2 class="flex-1 text-lg font-semibold">{{ title ?? text.fields.filter }}</h2>
         <BaseButton variant="ghost" size="sm" @click="emit('reset')"><Icon name="restart_alt" :size="18" />{{ T.reset }}</BaseButton>
       </header>
       <div class="flex-1 min-h-0 overflow-y-auto px-6 pb-6 flex flex-col gap-5">
@@ -18,12 +18,12 @@
     <Transition v-else name="sheet" :duration="{ enter: 460, leave: 200 }">
       <div v-if="open" class="fixed inset-0 z-300">
         <div class="sheet-scrim absolute inset-0 bg-black/50" :style="{ opacity: scrimOpacity }" @click="emit('close')"></div>
-        <section ref="panel" role="dialog" aria-modal="true" :aria-label="title" class="sheet-panel absolute inset-x-0 bottom-0 max-h-[85dvh] flex flex-col rounded-t-2xl bg-surface-container-low shadow-[0_-2px_12px_rgb(0_0_0/0.18)]" :class="{ 'is-dragging': drag !== null, 'is-settling': settling }" :style="{ '--drag': `${drag ?? 0}px` }">
+        <section ref="panel" role="dialog" aria-modal="true" :aria-label="title ?? text.fields.filter" class="sheet-panel absolute inset-x-0 bottom-0 max-h-[85dvh] flex flex-col rounded-t-2xl bg-surface-container-low shadow-[0_-2px_12px_rgb(0_0_0/0.18)]" :class="{ 'is-dragging': drag !== null, 'is-settling': settling }" :style="{ '--drag': `${drag ?? 0}px` }">
           <div class="touch-none select-none cursor-grab active:cursor-grabbing" @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up">
             <div class="flex justify-center pt-3 pb-1"><span class="w-8 h-1 rounded-full bg-on-surface-variant/40"></span></div>
             <header class="flex items-center gap-3 px-4 h-12">
               <Icon name="tune" :size="22" class="text-on-surface-variant" />
-              <h2 class="flex-1 text-lg font-semibold">{{ title }}</h2>
+              <h2 class="flex-1 text-lg font-semibold">{{ title ?? text.fields.filter }}</h2>
               <BaseButton variant="ghost" size="sm" @pointerdown.stop @click="emit('reset')"><Icon name="restart_alt" :size="18" />{{ T.reset }}</BaseButton>
             </header>
           </div>
@@ -46,7 +46,7 @@ import { useMediaQuery } from "@vueuse/core";
 import { PHONE_QUERY } from "../utils/breakpoints.ts";
 import { text } from "../text/index.ts";
 
-const props = withDefaults(defineProps<{ open: boolean; title?: string }>(), { title: text.fields.filter });
+const props = defineProps<{ open: boolean; title?: string }>();
 const emit = defineEmits<{ close: []; reset: [] }>();
 const T = text.common;
 // 휴대폰은 바텀 시트, 그 밖은 가운데 팝업

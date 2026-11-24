@@ -5,6 +5,8 @@ import config from "../../config/index.ts";
 import { httpFor, type HttpClient } from "../../infra/http.ts";
 import { messageOf } from "../../rules/error-kind.ts";
 import logger from "../../infra/log/logger.ts";
+import { L } from "../../infra/log/text.ts";
+import { logTextError } from "../../infra/log/log-text.ts";
 const log = logger.child({ category: "autoplay" });
 
 const userAgent = () => config.userAgents.bot;
@@ -29,7 +31,7 @@ const pick = <T>(list: T[]): T | null => (list.length ? list[rand(list.length)] 
 // T: 받는 쪽이 읽는 필드만 적은 응답 모양. 검사하지 않으므로 필드는 모두 없을 수 있게 적는다
 async function getJson<T = unknown>(service: SourceService, url: string, headers: Record<string, string> = {}, timeoutMs = TIMEOUT_MS): Promise<T> {
   const res = await send(service, url, { headers: { Accept: "application/json", "User-Agent": userAgent(), ...headers }, signal: AbortSignal.timeout(timeoutMs) });
-  if (!res.ok) throw new Error(`HTTP ${res.status} (${new URL(url).host})`);
+  if (!res.ok) throw logTextError(L.net.httpStatusFrom({ status: res.status, host: new URL(url).host, detail: "" }));
   return (await res.json()) as T;
 }
 
@@ -39,7 +41,7 @@ async function probe(service: SourceService, url: string, headers: Record<string
     return await send(service, url, { headers: { Accept: "application/json", "User-Agent": userAgent(), ...headers }, signal: AbortSignal.timeout(TIMEOUT_MS) });
   } catch (error) {
     // 주소에 키가 실려 있어(Last.fm) 주소는 싣지 않는다
-    log.warn(`${service} 키 확인 요청 실패: ${messageOf(error)}`);
+    log.warn(L.autoplay.keyCheckRequestFailed({ service, error: messageOf(error) }));
     return null;
   }
 }
@@ -57,9 +59,28 @@ async function postJson<T = unknown>(service: SourceService, url: string, body: 
   if (!res.ok) {
     // 본문을 읽지 못해도 상태 오류는 그대로 던진다. 덧붙일 본문만 빠진다
     const detail = res.status === 422 ? await res.text().catch(() => "") : "";
-    throw new Error(`HTTP ${res.status} (${new URL(url).host})${detail ? `: ${detail.slice(0, 200)}` : ""}`);
+    throw logTextError(L.net.httpStatusFrom({ status: res.status, host: new URL(url).host, detail: detail.slice(0, 200) }));
   }
   return (await res.json()) as T;
+}
+
+/**
+ * GraphQL 질의(AnimeThemes, AniList). 응답의 data를 돌려준다. GraphQL은 실패해도 200에 errors를 실어 보내므로
+ * errors가 있으면 그 메시지로 예외를 던진다(200이라고 성공으로 보면 오류 없이 빈 결과가 된다). T: data에서 읽는 필드만
+ */
+async function postGraphql<T = unknown>(service: SourceService, url: string, query: string, variables: Record<string, unknown> = {}, timeoutMs = TIMEOUT_MS): Promise<T | null> {
+  const body = await postJson<{ data?: T | null; errors?: Array<{ message?: string }> } | null>(service, url, { query, variables }, timeoutMs);
+  if (body?.errors?.length)
+    throw logTextError(
+      L.net.graphqlErrors({
+        host: new URL(url).host,
+        errors: body.errors
+          .map((one) => one.message ?? "")
+          .join("; ")
+          .slice(0, 300),
+      }),
+    );
+  return body?.data ?? null;
 }
 
 // 배열 옵션은 이름 뒤에 []를 붙여야 듣는다. 안 붙이면 400도 아니고 조용히 무시된다
@@ -118,5 +139,5 @@ function remembered<T>(load: () => Promise<T | null>, { ttlMs, retryMs, waitMs }
   };
 }
 
-export { getJson, postJson, probe, pick, rand, query, remembered, useFetch };
+export { getJson, postJson, postGraphql, probe, pick, rand, query, remembered, useFetch };
 export type { SourceService };

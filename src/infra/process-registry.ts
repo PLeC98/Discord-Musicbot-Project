@@ -9,6 +9,7 @@ import { settleChild } from "./process-priority.ts";
 import { repeatingFailure } from "./repeating-failure.ts";
 import { killTrees as killTreesOf } from "./kill-tree.ts";
 import type { Job } from "./process-job.ts";
+import { L } from "./log/text.ts";
 const log = logger.child({ category: "proc" });
 
 /**
@@ -41,7 +42,7 @@ type Record = { owner: Identity; children: Array<Identity & { label: string; gro
 const active = new Map<number, Entry>();
 let hooksInstalled = false;
 let recordFile: string | null = null;
-const saveFailures = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "자식 프로세스 레지스트리 기록 파일 쓰기");
+const saveFailures = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.proc.registryFileWrite());
 
 /** 실행 파일 이름(경로, .exe를 뗀 소문자) */
 const imageOf = (file: string | undefined) =>
@@ -62,14 +63,14 @@ function save() {
     owner: SELF,
     children: [...active.values()].map((e) => ({ pid: e.pid, label: e.label, image: imageOf(e.child.spawnfile), group: e.group, startedAt: e.startedAt, startKey: e.startKey })),
   };
-  let step = "임시 파일 쓰기";
+  let step = L.proc.registryStepWrite();
   try {
     const temp = `${recordFile}.${process.pid}.tmp`;
     fs.writeFileSync(temp, JSON.stringify(record));
-    step = "이름 변경";
+    step = L.proc.registryStepRename();
     fs.renameSync(temp, recordFile);
   } catch (error) {
-    saveFailures.fail(`${recordFile} | 단계=${step} | ${messageOf(error)} (${String(codeOf(error))}) (비정상 종료 시 잔류 프로세스 정리 불가)`);
+    saveFailures.fail(L.proc.registrySaveFailed({ file: recordFile, step, error: messageOf(error), code: String(codeOf(error)) }));
     return;
   }
   saveFailures.ok();
@@ -99,7 +100,7 @@ function install() {
   hooksInstalled = true;
   process.on("exit", () => {
     const killed = killAll();
-    if (killed.length) log.warn(`종료 처리를 거치지 않고 나가며 외부 프로세스 ${killed.length}개 정리: ${killed.map(({ label, pid }) => `${label}#${pid}`).join(", ")}`);
+    if (killed.length) log.warn(L.proc.exitCleanupKilled({ count: killed.length, children: killed.map(({ label, pid }) => `${label}#${pid}`).join(", ") }));
     // 다 내렸으면 기록을 삭제한다. 내리지 못한 것이 있으면 그것만 남은 파일을 두어 다음 기동이 다시 본다
     if (recordFile && active.size === 0) fs.rmSync(recordFile, { force: true });
   });
@@ -111,7 +112,7 @@ function settlePriority(pid: number, label: string, low: boolean) {
     settleChild(pid, low);
   } catch (error) {
     if (codeOf((error as { info?: unknown }).info) === "ESRCH") return; // 자식이 이미 끝났다(Node는 시스템 오류의 코드를 info에 싣는다)
-    const line = `자식 프로세스 우선순위 설정 실패(${label}, 재생 중 소리가 잠깐 밀릴 수 있음): ${messageOf(error)}`;
+    const line = L.proc.childPriorityFailed({ label, error: messageOf(error) });
     if (priorityWarned) return void log.debug(line);
     priorityWarned = true;
     log.warn(line);
@@ -158,8 +159,8 @@ function killTrees(entries: Entry[]): { killed: Entry[]; failed: Entry[] } {
   const byPid = new Map(live.map((entry) => [entry.pid, entry]));
   const names = (pids: number[]) => pids.map((pid) => `${byPid.get(pid)?.label ?? "?"}#${pid}`).join(", ");
   const failedPids = killTreesOf(live, ({ pids, error, status, stderr }) => {
-    const why = error ? messageOf(error) : `taskkill 종료 코드 ${String(status)} · ${consoleText(stderr ?? Buffer.alloc(0)).trim()}`;
-    log.warn(`${names(pids)} 종료 실패: ${why}`);
+    const why = error ? messageOf(error) : L.proc.taskkillExit({ code: String(status), stderr: consoleText(stderr ?? Buffer.alloc(0)).trim() });
+    log.warn(L.proc.childKillFailed({ names: names(pids), why }));
   });
   const failed = live.filter((entry) => failedPids.has(entry.pid));
   return { killed: live.filter((entry) => !failedPids.has(entry.pid)), failed };
@@ -194,7 +195,7 @@ function killAll(): Array<{ label: string; pid: number }> {
     result = killTrees(entries);
   } catch (error) {
     // 종료 경로에서는 실패해도 더 할 수 있는 일이 없다. 기록은 그대로 두어 다음 기동이 다시 본다
-    log.warn(`자식 프로세스 종료 실패: ${messageOf(error)}`);
+    log.warn(L.proc.childStopFailed({ error: messageOf(error) }));
     return [];
   }
   // 내리지 못한 것만 기록에 남긴다

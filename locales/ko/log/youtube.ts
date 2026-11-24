@@ -1,0 +1,73 @@
+// 로그 문구: 유튜브(youtube 분류). 쿠키 파일 저장, 정리
+
+import { josa } from "../../../src/infra/josa.ts";
+
+const youtube = {
+  refreshedCookiesSaveFailed: ({ error }: { error: string }) => `yt-dlp가 갱신한 쿠키 다시 저장 실패: ${error}`,
+  leftoverCookieFilesListFailed: ({ error }: { error: string }) => `잔류 쿠키 파일 조회 실패: ${error}`,
+  leftoverCookieFilesRemoved: ({ count }: { count: number }) => `이전 실행에서 남은 쿠키 파일 ${count}개 삭제`,
+  cookiesFileIgnored: () => `config/cookies.txt는 이제 읽지 않음. 운영자 패널의 연령 제한 탭에서 쿠키를 다시 입력하고 이 파일은 삭제하세요`,
+  ageContentOff: ({ what }: { what: string }) => `연령 제한 콘텐츠가 꺼져 있음 (${what})`,
+  ageChannelOnly: ({ what }: { what: string }) => `음성 채널이 연령 제한 채널이 아님(${what})`,
+  ageMarkReadFailed: ({ videoId, error }: { videoId: string; error: string }) => `연령 제한 기록 읽기 실패(제한 없는 영상으로 봄) (${videoId}): ${error}`,
+  videoInfoNotJson: ({ shape }: { shape: string }) => `유튜브 영상 정보: yt-dlp 출력이 JSON 객체가 아님 | ${shape}`,
+  videoInfoGotPlaylist: ({ entries }: { entries: number }) => `유튜브 영상 정보: 단일 영상 요청에 yt-dlp가 재생목록을 반환함 | entries=${entries}`,
+  streamUrlEmpty: () => `유튜브 재생용 스트림: 빈 URL로 호출됨`,
+  streamInfoNotJson: ({ shape }: { shape: string }) => `유튜브 재생용 스트림: yt-dlp 출력이 JSON 객체가 아님 | ${shape}`,
+  fragmentUrlsUnknown: () => `세그먼트 목록의 주소가 알던 형식(포맷 주소 뒤 &sq=번호)이 아님`,
+  verifiedTitleReadFailed: ({ requestKey, error }: { requestKey: string; error: string }) => `검증된 곡 제목 DB 조회 실패(재생목록 제목 사용): ${requestKey} | ${error}`,
+  playlistInfoNotJson: ({ shape }: { shape: string }) => `유튜브 재생목록: yt-dlp 출력이 JSON 객체가 아님 | ${shape}`,
+  potPluginDirReadFailed: ({ dir, error }: { dir: string; error: string }) => `POToken 플러그인 폴더 읽기 실패: ${dir} | ${error}`,
+  allClientsExcluded: () => `지정한 클라이언트가 모두 제외됨(yt-dlp 기본값으로 진행)`,
+  queryVariantSearchFailed: ({ query, error }: { query: string; error: string }) => `개별 검색어 검색 실패(나머지 결과 사용): "${query}" | ${error}`,
+  textSearch: () => `유튜브 검색`,
+  textSearchHttpFailed: ({ status }: { status: number }) => `유튜브 검색 요청 실패: HTTP ${status}`,
+  ageRestrictedNoCookies: ({ videoId }: { videoId: string }) => `연령 제한 영상인데 쿠키가 없음 (${videoId})`,
+  staleMediaReextract: ({ target }: { target: string }) => `미디어 주소가 거절돼 다시 추출(${target})`,
+  ageMarkFailed: ({ videoId, error }: { videoId: string; error: string }) => `연령 제한 기록 실패(${videoId}): ${error}`,
+  ageRestrictedRetryCookies: ({ videoId }: { videoId: string }) => `연령 제한 감지 (${videoId})(쿠키로 재시도)`,
+  clientsExhaustedDefault: () => `지정한 클라이언트를 모두 시도함(yt-dlp 기본값으로 마지막 시도)`,
+  defaultClientFailed: ({ error }: { error: string }) => `yt-dlp 기본값 시도도 실패: ${error}`,
+  potRequiredKnown: ({ who }: { who: string }) => `${who}: POToken 요구(알려진 특성)`,
+  potRequiredUnexpected: ({ who }: { who: string }) => `${who}: POToken 요구(유튜브 정책이 바뀐 것으로 보임)`,
+  ytdlpWarning: ({ clientSuffix, line }: { clientSuffix: string; line: string }) => `yt-dlp 경고${clientSuffix}: ${line}`,
+  infoFieldTypeMismatch: ({ field, type }: { field: string; type: string }) => `yt-dlp 응답의 ${field} 필드 형식이 예상과 다름(받은 타입: ${type}). 이 필드를 제외하고 계속`,
+  authPotOn: () => `사용`,
+  authPotNotInstalled: () => `설정됨(설치 없음)`,
+  authPotOff: () => `미사용`,
+  authCookieAgeOff: () => `쓰지 않음(연령 제한 콘텐츠 꺼짐)`,
+  authCookieBrowser: ({ browser }: { browser: string }) => `브라우저 ${browser}(연령 제한 폴백 전용)`,
+  authCookieFile: () => `대시보드에 입력한 쿠키(연령 제한 폴백 전용)`,
+  authCookieFileMissing: () => `대시보드에 입력한 쿠키(아직 없음. 연령 제한 탭에서 입력하세요)`,
+  authCookieNone: () => `없음`,
+  clientExcludedFor: ({ minutes }: { minutes: number }) => `${minutes}분 동안`,
+  clientExcludedThisRun: () => `이번 실행 동안`,
+  faultNoAudioOnly: () => `오디오 전용 포맷 없음`,
+  faultPotRequired: () => `POToken 필요`,
+  faultImagesOnly: () => `재생 가능한 포맷 없음`,
+  faultFormatUnavailable: () => `요청한 포맷 없음`,
+  faultFormatFailed: () => `포맷 획득 실패`,
+  searchResultsUnread: ({ count, types }: { count: number; types: string }) => `결과 ${count}개를 읽지 못함(${types})`,
+  defaultClient: () => `기본 클라이언트`,
+  cachedInfoDownloadFailed: ({ error }: { error: string }) => `캐시된 영상 정보로 다운로드 실패(정보 추출부터 다시 시도): ${error}`,
+
+  /** clients: 설정한 클라이언트(쉼표로 이음, 없으면 null) */
+  authMode: ({ clients, pot, cookieSource }: { clients: string | null; pot: string; cookieSource: string }) => `재생 인증: 클라이언트=${clients ?? "yt-dlp 기본값"} | POToken=${pot} | 쿠키=${cookieSource}`,
+  clientsNeedPot: ({ clients }: { clients: string }) => `${clients}${josa(clients, "은")} POToken이 있어야 제대로 동작함. 유튜브 탭의 "POToken 서버 사용"을 켜거나 "유튜브 클라이언트 순서"에서 빼세요`,
+  clientsUnknown: ({ clients }: { clients: string }) => `${clients}${josa(clients, "은")} 확인된 클라이언트 목록에 없음(yt-dlp가 받아들이면 그대로 동작하고, 아니면 아래에 경고가 나옴)`,
+  clientRetest: ({ client, minutes }: { client: string; minutes: number }) => `${client}${josa(client, "을")} 다시 테스트(제외한 지 ${minutes}분)`,
+  /** until: 건너뛰는 기간, total, failed: 최근 시도 수와 실패 수 */
+  clientExcluded: ({ client, until, total, failed }: { client: string; until: string; total: number; failed: number }) => `${client}${josa(client, "을")} ${until} 건너뜀(최근 ${total}회 중 ${failed}회 실패). 계속 되풀이되면 유튜브 탭의 "유튜브 클라이언트 순서"에서 빼는 것을 검토하세요`,
+  /** next: 다음에 쓸 클라이언트(없으면 null) */
+  clientSkippedNoCookies: ({ client, next }: { client: string; next: string | null }) => `${client}${josa(client, "은")} 쿠키를 받지 않아 yt-dlp가 건너뜀${next ? `. ${next}${josa(next, "으로")} 전환` : ""}`,
+  clientFailed: ({ client, reason, next }: { client: string; reason: string; next: string | null }) => `${client} 실패 (${reason})${next ? `. ${next}${josa(next, "으로")} 전환` : ""}`,
+  noAudioOnlyFormat: ({ formatId }: { formatId: string | null }) => `오디오 전용 포맷이 없음(선택한 포맷 ${formatId ?? "모름"})`,
+  clientUnsupported: ({ client }: { client: string }) => `${client}${josa(client, "은")} 이 yt-dlp가 모르는 클라이언트임(건너뛰고 yt-dlp 기본값으로 재생). 유튜브 탭의 "유튜브 클라이언트 순서"에서 고치세요`,
+  streamNoUrl: ({ type }: { type: string | null }) => `유튜브 재생용 스트림: yt-dlp 응답에 스트림 URL이 없음 | _type=${type ?? "없음"}`,
+  /** lines: 앞의 줄들, more: 접은 줄 수 */
+  briefMoreLines: ({ lines, more }: { lines: string; more: number }) => `${lines}\n(외 ${more}줄)`,
+  infoShapeString: ({ length }: { length: number }) => `타입=string, 길이=${length}`,
+  infoShapeType: ({ type }: { type: string }) => `타입=${type}`,
+};
+
+export { youtube };

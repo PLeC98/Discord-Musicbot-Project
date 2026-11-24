@@ -23,11 +23,14 @@ import { routes as settingsPanelHandler } from "../../src/discord/interactions/s
 import { routes as searchPick } from "../../src/discord/interactions/search-pick.ts";
 import { routes as help } from "../../src/discord/interactions/help.ts";
 import { routes as queueHandler } from "../../src/discord/interactions/queue-handler.ts";
+import { routes as languageHandler } from "../../src/discord/interactions/language-handler.ts";
 import { pageModal } from "../../src/ui/queue-view.ts";
 import { homeView } from "../../src/discord/commands/help.ts";
 import { COMMANDS } from "../../src/discord/commands/index.ts";
 import { searchResultsView } from "../../src/ui/search-results.ts";
 import { selectOf } from "../helpers/cv2.ts";
+import { textFor } from "../../src/ui/text/index.ts";
+const KO = textFor("ko");
 
 useDefaultDocuments();
 const store = openTempStore("listeners-");
@@ -36,9 +39,10 @@ after(() => store.close());
 const ROOT = path.join(import.meta.dirname, "..", "..");
 // 봇은 쉬고 있다(플레이어 없음). 명령은 테스트용 하나
 const BOT = fakeBot({ commands: new Map([["probe", { data: { name: "probe" }, execute: (i: { reply(p: object): unknown }) => i.reply({ content: "ok" }) }]]) });
-const OWNERS = { autoplay, buttonHandler, panelInputs, playlistMoreHandler, settingsPanelHandler, searchPick, help, queueHandler };
+const OWNERS = { autoplay, buttonHandler, panelInputs, playlistMoreHandler, settingsPanelHandler, searchPick, help, queueHandler, languageHandler };
 
-type Kind = "button" | "select" | "roleSelect" | "modal" | "command";
+// dmSelect: DM의 문자열 메뉴(서버 밖)
+type Kind = "button" | "select" | "roleSelect" | "modal" | "command" | "dmSelect";
 const RESPONSES = ["reply", "deferReply", "deferUpdate", "update", "showModal", "followUp", "editReply"] as const;
 
 // 상호작용 하나. 응답한 방법을 적는다. 권한이 없는 평범한 사용자이고, 봇은 쉬고 있다(플레이어 없음)
@@ -48,7 +52,7 @@ function interaction(kind: Kind, customId: string, answered: string[]) {
     type: kind,
     customId,
     commandName: customId,
-    guildId: "g1",
+    guildId: kind === "dmSelect" ? null : "g1",
     guild,
     user: { id: "u1", username: "u1", bot: false },
     member: { id: "u1", guild, user: { id: "u1" }, voice: { channel: null }, roles: { cache: new Map() }, permissions: { has: () => false } },
@@ -62,15 +66,15 @@ function interaction(kind: Kind, customId: string, answered: string[]) {
     deferred: false,
     client: { user: { id: "bot", tag: "bot#0", username: "bot", displayAvatarURL: () => "https://example.invalid/a.png" }, guilds: { cache: new Collection([["g1", guild]]) } },
     isButton: () => kind === "button",
-    isStringSelectMenu: () => kind === "select",
+    isStringSelectMenu: () => kind === "select" || kind === "dmSelect",
     isRoleSelectMenu: () => kind === "roleSelect",
     isModalSubmit: () => kind === "modal",
     isChatInputCommand: () => kind === "command",
     isAutocomplete: () => false,
     isRepliable: () => true,
     isFromMessage: () => true,
-    inCachedGuild: () => true,
-    inGuild: () => true,
+    inGuild: () => kind !== "dmSelect",
+    inCachedGuild: () => kind !== "dmSelect",
   };
   for (const name of RESPONSES) {
     it[name] = async () => {
@@ -119,6 +123,9 @@ const CASES: [Kind, string, string][] = [
   ["select", "plm:ytp:PL1:10:a1:b:u1", "playlistMoreHandler"],
   ["select", "search:pick:u1", "searchPick"],
   ["select", "help:section", "help"],
+  ["select", "language:me", "languageHandler"],
+  ["select", "language:guild", "languageHandler"],
+  ["dmSelect", "language:me", "languageHandler"],
   ["button", "help:home", "help"],
   ["roleSelect", "setting:dj", "settingsPanelHandler"],
   ["modal", "panel:volume", "panelInputs"],
@@ -137,18 +144,18 @@ for (const [kind, customId, owner] of CASES) {
 // 위 목록은 글자를 적어 둔 것이라, 만드는 쪽의 custom_id가 바뀌면 모른다. 만든 것을 받는 경로가 목록의 것과 같은지 본다
 test("봇이 만드는 모달, 메뉴의 custom_id는 목록의 그 경로로 간다", async () => {
   const sameRoute = (kind: RouteKind, built: string, listed: string) => assert.equal(routeOf(ROUTES, kind, built), routeOf(ROUTES, kind, listed), built);
-  sameRoute("modal", volumeModal(80).toJSON().custom_id, "panel:volume");
-  sameRoute("modal", pageModal("edit", 2, 3).toJSON().custom_id, "queue:goto:edit:2");
-  for (const menu of [buildGenreMenu(), buildAutoplayOffMenu()]) sameRoute("select", selectOf(menu)?.custom_id ?? "", "autoplay:genre");
-  const jump = await new NowPlayingPanel(fake({}), new Map()).createJumpToRow({ sessionId: "s1", queue: [Object.defineProperty(tracks.youtube("aaaaaaaaaaa"), "entry", { value: 1, enumerable: false })] });
+  sameRoute("modal", volumeModal(KO, 80).toJSON().custom_id, "panel:volume");
+  sameRoute("modal", pageModal(KO, "edit", 2, 3).toJSON().custom_id, "queue:goto:edit:2");
+  for (const menu of [buildGenreMenu(KO), buildAutoplayOffMenu(KO)]) sameRoute("select", selectOf(menu)?.custom_id ?? "", "autoplay:genre");
+  const jump = await new NowPlayingPanel(fake({}), new Map()).createJumpToRow(KO, { sessionId: "s1", queue: [Object.defineProperty(tracks.youtube("aaaaaaaaaaa"), "entry", { value: 1, enumerable: false })] });
   sameRoute("select", jump?.toJSON().components[0].custom_id ?? "", "panel:jump:s1");
-  const results = searchResultsView({ query: "q", rows: [{ platform: "youtube", id: "aaaaaaaaaaa", title: "곡", duration: 60, pageUrl: "https://www.youtube.com/watch?v=aaaaaaaaaaa" }], gated: false, userId: "u1" });
+  const results = searchResultsView(KO, { query: "q", rows: [{ platform: "youtube", id: "aaaaaaaaaaa", title: "곡", duration: 60, pageUrl: "https://www.youtube.com/watch?v=aaaaaaaaaaa" }], gated: false, userId: "u1" });
   sameRoute("select", selectOf(results)?.custom_id ?? "", "search:pick:u1");
-  sameRoute("select", selectOf({ components: [homeView(new Map(COMMANDS.map((command) => [command.data.name, command])))] })?.custom_id ?? "", "help:section");
+  sameRoute("select", selectOf({ components: [homeView(KO, new Map(COMMANDS.map((command) => [command.name, command])))] })?.custom_id ?? "", "help:section");
 });
 
 test("볼륨 모달의 자리표시는 지금 볼륨", () => {
-  const input = (volumeModal(80).toJSON().components[0] as { components: Array<{ placeholder?: string }> }).components[0];
+  const input = (volumeModal(KO, 80).toJSON().components[0] as { components: Array<{ placeholder?: string }> }).components[0];
   assert.equal(input.placeholder, "현재 80");
 });
 

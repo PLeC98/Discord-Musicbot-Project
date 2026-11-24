@@ -3,13 +3,15 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { L } from "../../infra/log/text.ts";
+import { isLogText, type LogText } from "../../infra/log/log-text.ts";
 
 /** 받아 둔 빌드 하나. folder: vendor/ffmpeg 안의 폴더 이름, release: BtbN 릴리스 태그, asset: 에셋 이름, version: ffmpeg -version이 출력한 버전 */
 type FfmpegBuild = { folder: string; release: string; asset: string; sha256: string; version: string };
 /** active: 쓰는 빌드, previous: 이전 빌드(active가 실행되지 않으면 이것으로 뜬다), rejected: 이 환경에서 실행되지 않은 릴리스, pin: 고정한 릴리스(없으면 코드의 기본값) */
 type FfmpegState = { active: FfmpegBuild | null; previous: FfmpegBuild | null; rejected: string[]; pin: string | null };
 /** none: 기록이 없다(받은 적 없음), broken: 읽지 못했다(error는 원인) */
-type ReadState = { kind: "ok"; state: FfmpegState } | { kind: "none" } | { kind: "broken"; error: string };
+type ReadState = { kind: "ok"; state: FfmpegState } | { kind: "none" } | { kind: "broken"; error: string | LogText };
 
 const STATE_FILE = "state.json";
 const EMPTY: FfmpegState = { active: null, previous: null, rejected: [], pin: null };
@@ -34,21 +36,21 @@ function readState(dir: string): ReadState {
   }
   try {
     const parsed = parseState(JSON.parse(raw) as Partial<Record<keyof FfmpegState, unknown>>);
-    return typeof parsed === "string" ? { kind: "broken", error: parsed } : { kind: "ok", state: parsed };
+    return isLogText(parsed) ? { kind: "broken", error: parsed } : { kind: "ok", state: parsed };
   } catch (error) {
     return { kind: "broken", error: String((error as Error).message) };
   }
 }
 
 /** 읽은 JSON의 형식을 검사한다. 올바르지 않으면 그 사유 */
-function parseState(data: Partial<Record<keyof FfmpegState, unknown>>): FfmpegState | string {
+function parseState(data: Partial<Record<keyof FfmpegState, unknown>>): FfmpegState | LogText {
   const active = data.active ?? null;
   const previous = data.previous ?? null;
   const rejected = data.rejected ?? [];
   const pin = data.pin ?? null;
-  if ((active !== null && !isBuild(active)) || (previous !== null && !isBuild(previous))) return "빌드 기록 형식이 올바르지 않음";
-  if (!Array.isArray(rejected) || !rejected.every((r) => typeof r === "string" && isReleaseTag(r))) return "물린 릴리스 목록 형식이 올바르지 않음";
-  if (pin !== null && !(typeof pin === "string" && isReleaseTag(pin))) return "고정 형식이 올바르지 않음";
+  if ((active !== null && !isBuild(active)) || (previous !== null && !isBuild(previous))) return L.ffmpeg.stateBuildInvalid();
+  if (!Array.isArray(rejected) || !rejected.every((r) => typeof r === "string" && isReleaseTag(r))) return L.ffmpeg.stateRejectedInvalid();
+  if (pin !== null && !(typeof pin === "string" && isReleaseTag(pin))) return L.ffmpeg.statePinInvalid();
   return { active, previous, rejected, pin };
 }
 

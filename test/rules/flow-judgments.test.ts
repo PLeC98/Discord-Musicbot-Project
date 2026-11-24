@@ -79,12 +79,12 @@ test("codeOf, messageOf: 무엇이 예외로 던져져도 읽는다", () => {
   assert.equal(messageOf("그냥 글"), "그냥 글");
   // 글이 비면 무슨 오류인지 알 수 있는 다음 것으로
   assert.equal(messageOf(Object.assign(new Error(""), { name: "AbortError" })), "AbortError");
-  assert.equal(messageOf(Object.assign(new Error(""), { code: "EPIPE" })), "오류 코드 EPIPE");
-  assert.equal(describeError(Object.assign(new Error(""), { code: "EPIPE" })), "오류 코드 EPIPE", "코드를 두 번 싣지 않는다");
-  assert.match(messageOf(new Error("")), /^메시지 없는 Error \(at .+\)$/, "예외를 던진 자리");
+  assert.equal(messageOf(Object.assign(new Error(""), { code: "EPIPE" })), "EPIPE");
+  assert.equal(describeError(Object.assign(new Error(""), { code: "EPIPE" })), "EPIPE", "코드를 두 번 싣지 않는다");
+  assert.match(messageOf(new Error("")), /^Error \(at .+\)$/, "예외를 던진 자리");
   assert.equal(messageOf({ status: 500, reason: "busy" }), '{"status":500,"reason":"busy"}');
   const circular: Record<string, unknown> = {};
   circular.self = circular;
-  assert.equal(messageOf(circular), "메시지 없는 Object");
-  assert.equal(messageOf(undefined), "던진 값: undefined");
+  assert.equal(messageOf(circular), "Object");
+  assert.equal(messageOf(undefined), "undefined");
 });

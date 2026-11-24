@@ -1,5 +1,6 @@
 // src/rules/line-format.ts: 후보 줄 형식, 프롬프트의 자리표시자. 봇과 대시보드가 같은 해석기로 줄을 만든다
 
+import { logRuleLine } from "../../src/rules/text/index.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { LINE_NAMES, PROMPT_NAMES, formatDuration, parseFormat, renderNodes, usesName, type Values } from "../../src/rules/line-format.ts";
@@ -47,7 +48,7 @@ test("길이 형식: h 시간, m 전체 분, mm 남은 분, s 전체 초, ss 남
 test("옛 한글 이름은 새 이름을 알려 주고, 모르는 이름은 그대로 남긴다", () => {
   const { nodes, problems } = parseFormat("{{번호}}. {{길이분}}분 {{titel}} {{제목}}", LINE_NAMES);
   assert.deepEqual(
-    problems.map((one) => one.message),
+    problems.map((one) => logRuleLine(one.rule)),
     ["이름이 바뀌었어요: {{번호}} → {{index}}", "이름이 바뀌었어요: {{길이분}} → {{duration::m}}", "모르는 이름이에요({{titel}}). 쓸 수 있는 것: {{index}}, {{genre}}, {{title}}, {{duration}}", "이름이 바뀌었어요: {{제목}} → {{title}}"],
   );
   assert.equal(problems[0].at, 0);
@@ -56,7 +57,7 @@ test("옛 한글 이름은 새 이름을 알려 주고, 모르는 이름은 그�
 });
 
 test("블록 문제는 위치와 함께: 닫히지 않음, 짝 없는 닫기, else 둘, 모르는 블록, 볼 값 없음", () => {
-  const messages = (format: string) => parseFormat(format, LINE_NAMES).problems.map((one) => [one.at, one.message.split(".")[0]]);
+  const messages = (format: string) => parseFormat(format, LINE_NAMES).problems.map((one) => [one.at, logRuleLine(one.rule).split(".")[0]]);
   assert.deepEqual(messages("a {{#if-exist {{duration}}}}b"), [[2, "#if-exist 블록을 닫는 {{/}}가 없어요"]]);
   assert.deepEqual(messages("a{{/}}"), [[1, "닫을 블록이 없는데 {{/}}가 있어요"]]);
   assert.deepEqual(messages("{{#if-exist {{genre}}}}a{{:else}}b{{:else}}c{{/}}"), [[34, "{{:else}}가 한 블록에 두 개 있어요"]]);
@@ -71,7 +72,8 @@ test("블록 문제는 위치와 함께: 닫히지 않음, 짝 없는 닫기, el
 
 test("겹친 값 안의 문제 위치도 원래 글 기준", () => {
   const { problems } = parseFormat("ab {{#if-exist {{길이초}}}}x{{/}}", LINE_NAMES);
-  assert.deepEqual(problems, [{ at: 15, end: 22, message: "이름이 바뀌었어요: {{길이초}} → {{duration::s}}" }], "end는 그 태그 끝");
+  assert.deepEqual(problems, [{ at: 15, end: 22, rule: { code: "format-renamed", params: { name: "길이초", now: "{{duration::s}}" } } }], "end는 그 태그 끝");
+  assert.equal(logRuleLine(problems[0]!.rule), "이름이 바뀌었어요: {{길이초}} → {{duration::s}}");
 });
 
 test("이름이 어딘가에 있는가(필수 이름, 목록 위치 검사)", () => {

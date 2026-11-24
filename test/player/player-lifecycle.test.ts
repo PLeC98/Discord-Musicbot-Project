@@ -34,6 +34,7 @@ import { withConfig } from "../helpers/config.ts";
 import { useDefaultDocuments } from "../helpers/config-docs.ts";
 import { textOf } from "../helpers/cv2.ts";
 import { codedError } from "../../src/rules/error-kind.ts";
+import { testText } from "../helpers/log-text.ts";
 
 useDefaultDocuments();
 
@@ -305,7 +306,7 @@ test("패킷 공급이 끊겨 멈추면 입력 종류, 입력이 끊긴 시간, 
   h.reset();
   const q = h.makePlayer();
   starved(q, cached("e2eeeeeeeee"), 30_000);
-  Object.assign(q.playback ?? {}, { input: { kind: "캐시 전환", detail: () => null }, inputProgressAt: Date.now() - 300_000 });
+  Object.assign(q.playback ?? {}, { input: { kind: "캐시 전환", cacheSwitch: true, detail: () => null }, inputProgressAt: Date.now() - 300_000 });
   const from2 = sink.buffer.length;
   await q.onTrackEnd("idle");
   h.dispose(q);
@@ -472,7 +473,7 @@ test("끊긴 라이브를 다시 열다 환경 탓(망이 끊김)으로 실패�
   p.queue = [next];
   embeds(p);
   behavior.stream = () => {
-    throw codedError("network-error", "망이 끊김");
+    throw codedError("network-error", testText("망이 끊김"));
   };
 
   await p.onTrackEnd("idle");
@@ -488,7 +489,7 @@ test("끊긴 라이브를 다시 열다 환경 탓(망이 끊김)으로 실패�
   q.queue = [after];
   embeds(q);
   behavior.stream = () => {
-    throw codedError("network-error", "망이 끊김");
+    throw codedError("network-error", testText("망이 끊김"));
   };
   await q.onTrackEnd("idle");
   h.dispose(q);
@@ -529,7 +530,7 @@ test("끊긴 라이브 HLS(직접 링크)를 다시 열었는데 목록이 끝�
   const asked: Array<{ liveOnly?: boolean } | undefined> = [];
   behavior.directStream = (_url, opts) => {
     asked.push(opts);
-    throw codedError("live-ended", "라이브 HLS의 목록이 끝났습니다");
+    throw codedError("live-ended", testText("라이브 HLS의 목록이 끝났습니다"));
   };
   const from = sink.buffer.length;
 
@@ -559,7 +560,7 @@ test("라이브로 담은 HLS를 처음 틀 때(세션 복원도 같다) 목록�
   const asked: Array<{ liveOnly?: boolean } | undefined> = [];
   behavior.directStream = (_url, opts) => {
     asked.push(opts);
-    throw codedError("live-ended", "라이브 HLS의 목록이 끝났습니다");
+    throw codedError("live-ended", testText("라이브 HLS의 목록이 끝났습니다"));
   };
   const sent = calls.sent.length;
   const from = sink.buffer.length;
@@ -587,7 +588,7 @@ test("틀 차례에 아직 시작하지 않은 라이브면 알리고 다음 곡
   p.queue = [next];
   embeds(p);
   behavior.stream = () => {
-    throw codedError("live-upcoming", "This live event will begin in 3 days.");
+    throw codedError("live-upcoming", testText("This live event will begin in 3 days."));
   };
   const sent = calls.sent.length;
   const from = sink.buffer.length;
@@ -811,7 +812,7 @@ test("버리기(세션 삭제): 대기열, 현재 곡, 기록을 비우고 세�
   p.pause.setUser(true);
 
   const from = sink.buffer.length;
-  await p.dispose({ reason: "정지", session: "remove", end: "stop" });
+  await p.dispose({ reason: testText("정지"), session: "remove", end: "stop" });
   h.dispose(p);
 
   assert.equal(p.currentTrack, null);
@@ -836,7 +837,7 @@ test("버리기(세션 저장): 먼저 저장하고, 똑같이 비우고 끊되 
   p.currentTrack = yt("ttttttttttt");
   p.queue = [yt("uuuuuuuuuuu")];
 
-  await p.dispose({ reason: "나가며 저장", session: "save", end: "stop" });
+  await p.dispose({ reason: testText("나가며 저장"), session: "save", end: "stop" });
   h.dispose(p);
 
   assert.deepEqual(calls.persists, ["leave"]);
@@ -857,7 +858,7 @@ test("버리기: 연결을 부수고 플레이어가 쥔 것(패널 참조 포�
   p.currentTrack = yt("vvvvvvvvvvv");
   p.previousTracks = [yt("wwwwwwwwwww")];
 
-  await p.dispose({ reason: "시험", session: "remove", end: "stop" });
+  await p.dispose({ reason: testText("시험"), session: "remove", end: "stop" });
   h.dispose(p);
 
   assert.equal(destroyed, 1);
@@ -876,7 +877,7 @@ test("버리면 타이머와 함께 대기열 미리 다운로드, 세션 동기
   const stopped: string[] = [];
   p.warmer.stop = () => void stopped.push("warmer");
   p.persistence.stopPeriodicSave = () => void stopped.push("sync");
-  await p.dispose({ reason: "시험", session: "keep", end: "stop" });
+  await p.dispose({ reason: testText("시험"), session: "keep", end: "stop" });
   const atDispose = [...stopped].sort();
   h.dispose(p);
   assert.deepEqual(atDispose, ["sync", "warmer"]);
@@ -887,8 +888,8 @@ test("버리기는 한 번만 한다. 두 번째 부름은 아무것도 하지 �
   const seen = embeds(p);
   p.currentTrack = yt("aaaaaaaaaaa");
 
-  await p.dispose({ reason: "첫째", session: "remove", panel: "stop", end: "stop" });
-  await p.dispose({ reason: "둘째", session: "save", panel: "leave", end: "stop" });
+  await p.dispose({ reason: testText("첫째"), session: "remove", panel: "stop", end: "stop" });
+  await p.dispose({ reason: testText("둘째"), session: "save", panel: "leave", end: "stop" });
   h.dispose(p);
 
   assert.deepEqual(calls.persists, ["remove"]);
@@ -900,7 +901,7 @@ test("버리기(세션 그대로): 저장도 삭제도 하지 않는다. 따로 
   const p = h.makePlayer();
   p.currentTrack = yt("bbbbbbbbbbb");
 
-  await p.dispose({ reason: "교체", session: "keep", end: "stop" });
+  await p.dispose({ reason: testText("교체"), session: "keep", end: "stop" });
   h.dispose(p);
 
   assert.deepEqual(calls.persists, []);
@@ -916,7 +917,7 @@ test("버리기(세션 그대로): 메모리를 비워도 저장된 곡 행은 �
   trackState.setCurrent(p, yt("kkkkkkkkkk1"));
   trackState.enqueue(p, [yt("kkkkkkkkkk2")]);
 
-  await p.dispose({ reason: "음성 채널 접속 실패", session: "keep", end: "stop" });
+  await p.dispose({ reason: testText("음성 채널 접속 실패"), session: "keep", end: "stop" });
   h.dispose(p);
 
   const left = sessions().load("gkeep");
@@ -934,7 +935,7 @@ test("끝난 패널은 정리가 끝난 뒤, 패널 참조를 놓기 전에 고�
     throw new Error("패널 고치기 실패");
   });
   try {
-    await p.dispose({ reason: "시험", session: "remove", panel: "disconnected", end: "stop" });
+    await p.dispose({ reason: testText("시험"), session: "remove", panel: "disconnected", end: "stop" });
   } finally {
     off();
     h.dispose(p);
@@ -952,7 +953,7 @@ test("플레이어를 버린 원인(end)을 끝난 패널 알림에 같이 넘�
     if (q === p) seen.push([reason, cause]);
   });
   try {
-    await p.dispose({ reason: "시험", session: "remove", panel: "disconnected", end: "alone-timeout" });
+    await p.dispose({ reason: testText("시험"), session: "remove", panel: "disconnected", end: "alone-timeout" });
   } finally {
     off();
     h.dispose(p);
@@ -1362,7 +1363,7 @@ function networkDown() {
 // 이 곡만 안 되는 실패(영상이 내려감)
 function removedVideo() {
   behavior.stream = () => {
-    throw codedError("unavailable-contents", "영상이 내려갔습니다");
+    throw codedError("unavailable-contents", testText("영상이 내려갔습니다"));
   };
 }
 
@@ -1429,7 +1430,7 @@ test("원인 모를 실패만 센다: 모름, 곡 탓, 모름, 곡 탓, 모름�
   const list = ids.map((id) => yt(id));
   const trackFailures = new Set([ids[1], ids[3]]);
   behavior.stream = (track) => {
-    if (trackFailures.has(String(track.id))) throw codedError("unavailable-contents", "영상이 내려갔습니다");
+    if (trackFailures.has(String(track.id))) throw codedError("unavailable-contents", testText("영상이 내려갔습니다"));
     return { url: "https://media.test/dead", duration: 2 * 3600 };
   };
   behavior.fetch = () => {
@@ -1588,7 +1589,7 @@ test("일시정지해 둔 동안은 자동재생 곡을 미리 고르지 않는�
 test("음성에 붙지 못하면 play는 넘기거나 세지 않고 voice-failed를 돌려주고, 세션을 남긴 채 플레이어를 버린다. 음성 복구 중이면 붙지 않는다", async () => {
   const p = h.makePlayer({ connected: false });
   behavior.connect = () => {
-    throw codedError("voice-failed", "음성 채널에 붙지 못했습니다");
+    throw codedError("voice-failed", testText("음성 채널에 붙지 못했습니다"));
   };
   p.currentTrack = yt("c1ccccccccc");
   p.queue = [yt("c2ccccccccc")];
@@ -1965,12 +1966,12 @@ test("오디오 플레이어의 전이는 누가 쏘든 이 서버의 문맥에�
 test("버리기: stay면 음성 채널에 남긴 채 연결만 정리하고(서버 하나 다시 시작), 아니면 나간다", async () => {
   const stay = h.makePlayer();
   const kept = stay.connection as unknown as { destroyed: string[] };
-  await stay.dispose({ reason: "시험", session: "keep", stay: true, end: "stop" });
+  await stay.dispose({ reason: testText("시험"), session: "keep", stay: true, end: "stop" });
   assert.deepEqual(kept.destroyed, ["stay"]);
 
   const leave = h.makePlayer();
   const left = leave.connection as unknown as { destroyed: string[] };
-  await leave.dispose({ reason: "시험", session: "keep", end: "stop" });
+  await leave.dispose({ reason: testText("시험"), session: "keep", end: "stop" });
   assert.deepEqual(left.destroyed, ["leave"]);
 });
 
@@ -2229,7 +2230,7 @@ test("휴면 타이머: 일시정지한 채 새 곡을 열면 그 곡을 연 때
   p.skip();
   await endNow(p);
   assert.ok(p._restTimer && p._restTimer !== first, "새 곡을 연 때부터");
-  await p.dispose({ reason: "시험", session: "keep", end: "stop" });
+  await p.dispose({ reason: testText("시험"), session: "keep", end: "stop" });
   assert.equal(p._restTimer, null);
   h.dispose(p);
 });
@@ -2392,7 +2393,7 @@ test("여는 중 이전 곡을 눌렀는데 열지 못해 일시정지해 뒀으
 test("종료 중이라 음성에 붙지 않았으면 play는 bot-shutting-down을 돌려주고 곡을 그대로 둔다(알리지도, 실패로 세지도, 넘기지도, 정리하지도 않는다)", async () => {
   const p = h.makePlayer({ connected: false });
   behavior.connect = () => {
-    throw codedError("bot-shutting-down", "종료 중");
+    throw codedError("bot-shutting-down", testText("종료 중"));
   };
   p.currentTrack = yt("c1ccccccccc");
   p.queue = [yt("c2ccccccccc")];

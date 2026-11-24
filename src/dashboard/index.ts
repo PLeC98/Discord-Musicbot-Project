@@ -1,7 +1,6 @@
 import config from "../config/index.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
-import crypto from "crypto";
 import express, { type Express as App, type RequestHandler, type Response } from "express";
 import type { BotContext } from "../app/bot-context.ts";
 import session from "express-session";
@@ -14,6 +13,7 @@ import { bodyLimit, closeOnUnreadBody, continueBody } from "./body-limit.ts";
 import { SqliteSessionStore } from "./session-store.ts";
 import { dropDuplicateCookie, sessionCookieName } from "./cookies.ts";
 import * as sessionRequests from "./session-requests.ts";
+import { onOperatorsChanged } from "../usecases/app-owners.ts";
 import { requireSameAccount } from "./middleware/same-account.ts";
 import { issueCsrfToken, requireCsrfToken } from "./middleware/csrf.ts";
 import { securityHeaders } from "./middleware/security-headers.ts";
@@ -30,6 +30,8 @@ import { ADMIN_MOUNTS } from "./routes/admin-mounts.ts";
 import { requireOwner } from "./middleware/require-owner.ts";
 import * as aiLogStream from "./ai-log-stream.ts";
 import * as aiRequests from "../store/ai-requests.ts";
+import { sessionSecret } from "../store/secrets.ts";
+import { startClientSecretCheck } from "./client-secret-check.ts";
 import { onTunablesChanged } from "../config/tunables-changed.ts";
 import { createGuildsRouter } from "./routes/guilds.ts";
 import { identityRouter } from "./routes/identity.ts";
@@ -57,25 +59,15 @@ import { warnGate } from "./warn-gate.ts";
 import { browserSide, strictTransport } from "./browser-side.ts";
 import { hostCheck } from "./host-check.ts";
 import { checkPublicUrl, plaintextGate, siblingCookieNote } from "./plaintext.ts";
+import { htmlPage } from "./html-page.ts";
 import { bindLine, bindNotes, inContainer, planBind, reachableAddresses, scopeOf, widenedNote, type BindPlan } from "./bind-plan.ts";
 import { isLoopbackName } from "../rules/net-address.ts";
 import { checkTls, findTlsFiles, rotateTicketKeys, tlsOptions, watchExpiry, worldReadable, type TlsFiles } from "./tls-files.ts";
+import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
 
 /** 조립이 넘기는 것. sessionMiddleware, clientDist(빌드한 화면)는 테스트가 바꿔 넘긴다 */
 type AppDeps = { stream: PlayerStream; deployCommands: Express.Locals["deployCommands"]; restart?: Express.Locals["restart"]; sessionMiddleware?: RequestHandler; clientDist?: string };
-
-// 세션 비밀: .env의 SESSION_SECRET이 표준 경로. 미설정이면 랜덤 폴백.
-// 보안은 유지되지만(추측 불가) 다시 시작할 때마다 쿠키 서명이 무효화되어 대시보드 로그인이 풀린다.
-function resolveSessionSecret() {
-  if (config.dashboard.sessionSecret) {
-    if (config.dashboard.sessionSecret.length < 32) {
-      log.warn("SESSION_SECRET이 너무 짧음(32자 미만). 64자 이상 랜덤 문자열로 바꾸세요");
-    }
-    return config.dashboard.sessionSecret;
-  }
-  log.warn("SESSION_SECRET 없음(랜덤 값 사용). 봇을 다시 시작할 때마다 대시보드 로그인이 모두 풀림");
-  return crypto.randomBytes(32).toString("hex");
-}
 
 /** 신뢰하는 프록시를 설정한다(dashboard/client-ip). 내부 주소는 자동으로, 공인 IP의 원격 프록시는 DASHBOARD_TRUST_PROXY로 신뢰한다. 거부한 값과 필요 없는 값은 기동 로그용으로 돌려준다 */
 function applyTrustProxy(app: App, value: string) {
@@ -86,13 +78,12 @@ function applyTrustProxy(app: App, value: string) {
 
 /** 신뢰하는 프록시 설정 결과의 기동 로그 */
 function logTrustProxy({ accepted, inside, rejected }: Pick<ReturnType<typeof trustProxy>, "accepted" | "inside" | "rejected">) {
-  if (rejected.length) log.warn(`DASHBOARD_TRUST_PROXY에서 유효하지 않은 값 제외: ${rejected.join(", ")}. 공인 IP의 프록시만 IP나 CIDR로 지정하세요(모든 주소를 신뢰하는 값은 허용하지 않음).`);
-  if (inside.length) log.info(`기본으로 신뢰하는 내부 주소는 DASHBOARD_TRUST_PROXY에서 생략해도 됨(loopback, 사설망, 이 기기의 주소): ${inside.join(", ")}`);
-  if (accepted.length) log.info(`신뢰하는 원격 프록시: ${accepted.join(", ")}`);
+  if (rejected.length) log.warn(L.dashboard.trustProxyRejected({ values: rejected.join(", ") }));
+  if (inside.length) log.info(L.dashboard.trustProxyInsideRedundant({ addresses: inside.join(", ") }));
+  if (accepted.length) log.info(L.dashboard.trustProxyAccepted({ proxies: accepted.join(", ") }));
 }
 
-// 로그인 세션. SQLite 영속 스토어라 다시 시작해도 로그인이 유지된다(SESSION_SECRET이 .env에 고정일 때.
-// 랜덤 폴백이면 쿠키 서명이 무효화되어 어차피 풀림. resolveSessionSecret 경고 참조).
+// 로그인 세션. SQLite 영속 스토어이고 서명 비밀(store/secrets의 sessionSecret)은 SECRETS_KEY에서 파생하므로 다시 시작해도 로그인이 유지된다.
 // 쿠키 이름은 요청마다 다르다: HTTPS면 __Host- 이름을 쓴다(dashboard/cookies). express-session은 미들웨어당 이름을 하나만 받으므로 같은 저장소를 공유하는 미들웨어 둘을 만들어 선택한다.
 // 두 미들웨어의 설정은 이름 외에는 같아야 한다: express-session은 생성할 때마다 저장소의 세션 생성 함수(generate)를 덮어쓰므로 나중에 만든 쪽의 쿠키 설정이 모든 요청에 적용된다.
 // 세션을 만들 때 쿠키의 Secure와 createdOverHttps를 브라우저 쪽 판정(req.secure, dashboard/browser-side)으로 정한다. 쿠키 이름과 같은 판정이다
@@ -100,7 +91,7 @@ function logTrustProxy({ accepted, inside, rejected }: Pick<ReturnType<typeof tr
 // 다른 쪽 이름으로 온 세션은 받지 않는다: 평문에서 가로챈 세션 id를 __Host- 이름으로 HTTPS 요청에 보내지 못한다.
 // 받지 않은 세션은 저장소에서 삭제하고 새 세션으로 바꾼다(가로챈 id라면 원래 브라우저의 로그인도 끝난다). 이 값이 없는 세션은 평문으로 만든 것으로 본다
 // store, secret은 테스트에서 넘긴다(임시 DB). 생략하면 로그인 세션 DB와 설정의 비밀값을 쓴다
-function createSessionMiddleware({ store = new SqliteSessionStore(), secret = resolveSessionSecret() }: { store?: SqliteSessionStore; secret?: string } = {}): RequestHandler {
+function createSessionMiddleware({ store = new SqliteSessionStore(), secret = sessionSecret() }: { store?: SqliteSessionStore; secret?: string } = {}): RequestHandler {
   const options = {
     secret,
     store,
@@ -129,13 +120,13 @@ function createSessionMiddleware({ store = new SqliteSessionStore(), secret = re
   return (req, res, next) => {
     if (dropDuplicateCookie(req, sessionCookieName(req.secure))) {
       const verdict = duplicates(clientIp(req));
-      if (verdict === "warn") log.warn(`같은 이름의 로그인 세션 쿠키가 여러 개라 받지 않음(${clientIp(req)}). 같은 상위 도메인의 다른 사이트가 심은 쿠키일 수 있음. 대시보드를 HTTPS로 열어야 함`);
-      else if (verdict === "cap") log.warn("같은 이름의 로그인 세션 쿠키가 여러 개인 요청이 많아 1시간 동안 더는 로그에 남기지 않음(쿠키는 계속 받지 않음)");
+      if (verdict === "warn") log.warn(L.dashboard.duplicateSessionCookie({ ip: clientIp(req) }));
+      else if (verdict === "cap") log.warn(L.dashboard.duplicateSessionCookieMuted());
     }
     return (req.secure ? secure : plain)(req, res, (err?: unknown) => {
       if (err || !req.session || (req.session.createdOverHttps === true) === req.secure) return next(err);
-      const how = req.secure ? "평문에서 만든 세션이 HTTPS 요청으로" : "HTTPS에서 만든 세션이 평문 요청으로";
-      log.info(`${how} 와서 받지 않고 삭제(사용자 ${req.session.user?.id ?? "없음"})`);
+      const how = req.secure ? L.dashboard.sessionPlainToHttps() : L.dashboard.sessionHttpsToPlain();
+      log.info(L.dashboard.sessionSchemeDropped({ how, user: req.session.user?.id ?? null }));
       req.session.regenerate((e) => next(e));
     });
   };
@@ -199,7 +190,7 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   app.use(express.static(clientDist, { setHeaders: cacheAssets }));
   app.get("/{*path}", (req, res, next) => {
     if (COUNTED_LATER.test(req.path)) return next();
-    if (!fs.existsSync(indexHtml)) return res.send("<h2>대시보드 화면이 빌드되지 않았어요.<br>봇 폴더에서 <code>pnpm run build:dashboard</code> 를 실행한 뒤 새로고침하세요.</h2>");
+    if (!fs.existsSync(indexHtml)) return res.type("html").send(htmlPage(req, (T) => T.pages.notBuilt));
     res.sendFile(indexHtml, { headers: { "Cache-Control": "no-cache" } });
   });
 
@@ -275,7 +266,7 @@ function readScope(file: string): string | null {
     const saved = JSON.parse(fs.readFileSync(file, "utf8")) as { scope?: unknown };
     return typeof saved.scope === "string" ? saved.scope : null;
   } catch (error) {
-    if (codeOf(error) !== "ENOENT") log.warn(`이전 실행의 대시보드 노출 범위 읽기 실패(노출 범위 확대 안내 건너뜀): ${file} | ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(L.dashboard.exposureReadFailed({ file, error: messageOf(error) }));
     return null;
   }
 }
@@ -284,7 +275,7 @@ function writeScope(file: string, scope: string) {
   try {
     fs.writeFileSync(file, JSON.stringify({ scope }));
   } catch (error) {
-    log.warn(`대시보드를 연 범위 기록 실패(다음 기동 시 범위가 넓어져도 알리지 못함): ${messageOf(error)}`);
+    log.warn(L.dashboard.exposureWriteFailed({ error: messageOf(error) }));
   }
 }
 
@@ -311,7 +302,7 @@ async function openDashboard(app: App, { scopeFile = SCOPE_FILE, container = inC
     }
     logOpened(plan, scopeFile, container, tls ? "https" : "http");
   } catch (error) {
-    log.warn(`대시보드는 열었지만 기동 진단 기록 실패: ${messageOf(error)}`);
+    log.warn(L.dashboard.bootDiagnosisWriteFailed({ error: messageOf(error) }));
   }
   return opened.servers;
 }
@@ -321,23 +312,23 @@ async function plainUrlAllowed(url: string, allowPlaintext: boolean) {
   const sibling = siblingCookieNote(url);
   if (sibling) log.warn(sibling);
   if (allowPlaintext) {
-    log.warn("DASHBOARD_ALLOW_PLAINTEXT가 켜져 있어 인터넷 평문 접속을 막지 않음");
+    log.warn(L.dashboard.plaintextAllowed());
     return true;
   }
   const verdict = await checkPublicUrl(url);
   if (!verdict.open) {
-    log.error(`DASHBOARD_URL이 http이고 호스트가 공인 주소라 인터넷에 평문으로 노출되므로 대시보드를 열지 않음(${url}, ${verdict.detail}. 봇은 계속 실행). docs/dashboard-network.md의 공개 방법대로 HTTPS로 공개하세요. 위험을 감수한다면 .env에 DASHBOARD_ALLOW_PLAINTEXT=true`);
+    log.error(L.dashboard.plaintextRefused({ url, detail: verdict.detail }));
     return false;
   }
   if (verdict.note) log.warn(verdict.note);
   return true;
 }
 
-type LoadedTls = { files: TlsFiles; options: ReturnType<typeof tlsOptions>; leaf: X509Certificate; notes: Array<{ level: "info" | "warn"; text: string }> };
+type LoadedTls = { files: TlsFiles; options: ReturnType<typeof tlsOptions>; leaf: X509Certificate; notes: Array<{ level: "info" | "warn"; text: LogText }> };
 
 /** 연 뒤: 쓴 인증서와 기한, 확인에서 나온 warn. 하루 한 번 남은 기한을 다시 계산한다 */
 function logTls(tls: LoadedTls) {
-  log.info(`대시보드 인증서: ${tls.files.from === "env" ? `.env의 DASHBOARD_TLS_CERT(${tls.files.cert})` : "certs/cert.pem"}, 기한 ${tls.leaf.validTo}`);
+  log.info(L.dashboard.tlsInUse({ cert: tls.files.from === "env" ? tls.files.cert : null, validTo: tls.leaf.validTo }));
   for (const note of tls.notes) log[note.level](note.text);
   watchExpiry(tls.leaf, tls.files.from);
 }
@@ -349,7 +340,7 @@ function loadTls(certsDir: string): LoadedTls | null | "error" {
   const { url, tlsCert, tlsKey } = config.dashboard;
   const found = findTlsFiles({ envCert: tlsCert, envKey: tlsKey, root: PROJECT.root, certsDir });
   if (found.error) {
-    log.error(`${found.error} 대시보드를 열지 않음(봇은 계속 실행)`);
+    log.error(L.dashboard.tlsFilesRefused({ reason: found.error }));
     return "error";
   }
   if (!found.files) return null;
@@ -360,7 +351,7 @@ function loadTls(certsDir: string): LoadedTls | null | "error" {
     .replace(/\.$/, "")
     .toLowerCase();
   if (parsed.protocol !== "https:" || isLoopbackName(host)) {
-    log.error(`인증서 파일이 있는데 DASHBOARD_URL이 https 공개 주소가 아님(${url}). DASHBOARD_URL을 https 주소로 바꾸거나, 프록시로 공개한다면 인증서 파일을 빼세요. 대시보드를 열지 않음(봇은 계속 실행)`);
+    log.error(L.dashboard.tlsWithoutHttpsUrl({ url }));
     return "error";
   }
   let certPem: string;
@@ -369,13 +360,13 @@ function loadTls(certsDir: string): LoadedTls | null | "error" {
     certPem = fs.readFileSync(found.files.cert, "utf8");
     keyPem = fs.readFileSync(found.files.key, "utf8");
   } catch (error) {
-    log.error(`인증서 파일 읽기 실패: ${messageOf(error)}. 대시보드를 열지 않음(봇은 계속 실행)`);
+    log.error(L.dashboard.tlsReadFailed({ error: messageOf(error) }));
     return "error";
   }
   const checked = checkTls({ certPem, keyPem, urlHost: host, keyWorldReadable: worldReadable(found.files.key) });
   if (!checked.ok) {
-    for (const why of checked.errors) log.error(`대시보드 인증서: ${why}`);
-    log.error("인증서 파일에 문제가 있어 대시보드를 열지 않음(봇은 계속 실행)");
+    for (const why of checked.errors) log.error(L.dashboard.tlsCertificate({ why }));
+    log.error(L.dashboard.tlsProblemRefused());
     return "error";
   }
   return { files: found.files, options: tlsOptions(certPem, keyPem), leaf: checked.leaf, notes: checked.notes };
@@ -388,12 +379,12 @@ function logOpened(plan: BindPlan, scopeFile: string, container: boolean, scheme
   for (const note of [...(widened ? [widened] : []), ...bindNotes(plan, { url, port, envHost: host, container, scheme, reachable: reachableAddresses() })]) log[note.level](note.text);
   writeScope(scopeFile, scopeOf(plan));
   // 로그인이 디스코드 승인 화면에서 막히면(콜백 주소 미등록) 봇은 알 길이 없다. 등록할 주소를 늘 보인다
-  log.info(`디스코드 개발자 포털 OAuth2 → Redirects에 등록할 주소: ${callbackUrl()}`);
+  log.info(L.dashboard.oauthRedirectHint({ url: callbackUrl() }));
   // 기동 준비(app/startup-prepare) 단계에서 빌드하지 못했으면 기존 화면이 새 서버와 어긋난다
   const stale = freshnessWarning(clientFreshness(PROJECT.dashboardDist, PROJECT.root));
   if (stale) log.warn(stale);
   // 평상시 실행과 다른 상태로 떠 있다는 것은 드러나 있어야 한다
-  if (config.dashboard.devOrigin) log.warn("개발 모드: Vite 개발 서버(http://localhost:5173)의 요청 허용");
+  if (config.dashboard.devOrigin) log.warn(L.dashboard.devOriginAllowed());
 }
 
 function startDashboard(bot: BotContext, { stream, deployCommands, restart }: AppDeps) {
@@ -410,13 +401,17 @@ function startDashboard(bot: BotContext, { stream, deployCommands, restart }: Ap
   aiLogStream.start(withGuildName((id) => bot.client.guilds.cache.get(id)?.name ?? id));
   // IP 위치 DB: 자동 업데이트면 새 버전을 다운로드한다(로그인한 기기의 위치)
   geoip.start();
+  // 운영자에서 빠진 사람의 운영자 스트림(실시간 로그, AI 로그)을 끊는다
+  onOperatorsChanged(() => sessionRequests.closeRevokedStreams());
   onTunablesChanged(() => {
     aiLogStream.syncHeartbeat();
     if (aiRequests.isOpen()) aiRequests.rotate(config.aiLog.maxBytes);
   });
 
   logTrustProxy(trustProxy(config.dashboard.trustProxy));
-  openDashboard(app).catch((error: unknown) => log.error(`대시보드 서버 실행 실패(대시보드 없이 계속 실행): ${messageOf(error)}`));
+  // CLIENT_SECRET이 맞는지 디스코드에 확인한다(틀리면 아무도 로그인하지 못한다). 기다리지 않는다
+  void startClientSecretCheck();
+  openDashboard(app).catch((error: unknown) => log.error(L.dashboard.startFailed({ error: messageOf(error) })));
 
   return app;
 }

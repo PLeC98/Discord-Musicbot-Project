@@ -16,6 +16,8 @@ import { iconEntries } from "../ui/icons.ts";
 import { charsFor } from "../store/app-emoji-records.ts";
 import { buildEmojiFont, type EmojiFontFormat } from "./app-emoji-font.ts";
 import type { AppEmojiItem } from "./contract/app-emojis.ts";
+import { L } from "../infra/log/text.ts";
+import { logTextError } from "../infra/log/log-text.ts";
 const log = logger.child({ category: "dashboard" });
 
 let dir = path.join(PROJECT.dashboardData, "app-emojis");
@@ -45,13 +47,13 @@ async function imageOf(id: string): Promise<Image | null> {
 async function download(id: string, animated: boolean, file: string): Promise<Image | null> {
   try {
     const res = await cdn.fetch(`https://cdn.discordapp.com/emojis/${id}.${animated ? "gif" : "png"}`, { signal: AbortSignal.timeout(CDN_TIMEOUT_MS) });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw logTextError(L.net.httpStatus({ status: res.status }));
     const data = Buffer.from(await res.arrayBuffer());
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(file, data);
     return { data, animated };
   } catch (error) {
-    log.warn(`앱 이모지 이미지 다운로드 실패(대시보드에 그 이모지가 빈 칸으로 보임): ${id}: ${messageOf(error)}`);
+    log.warn(L.dashboard.appEmojiDownloadFailed({ id, error: messageOf(error) }));
     return null;
   }
 }
@@ -112,7 +114,7 @@ async function buildFonts(items: readonly AppEmojiItem[], version: string) {
   }
   fonts = { version, sbix: buildEmojiFont(FAMILY, glyphs, GLYPH_SIZE, "sbix"), svg: buildEmojiFont(FAMILY, glyphs, GLYPH_SIZE, "svg") };
   pruneImages();
-  log.debug(`앱 이모지 글꼴: ${glyphs.length}개, sbix ${fonts.sbix.length}B, SVG ${fonts.svg.length}B`);
+  log.debug(L.dashboard.appEmojiFontBuilt({ glyphs: glyphs.length, sbix: fonts.sbix.length, svg: fonts.svg.length }));
 }
 
 /** 테스트용: 캐시 폴더를 바꾸고 만들어 둔 글꼴을 비운다 */

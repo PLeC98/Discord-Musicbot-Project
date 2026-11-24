@@ -1,5 +1,6 @@
 // 서버와 화면이 주고받는 모양: 봇 운영자 패널(/api/admin 아래). 서버는 routes/admin이 만든다
 
+import type { RuleProblem } from "../../rules/rule-problem.ts";
 import type { ProviderSpec } from "../../config/schema/ai-providers.ts";
 import type { PromptSection } from "../../config/schema/ai-prompt.ts";
 import type { SourceTypeView } from "../../config/schema/genre-sources.ts";
@@ -131,7 +132,8 @@ type LinkState = "ok" | "slow" | "fail" | "idle" | "off";
  * group: play(소리를 내는 데 쓴다), youtube, autoplay(다음 곡 선택). play, youtube가 실패하면 문제, autoplay는 주의.
  * error: 마지막 실패의 짧은 원인("timeout", "HTTP 503" 등). note: 행에 보이는 설명, hint: 이름에 올리면 보이는 설명(그 서비스를 다루는 방식처럼 늘 같은 것)
  */
-type LinkRow = { id: string; group: "play" | "youtube" | "autoplay"; name: string; state: LinkState; latencyMs: number | null; lastOkAt: number | null; error: string | null; note: string | null; hint?: string | null };
+/** 연결 하나. 이름은 화면이 id로 찾는다. note, error, hint는 규칙 문제(데이터는 plain) */
+type LinkRow = { id: string; group: "play" | "youtube" | "autoplay"; state: LinkState; latencyMs: number | null; lastOkAt: number | null; error: RuleProblem | null; note: RuleProblem | null; hint?: RuleProblem | null };
 
 /**
  * 저장공간. cache: protectedFiles는 지금 곡, 대기열 앞이라 삭제하지 않는 파일, neverPlayed는 다운로드하고 한 번도 재생하지 않은 파일,
@@ -157,7 +159,7 @@ const ANNOUNCE_KINDS = ["maintenance", "update", "alert", "info"] as const;
 type AnnounceKind = (typeof ANNOUNCE_KINDS)[number];
 const isAnnounceKind = (v: unknown): v is AnnounceKind => ANNOUNCE_KINDS.some((kind) => kind === v);
 /**
- * 공지 종류의 모양: 디스코드 임베드의 아이콘(ui/icons의 키), 왼쪽 색 띠. 봇이 보낼 때와 화면의 미리보기가 같이 쓴다. 제목은 봇 문구표(ui/text/ko/announce).
+ * 공지 종류의 모양: 디스코드 임베드의 아이콘(ui/icons의 키), 왼쪽 색 띠. 봇이 보낼 때와 화면의 미리보기가 같이 쓴다. 제목은 봇 문구표(locales/ko/bot/announce).
  * 색은 경고 수준의 뜻(점검 = 경고, 업데이트 = 완료, 긴급 = 오류, 공지사항 = 공지). 아이콘 타일도 그 색으로 그려 둔다
  */
 const ANNOUNCE_STYLE = {
@@ -197,8 +199,8 @@ type IntentEnableReply = { result: "enabled" | "already" };
 /** 운영자 패널의 보기 설정(GET, PUT /api/admin/panel). advanced: 고급 설정 보기. 어느 기기로 열어도 같게 서버에 둔다 */
 type PanelPrefs = { advanced: boolean };
 
-/** IP 위치 DB(dashboard/geoip). version: 가진 버전(YYYY-MM), bytes: 그 파일 크기, job: 하는 일, received, total: 받는 중의 바이트(압축된 것), error: 마지막 실패 */
-type GeoipStatus = { enabled: boolean; autoUpdate: boolean; version: string | null; bytes: number | null; job: "idle" | "checking" | "downloading"; received: number | null; total: number | null; error: string | null };
+/** IP 위치 DB(dashboard/geoip). version: 가진 버전(YYYY-MM), bytes: 그 파일 크기, job: 하는 일, received, total: 받는 중의 바이트(압축된 것), error: 마지막 실패(규칙 문제) */
+type GeoipStatus = { enabled: boolean; autoUpdate: boolean; version: string | null; bytes: number | null; job: "idle" | "checking" | "downloading"; received: number | null; total: number | null; error: RuleProblem | null };
 /** 확인 결과. latest: 받을 수 있는 가장 새 버전(없으면 null), size: 그 버전의 다운로드 크기 */
 type GeoipCheck = { current: string | null; latest: string | null; size: number | null };
 

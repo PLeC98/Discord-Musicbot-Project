@@ -9,7 +9,7 @@
     <slot name="leading" />
     <input ref="box" v-bind="rest" type="search" :value="modelValue" :class="['appearance-none [&::-webkit-search-cancel-button]:appearance-none', inputClass, modelValue && !shownNote && SIZES[size].pad]" :style="shownNote ? { paddingRight: `${SIZES[size].end + noteWidth + 8}px` } : undefined" @input="emit('update:modelValue', valueOf($event))" @keydown.esc="onEscape" />
     <span v-if="shownNote" ref="noteEl" class="pointer-events-none absolute top-1/2 -translate-y-1/2 text-xs nums text-on-surface-variant whitespace-nowrap" :style="{ right: `${SIZES[size].end}px` }">{{ shownNote }}</span>
-    <button v-if="modelValue && !disabled" type="button" class="tap state-layer absolute top-1/2 -translate-y-1/2 rounded-full flex items-center justify-center cursor-pointer text-on-surface-variant" :class="SIZES[size].button" :aria-label="clearLabel" v-tooltip="clearLabel" @click.prevent.stop="clear">
+    <button v-if="modelValue && !disabled" type="button" class="tap state-layer absolute top-1/2 -translate-y-1/2 rounded-full flex items-center justify-center cursor-pointer text-on-surface-variant" :class="SIZES[size].button" :aria-label="clearLabel ?? text.fields.searchClear" v-tooltip="clearLabel ?? text.fields.searchClear" @click.prevent.stop="clear">
       <Icon name="close" :size="SIZES[size].icon" />
     </button>
   </div>
@@ -24,7 +24,7 @@ import { useElementSize } from "@vueuse/core";
 
 defineOptions({ inheritAttrs: false });
 /** size: 입력란 높이에 맞춘 지우기 버튼(md 40px, sm 32px, xs 24px). clearLabel: 버튼 이름 */
-const props = withDefaults(defineProps<{ modelValue: string; inputClass?: unknown; size?: "md" | "sm" | "xs"; clearLabel?: string; note?: string }>(), { size: "md", clearLabel: text.fields.searchClear, note: "" });
+const props = withDefaults(defineProps<{ modelValue: string; inputClass?: unknown; size?: "md" | "sm" | "xs"; clearLabel?: string; note?: string }>(), { size: "md", note: "" });
 const emit = defineEmits<{ "update:modelValue": [value: string] }>();
 
 /** 크기마다: 지우기 버튼(아이콘 버튼, 입력란 안 같은 중심), 아이콘, 값이 있을 때 입력란 오른쪽 여백, 지우기 버튼의 왼쪽 끝(오른쪽에서 px, note 자리) */

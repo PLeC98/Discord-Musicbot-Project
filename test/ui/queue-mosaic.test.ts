@@ -115,7 +115,8 @@ test("워커에서 그린 모자이크: 칸 수에 맞는 크기의 투명한 We
 });
 
 test("로그: 4xx(썸네일 없음)는 warn 을 남기지 않고, 그 밖의 실패는 원인마다 처음 한 번 warn, 다시 만들면 복구 한 줄", async () => {
-  const lines = () => sink.buffer.slice(from).flatMap((e) => (e.text.includes("/queue 썸네일 처리") ? [`${e.level} ${e.text}`] : []));
+  // 곡마다 남기는 debug 줄은 빼고 본다
+  const lines = () => sink.buffer.slice(from).flatMap((e) => (e.text.includes("/queue 썸네일 처리") && e.level !== "debug" ? [`${e.level} ${e.text}`] : []));
   _internals.useFetch(async () => image(320, 180));
   await cellImagesOf([{ thumbnail: yt("logreset000") }]);
   const from = sink.buffer.length;

@@ -3,6 +3,7 @@
 // 이 문서도 주인이 둘이라(손으로 고치는 운영자, 대시보드) 조용히 틀리는 것을 막는 게 핵심이다.
 // 특히 날짜, 시간 비교가 문자열 비교라, 한 자리로 적으면 "형식 오류"가 아니라 "엉뚱한 날에 걸린다".
 
+import { logRuleLine } from "../../src/rules/text/index.ts";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 
@@ -21,9 +22,12 @@ const ok = { messages: ["🎵 /play"] };
 
 // ── 검사 ──────────────────────────────────────────────────────────────────
 
+// 검사는 규칙 문제를 낸다. 여기서는 로그 언어로 그려 문장으로 확인한다
+const validateStatus = (data: unknown) => statusConfig.validateStatus(data).map(logRuleLine);
+
 test("기본 문서는 아무 문제가 없다", () => {
   // 새로 설치한 사람이 곧바로 저장이 막히는 일이 없어야 한다
-  assert.deepEqual(statusConfig.validateStatus(documents.defaultOf("status")), []);
+  assert.deepEqual(validateStatus(documents.defaultOf("status")), []);
 });
 
 test("활동 종류 목록은 BotPresence와 같다", () => {
@@ -32,51 +36,51 @@ test("활동 종류 목록은 BotPresence와 같다", () => {
 });
 
 test("문구는 그냥 적어도 되고, 종류가 필요할 때만 풀어 적는다", () => {
-  assert.deepEqual(statusConfig.validateStatus({ messages: ["🎵 /play", { text: "🎮 놀아요", type: "Playing" }] }), []);
+  assert.deepEqual(validateStatus({ messages: ["🎵 /play", { text: "🎮 놀아요", type: "Playing" }] }), []);
 });
 
 test("쓸 수 없는 활동 종류는 걸린다", () => {
   // 잘못 적으면 오류 없이 "듣는 중"이 된다
-  const problems = statusConfig.validateStatus({ messages: [{ text: "x", type: "playing" }] });
+  const problems = validateStatus({ messages: [{ text: "x", type: "playing" }] });
   assert.match(problems.join(" "), /활동 종류/);
 });
 
 test("평소 문구가 없으면 걸린다", () => {
-  assert.match(statusConfig.validateStatus({ messages: [] }).join(" "), /문구가 하나는/);
-  assert.match(statusConfig.validateStatus({ messages: ["  "] }).join(" "), /빈 문구/);
+  assert.match(validateStatus({ messages: [] }).join(" "), /문구가 하나는/);
+  assert.match(validateStatus({ messages: ["  "] }).join(" "), /빈 문구/);
 });
 
 test("문구가 128자를 넘으면 걸린다", () => {
-  assert.match(statusConfig.validateStatus({ messages: ["가".repeat(129)] }).join(" "), /128자/);
+  assert.match(validateStatus({ messages: ["가".repeat(129)] }).join(" "), /128자/);
 });
 
 test("interval은 10초 미만일 수 없다", () => {
-  assert.match(statusConfig.validateStatus({ ...ok, interval: 5 }).join(" "), /10초 이상/);
-  assert.deepEqual(statusConfig.validateStatus({ ...ok, interval: 10 }), []);
+  assert.match(validateStatus({ ...ok, interval: 5 }).join(" "), /10초 이상/);
+  assert.deepEqual(validateStatus({ ...ok, interval: 10 }), []);
 });
 
 test("날짜, 시간은 두 자리로 적어야 한다", () => {
   // 비교가 문자열 비교라 "1-5"는 형식만 어긋나는 게 아니라 엉뚱한 날에 걸린다
-  const of = (special: unknown) => statusConfig.validateStatus({ ...ok, special }).join(" ");
+  const of = (special: unknown) => validateStatus({ ...ok, special }).join(" ");
 
   assert.match(of({ 봄: { date: "3-1 ~ 3-31", messages: ["x"] } }), /두 자리/);
   assert.match(of({ 심야: { time: "2:00 ~ 6:00", messages: ["x"] } }), /두 자리/);
   assert.match(of({ 겨울: { date: "12-01", messages: ["x"] } }), /~로 나눠/);
   assert.match(of({ 이상: { date: "13-01 ~ 13-05", messages: ["x"] } }), /두 자리/);
 
-  assert.deepEqual(statusConfig.validateStatus({ ...ok, special: { 봄: { date: "03-01 ~ 03-31", messages: ["x"] } } }), []);
-  assert.deepEqual(statusConfig.validateStatus({ ...ok, special: { 심야: { time: "22:00 ~ 06:00", messages: ["x"] } } }), []);
+  assert.deepEqual(validateStatus({ ...ok, special: { 봄: { date: "03-01 ~ 03-31", messages: ["x"] } } }), []);
+  assert.deepEqual(validateStatus({ ...ok, special: { 심야: { time: "22:00 ~ 06:00", messages: ["x"] } } }), []);
 });
 
 test("조건이 하나도 없는 항목은 걸린다", () => {
   // 조건이 없으면 항상 맞아서 그 아래 항목이 전부 죽는다. 범위만 지우다 밟는 함정이다.
-  const problems = statusConfig.validateStatus({ ...ok, special: { 아무때나: { messages: ["x"] } } });
+  const problems = validateStatus({ ...ok, special: { 아무때나: { messages: ["x"] } } });
   assert.match(problems.join(" "), /하나는 있어야/);
 });
 
 test("항목 이름 규칙은 장르와 같다", () => {
-  assert.match(statusConfig.validateStatus({ ...ok, special: { 2024: { date: "01-01 ~ 01-02", messages: ["x"] } } }).join(" "), /순서가 어긋나요/);
-  assert.deepEqual(statusConfig.validateStatus({ ...ok, special: { "2024년": { date: "01-01 ~ 01-02", messages: ["x"] } } }), []);
+  assert.match(validateStatus({ ...ok, special: { 2024: { date: "01-01 ~ 01-02", messages: ["x"] } } }).join(" "), /순서가 어긋나요/);
+  assert.deepEqual(validateStatus({ ...ok, special: { "2024년": { date: "01-01 ~ 01-02", messages: ["x"] } } }), []);
 });
 
 // ── 읽기 ──────────────────────────────────────────────────────────────────

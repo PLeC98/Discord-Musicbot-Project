@@ -12,7 +12,9 @@ import { readState, writeState, type BgutilState } from "../../src/sources/bguti
 import { readBundle } from "../../src/sources/bgutil/bundle.ts";
 import { cleanupBgutil } from "../../src/sources/bgutil/cleanup.ts";
 import { trialRun } from "../../src/sources/bgutil/trial.ts";
+import { asText } from "../../src/infra/log/log-text.ts";
 import { acquireInstanceLock } from "../../src/infra/instance-lock.ts";
+import { testText } from "../helpers/log-text.ts";
 
 const base = fs.mkdtempSync(path.join(os.tmpdir(), "bgutil-install-"));
 after(() => fs.rmSync(base, { recursive: true, force: true, maxRetries: 5 }));
@@ -68,7 +70,7 @@ function fakeIo(over: { version?: string; scripts?: Record<string, string>; tria
       fs.mkdirSync(path.join(serverDir, "build"), { recursive: true });
       fs.writeFileSync(path.join(serverDir, "build", "main.js"), "");
     },
-    trial: async (_dir, expected) => (calls.push(`trial ${expected}`), over.trialOk === false ? { ok: false, reason: "응답하지 않음" } : { ok: true }),
+    trial: async (_dir, expected) => (calls.push(`trial ${expected}`), over.trialOk === false ? { ok: false, reason: testText("응답하지 않음") } : { ok: true }),
     now: () => clock++,
     pid: 4242,
     log: () => undefined,
@@ -212,7 +214,7 @@ http.createServer((req, res) => { res.setHeader("content-type", "application/jso
   assert.deepEqual(await trialRun(server, "1.2.2"), { ok: true });
   const wrong = await trialRun(server, "2.0.0");
   assert.equal(wrong.ok, false);
-  assert.match(!wrong.ok ? wrong.reason : "", /다른 버전/);
+  assert.match(!wrong.ok ? asText(wrong.reason) : "", /다른 버전/);
   // 끝났으면 폴더 이름을 바꿀 수 있다(Windows는 실행 중인 파일이 든 폴더를 못 바꾼다)
   fs.renameSync(path.dirname(server), `${path.dirname(server)}-moved`);
 });
@@ -223,5 +225,5 @@ test("실행 테스트: 응답하기 전에 끝나면 그 사유와 서버 출�
   fs.writeFileSync(path.join(server, "build", "main.js"), `console.error("canvas.node를 불러오지 못함"); process.exit(3);`);
   const result = await trialRun(server, "1.2.2");
   assert.equal(result.ok, false);
-  assert.match(!result.ok ? result.reason : "", /끝남\(code=3\).*canvas\.node/);
+  assert.match(!result.ok ? asText(result.reason) : "", /끝남\(code=3\).*canvas\.node/);
 });

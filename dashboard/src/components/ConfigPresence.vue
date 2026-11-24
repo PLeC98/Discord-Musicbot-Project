@@ -78,8 +78,8 @@
               </div>
               <div class="grid grid-cols-1 @lg/card:grid-cols-3 gap-3">
                 <div v-for="cond in CONDITIONS" :key="cond.key">
-                  <span :class="FIELD_LABEL">{{ cond.label }}</span>
-                  <ConditionRangeField v-model="selected[cond.key]" :kind="cond.key" :label="cond.label" />
+                  <span :class="FIELD_LABEL">{{ cond.label() }}</span>
+                  <ConditionRangeField v-model="selected[cond.key]" :kind="cond.key" :label="cond.label()" />
                 </div>
               </div>
             </section>
@@ -114,6 +114,7 @@ import { useDragReorder } from "../composables/drag-reorder.ts";
 import { useListDetail, LIST_ROW } from "../composables/list-detail.ts";
 import { CONDITIONS, newMessage, newSpecial, toMessages, fromMessages, toSpecial, fromSpecial, type MessageRow, type SpecialRow, type MessageData, type SpecialData } from "../utils/presence-rows.ts";
 import { INTERVAL_DEFAULT, statusProblems } from "../../../src/config/schema/status.ts";
+import { ruleLine } from "../utils/rule-line.ts";
 import { parseRange, rangeText } from "../utils/condition-range.ts";
 import { text } from "../text/index.ts";
 const T = text.presence;
@@ -131,10 +132,10 @@ function apply(data: Record<string, unknown>) {
   special.value = toSpecial(data.special as Record<string, SpecialData> | undefined, special.value);
 }
 
-const { loaded, dirty, saving, loadError, serverProblems, fetch, save, revert } = useConfigFile({ tab: "presence", savedNote: T.savedNote, payload: () => payload.value, apply, ...configFileIo("status") });
+const { loaded, dirty, saving, loadError, serverProblems, fetch, save, revert } = useConfigFile({ tab: "presence", savedNote: () => T.savedNote, payload: () => payload.value, apply, ...configFileIo("status") });
 
 // 저장할 때 서버가 보는 검사 그대로(schema/status). 저장 버튼을 누르기 전에 알려 준다
-const problems = computed(() => (loaded.value ? [...statusProblems(payload.value), ...serverProblems.value] : []));
+const problems = computed(() => (loaded.value ? [...statusProblems(payload.value).map(ruleLine), ...serverProblems.value] : []));
 // 운영자 패널의 저장 바에 올린다(검사에 걸린 값이 있으면 저장 바가 저장을 막는다)
 useSaveTarget({ tab: "presence", dirty, saving, blocked: computed(() => problems.value.length > 0), save: () => save(), revert });
 
@@ -158,7 +159,7 @@ const conditionText = (entry: SpecialRow) =>
   CONDITIONS.filter((c) => entry[c.key].trim())
     .map((c) => {
       const range = parseRange(c.key, entry[c.key]);
-      return `${c.label} ${range ? rangeText(c.key, range) : entry[c.key].trim()}`;
+      return `${c.label()} ${range ? rangeText(c.key, range) : entry[c.key].trim()}`;
     })
     .join("\n");
 
@@ -169,12 +170,12 @@ function rowProblems(entry: SpecialRow) {
   const out: string[] = [];
   if (!name) out.push(T.problems.noName);
   else if (special.value.filter((e) => e.name.trim() === name).length > 1) out.push(T.problems.duplicate);
-  out.push(...statusProblems({ interval: INTERVAL_DEFAULT, messages: ["-"], special: fromSpecial([{ ...entry, name: name || T.problems.unnamed }]) }));
+  out.push(...statusProblems({ interval: INTERVAL_DEFAULT, messages: ["-"], special: fromSpecial([{ ...entry, name: name || T.problems.unnamed }]) }).map(ruleLine));
   return out;
 }
 const rowProblem = (entry: SpecialRow) => rowProblems(entry).join("\n");
 // 기본 문구의 문제(변경 주기, 평소 문구)
-const globalProblems = computed(() => (loaded.value ? statusProblems({ interval: draft.value.interval, messages: fromMessages(messages.value), special: null }) : []));
+const globalProblems = computed(() => (loaded.value ? statusProblems({ interval: draft.value.interval, messages: fromMessages(messages.value), special: null }).map(ruleLine) : []));
 // 어느 항목의 것도 아닌 문제: 저장할 때 서버가 가리킨 것
 const listProblems = computed(() => serverProblems.value);
 

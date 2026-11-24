@@ -227,19 +227,20 @@ test("워커가 늦고 늘릴 수 없으면 큐 깊이를 필요한 만큼만 �
       }
     }, 20);
     // 응답 시간은 이 PC의 부하를 따른다(전체 테스트 중에는 다른 파일이 CPU를 나눠 쓴다). 그래서 상한을 정해 두지 않고 그 자리에서 잰다:
-    // 한 단계 올리려면 그 틱의 p99가 그 깊이의 임계값을 넘어야 하므로, 본 p99 가운데 가장 큰 값이 넘지 못하는 깊이보다 깊어지지 않는다.
-    // 판단은 1초마다라 200ms마다 읽어 틱을 놓치지 않는다
+    // 한 단계 올리려면 그 틱의 p99가 그 깊이의 임계값을 넘어야 하므로, 풀이 판단한 p99 가운데 가장 큰 값이 넘지 못하는 깊이보다 깊어지지 않는다.
+    // 판단한 틱을 하나도 놓치지 않게 지난 호출 뒤의 최댓값(takePeakRtt)을 모은다
     const depths: number[] = [];
     let maxP99 = 0;
     for (let i = 1; i <= 40; i++) {
       await sleep(200);
-      maxP99 = Math.max(maxP99, pool.stats().workers[0]?.rttP99 ?? 0);
+      maxP99 = Math.max(maxP99, pool.takePeakRtt());
       if (i % 5 === 0) depths.push(session.depth);
     }
     clearInterval(timer);
     assert.deepEqual(errors, []);
+    // takePeakRtt는 소수 첫째 자리에서 반올림한 값이라(48.04가 48.0) 반올림 폭만큼 넉넉히 본다
     let needed = START_DEPTH;
-    while (needed < MAX_DEPTH && maxP99 > (needed - 1) * 20 * 0.8) needed++;
+    while (needed < MAX_DEPTH && maxP99 + 0.05 > (needed - 1) * 20 * 0.8) needed++;
     const final = depths.at(-1) ?? 0;
     const why = `큐 깊이 ${depths.join(",")}, 가장 큰 p99 ${maxP99}ms, 필요한 깊이 ${needed}`;
     assert.ok(final > START_DEPTH, `늦으면 올린다: ${why}`);

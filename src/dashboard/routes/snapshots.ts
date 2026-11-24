@@ -8,9 +8,12 @@ import { requireOwner } from "../middleware/require-owner.ts";
 import { requireRecentLogin } from "../middleware/recent-login.ts";
 import { sendProblem } from "../problem.ts";
 import { ranBy } from "../ran-by.ts";
-import { codeOf, messageOf } from "../../rules/error-kind.ts";
+import { codeOf, errorProblem, messageOf } from "../../rules/error-kind.ts";
 import * as snapshots from "../../store/snapshots.ts";
+import { signedIn } from "../middleware/require-auth.ts";
+import { isAppOwner } from "../../usecases/app-owners.ts";
 import type { SnapshotsView } from "../../rules/snapshots.ts";
+import { L } from "../../infra/log/text.ts";
 
 const snapshotsRouter = express.Router();
 snapshotsRouter.use(requireOwner);
@@ -24,21 +27,23 @@ snapshotsRouter.post("/restore", requireRecentLogin, (req, res) => {
   const name: unknown = req.body?.name;
   if (typeof name !== "string" || !name) return sendProblem(res, "nothing-to-save");
   try {
-    snapshots.stage(name);
+    // 앱 소유자가 아니면 봇 운영자 범위는 지금 값을 그대로 둔다(store/snapshots)
+    snapshots.stage(name, { keepScope: !isAppOwner(signedIn(req).id) });
   } catch (error) {
     if (codeOf(error) === "SNAPSHOT_NOT_FOUND") return sendProblem(res, "snapshot-not-found");
-    if (codeOf(error) === "SNAPSHOT_MISMATCH") return sendProblem(res, "snapshot-mismatch", {}, { detail: messageOf(error) });
-    log.error({ sub: "admin" }, `설정 DB 복원 예약 실패: ${messageOf(error)}`);
-    return sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
+    if (codeOf(error) === "SNAPSHOT_MISMATCH") return sendProblem(res, "snapshot-mismatch", {}, { errors: [{ code: "snapshot-mismatch", rule: errorProblem(error) }] });
+    log.error({ sub: "admin" }, L.dashboard.restoreScheduleFailed({ error: messageOf(error) }));
+    // 실패 상세는 규칙 문제로 보낸다(화면이 보는 사람의 언어로 그린다. 바깥 글이면 그 글 그대로)
+    return sendProblem(res, "config-save-failed", {}, { errors: [{ code: "config-save-failed", rule: errorProblem(error) }] });
   }
-  log.warn({ sub: "admin" }, `대시보드에서 설정 DB 복원 예약: ${name}(다음 기동에 교체). 실행 ${ranBy(req)}`);
+  log.warn({ sub: "admin" }, L.dashboard.restoreScheduled({ name, by: ranBy(req) }));
   res.json(view());
 });
 
 snapshotsRouter.delete("/restore", (req, res) => {
   const was = snapshots.staged();
   snapshots.unstage();
-  if (was) log.warn({ sub: "admin" }, `대시보드에서 설정 DB 복원 예약 취소: ${was}. 실행 ${ranBy(req)}`);
+  if (was) log.warn({ sub: "admin" }, L.dashboard.restoreCancelled({ was, by: ranBy(req) }));
   res.json(view());
 });
 

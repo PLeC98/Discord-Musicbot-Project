@@ -10,6 +10,7 @@ import { parentPort, type MessagePort } from "worker_threads";
 import { PerformanceObserver } from "perf_hooks";
 import { createOpusEncoder, loadOpus, type OpusEncoder } from "./opus-encoder.ts";
 import { Limiter } from "./limiter.ts";
+import { bug } from "../infra/bug.ts";
 
 type ToWorker = { type: "init"; port: MessagePort; calibrateFrames: number } | { type: "open"; id: number } | { type: "frame"; id: number; seq: number; gain: number; press: boolean; pcm: ArrayBuffer } | { type: "close"; id: number };
 // 프레임 하나의 답. packet이 없으면 error다.
@@ -84,11 +85,11 @@ function errorOf(id: number, seq: number, error: unknown) {
 }
 
 function encode(stream: Stream, frame: Frame) {
-  if (stream.failed || !stream.encoder) return errorOf(frame.id, frame.seq, new Error(stream.failed ?? "인코더가 없음"));
+  if (stream.failed || !stream.encoder) return errorOf(frame.id, frame.seq, stream.failed === null ? bug("인코더가 없음") : new Error(stream.failed));
   const started = performance.now();
   const startedAt = performance.timeOrigin + started;
   try {
-    if (frame.pcm.byteLength !== FRAME_BYTES) throw new RangeError(`프레임 크기 ${frame.pcm.byteLength}B(${FRAME_BYTES}B여야 한다)`);
+    if (frame.pcm.byteLength !== FRAME_BYTES) throw bug(`프레임 크기 ${frame.pcm.byteLength}B(${FRAME_BYTES}B여야 한다)`);
     const samples = new Float32Array(frame.pcm);
     stream.limiter.run(samples, stream.lastGain ?? frame.gain, frame.gain, frame.press);
     stream.lastGain = frame.gain;
@@ -123,7 +124,7 @@ function open(id: number) {
 
 function frameIn(frame: Frame) {
   const stream = streams.get(frame.id);
-  if (!stream) return errorOf(frame.id, frame.seq, new Error("열리지 않은 스트림"));
+  if (!stream) return errorOf(frame.id, frame.seq, bug("열리지 않은 스트림"));
   if (!stream.encoder && !stream.failed) return void stream.waiting.push(frame);
   encode(stream, frame);
 }

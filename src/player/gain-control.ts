@@ -13,6 +13,7 @@ import * as audioCache from "../store/audio-cache.ts";
 import { LoudnessFollower, type FollowerStart } from "./loudness-follower.ts";
 import type { GainTap, PathFacts, TapFrame } from "../media/gain-tap.ts";
 import type { EndFacts } from "../rules/end-verdict.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "player", sub: "gain" });
 
 /** 목표 볼륨(LUFS) */
@@ -223,7 +224,7 @@ class PlaybackState {
       loudness.recordHeard(this.key, full ? "heard-full" : "heard-part", { value: measured, identity, heardSec });
     } catch (error) {
       // 종료 중에 DB가 닫힌 뒤의 저장은 버린다
-      if (codeOf(error) !== "DB_NOT_OPEN") log.warn(`재생 중 측정값 저장 실패: ${this.key} | ${messageOf(error)}`);
+      if (codeOf(error) !== "DB_NOT_OPEN") log.warn(L.player.heardLoudnessSaveFailed({ audioKey: this.key, error: messageOf(error) }));
     }
   }
 
@@ -245,7 +246,7 @@ class PlaybackState {
       if (fullGain !== null) loudness.touch(this.key, "heard-full");
       return fullGain;
     } catch (error) {
-      log.warn(`볼륨 값 읽기 실패(정규화 게인 0 dB에서 추종): ${this.key} | ${messageOf(error)}`);
+      log.warn(L.player.fullGainReadFailed({ audioKey: this.key, error: messageOf(error) }));
       return null;
     }
   }
@@ -269,7 +270,7 @@ class PlaybackState {
       const valueSoon = this.facts.kind === "file" || (this.facts.downloading && this.info.downloadMatches);
       if (valueSoon && length !== null && length <= PRIOR_MAX_SEC) return { prior: loudness.fileMedian() ?? MUSIC_PRIOR };
     } catch (error) {
-      log.warn(`볼륨 값 읽기 실패(0 dB에서 추종): ${String(key)} | ${messageOf(error)}`);
+      log.warn(L.player.priorGainReadFailed({ audioKey: String(key), error: messageOf(error) }));
     }
     return {};
   }

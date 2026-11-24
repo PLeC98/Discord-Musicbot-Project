@@ -330,6 +330,11 @@ const genresDefault: Record<string, unknown> = {
           weight: 1,
         },
         {
+          type: "animethemes",
+          sort: "popular",
+          weight: 1,
+        },
+        {
           type: "spotify",
           url: "https://open.spotify.com/playlist/37i9dQZF1DX3f3gm9VK7fL",
           weight: 1,

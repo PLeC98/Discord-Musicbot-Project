@@ -8,7 +8,6 @@ import assert from "node:assert/strict";
 // ── 모킹 (곡 추가 코어를 불러오기 전에, 실 SQLite/네트워크 미접촉) ──────────────
 import { openTempStore, setGuild } from "../helpers/temp-store.ts";
 import config from "../../src/config/index.ts";
-import * as errors from "../../src/ui/text/ko/errors.ts";
 import type { Guild, GuildTextBasedChannel, VoiceBasedChannel } from "discord.js";
 import type { BotContext } from "../../src/app/bot-context.ts";
 import { Player } from "../../src/player/player.ts";
@@ -26,6 +25,11 @@ import { networkError } from "../helpers/errors.ts";
 import { addFailureMessage } from "../../src/ui/error-messages.ts";
 import { plainText } from "../helpers/notice.ts";
 import { frame } from "../../src/ui/frame.ts";
+import { textFor } from "../../src/ui/text/index.ts";
+import { testText } from "../helpers/log-text.ts";
+import { useTestLogLanguage } from "../../src/infra/log/language.ts";
+const KO = textFor("ko");
+const errors = textFor("ko").errors;
 
 const store = openTempStore("play-request-");
 after(() => store.close());
@@ -228,6 +232,24 @@ test("방송 중인 라이브는 통과시킨다", async () => {
   assert.equal(resolverCalls.at(-1)?.context, "play.resolveQuery");
 });
 
+test("곡 찾기 로그의 하위 이름은 입구 코드라 로그 언어를 바꿔도 같다", async (t) => {
+  t.after(() => useTestLogLanguage(false));
+  mockResolve = () => ok("곡");
+  const contexts = async () => {
+    const got: Array<string | null | undefined> = [];
+    for (const source of ["bot-channel", "dashboard", "search-autocomplete", "search-results"] as const) {
+      const bot = makeBot();
+      await requestPlayback(bot, baseArgs(bot, makeGuild(), { query: "q", source }));
+      got.push(resolverCalls.at(-1)?.context);
+    }
+    return got;
+  };
+  const base = await contexts();
+  assert.deepEqual(base, ["bot-channel.resolveQuery", "dashboard.resolveQuery", "search-autocomplete.resolveQuery", "search-results.resolveQuery"]);
+  useTestLogLanguage(true);
+  assert.deepEqual(await contexts(), base);
+});
+
 test("ffmpeg가 라이브 분기를 열 수 없으면 방송 중인 라이브도 거절한다", async () => {
   mockResolve = () => ({ success: true, isPlaylist: false, tracks: [track("24/7 라디오", { isLive: true, liveStatus: "is_live" })] });
   const bot = makeBot();
@@ -236,7 +258,7 @@ test("ffmpeg가 라이브 분기를 열 수 없으면 방송 중인 라이브도
   const result = await requestPlayback(bot, baseArgs(bot, guild, { query: "https://y/live", source: "/play", ffmpegReady: () => false }));
 
   assert.equal(result.success ? null : result.code, "live-no-ffmpeg");
-  assert.equal(result.success ? "" : plainText(addFailureMessage(result)), plainText(errors.notice("live-no-ffmpeg")));
+  assert.equal(result.success ? "" : plainText(addFailureMessage(KO, result)), plainText(errors.notice("live-no-ffmpeg")));
   assert.equal(bot.embedCalls.length, 0);
 });
 
@@ -425,7 +447,7 @@ test("해석 실패는 렌더링 없이 안내문으로 전파된다", async () 
   const result = await requestPlayback(bot, baseArgs(bot, guild, { query: "없는곡" }));
 
   assert.equal(result.success ? null : result.code, "no-song-result");
-  assert.equal(result.success ? "" : plainText(addFailureMessage(result)), plainText(errors.notice("no-song-result")));
+  assert.equal(result.success ? "" : plainText(addFailureMessage(KO, result)), plainText(errors.notice("no-song-result")));
   assert.equal(bot.embedCalls.length, 0, "실패 시 코어를 부르지 않는다");
 });
 
@@ -443,13 +465,13 @@ test("곡 찾기가 거절한 원인(지원하지 않는 링크 등)는 그대�
   const result = await requestPlayback(bot, baseArgs(bot, makeGuild(), { query: "https://radio.test/live/playlist.m3u8" }));
 
   assert.equal(result.success ? null : result.code, "unsupported-link");
-  assert.equal(result.success ? "" : plainText(addFailureMessage(result)), "알 수 없는 링크예요!\n재생을 지원하지 않는 플랫폼이에요.");
+  assert.equal(result.success ? "" : plainText(addFailureMessage(KO, result)), "알 수 없는 링크예요!\n재생을 지원하지 않는 플랫폼이에요.");
 
   // 불러올 수 없어 뺀 곡 수도 넘겨 안내에 쓴다
   mockResolve = () => ({ success: false, code: "nothing-playable", skipped: 4 });
   const none = await requestPlayback(bot, baseArgs(bot, makeGuild(), { query: "https://soundcloud.com/a/sets/b" }));
   assert.deepEqual(none, { success: false, code: "nothing-playable", skipped: 4 });
-  assert.match(none.success ? "" : plainText(addFailureMessage(none)), /^앞의 4곡이 전부/);
+  assert.match(none.success ? "" : plainText(addFailureMessage(KO, none)), /^앞의 4곡이 전부/);
 });
 
 // 곡을 찾은 뒤에 플레이어를 만든다. 먼저 만들면 못 찾았을 때 연결도 곡도 없는 플레이어가 남는다
@@ -482,7 +504,7 @@ test("responder를 주지 않으면 무동작 어댑터가 간다 (대시보드)
   const { responder } = bot.embedCalls[0];
   assert.ok(responder, "곡 요청은 늘 매체를 넘긴다");
   assert.equal(typeof responder.notifyQueued, "function");
-  await responder.notifyQueued(frame({ body: "x" })); // 무동작이므로 예외를 던지지 않는다
+  await responder.notifyQueued(() => frame({ body: "x" })); // 무동작이므로 예외를 던지지 않는다
 });
 
 // ── 로그: 누가 무엇을 찾아 무엇이 선택됐나 ─────────────────────
@@ -513,7 +535,7 @@ test("로그: 검색어와 선택한 곡을 틀거나 넣기 전에 info 한 줄
 });
 
 test("로그: 이미 찾은 곡(더 넣기)은 검색어 없이 선택한 곡과 주소를 싣는다", async () => {
-  const { lines } = await requestLines({ source: "더 넣기", tracks: [track("곡B")] });
+  const { lines } = await requestLines({ source: "more", tracks: [track("곡B")] });
   assert.deepEqual(lines, ['info 곡 요청: 더 넣기 | carl → "곡B" (https://x/곡B)']);
 });
 
@@ -745,7 +767,7 @@ test("이어 넣기: 넣지 못하면 그 원인. 플레이어가 없다, 불러
 
 test("이어 넣기: 다음 배치를 못 불러오면 모은 곡까지만 넣고, 첫 배치부터 못 불러오면 그 오류를 던진다", () =>
   withLimits(0, 50, async () => {
-    const gone = codedError("unavailable-playlist", "목록이 사라졌다");
+    const gone = codedError("unavailable-playlist", testText("목록이 사라졌다"));
     const whole = listSource(1000);
     const secondFails = (range: Range) => {
       if (collectionCalls.length > 1) throw gone;
@@ -815,6 +837,28 @@ test("이어 넣기(사운드클라우드 세트): 한 구간만 읽고, 뺀 곡
     assert.equal(added?.tracks.length, 7);
     const done = continued(result);
     assert.deepEqual({ added: done.added, skipped: done.skipped, offset: done.next?.offset, batch: done.next?.batch }, { added: 7, skipped: 3, offset: 20, batch: 10 });
+  }));
+
+// 유튜브 재생목록의 삭제, 비공개 영상은 빠진 채 목록 안 위치(skippedAt)로 온다. 앞을 다시 읽는 구간의 것은 지난번에 셌다
+test("이어 넣기: 다시 읽은 앞 구간의 뺀 곡은 다시 세지 않고, 앵커를 못 찾아도 뺀 곡만큼 덜 건너뛴다", () =>
+  withLimits(250, 50, async () => {
+    const GONE = new Set([47, 60, 61]);
+    const withGone = ({ offset = 0, limit = 0 }: Range): Collection => {
+      const tracks: TrackInfo[] = [];
+      const skippedAt: number[] = [];
+      for (let i = offset; i < Math.min(300, offset + limit); i++) {
+        if (GONE.has(i)) skippedAt.push(i);
+        else tracks.push(track(`s${i}`, { id: idOf(i) }));
+      }
+      return { tracks, total: 300, nextOffset: Math.min(300, offset + limit), skipped: skippedAt.length, skippedAt };
+    };
+    const { result, added } = await continueWith({ state: stateAt(50), count: 50, source: withGone });
+    assert.equal(addedTitles(added)[0], "s50");
+    assert.ok(!addedTitles(added).includes("s60"));
+    assert.equal(continued(result).skipped, 2, "앞 구간(45~49)의 47은 지난번에 셌다");
+
+    const lost = await continueWith({ state: stateAt(50, { anchorId: "t-없는-앵커" }), count: 10, source: withGone });
+    assert.equal(addedTitles(lost.added)[0], "s50", "앵커가 없으면 다시 읽은 앞 구간(뺀 곡 하나를 뺀 4곡)을 건너뛴다");
   }));
 
 test("재생목록을 넣으면 이어 불러올 상태를 결과에 싣는다", async () => {

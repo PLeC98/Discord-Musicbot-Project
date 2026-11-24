@@ -14,6 +14,8 @@ type Candidate = {
   platform?: string;
   /** 검색 결과라 제목을 못 믿는다. AI 보조가 이것만 판정한다 */
   fromSearch?: boolean;
+  /** 음원이 있어야 할 곡인데 쓸 음원이 없다(AnimeThemes의 대사가 겹친 판본뿐인 곡). 유튜브에서 확실한 풀버전을 찾을 때만 튼다(음원 후보와 같은 기준) */
+  strict?: boolean;
 };
 
 export type { Candidate };

@@ -1,4 +1,4 @@
-// src/rules/links.ts, canonical-url.ts, src/sources/lookup.ts: 플랫폼 URL 판정. 알려진 호스트, 유튜브 형태별 인식, 캐시 키 정규화, 모르는 유튜브 링크는 검색으로 넘기지 않는다
+// src/rules/links.ts, canonical-url.ts, input-kind.ts, src/sources/lookup.ts: 플랫폼 URL 판정. 알려진 호스트, 유튜브 형태별 인식, 캐시 키 정규화, 모르는 유튜브 링크는 검색으로 넘기지 않는다
 
 process.env.DISCORD_TOKEN ||= "test-token";
 process.env.CLIENT_ID ||= "test-client";
@@ -9,14 +9,18 @@ import assert from "node:assert/strict";
 import { addFailureMessage } from "../../src/ui/error-messages.ts";
 import { plainText } from "../helpers/notice.ts";
 import { codedError } from "../../src/rules/error-kind.ts";
+import { textFor } from "../../src/ui/text/index.ts";
+import { testText } from "../helpers/log-text.ts";
+const KO = textFor("ko");
 const lookup = await import("../../src/sources/lookup.ts");
 const { canonicalUrl } = await import("../../src/rules/canonical-url.ts");
+const { inputKind } = await import("../../src/rules/input-kind.ts");
 
 test("지원하는 미디어 사이트는 파싱한 호스트 이름으로 인식한다", () => {
-  assert.equal(lookup.detectPlatform("https://www.youtube.com/watch?v=dQw4w9WgXcQ"), "youtube");
-  assert.equal(lookup.detectPlatform("https://open.spotify.com/track/123abc"), "spotify");
-  assert.equal(lookup.detectPlatform("spotify:track:123abc"), "spotify");
-  assert.equal(lookup.detectPlatform("https://soundcloud.com/artist/track"), "soundcloud");
+  assert.equal(inputKind("https://www.youtube.com/watch?v=dQw4w9WgXcQ"), "youtube");
+  assert.equal(inputKind("https://open.spotify.com/track/123abc"), "spotify");
+  assert.equal(inputKind("spotify:track:123abc"), "spotify");
+  assert.equal(inputKind("https://soundcloud.com/artist/track"), "soundcloud");
 });
 
 test("주소에 도메인 글자가 섞여 있다고 그 사이트 주소로 보지 않는다", () => {
@@ -66,7 +70,7 @@ test("모르는 형태의 유튜브 링크는 검색으로 넘기지 않고 거�
     const result = await lookup.findTracks(url);
     assert.equal(result.success, false, `${url}: 조용히 다른 영상을 틀면 안 된다`);
     assert.equal(result.code, "yt-unplayable", url);
-    assert.match(result.success ? "" : plainText(addFailureMessage(result)), /지원하지 않는 유튜브 링크/);
+    assert.match(result.success ? "" : plainText(addFailureMessage(KO, result)), /지원하지 않는 유튜브 링크/);
   }
 
   // 검색어는 그대로 검색으로 간다
@@ -86,7 +90,7 @@ test("모르는 사이트의 웹 페이지는 열어 보고 거절한다", async
   const direct = {
     getInfo: async (url: string) => {
       opened.push(url);
-      throw codedError("unsupported-link", "음원이 아닌 링크입니다(page)");
+      throw codedError("unsupported-link", testText("음원이 아닌 링크입니다(page)"));
     },
   };
   for (const url of ["https://anilist.co/anime/21827", "https://chzzk.naver.com/live/abc", "http://example.com/page"]) {
@@ -94,7 +98,7 @@ test("모르는 사이트의 웹 페이지는 열어 보고 거절한다", async
     const result = await lookup.findTracks(url, "test", {}, { direct });
     assert.equal(result.success, false, url);
     assert.equal(result.code, "unsupported-link", url);
-    assert.equal(result.success ? "" : plainText(addFailureMessage(result)), "알 수 없는 링크예요!\n재생을 지원하지 않는 플랫폼이에요.", url);
+    assert.equal(result.success ? "" : plainText(addFailureMessage(KO, result)), "알 수 없는 링크예요!\n재생을 지원하지 않는 플랫폼이에요.", url);
   }
   assert.equal(opened.length, 3);
   assert.equal(lookup.isUnsupportedLink("https://open.spotify.com/episode/abc"), true, "알려진 사이트의 다른 주소는 열지 않고 거절");
@@ -103,7 +107,7 @@ test("모르는 사이트의 웹 페이지는 열어 보고 거절한다", async
 });
 
 test("스포티파이 공유 링크의 지역 경로(intl-xx/)는 같은 곡으로 알아본다", () => {
-  assert.equal(lookup.detectPlatform("https://open.spotify.com/intl-ko/track/2joT0CjcGqc1fr8Fvk7itj?si=0a1b2c"), "spotify");
+  assert.equal(inputKind("https://open.spotify.com/intl-ko/track/2joT0CjcGqc1fr8Fvk7itj?si=0a1b2c"), "spotify");
   assert.deepEqual(links.parseSpotify("https://open.spotify.com/intl-pt-br/album/abc"), { type: "album", id: "abc" });
   assert.equal(links.isSpotifyURL("https://open.spotify.com/intl-ko/"), false);
 });

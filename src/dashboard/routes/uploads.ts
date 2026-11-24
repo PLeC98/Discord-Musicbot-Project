@@ -16,6 +16,8 @@ import * as uploads from "../uploads.ts";
 import type { UploadProgress, UploadStarted, UploadStatus } from "../contract/uploads.ts";
 import * as archiveUploads from "../archive-uploads.ts";
 import * as backgrounds from "../login-background/store.ts";
+import { L } from "../../infra/log/text.ts";
+import { logTextError } from "../../infra/log/log-text.ts";
 
 const uploadsRouter = express.Router();
 uploadsRouter.use(requireOwner);
@@ -71,7 +73,7 @@ const readChunk = express.raw({ type: "application/octet-stream", limit: uploads
 /** 본문(청크)을 메모리로 받는다. 끊기거나 형식이 다르면 reject 한다 */
 const bodyOf = (req: Request, res: Response) =>
   new Promise<Buffer>((resolve, reject) => {
-    readChunk(req, res, (error?: unknown) => (error ? reject(error) : Buffer.isBuffer(req.body) ? resolve(req.body) : reject(new Error("청크가 application/octet-stream이 아님"))));
+    readChunk(req, res, (error?: unknown) => (error ? reject(error) : Buffer.isBuffer(req.body) ? resolve(req.body) : reject(logTextError(L.dashboard.uploadChunkNotOctet()))));
   });
 
 /** 청크 길이(Content-Length)의 문제. 명시하지 않았으면 bad-request, 청크 상한이나 선언한 크기를 넘으면 payload-too-large */
@@ -91,7 +93,7 @@ async function receiveChunk(req: Request, res: Response, one: uploads.Upload) {
     chunk = await bodyOf(req, res);
   } catch (error) {
     // 업로드하던 사용자가 연결을 끊었거나 세션이 끝나 봇이 끊은 것이면 debug(그 사용자 문제라 봇에는 영향이 없다)
-    log[isEnded(req) || CLIENT_ABORTED.has(codeOf(error)) ? "debug" : "warn"]({ sub: "admin" }, `대시보드 업로드 중단(${one.purpose}, ${one.received}/${one.size}바이트): ${messageOf(error)}`);
+    log[isEnded(req) || CLIENT_ABORTED.has(codeOf(error)) ? "debug" : "warn"]({ sub: "admin" }, L.dashboard.uploadAborted({ purpose: one.purpose, received: one.received, size: one.size, error: messageOf(error) }));
     if (!res.headersSent && !req.destroyed) sendProblem(res, "bad-request");
     return;
   }

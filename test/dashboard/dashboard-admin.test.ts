@@ -6,6 +6,7 @@
 process.env.OWNER_ID = "owner";
 
 const { listenForFetch, baseUrl } = await import("../helpers/listen.ts");
+import { plain, rule, type RuleProblem } from "../../src/rules/rule-problem.ts";
 import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
@@ -13,6 +14,7 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import type { Server } from "node:http";
 import type { Player } from "../../src/player/player.ts";
+import { asText, type LogText } from "../../src/infra/log/log-text.ts";
 import type { PutCommands } from "../../src/app/command-loader.ts";
 import type { AdminGuilds, AdminStatus } from "../../src/dashboard/contract/admin.ts";
 import type { PlayerStream } from "../../src/dashboard/player-stream.ts";
@@ -51,6 +53,8 @@ const { useModelInfo } = await import("../helpers/model-info.ts");
 useModelInfo({ dir: store.dir, profiles: true });
 
 import express from "express";
+import { useAppId } from "../../src/infra/app-id.ts";
+useAppId("123456789012345678"); // 기동은 봇 토큰으로 앱 ID를 읽어 넣는다(app/app-info). 세션 쿠키 이름, 로그인, 초대 링크, 명령 배포가 쓴다
 
 // ── 가짜 디스코드 클라이언트 ─────────────────────────────────
 function makeSendableChannel(id: string) {
@@ -270,7 +274,8 @@ test("POST leave: 재생 중 서버는 플레이어를 버리고(세션 삭제, 
   assert.equal(r.status, 200);
   assert.equal(r.json.name, "AlphaGuild");
   assert.equal(g1.leftCount, 1);
-  assert.deepEqual(playerG1.disposed, [{ reason: "운영자 패널에서 서버 나가기", session: "remove", panel: "disconnected", end: "operator-leave" }]);
+  const disposed = (playerG1.disposed as Array<{ reason: LogText }>).map((one) => ({ ...one, event: one.reason.event, reason: asText(one.reason) }));
+  assert.deepEqual(disposed, [{ reason: "운영자 패널에서 서버 나가기", event: "dashboard.operatorLeaveReason", session: "remove", panel: "disconnected", end: "operator-leave" }]);
 });
 
 test("POST leave: 플레이어 없는 서버도 정상", async () => {
@@ -283,7 +288,7 @@ test("POST leave: 없는 서버 404 / leave 실패 502", async () => {
   assert.equal((await req("POST", "/api/admin/guilds/999/leave")).status, 404);
 
   const r = await req("POST", "/api/admin/guilds/300/leave");
-  assert.deepEqual([r.status, r.json.code], [502, "leave-guild-failed"]);
+  assert.deepEqual([r.status, r.json.code, r.json.detail, r.json.errors?.[0]?.code, r.json.errors?.[0]?.rule?.code], [502, "leave-guild-failed", undefined, "leave-guild-failed", "plain"]);
   assert.ok(detailsOf(r.json).includes("Cannot leave"));
 });
 
@@ -295,6 +300,24 @@ test("POST redeploy-commands: 등록 요청이 받으면 성공 응답", async (
   assert.equal(r.json.success, true);
   assert.ok(r.json.count > 0);
   assert.ok(["guild", "global"].includes(r.json.scope));
+});
+
+test("POST redeploy-commands: 거절되면 502, 운영자용 원문 필드에 디스코드 메시지와 기동 로그와 같은 원인 안내", async () => {
+  const { withConfig } = await import("../helpers/config.ts");
+  const before = adminApp.locals.deployCommands;
+  const rejected = fake<PutCommands>(async () => Promise.reject(Object.assign(new Error("Missing Access"), { code: 50001 })));
+  adminApp.locals.deployCommands = (options) => withConfig({ discord: { guildId: "112233445566778899" } }, () => deployCommands({ ...options, hashPath: HASH_PATH, put: rejected, get: async () => [] }));
+  try {
+    const r = await req<ProblemReply & { discordCode: number }>("POST", "/api/admin/redeploy-commands");
+    assert.equal(r.status, 502);
+    assert.equal(r.json.discordCode, 50001);
+    assert.deepEqual(r.json.errors?.[0]?.rule, { code: "plain", params: { text: "Missing Access" } });
+    const [message, hint] = detailsOf(r.json).split("\n");
+    assert.equal(message, "Missing Access");
+    assert.match(hint, /^GUILD_ID 서버\(112233445566778899\)에 봇이 없음\. /);
+  } finally {
+    adminApp.locals.deployCommands = before;
+  }
 });
 
 // ── 전체 공지 ────────────────────────────────────────────────
@@ -569,16 +592,16 @@ test("소스 종류: 무엇을 받고 지금 쓸 수 있는지까지 알려준�
 
 // 판정 테스트는 보기 곡이 아니라 진짜 곡으로 테스트한다. 링크 조회는 아무것도 안 보낸다.
 test("AI 보조: 유튜브 주소로 후보를 읽는다", async () => {
-  const bad = await req<{ candidates: { error?: string }[] }>("POST", "/api/admin/ai/judge/lookup", { urls: ["https://example.com/노래"] });
+  const bad = await req<{ candidates: { error?: RuleProblem }[] }>("POST", "/api/admin/ai/judge/lookup", { urls: ["https://example.com/노래"] });
   assert.equal(bad.status, 200);
-  assert.equal(bad.json.candidates[0].error, "유튜브 URL이 아니라 건너뛰었어요.", "못 읽은 줄도 왜 안 됐는지 알려 준다");
+  assert.deepEqual(bad.json.candidates[0].error, rule("ai-cand-not-youtube"), "못 읽은 줄도 왜 안 됐는지 알려 준다");
   // 읽다 예외를 던진 줄은 yt-dlp 원문이 아니라 그 종류의 안내 제목
   // 맨 위에서 불러오면 테스트 준비보다 먼저 설정을 읽어 다른 테스트가 403이 된다
   const { useExec } = await import("../../src/sources/ytdlp-spawn.ts");
   useExec((() => Promise.reject(Object.assign(new Error("exit 1"), { stderr: "ERROR: [youtube] zzzzzzzzzzz: Video unavailable", exitCode: 1 }))) as unknown as Exec);
   try {
-    const gone = await req<{ candidates: { error?: string }[] }>("POST", "/api/admin/ai/judge/lookup", { urls: ["https://www.youtube.com/watch?v=zzzzzzzzzzz"] });
-    assert.equal(gone.json.candidates[0].error, "접근할 수 없거나 존재하지 않는 영상이에요!");
+    const gone = await req<{ candidates: { error?: RuleProblem }[] }>("POST", "/api/admin/ai/judge/lookup", { urls: ["https://www.youtube.com/watch?v=zzzzzzzzzzz"] });
+    assert.deepEqual(gone.json.candidates[0].error, plain("접근할 수 없거나 존재하지 않는 영상이에요!"));
   } finally {
     useExec(null);
   }

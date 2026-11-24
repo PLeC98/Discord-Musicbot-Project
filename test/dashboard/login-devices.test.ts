@@ -24,6 +24,8 @@ import { cookieJar } from "../helpers/cookie-jar.ts";
 import config from "../../src/config/index.ts";
 import { sessionCookieName } from "../../src/dashboard/cookies.ts";
 import * as sessionRequests from "../../src/dashboard/session-requests.ts";
+import { useAppId } from "../../src/infra/app-id.ts";
+useAppId("123456789012345678"); // 기동은 봇 토큰으로 앱 ID를 읽어 넣는다(app/app-info). 세션 쿠키 이름, 로그인, 초대 링크, 명령 배포가 쓴다
 
 const CHROME = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
 const IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";

@@ -13,6 +13,8 @@ import path from "path";
 import { repeatingFailure } from "../repeating-failure.ts";
 import { codeOf, messageOf } from "../error-text.ts";
 import type { LogRecord } from "./sink.ts";
+import { L } from "./text.ts";
+import { renderLogText, type LogText } from "./log-text.ts";
 
 const ANSI_RE = /\x1B(?:[@-Z\-_]|\[[0-?]*[ -/]*[@-~])/g;
 
@@ -48,7 +50,7 @@ function nextBackupPath(file: string, exists: (target: string) => boolean = fs.e
 }
 
 /** file에서 떼어 낸 파일들의 이름(같은 폴더). 이름순이 곧 시간순이다(파일명이 로컬 시각이라). 폴더를 못 읽으면 빈 목록 */
-function rotatedFilesOf(file: string, report?: { caller: string; line: (text: string) => unknown }): string[] {
+function rotatedFilesOf(file: string, report?: { caller: LogText; line: (text: LogText) => unknown }): string[] {
   const base = path.basename(file);
   const ext = path.extname(base);
   const stem = ext ? base.slice(0, -ext.length) : base;
@@ -61,7 +63,7 @@ function rotatedFilesOf(file: string, report?: { caller: string; line: (text: st
       .sort();
   } catch (error) {
     const code = codeOf(error);
-    if (report && code !== "ENOENT") report.line(`로그 폴더 읽기 실패(로테이션된 로그 파일 없음으로 처리): ${path.dirname(file)} | 작업=${report.caller} | ${messageOf(error)} (${String(code)})`);
+    if (report && code !== "ENOENT") report.line(L.log.rotatedListFailed({ dir: path.dirname(file), caller: report.caller, error: messageOf(error), code: String(code) }));
     return [];
   }
 }
@@ -72,8 +74,11 @@ function stripAnsi(s: unknown): unknown {
 
 /** 파일에 쓰는 한 줄의 상한(바이트, 줄바꿈 포함). 로그 파일 보기는 이보다 긴 줄을 깨진 줄로 보고 건너뛴다 */
 const LINE_MAX = 1024 * 1024;
-// 줄인 레코드에 남기는 필드: 로그 파일 보기가 쓰는 것. 글 값은 싱크가 16K자로 잘라 두고 뺀 필드 이름은 몇 개만 적어, 줄인 레코드는 상한 안이다
-const KEPT_ON_REDUCE = ["category", "sub", "msg"];
+// 줄인 레코드에 남기는 필드: 로그 파일 보기가 쓰는 것과 문구 코드(event). 글 값은 싱크가 16K자로 잘라 두고 뺀 필드 이름은 몇 개만 적어, 줄인 레코드는 상한 안이다
+const KEPT_ON_REDUCE = ["category", "sub", "event", "msg"];
+
+/** 최상위 글 필드 가운데 줄여도 남기는 것 */
+const keptFields = (rec: LogRecord): Record<string, unknown> => Object.fromEntries(KEPT_ON_REDUCE.filter((key) => typeof rec[key] === "string").map((key) => [key, stripAnsi(rec[key])]));
 // 줄인 레코드에 적는 뺀 필드 이름의 수와 이름 하나의 글자 수
 const DROPPED_NAMES = 10;
 const DROPPED_NAME_CHARS = 40;
@@ -84,19 +89,18 @@ function lineOf(rec: LogRecord): string {
   try {
     line = `${JSON.stringify({ ...rec, msg: stripAnsi(rec.msg) })}\n`;
   } catch {
-    // 순환 참조 등으로 직렬화가 안 되면 최소한 메시지는 남긴다.
-    return `${JSON.stringify({ time: rec.time, level: rec.level, msg: String(stripAnsi(rec.msg)) })}\n`;
+    // 순환 참조 등으로 직렬화가 안 되면 메시지와 분류, 문구 코드는 남긴다.
+    return `${JSON.stringify({ time: rec.time, level: rec.level, ...keptFields(rec), msg: String(stripAnsi(rec.msg)) })}\n`;
   }
   // UTF-8은 UTF-16 한 단위에 3바이트를 넘지 않는다. 그 안이면 바이트를 세지 않는다
   if (line.length * 3 <= LINE_MAX) return line;
   const bytes = Buffer.byteLength(line);
   if (bytes <= LINE_MAX) return line;
-  const kept: Record<string, unknown> = { time: rec.time, level: rec.level };
-  for (const key of KEPT_ON_REDUCE) if (typeof rec[key] === "string") kept[key] = stripAnsi(rec[key]);
+  const kept: Record<string, unknown> = { time: rec.time, level: rec.level, ...keptFields(rec) };
   const dropped = Object.keys(rec).filter((key) => !(key in kept));
   const names = dropped.slice(0, DROPPED_NAMES).map((key) => key.slice(0, DROPPED_NAME_CHARS));
-  const more = dropped.length > DROPPED_NAMES ? ` 외 ${dropped.length - DROPPED_NAMES}개` : "";
-  kept.msg = `${(kept.msg as string | undefined) ?? ""} | 로그 줄이 상한을 넘어(${bytes}바이트) 뺀 필드: ${names.join(", ")}${more}`;
+  const note = renderLogText(L.log.lineReduced({ bytes, names: names.join(", "), extra: Math.max(0, dropped.length - DROPPED_NAMES) }));
+  kept.msg = `${(kept.msg as string | undefined) ?? ""} | ${note}`;
   return `${JSON.stringify(kept)}\n`;
 }
 
@@ -122,10 +126,10 @@ function createFileDestination({ file, maxBytes, keep, notice = (line: string) =
   let lastTry = 0;
   let lost = 0;
   // 처음 한 번 알리고, 같은 원인은 세기만 하고, 풀리면 한 줄(표준 오류로)
-  const failures = repeatingFailure({ error: (line) => notice(`[logFile] ${line}\n`), info: (line) => notice(`[logFile] ${line}\n`) }, `파일 로그(${file})`);
+  const failures = repeatingFailure({ error: (line) => notice(`[logFile] ${renderLogText(line)}\n`), info: (line) => notice(`[logFile] ${renderLogText(line)}\n`) }, L.log.fileLog({ file }));
 
   // 멈춘다. 그동안의 줄은 버리고 retryMs마다 다시 열어 본다. 여기서 logger를 부르면 이 destination으로 되돌아온다.
-  function fail(what: string, err: unknown) {
+  function fail(what: LogText, err: unknown) {
     if (fd !== null) {
       try {
         fs.closeSync(fd);
@@ -136,7 +140,7 @@ function createFileDestination({ file, maxBytes, keep, notice = (line: string) =
     }
     down ??= now();
     lastTry = now();
-    failures.fail(`${what}: ${messageOf(err)}`);
+    failures.fail(`${renderLogText(what)}: ${messageOf(err)}`);
   }
 
   function open() {
@@ -146,7 +150,7 @@ function createFileDestination({ file, maxBytes, keep, notice = (line: string) =
       fd = fs.openSync(file, "a");
       return true;
     } catch (err) {
-      fail("파일을 열 수 없음", err);
+      fail(L.log.openFailed(), err);
       return false;
     }
   }
@@ -158,7 +162,8 @@ function createFileDestination({ file, maxBytes, keep, notice = (line: string) =
     lastTry = now();
     if (!open()) return false;
     failures.ok();
-    const gap = `${JSON.stringify({ time: now(), level: 40, category: "log", msg: `파일 로그가 ${Math.round((now() - down) / 1000)}초 동안 멈췄다가 재개됨. 그동안 ${lost}줄을 남기지 못함` })}\n`;
+    const resumed = L.log.fileResumed({ seconds: Math.round((now() - down) / 1000), lost });
+    const gap = `${JSON.stringify({ time: now(), level: 40, category: "log", msg: renderLogText(resumed), event: resumed.event, args: resumed.args })}\n`;
     down = null;
     lost = 0;
     writeLine(gap);
@@ -167,13 +172,13 @@ function createFileDestination({ file, maxBytes, keep, notice = (line: string) =
 
   function prune() {
     if (keep <= 0) return;
-    const old = rotatedFilesOf(file, { caller: "로그 정리", line: (text) => notice(`[logFile] ${text}\n`) });
+    const old = rotatedFilesOf(file, { caller: L.log.pruneLabel(), line: (text) => notice(`[logFile] ${renderLogText(text)}\n`) });
     for (const name of old.slice(0, Math.max(0, old.length - keep))) {
       try {
         fs.unlinkSync(path.join(path.dirname(file), name));
       } catch (err) {
         // 삭제하지 못해도 기록은 계속한다. 다음 회전에서 다시 시도한다
-        if (codeOf(err) !== "ENOENT") notice(`[logFile] 지난 로그 파일 삭제 실패(${name}): ${messageOf(err)}\n`);
+        if (codeOf(err) !== "ENOENT") notice(`[logFile] ${renderLogText(L.log.oldFileDeleteFailed({ name, error: messageOf(err) }))}\n`);
       }
     }
   }
@@ -185,7 +190,7 @@ function createFileDestination({ file, maxBytes, keep, notice = (line: string) =
       fd = null;
       fs.renameSync(file, nextBackupPath(file));
     } catch (err) {
-      return fail("로그 회전 실패", err);
+      return fail(L.log.rotateFailed(), err);
     }
     prune();
     open();
@@ -196,7 +201,7 @@ function createFileDestination({ file, maxBytes, keep, notice = (line: string) =
     try {
       fs.writeSync(fd as number, line);
     } catch (err) {
-      return fail("기록 실패", err);
+      return fail(L.log.writeFailed(), err);
     }
     size += Buffer.byteLength(line);
     if (maxBytes > 0 && size >= maxBytes) rotate();

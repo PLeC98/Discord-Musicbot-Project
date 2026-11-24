@@ -6,13 +6,14 @@
 import { DbFile } from "./sqlite.ts";
 import { koMatch } from "../rules/ko-search.ts";
 import type { Db } from "./sqlite.ts";
+import { L } from "../infra/log/text.ts";
 
 const aiLogDb = new DbFile({
-  label: "AI 리퀘스트 로그 DB",
+  label: L.core.aiLogDbLabel(),
   fileName: "ai-requests.db",
   version: 1,
   synchronous: "NORMAL",
-  onMismatch: { lost: "AI 리퀘스트 로그와 사용량 통계가 사라짐" },
+  onMismatch: { lost: L.core.aiLogDbLost() },
   // 삭제한 공간을 파일에서 돌려준다(로그를 계속 순환 삭제하고, 비우면 파일도 줄어야 한다)
   autoVacuum: "INCREMENTAL",
   createTables,

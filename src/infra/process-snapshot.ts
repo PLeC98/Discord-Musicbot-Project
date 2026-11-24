@@ -8,6 +8,8 @@ import path from "node:path";
 import logger from "./log/logger.ts";
 import { consoleText } from "./console-text.ts";
 import { codeOf, messageOf } from "./error-text.ts";
+import { L } from "./log/text.ts";
+import type { LogText } from "./log/log-text.ts";
 const log = logger.child({ category: "proc" });
 
 /**
@@ -42,16 +44,16 @@ function linuxBootMs() {
 }
 
 const PROC_GONE_OR_HIDDEN = new Set<unknown>(["ENOENT", "ESRCH", "EACCES", "EPERM"]);
-const SKIP_IDENTITY = "프로세스 식별 검증 생략";
-const SKIP_PROCESS = "해당 프로세스 확인 건너뜀";
+const SKIP_IDENTITY = L.proc.snapshotSkipIdentity();
+const SKIP_PROCESS = L.proc.snapshotSkipProcess();
 
-function readText(file: string, action: string, perPid = false) {
+function readText(file: string, action: LogText, perPid = false) {
   try {
     return fs.readFileSync(file, "utf8");
   } catch (error) {
     const code = codeOf(error);
     // 각 pid의 stat은 그사이 프로세스가 끝났거나(ENOENT, ESRCH) 숨겨진(EACCES, EPERM) 경우가 정상이라 조용히 넘긴다
-    if (!(perPid && PROC_GONE_OR_HIDDEN.has(code))) log.warn(`프로세스 스냅샷 /proc 읽기 실패(${action}): ${file} | ${messageOf(error)} (${String(code)})`);
+    if (!(perPid && PROC_GONE_OR_HIDDEN.has(code))) log.warn(L.proc.snapshotProcReadFailed({ action, file, error: messageOf(error), code: String(code) }));
     return null;
   }
 }
@@ -98,7 +100,7 @@ function linuxSnapshot(): Proc[] | null {
   try {
     names = fs.readdirSync("/proc");
   } catch (error) {
-    log.warn(`프로세스 목록 읽기 실패(/proc): ${String(error)}`);
+    log.warn(L.proc.processListProcFailed({ error: String(error) }));
     return null;
   }
   const out: Proc[] = [];
@@ -148,10 +150,10 @@ function psSnapshot(): Proc[] | null {
 
 // 실행하지 못했거나, 시간을 넘겼거나, 0이 아닌 코드로 끝났으면 읽지 못한 것이다
 function succeeded(what: string, result: { error?: Error; status: number | null; stderr?: Buffer | null }) {
-  if (result.error) log.warn(`프로세스 목록 읽기 실패(${what}): ${result.error.message}`);
+  if (result.error) log.warn(L.proc.processListFailed({ what, error: result.error.message }));
   else if (result.status !== 0) {
     const stderr = result.stderr ? consoleText(result.stderr).trim() : "";
-    log.warn(`프로세스 목록 읽기 실패(${what} 종료 코드 ${String(result.status)})${stderr ? `: ${stderr}` : ""}`);
+    log.warn(L.proc.processListExit({ what, code: String(result.status), detail: stderr ? `: ${stderr}` : "" }));
   }
   return !result.error && result.status === 0;
 }

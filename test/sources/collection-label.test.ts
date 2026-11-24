@@ -10,8 +10,10 @@ import { addedView } from "../../src/ui/added-notice.ts";
 import config from "../../src/config/index.ts";
 import { post } from "../../src/ui/frame.ts";
 import { textsOf } from "../helpers/cv2.ts";
+import { textFor } from "../../src/ui/text/index.ts";
+const KO = textFor("ko");
 // 추가 안내가 보인 글자(ui/added-notice)
-const addedText = (tracks: Array<{ title?: string | null }>, collection: string | null, insertFirst = false, notice = {}) => textsOf(post(addedView({ tracks, collection, insertFirst, notice })))[0];
+const addedText = (tracks: Array<{ title?: string | null }>, collection: string | null, insertFirst = false, notice = {}) => textsOf(post(addedView(KO, { tracks, collection, insertFirst, notice })))[0];
 
 const songs = (n: number) => Array.from({ length: n }, (_, i) => tracks.youtube(`v${i}`, { title: `곡${i}` }));
 
@@ -35,6 +37,15 @@ test("유튜브 재생목록은 playlist", async () => {
   const sources = { youtube: { ...youtubeSource, getPlaylist: async () => ({ tracks: songs(2) }) } };
   const r = await lookup.findTracks("https://www.youtube.com/playlist?list=PL123", undefined, undefined, sources);
   assert.equal(r.collection, "playlist");
+});
+
+test("유튜브 재생목록에서 뺀 곡(삭제, 비공개 영상)을 싣고, 구간이 모두 빠졌으면 nothing-playable", async () => {
+  const some = { youtube: { ...youtubeSource, getPlaylist: async () => ({ tracks: songs(2), skipped: 3 }) } };
+  const r = await lookup.findTracks("https://www.youtube.com/playlist?list=PL123", undefined, undefined, some);
+  assert.deepEqual([r.success, r.tracks?.length, r.skipped], [true, 2, 3]);
+
+  const none = { youtube: { ...youtubeSource, getPlaylist: async () => ({ tracks: [], skipped: 5 }) } };
+  assert.deepEqual(await lookup.findTracks("https://www.youtube.com/playlist?list=PL123", undefined, undefined, none), { success: false, code: "nothing-playable", skipped: 5 });
 });
 
 test("안내 문구가 출처 이름을 따른다", () => {

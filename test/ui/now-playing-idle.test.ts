@@ -1,6 +1,7 @@
 // src/ui/now-playing-panel.ts: 전용 채널의 패널. 끝난 패널을 재생 화면으로 고쳐 쓰고, 묻히면 맨 아래로, 음성에서 나가면 문구를 고친다.
 // 전용 채널이 있으면 패널은 늘 그 채널에 둔다.
 
+import { useTestLanguage } from "../../src/rules/languages.ts";
 import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 import { Collection, SnowflakeUtil } from "discord.js";
@@ -16,6 +17,8 @@ import type { PanelRecord } from "../../src/store/panel-records.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
 import { youtube } from "../helpers/tracks.ts";
 import { sessions } from "../../src/store/player-sessions.ts";
+import { textFor } from "../../src/ui/text/index.ts";
+const KO = textFor("ko");
 
 const BOT = "bot-chan";
 // 전용 채널은 임시 DB에 둔다. null이면 없앤다
@@ -471,7 +474,7 @@ test("곡이 없을 때 /dashboard는 끝난 패널을 그 채널에 다시 올�
 test("다음 곡 버튼: 대기열이 비면 끄되, 자동재생이 켜져 있으면 켠다", async () => {
   const { panels, guild, text } = setup({});
   const skipDisabled = async (over: object) => {
-    const rows = await panels.controlRows(makePlayer(guild, text(BOT), over));
+    const rows = await panels.controlRows(KO, makePlayer(guild, text(BOT), over));
     const buttons = rows.flatMap((row) => row.toJSON().components);
     return buttons.find((b) => "custom_id" in b && b.custom_id.startsWith("panel:skip:"))?.disabled;
   };
@@ -482,7 +485,7 @@ test("다음 곡 버튼: 대기열이 비면 끄되, 자동재생이 켜져 있�
 test("대기열 버튼: 다음 곡이 없으면 끈다(대기열 화면은 다음 곡만 보인다)", async () => {
   const { panels, guild, text } = setup({});
   const queueDisabled = async (over: object) => {
-    const rows = await panels.controlRows(makePlayer(guild, text(BOT), over));
+    const rows = await panels.controlRows(KO, makePlayer(guild, text(BOT), over));
     return rows.flatMap((row) => row.toJSON().components).find((b) => "custom_id" in b && b.custom_id.startsWith("panel:queue:"))?.disabled;
   };
   assert.equal(await queueDisabled({}), true);
@@ -494,7 +497,7 @@ test("버튼 아이콘: 앱 이모지를 맞추면 그 id, 색 버튼(정지, �
   const keys = ["prev", "pause", "next", "stop", "volume", "highlight", "shuffle", "repeat_on", "queue_button", "autoplay_on"];
   useUploaded(new Map(keys.map((key, i) => [key, { id: String(100 + i), animated: false }])));
   try {
-    const rows = await withConfig({ sponsorblock: { enabled: true } }, () => panels.controlRows(makePlayer(guild, text(BOT), { loop: "queue", autoplay: "pop" })));
+    const rows = await withConfig({ sponsorblock: { enabled: true } }, () => panels.controlRows(KO, makePlayer(guild, text(BOT), { loop: "queue", autoplay: "pop" })));
     const shown = rows.flatMap((row) => row.toJSON().components).map((b) => ("emoji" in b ? b.emoji : null));
     assert.deepEqual(
       shown.map((emoji) => emoji?.name),
@@ -508,7 +511,32 @@ test("버튼 아이콘: 앱 이모지를 맞추면 그 id, 색 버튼(정지, �
 
 test("하이라이트 버튼: 봇 전체에서 SponsorBlock을 껐으면 두지 않는다", async () => {
   const { panels, guild, text } = setup({});
-  const ids = async () => (await panels.controlRows(makePlayer(guild, text(BOT), {}))).flatMap((row) => row.toJSON().components.flatMap((b) => ("custom_id" in b ? [b.custom_id.split(":")[1]] : [])));
+  const ids = async () => (await panels.controlRows(KO, makePlayer(guild, text(BOT), {}))).flatMap((row) => row.toJSON().components.flatMap((b) => ("custom_id" in b ? [b.custom_id.split(":")[1]] : [])));
   assert.deepEqual(await withConfig({ sponsorblock: { enabled: true } }, ids), ["previous", "pause", "skip", "stop", "volume", "highlight", "shuffle", "loop", "queue", "autoplay"]);
   assert.deepEqual(await withConfig({ sponsorblock: { enabled: false } }, ids), ["previous", "pause", "skip", "stop", "volume", "shuffle", "loop", "queue", "autoplay"]);
+});
+
+test("서버 언어를 바꾸면: 끝난 패널은 그 자리에서 새 언어로 고치고, 재생 중이면 지금 곡 패널을 다시 그린다. 고른 서버만", async () => {
+  const guildSettings = await import("../../src/store/guild-settings.ts");
+  useTestLanguage(true);
+  try {
+    const { panels, calls, players, guild, text } = setup({ record: { channelId: BOT, messageId: "900" } });
+    guildSettings.setLanguage("g1", "qps-ploc");
+    await panels.redrawLanguage(["other"]);
+    assert.equal(calls.edited.length, 0, "다른 서버");
+    await panels.redrawLanguage(["g1"]);
+    assert.equal(calls.edited.length, 1);
+    assert.doesNotMatch(textOf(calls.edited[0].payload), /[가-힣]/, "새 언어로 그 자리에서 고친다");
+
+    const playing: Player[] = [];
+    panels.updatePlaying = async (player) => void playing.push(player);
+    const player = makePlayer(guild, text(BOT), { nowPlayingMessage: { id: "901" } });
+    players.set("g1", player);
+    await panels.redrawLanguage();
+    assert.deepEqual(playing, [player], "재생 중이면 지금 곡 패널을 다시 그린다");
+    assert.equal(calls.edited.length, 1);
+  } finally {
+    guildSettings.setLanguage("g1", null);
+    useTestLanguage(false);
+  }
 });

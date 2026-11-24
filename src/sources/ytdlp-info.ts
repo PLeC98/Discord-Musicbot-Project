@@ -3,6 +3,8 @@
 
 import { z } from "zod";
 import logger from "../infra/log/logger.ts";
+import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
 const log = logger.child({ category: "youtube" });
 
 const reported = new Set<string>();
@@ -11,7 +13,7 @@ function field<T extends z.ZodType>(name: string, schema: T) {
   return schema.nullish().catch((ctx: { input: unknown }) => {
     if (!reported.has(name)) {
       reported.add(name);
-      log.warn(`yt-dlp 응답의 ${name} 필드 형식이 예상과 다름(받은 타입: ${typeof ctx.input}). 이 필드를 제외하고 계속`);
+      log.warn(L.youtube.infoFieldTypeMismatch({ field: name, type: typeof ctx.input }));
     }
     return undefined;
   });
@@ -70,9 +72,9 @@ function readInfo(raw: unknown): YtInfo | null {
 }
 
 /** readInfo가 읽지 못한 답이 무엇이었나(오류 문장에 싣는다). JSON이 아닌 출력은 글자로 오므로 길이도 */
-function answerShape(raw: unknown): string {
-  if (typeof raw === "string") return `타입=string, 길이=${raw.length}`;
-  return `타입=${raw === null ? "null" : Array.isArray(raw) ? "array" : typeof raw}`;
+function answerShape(raw: unknown): LogText {
+  if (typeof raw === "string") return L.youtube.infoShapeString({ length: raw.length });
+  return L.youtube.infoShapeType({ type: raw === null ? "null" : Array.isArray(raw) ? "array" : typeof raw });
 }
 
 export { readInfo, answerShape };

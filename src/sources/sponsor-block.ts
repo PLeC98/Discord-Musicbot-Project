@@ -8,6 +8,7 @@
 //
 // 세그먼트 데이터: https://sponsor.ajay.app (CC BY-NC-SA 4.0).
 
+import { rule } from "../rules/rule-problem.ts";
 import crypto from "crypto";
 import * as links from "../rules/links.ts";
 import config from "../config/index.ts";
@@ -18,6 +19,7 @@ import { httpFor, reasonOf, type Judged } from "../infra/http.ts";
 import { repeatingFailure } from "../infra/repeating-failure.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import logger from "../infra/log/logger.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "sponsor" });
 
 // 바깥으로 나가는 요청은 공유 HTTP 클라이언트로(부른 결과가 남는다). 테스트는 useFetch로 가짜를 넘긴다(null이면 실제 fetch)
@@ -25,11 +27,11 @@ const http = httpFor("sponsorblock");
 const useFetch = http.useFetch;
 
 // 주소가 SponsorBlock 구간 API가 아니면 처음 한 번 경고하고, 다시 답을 받으면 한 줄
-const wrongAnswer = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "SponsorBlock 구간 조회");
+const wrongAnswer = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.sponsor.segmentLookup());
 
-const apiFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "SponsorBlock API 요청");
-const refreshWrite = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "SponsorBlock 구간 갱신 중 캐시 DB 쓰기");
-const loadStore = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "SponsorBlock 구간 조회 중 캐시 DB 읽기와 쓰기");
+const apiFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.sponsor.apiRequest());
+const refreshWrite = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.sponsor.segmentRefreshWrite());
+const loadStore = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.sponsor.segmentLookupStore());
 
 /** 원시 구간 하나(카테고리 전부). 캐시에도 이 모양으로 담는다 */
 type RawSegment = { category: string; actionType: string; start?: number; end?: number; votes?: number; locked?: number };
@@ -119,7 +121,7 @@ async function judgeSegments(res: Response): Promise<Judged<Answer>> {
   const json = res.headers.get("content-type")?.includes("application/json") ?? false;
   if (res.status === 200 && Array.isArray(body) && body.every(isVideo)) return { value: { videos: body }, error: null };
   if (res.status === 404 && json && Array.isArray(body) && body.length === 0) return { value: { videos: [] }, error: null };
-  return { value: { failed: status, notApi: true }, error: "구간 API 응답이 아님" };
+  return { value: { failed: status, notApi: true }, error: rule("link-not-segment-api") };
 }
 
 /**
@@ -135,14 +137,14 @@ async function _fetchRaw(videoId: string, apiBase: string): Promise<RawSegment[]
   try {
     answer = await http.read(url, { headers: { "User-Agent": config.userAgents.bot }, signal: AbortSignal.timeout(sb.timeoutMs) }, judgeSegments);
   } catch (error) {
-    log.debug(`SponsorBlock 조회 실패: ${videoId} | ${messageOf(error)}`);
+    log.debug(L.sponsor.segmentFetchFailed({ videoId, reason: messageOf(error) }));
     apiFailure.fail(`${reasonOf(error)} (${apiBase})`);
     return null;
   }
   if ("failed" in answer) {
-    if (answer.notApi) wrongAnswer.fail(`${apiBase}의 응답이 SponsorBlock 구간 API 응답이 아님(${answer.failed}). SponsorBlock API 주소와 해시 접두어 길이 설정을 확인하세요`);
+    if (answer.notApi) wrongAnswer.fail(L.sponsor.notSegmentApi({ apiBase, failed: answer.failed }));
     else {
-      log.debug(`SponsorBlock 조회 실패: ${videoId} | ${answer.failed}`);
+      log.debug(L.sponsor.segmentFetchFailed({ videoId, reason: answer.failed }));
       apiFailure.fail(`${answer.failed} (${apiBase})`);
     }
     return null;
@@ -210,7 +212,7 @@ function _refreshIfStale(videoId: string, entry: Entry) {
     .catch((error: unknown) => {
       if (codeOf(error) === "DB_NOT_OPEN") throw error;
       entry.missedAt = Date.now();
-      log.debug(`SponsorBlock 구간 다시 받기 실패: ${videoId} | ${messageOf(error)}`);
+      log.debug(L.sponsor.segmentRefetchFailed({ videoId, error: messageOf(error) }));
       refreshWrite.fail(messageOf(error));
     })
     .finally(() => (entry.refreshing = false));
@@ -249,7 +251,7 @@ function _remember(videoId: string) {
       (error: unknown) => {
         if (codeOf(error) === "DB_NOT_OPEN") throw error;
         entry.missedAt = Date.now();
-        log.debug(`SponsorBlock 구간 조회 실패: ${videoId} | ${messageOf(error)}`);
+        log.debug(L.sponsor.segmentLookupFailed({ videoId, error: messageOf(error) }));
         loadStore.fail(messageOf(error));
       },
     )

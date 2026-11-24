@@ -8,9 +8,11 @@ import path from "node:path";
 import { RELEASES_URL, TARGETS, assetFor, type Target } from "./release.ts";
 import { EMPTY_STATE, readState, setAsideBroken, writeState, type FfmpegBuild, type FfmpegState } from "./state.ts";
 import { withLock } from "../../infra/folder-lock.ts";
+import { L } from "../../infra/log/text.ts";
+import { logTextError, type LogText } from "../../infra/log/log-text.ts";
 
 /** 실행 확인의 결과. ok면 ffmpeg -version이 출력한 버전 */
-type Probe = { ok: true; version: string } | { ok: false; reason: string };
+type Probe = { ok: true; version: string } | { ok: false; reason: string | LogText };
 
 /**
  * key: 플랫폼(`${process.platform}-${process.arch}`). fetchText: 본문, 없으면(404) null. fetchFile: 본문 바이트.
@@ -31,7 +33,7 @@ type InstallIo = {
  * skipped: 목표가 이 환경에서 실행되지 않아 물린 릴리스다(force가 아니면 다시 받지 않는다). failed: 받거나 적용하지 못했다(가리킴은 그대로).
  * busy: 다른 프로세스가 폴더 잠금을 풀지 않았다. 어느 결과든 notes에 운영자에게 알릴 줄이 있을 수 있다(깨진 기록을 옮긴 경우)
  */
-type AlignOutcome = ({ kind: "unchanged"; release: string; version: string } | { kind: "switched"; release: string; version: string } | { kind: "installed"; release: string; version: string; from: string | null } | { kind: "skipped"; release: string } | { kind: "failed"; release: string; reason: string } | { kind: "busy"; holder: number | null }) & { notes: string[] };
+type AlignOutcome = ({ kind: "unchanged"; release: string; version: string } | { kind: "switched"; release: string; version: string } | { kind: "installed"; release: string; version: string; from: string | null } | { kind: "skipped"; release: string } | { kind: "failed"; release: string; reason: string | LogText } | { kind: "busy"; holder: number | null }) & { notes: LogText[] };
 
 /**
  * dir: vendor/ffmpeg. defaultRelease: 코드의 기본값. pin: 고정을 바꾼다(문자열은 고정, null은 풀기, 생략은 그대로).
@@ -42,18 +44,18 @@ type AlignOptions = { dir: string; defaultRelease: string; pin?: string | null; 
 /** 목표에 맞춘다. 폴더 잠금 안에서 기록을 새로 읽고 끝에 한 번 쓴다 */
 async function alignFfmpeg({ dir, defaultRelease, pin, force = false, io }: AlignOptions): Promise<AlignOutcome> {
   const target = TARGETS[io.key];
-  if (!target) throw new Error(`${io.key}용 빌드가 제공되지 않음`);
-  const notes: string[] = [];
+  if (!target) throw logTextError(L.ffmpeg.ffmpegTargetUnsupported({ target: io.key }));
+  const notes: LogText[] = [];
   const held = await withLock(dir, () => alignLocked({ dir, defaultRelease, pin, force, io, target, notes }));
   return held.ok ? held.value : { kind: "busy", holder: held.holder, notes };
 }
 
-async function alignLocked({ dir, defaultRelease, pin, force, io, target, notes }: Required<Omit<AlignOptions, "pin">> & { pin: string | null | undefined; target: Target; notes: string[] }): Promise<AlignOutcome> {
+async function alignLocked({ dir, defaultRelease, pin, force, io, target, notes }: Required<Omit<AlignOptions, "pin">> & { pin: string | null | undefined; target: Target; notes: LogText[] }): Promise<AlignOutcome> {
   const read = readState(dir);
   const state: FfmpegState = read.kind === "ok" ? read.state : EMPTY_STATE;
   if (read.kind === "broken") {
     const aside = setAsideBroken(dir, io.now());
-    notes.push(`ffmpeg 기록(state.json)을 읽지 못해(${read.error}) ${path.basename(aside)} 파일로 옮기고 새로 기록했습니다. 고정한 버전이 있었다면 다시 고정하세요`);
+    notes.push(L.ffmpeg.stateSetAside({ error: read.error, file: path.basename(aside) }));
   }
   const nextPin = pin === undefined ? state.pin : pin;
   const release = nextPin ?? defaultRelease;
@@ -75,7 +77,7 @@ async function alignLocked({ dir, defaultRelease, pin, force, io, target, notes 
 }
 
 /** 받아서 새 버전 폴더에 두고 가리킨다. 이 환경에서 실행되지 않으면 물린 릴리스에 적고 가리킴은 그대로 둔다 */
-async function installNew({ dir, release, target, io, state, activeBroken, save, notes }: { dir: string; release: string; target: Target; io: InstallIo; state: FfmpegState; activeBroken: boolean; save: (next: FfmpegState) => void; notes: string[] }): Promise<AlignOutcome> {
+async function installNew({ dir, release, target, io, state, activeBroken, save, notes }: { dir: string; release: string; target: Target; io: InstallIo; state: FfmpegState; activeBroken: boolean; save: (next: FfmpegState) => void; notes: LogText[] }): Promise<AlignOutcome> {
   const staging = path.join(dir, `.staging-${io.pid}-${io.now()}`);
   try {
     const got = await fetchBuild(release, target, staging, io);
@@ -115,10 +117,10 @@ async function reuse(state: FfmpegState, release: string, probe: (build: FfmpegB
 }
 
 /** 받아서 확인하고 staging 안의 실행 파일 경로를 반환한다. rejected: 받기는 됐지만 이 환경에서 실행되지 않았다 */
-async function fetchBuild(release: string, target: Target, staging: string, io: InstallIo): Promise<{ file: string; asset: string; sha256: string; version: string } | { reason: string; rejected: boolean }> {
+async function fetchBuild(release: string, target: Target, staging: string, io: InstallIo): Promise<{ file: string; asset: string; sha256: string; version: string } | { reason: string | LogText; rejected: boolean }> {
   const base = `${RELEASES_URL}/${encodeURIComponent(release)}`;
   const checksums = await io.fetchText(`${base}/checksums.sha256`);
-  if (checksums === null) return { reason: `${release} 릴리스가 없음(BtbN이 지웠거나 태그가 틀림. 월말 빌드는 2년, 그 외는 2주 보관)`, rejected: false };
+  if (checksums === null) return { reason: L.ffmpeg.releaseMissing({ release }), rejected: false };
   let asset;
   try {
     asset = assetFor(checksums, target, io.key);
@@ -127,12 +129,12 @@ async function fetchBuild(release: string, target: Target, staging: string, io: 
   }
   const archive = await io.fetchFile(`${base}/${asset.assetName}`);
   const sha256 = crypto.createHash("sha256").update(archive).digest("hex");
-  if (sha256 !== asset.sha256) return { reason: `체크섬 불일치(기대 ${asset.sha256}, 실제 ${sha256})`, rejected: false };
+  if (sha256 !== asset.sha256) return { reason: L.ffmpeg.checksumMismatch({ expected: asset.sha256, actual: sha256 }), rejected: false };
   fs.mkdirSync(staging, { recursive: true });
   fs.writeFileSync(path.join(staging, asset.assetName), archive);
   const file = await io.extract(asset.assetName, target.bin, staging);
   const ran = await io.probe(file);
-  if (!ran.ok) return { reason: `받은 ffmpeg가 이 환경에서 실행되지 않음(${ran.reason})`, rejected: true };
+  if (!ran.ok) return { reason: L.ffmpeg.downloadedNotRunnable({ reason: ran.reason }), rejected: true };
   return { file, asset: asset.assetName, sha256, version: ran.version };
 }
 

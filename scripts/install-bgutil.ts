@@ -29,7 +29,9 @@ import { acquireInstanceLock } from "../src/infra/instance-lock.ts";
 import { installBgutil, type InstallIo, type InstallOutcome } from "../src/sources/bgutil/install.ts";
 import { trialRun } from "../src/sources/bgutil/trial.ts";
 import { scriptLine, type ScriptLevel } from "../src/infra/script-line.ts";
+import { logTextError, type LogText } from "../src/infra/log/log-text.ts";
 import { parseInstallArgs, type InstallMode } from "../src/sources/bgutil/cli-args.ts";
+import { L } from "../src/infra/log/text.ts";
 
 const REPO = `https://github.com/${BGUTIL_REPO}.git`;
 const TAGS_URL = `https://github.com/${BGUTIL_REPO}/tags`;
@@ -45,7 +47,7 @@ const show = (dir: string) => path.relative(PROJECT.root, dir);
 
 const SETTINGS_DB = path.join(PROJECT.database, "settings.db");
 
-let say: (level: ScriptLevel, line: string) => void = scriptLine("bgutil");
+let say: (level: ScriptLevel, line: LogText) => void = scriptLine("bgutil");
 
 // 설정 DB를 읽는 모듈을 부른 뒤로는 로거로 찍는다(같은 모양)
 async function sayWithLogger() {
@@ -62,7 +64,7 @@ async function npm(serverDir: string, args: string[], timeoutMs: number) {
 }
 
 const io: InstallIo = {
-  checkout: (repoDir, tag, commit) => checkoutPinned({ dir: repoDir, repo: REPO, tag, commit, git: gitWith(env), log: (line) => say("info", `${line} (${show(repoDir)})`) }),
+  checkout: (repoDir, tag, commit) => checkoutPinned({ dir: repoDir, repo: REPO, tag, commit, git: gitWith(env), log: (line) => say("info", L.bgutil.gitCommand({ command: line, dir: show(repoDir) })) }),
   npmCi: (serverDir) => npm(serverDir, ["ci", "--ignore-scripts"], NPM_CI_MS),
   npmRebuild: (serverDir, names) => npm(serverDir, ["rebuild", ...names], NPM_REBUILD_MS),
   // build/main.js 생성(tsconfig outDir=./build). npx를 거치지 않고 잠금 파일의 typescript를 쓴다
@@ -90,19 +92,19 @@ function report(outcome: InstallOutcome, bot: "none" | "parent" | "other"): numb
   for (const note of outcome.notes) say("warn", note);
   switch (outcome.kind) {
     case "unchanged":
-      say("info", `이미 ${outcome.tag}(서버 ${outcome.version}) 사용 중`);
+      say("info", L.bgutil.alreadyInUse({ tag: outcome.tag, version: outcome.version }));
       return 0;
     case "installed":
-      say("info", `${outcome.tag}(서버 ${outcome.version}) 설치 완료${outcome.from ? `(이전 ${outcome.from})` : ""}`);
+      say("info", L.bgutil.installed({ tag: outcome.tag, version: outcome.version, from: outcome.from }));
       // 켜져 있는 봇은 기동 때 정한 빌드를 계속 쓴다. yt-dlp 플러그인은 서버와 메이저 버전이 다르면 거부하므로 둘을 함께 바꿔야 한다
-      if (bot !== "none") say("warn", "켜져 있는 봇을 다시 시작하세요(다시 시작해야 새 버전 적용)");
+      if (bot !== "none") say("warn", L.bgutil.restartBot());
       return 0;
     case "failed":
-      say("error", `${outcome.tag} 설치 실패(지금 쓰는 bgutil 그대로): ${outcome.reason}`);
-      say("error", "git, node, canvas 네이티브 모듈용 빌드 도구가 있는지, 네트워크와 태그를 확인하세요");
+      say("error", L.bgutil.installFailed({ tag: outcome.tag, reason: outcome.reason }));
+      say("error", L.bgutil.installFailedHint());
       return 1;
     case "busy":
-      say("error", `설치 건너뜀: 다른 프로세스(${outcome.holder ? `PID ${outcome.holder}` : "PID 모름"})가 vendor/bgutil 사용 중`);
+      say("error", L.bgutil.busy({ holder: outcome.holder }));
       return 1;
   }
 }
@@ -121,8 +123,8 @@ async function settingsTarget(): Promise<Target> {
 async function remoteCommit(tag: string): Promise<string> {
   const out = await gitWith(env)(["ls-remote", REPO, `refs/tags/${tag}`, `refs/tags/${tag}^{}`], PROJECT.root);
   const commit = taggedCommit(out, tag);
-  if (!commit) throw new Error(`저장소에 태그가 없음: ${tag}(태그 목록: ${TAGS_URL})`);
-  say("info", `태그 ${tag}의 커밋: ${commit}`);
+  if (!commit) throw logTextError(L.bgutil.tagNotFound({ tag, tagsUrl: TAGS_URL }));
+  say("info", L.bgutil.tagCommit({ tag, commit }));
   return commit;
 }
 
@@ -136,21 +138,21 @@ async function install(target: Target, force: boolean, botOff = false): Promise<
 // --pin, --unpin: 봇이 꺼져 있을 때만. 설정 DB를 쓰기로 열고, 설치한 뒤 저장한다
 async function changePin(mode: Extract<InstallMode, { kind: "pin" | "unpin" }>, force: boolean): Promise<boolean> {
   const held = await acquireInstanceLock(PROJECT.database);
-  if (!held.ok) throw new Error(`봇이 실행 중이라(${held.holder ? `PID ${held.holder}` : "PID 모름"}) bgutil 고정을 바꾸지 않습니다. 대시보드 운영자 패널의 업데이트 탭에서 바꾸거나, 봇을 끄고 다시 실행하세요`);
+  if (!held.ok) throw logTextError(L.bgutil.pinBotRunning({ holder: held.holder }));
   const { settingsDb } = await import("../src/store/settings-db.ts");
   const tunables = await import("../src/store/tunables.ts");
   await sayWithLogger();
   try {
     settingsDb.open(SETTINGS_DB);
     tunables.load();
-    const was = config.bgutil.pinned ? `${config.bgutil.version}(${config.bgutil.commit})` : "없음";
+    const was = config.bgutil.pinned ? `${config.bgutil.version}(${config.bgutil.commit})` : L.bgutil.pinNone();
     const target = mode.kind === "unpin" ? { tag: BGUTIL_VERSION, commit: BGUTIL_COMMIT } : { tag: mode.tag, commit: mode.commit ?? (await remoteCommit(mode.tag)) };
     if (!(await installGuarded(target, force))) {
-      say("warn", `설치하지 못해 설정은 그대로 둠(고정 ${was})`);
+      say("warn", L.bgutil.pinKeptAfterFailure({ was }));
       return false;
     }
     tunables.saveCard(mode.kind === "unpin" ? { BGUTIL_VERSION: null, BGUTIL_COMMIT: null } : { BGUTIL_VERSION: target.tag, BGUTIL_COMMIT: target.commit });
-    say("warn", `터미널에서 bgutil 고정 변경: ${was} → ${mode.kind === "unpin" ? "없음" : `${target.tag}(${target.commit})`}`);
+    say("warn", L.bgutil.pinChanged({ was, now: mode.kind === "unpin" ? L.bgutil.pinNone() : `${target.tag}(${target.commit})` }));
     return true;
   } finally {
     settingsDb.close();
@@ -163,7 +165,7 @@ async function installGuarded(target: Target, force: boolean): Promise<boolean> 
   try {
     return await install(target, force, true);
   } catch (error) {
-    say("error", `${target.tag} 설치 실패(지금 쓰는 bgutil 그대로): ${messageOf(error)}`);
+    say("error", L.bgutil.installFailed({ tag: target.tag, reason: messageOf(error) }));
     return false;
   }
 }
@@ -181,7 +183,7 @@ async function main(): Promise<number> {
   try {
     target = await settingsTarget();
   } catch (error) {
-    say("error", `설정 DB(database/settings.db)에서 bgutil 고정 값을 읽지 못해 설치하지 않음: ${messageOf(error)}`);
+    say("error", L.bgutil.settingsUnread({ error: messageOf(error) }));
     return 1;
   }
   return (await install(target, force)) ? 0 : 1;
@@ -190,6 +192,6 @@ async function main(): Promise<number> {
 try {
   process.exitCode = await main();
 } catch (error) {
-  say("error", `설치 실패(지금 쓰는 bgutil 그대로): ${messageOf(error)}`);
+  say("error", L.bgutil.failed({ error: messageOf(error) }));
   process.exitCode = 1;
 }

@@ -27,6 +27,8 @@ import { noticeReply } from "../../src/ui/frame.ts";
 import { useUploaded } from "../../src/ui/icons.ts";
 import { screenOf, textOf, thumbnailOf } from "../helpers/cv2.ts";
 import { COMMANDS as COMMAND_LIST } from "../../src/discord/commands/index.ts";
+import { textFor } from "../../src/ui/text/index.ts";
+const KO = textFor("ko");
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "commands-info-"));
 const audioCache = await import("../../src/store/audio-cache.ts");
@@ -35,7 +37,7 @@ stores.open(TMP);
 audioCache.initialize();
 
 const config = (await import("../../src/config/index.ts")).default;
-const errors = await import("../../src/ui/text/ko/errors.ts");
+const errors = textFor("ko").errors;
 const settings = await import("../../src/store/guild-settings.ts");
 
 after(() => {
@@ -81,7 +83,7 @@ function interaction({ player = null, options = {}, userId = "u1", guildRoles = 
     players: new Map<string, Player>(player ? [["g1", fakePlayer(player)]] : []),
     panels: { onBotChannelChanged: async () => seen.push("movePanel") },
     // 실행 목록. /help가 이것으로 명령 줄을 만든다
-    commands: new Map(COMMAND_LIST.map((command) => [command.data.name, command])),
+    commands: new Map(COMMAND_LIST.map((command) => [command.name, command])),
   });
   const it = {
     guild: { id: "g1", roles: { cache: new Map(guildRoles.map((r) => [r, { id: r }])) } },
@@ -400,7 +402,7 @@ test("/help: 모든 분류를 합치면 켜진 명령이 다 있다(/help 자신
   const { sectionView } = await import("../../src/discord/commands/help.ts");
   const { SECTIONS } = await import("../../src/ui/help-lines.ts");
   const { bot } = interaction();
-  const text = SECTIONS.map((key) => textOf({ components: [sectionView(bot.commands, key)] })).join("\n");
+  const text = SECTIONS.map((key) => textOf({ components: [sectionView(KO, bot.commands, key)] })).join("\n");
   const names = [...bot.commands.keys()].filter((name) => name !== "help");
   assert.deepEqual(
     names.filter((name) => !text.includes(`\`/${name}\``)),
@@ -410,11 +412,13 @@ test("/help: 모든 분류를 합치면 켜진 명령이 다 있다(/help 자신
 
 test("/help: 만들다 예외를 던지면 진입점이 알린다", async () => {
   const { it, log, bot } = interaction();
-  Object.defineProperty(it, "guildId", {
-    get() {
+  // 화면을 만들다 던진다(분류를 읽는 자리). 언어를 고르는 데 쓰는 필드(guildId, locale)는 그대로 둔다
+  it.options = {
+    ...it.options,
+    getString: () => {
       throw new Error("x");
     },
-  });
+  };
   await runViaEntrance(await command("help"), it, bot);
   assert.deepEqual(log, [["reply", noticeReply(errors.notice("command-failed"))]]);
 });
@@ -423,9 +427,9 @@ test("/invite: 초대 버튼, 웹사이트가 있으면 웹사이트 버튼. 끄
   const { inviteView } = await import("../../src/discord/commands/invite.ts");
   const { enabledCommands } = await import("../../src/app/command-loader.ts");
   const urls = (view: { toJSON(): unknown }) => [...JSON.stringify(view.toJSON()).matchAll(/"url":"([^"]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(urls(inviteView({ invite: "https://discord.com/oauth2/authorize?client_id=1", website: null })), ["https://discord.com/oauth2/authorize?client_id=1"]);
-  assert.deepEqual(urls(inviteView({ invite: "https://i", website: "https://site.example" })), ["https://i", "https://site.example"]);
-  const names = (on: boolean) => withConfig({ bot: { inviteCommand: on } }, () => enabledCommands().map((c) => c.data.name));
+  assert.deepEqual(urls(inviteView(KO, { invite: "https://discord.com/oauth2/authorize?client_id=1", website: null })), ["https://discord.com/oauth2/authorize?client_id=1"]);
+  assert.deepEqual(urls(inviteView(KO, { invite: "https://i", website: "https://site.example" })), ["https://i", "https://site.example"]);
+  const names = (on: boolean) => withConfig({ bot: { inviteCommand: on } }, () => enabledCommands().map((c) => c.name));
   assert.ok(names(true).includes("invite"));
   assert.ok(!names(false).includes("invite"));
 });
@@ -527,7 +531,7 @@ test("/license: 라이선스 및 운영 소스 코드 링크 (본인만 볼 수 
 });
 
 test("/ping: 누구나 쓸 수 있으므로(응답 시간은 실행한 사람에게만 보인다) 기본 권한을 걸지 않는다", async () => {
-  const json = (await command("ping")).data.toJSON();
+  const json = (await command("ping")).data(textFor("ko").commands).toJSON();
   assert.equal(json.default_member_permissions ?? null, null);
 });
 

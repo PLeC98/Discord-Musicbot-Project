@@ -5,6 +5,8 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import { UPLOAD_PURPOSES, type UploadPurpose } from "./contract/uploads.ts";
+import { L } from "../infra/log/text.ts";
+import { logTextError } from "../infra/log/log-text.ts";
 
 /** 청크 하나의 상한(바이트). 화면은 이 크기로 나눠 보낸다 */
 const CHUNK_SIZE = 8 * 1024 * 1024;
@@ -95,7 +97,7 @@ async function write(one: Upload, chunk: Buffer): Promise<Written> {
     handle = await fs.promises.open(one.target.file, "r+");
     while (one.pending < chunk.length) {
       const { bytesWritten } = await handle.write(chunk, one.pending, chunk.length - one.pending, one.received + one.pending);
-      if (!bytesWritten) throw new Error("파일에 쓰지 못함(0바이트)");
+      if (!bytesWritten) throw logTextError(L.dashboard.fileWriteZero());
       one.pending += bytesWritten;
     }
   } catch (error) {

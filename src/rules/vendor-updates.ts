@@ -1,5 +1,8 @@
 // 따로 받는 도구(bgutil, ffmpeg)의 새 버전 판정. 주마다 도는 확인(scripts/check-vendor-updates)과 봇 상태 탭이 같이 쓴다
 
+import { L } from "../infra/log/text.ts";
+import { logTextError } from "../infra/log/log-text.ts";
+
 /** 월말 autobuild 태그인가(autobuild-YYYY-MM-DD-HH-MM이고 그날이 그 달의 마지막 날). 그 외 autobuild는 2주 뒤 지워진다 */
 function isMonthEndBuild(tag: string) {
   const m = /^autobuild-(\d{4})-(\d{2})-(\d{2})-\d{2}-\d{2}$/.exec(tag);
@@ -31,7 +34,7 @@ function newerRelease(latest: string | null | undefined, current: string) {
 /** `const NAME = "값";` 한 줄의 값을 바꾼다. 그 줄이 없으면 예외를 던진다(파일 모양이 바뀌면 조용히 지나가지 않게) */
 function rewriteConstant(text: string, name: string, value: string) {
   const line = new RegExp(`^const ${name} = "[^"\\n]*";$`, "m");
-  if (!line.test(text)) throw new Error(`${name} 줄을 찾지 못함`);
+  if (!line.test(text)) throw logTextError(L.vendor.lineNotFound({ name }));
   return text.replace(line, `const ${name} = "${value}";`);
 }
 

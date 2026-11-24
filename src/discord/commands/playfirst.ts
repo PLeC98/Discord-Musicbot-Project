@@ -5,7 +5,6 @@ import { checkAddFirst } from "../../usecases/permissions.ts";
 const exported = playCommand({
   help: { section: "play", tier: "dj" },
   name: "playfirst",
-  description: "대기열 맨 앞에 곡을 넣어요",
   permission: checkAddFirst,
   insertFirst: true,
 });

@@ -7,7 +7,7 @@ import type { Level } from "../rules/status-levels.ts";
 import { colorOf } from "./colors.ts";
 import { PING, customId } from "./custom-ids.ts";
 import { buttonEmoji } from "./icons.ts";
-import * as infoText from "./text/ko/info.ts";
+import type { BotText } from "./text/index.ts";
 
 type PingValues = {
   responseMs: number;
@@ -25,8 +25,8 @@ type PingValues = {
 const MARK: Record<Level, string> = { ok: "🟢", warn: "🟡", bad: "🔴" };
 const ms = (value: number) => `\`${value}ms\``;
 
-function pingView(v: PingValues) {
-  const t = infoText.ping();
+function pingView(T: BotText, v: PingValues) {
+  const t = T.info.ping();
   const line = (mark: string, name: string, value: string, note: string) => `${mark} **${name}** ${value}\n-# ${note}`;
   const average = v.gatewayAverage ? ` · ${t.average(v.gatewayAverage.minutes)} ${ms(v.gatewayAverage.ms)}` : "";
   const lines = [line(MARK[responseLevel(v.responseMs)], t.response.name, ms(v.responseMs), t.response.note), line(MARK[responseLevel(v.restMs)], t.rest.name, ms(v.restMs), t.rest.note), v.gatewayMs === null ? line("⚪", t.gateway.name, `\`${t.measuring}\``, t.gateway.note) : line(MARK[linkLevel(v.gatewayMs)], t.gateway.name, ms(v.gatewayMs) + average, t.gateway.note), v.voiceMs === null ? null : line(MARK[linkLevel(v.voiceMs)], t.voice.name, ms(v.voiceMs), t.voice.note)].filter(

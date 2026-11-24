@@ -6,9 +6,9 @@ import assert from "node:assert/strict";
 import { codedError } from "../../src/rules/error-kind.ts";
 import * as controls from "../../src/usecases/controls.ts";
 import * as playerEvents from "../../src/player/events.ts";
-import * as errors from "../../src/ui/text/ko/errors.ts";
 import { controlMessage } from "../../src/ui/control-messages.ts";
 import sink from "../../src/infra/log/sink.ts";
+import { asText, type LogText } from "../../src/infra/log/log-text.ts";
 import { openTempStore } from "../helpers/temp-store.ts";
 import { Status, type Guild, type GuildMember } from "discord.js";
 import type { Actor } from "../../src/usecases/controls.ts";
@@ -23,6 +23,10 @@ import * as genreConfig from "../../src/config/genres.ts";
 import * as guildSettings from "../../src/store/guild-settings.ts";
 import { plainText } from "../helpers/notice.ts";
 import * as staySeats from "../../src/store/stay-seats.ts";
+import { textFor } from "../../src/ui/text/index.ts";
+import { testText } from "../helpers/log-text.ts";
+const KO = textFor("ko");
+const errors = textFor("ko").errors;
 
 useDefaultDocuments();
 
@@ -488,7 +492,7 @@ test("자동재생 켜기: 모르는 장르는 거절. 플레이어가 없으면
   const [genre] = Object.keys(genreConfig.genres().genres);
   const seen = panel();
   assert.deepEqual(await controls.autoplay(null, DJ, "없는장르", { create: () => assert.fail("거절하면 만들지 않는다") }), { ok: false, code: "unknown-genre", genre: "없는장르" });
-  assert.equal(plainText(controlMessage({ code: "unknown-genre", genre: "없는장르" })), "알 수 없는 장르예요!\n그 사이 장르 목록이 변경되어 `없는장르`는 없어졌어요. 장르를 다시 선택해 주세요.");
+  assert.equal(plainText(controlMessage(KO, { code: "unknown-genre", genre: "없는장르" })), "알 수 없는 장르예요!\n그 사이 장르 목록이 변경되어 `없는장르`는 없어졌어요. 장르를 다시 선택해 주세요.");
 
   // 음성에 먼저 붙고 나서 켠다(첫 곡을 넣는 것은 DB에 쓴다. 붙지 못했을 때 앞 플레이어가 남긴 세션을 건드리지 않게)
   const order: string[] = [];
@@ -509,12 +513,12 @@ test("자동재생 켜기: 모르는 장르는 거절. 플레이어가 없으면
     },
     setAutoplay: () => assert.fail("켜지 않는다"),
     playAutoplayNow: async () => assert.fail("뽑지 않는다"),
-    dispose: async (o: unknown) => disposed.push(o),
+    dispose: async (o: { reason: LogText }) => disposed.push({ ...o, reason: asText(o.reason), event: o.reason.event }),
   });
   assert.deepEqual(await controls.autoplay(null, DJ, genre, { create: () => stranded }), { ok: false, code: "voice-failed" });
-  assert.deepEqual(disposed, [{ reason: "음성 채널 접속 실패", session: "keep", end: "connect-failed" }]);
+  assert.deepEqual(disposed, [{ reason: "음성 채널 접속 실패", event: "player.disposeVoiceConnectFailed", session: "keep", end: "connect-failed" }]);
   // 종료 중이라 붙지 않았으면 bot-shutting-down으로 거절한다
-  const stopping = fakePlayer({ currentTrack: null, connection: null, voice: { connect: async () => Promise.reject(codedError("bot-shutting-down", "종료 중")) }, setAutoplay: () => assert.fail("켜지 않는다"), dispose: async (o: (typeof disposed)[number]) => void disposed.push(o) });
+  const stopping = fakePlayer({ currentTrack: null, connection: null, voice: { connect: async () => Promise.reject(codedError("bot-shutting-down", testText("종료 중"))) }, setAutoplay: () => assert.fail("켜지 않는다"), dispose: async (o: (typeof disposed)[number]) => void disposed.push(o) });
   assert.deepEqual(await controls.autoplay(null, DJ, genre, { create: () => stopping }), { ok: false, code: "bot-shutting-down" });
   assert.equal(disposed.length, 2);
 
@@ -525,8 +529,8 @@ test("자동재생 켜기: 모르는 장르는 거절. 플레이어가 없으면
 });
 
 test("안내: 코드와 값의 안내", () => {
-  assert.deepEqual(controlMessage({ code: "must-dj" }), errors.notice("must-dj"));
-  assert.equal(plainText(controlMessage({ code: "bad-position", size: 3 })), "그 번호의 곡은 존재하지 않아요!\n대기열에는 3곡만 있어요. 1~3 사이로 적어 주세요.");
+  assert.deepEqual(controlMessage(KO, { code: "must-dj" }), errors.notice("must-dj"));
+  assert.equal(plainText(controlMessage(KO, { code: "bad-position", size: 3 })), "그 번호의 곡은 존재하지 않아요!\n대기열에는 3곡만 있어요. 1~3 사이로 적어 주세요.");
 });
 
 test("상주 모드: 정지는 대기열만 비우고 채널에 남는다(재생 준비 중이면 거절). 나가기는 DJ 조작이라 상주 모드까지 끄고(켜고 끄는 권한과 같다), 거절하면 상주 모드는 유지된다", async () => {

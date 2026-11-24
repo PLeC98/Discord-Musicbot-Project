@@ -11,14 +11,15 @@
 
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
-import { SPEC, needsOf, opts, type Field, type SourceTypeView } from "../../config/schema/genre-sources.ts";
+import { SPEC, needsOf, opts, sourceLabel, viewField, type Field, type SourceTypeView } from "../../config/schema/genre-sources.ts";
+import type { RuleSource } from "../../rules/text/shape.ts";
 import { usable } from "../../config/source-keys.ts";
 import { messageOf } from "../../rules/error-kind.ts";
 import type { GenreSource } from "../../config/genres.ts";
 import type { Candidate } from "./candidate.ts";
 import type { Search } from "./keyword.ts";
 import type { AnisongStats } from "./anisongdb.ts";
-import { getJson, remembered } from "./http.ts";
+import { postGraphql, remembered } from "./http.ts";
 import { keyword } from "./keyword.ts";
 import { lastfm } from "./lastfm.ts";
 import { lbradio, PLACEHOLDER } from "./lbradio.ts";
@@ -26,6 +27,8 @@ import { animethemes } from "./animethemes.ts";
 import { anisongdb, anisongCatalog, anisongFilters, _seedAnisongStats, CATALOG_TTL_MS, CATALOG_WAIT_MS, CATALOG_RETRY_MS } from "./anisongdb.ts";
 import { vocaFamily, advancedFilters, someLanguages, suggest, isSite } from "./voca.ts";
 import { spotify, youtube } from "./playlists.ts";
+import { L } from "../../infra/log/text.ts";
+import { logTextError } from "../../infra/log/log-text.ts";
 
 // ── 레지스트리 ────────────────────────────────────────────────────────────────
 
@@ -34,7 +37,7 @@ type FetchDeps = { search?: Search };
 type Fetcher = (source: GenreSource, deps: FetchDeps) => Promise<Candidate[]>;
 type YearRange = { min: number; max: number };
 // 여기서 읽는 필드만
-type AnimePage = { anime?: Array<{ year?: number }> };
+type AnimeYears = { animeyears?: Array<{ year?: number }> };
 
 const FETCHERS: Record<string, Fetcher> = { keyword, lastfm, lbradio, animethemes, anisongdb, vocadb: vocaFamily, utaitedb: vocaFamily, touhoudb: vocaFamily, spotify, youtube };
 
@@ -45,11 +48,10 @@ const TYPES = Object.keys(FETCHERS);
 const yearRange = remembered<YearRange>(
   async () => {
     try {
-      const ends = await Promise.all([getJson<AnimePage | null>("animethemes", "https://api.animethemes.moe/anime?sort=year&page[size]=1"), getJson<AnimePage | null>("animethemes", "https://api.animethemes.moe/anime?sort=-year&page[size]=1")]);
-      const [min, max] = ends.map((r) => Number(r?.anime?.[0]?.year));
-      return min && max && min <= max ? { min, max } : null;
+      const years = ((await postGraphql<AnimeYears>("animethemes", "https://rs.animethemes.moe/graphql", "{ animeyears { year } }"))?.animeyears || []).map((one) => Number(one.year)).filter((year) => year > 0);
+      return years.length ? { min: Math.min(...years), max: Math.max(...years) } : null;
     } catch (error) {
-      log.warn(`AnimeThemes 연도 범위 불러오기 실패: ${messageOf(error)}`);
+      log.warn(L.autoplay.animeThemesYearsFailed({ error: messageOf(error) }));
       return null;
     }
   },
@@ -83,9 +85,9 @@ function fillAnisong(field: Field, years: YearRange, anisong: AnisongStats | nul
 
 /**
  * 대시보드가 그릴 소스 목록. 검증, 실행과 같은 표(SPEC)에서 만든다(화면이 따로 들고 있으면 소스를 더할 때 한쪽만 고치게 된다).
- * 필수 여부는 need에서 끌어온다.
+ * 필수 여부는 need에서 끌어온다. text: 보는 사람의 언어의 규칙 문구(이름, 설명, 선택지 이름)
  */
-async function catalog(): Promise<SourceTypeView[]> {
+async function catalog(text: RuleSource): Promise<SourceTypeView[]> {
   // 나란히 부른다. 한쪽이 느리다고 다른 쪽을 기다릴 이유가 없다.
   const [years, anisong] = await Promise.all([animeYearRange(), anisongCatalog()]);
   return TYPES.map((type) => {
@@ -93,13 +95,13 @@ async function catalog(): Promise<SourceTypeView[]> {
     const required = new Set(spec.need.flat());
     return {
       type,
-      label: spec.label,
-      hint: spec.hint || "",
+      label: sourceLabel(text, type),
+      hint: text.sources[type]?.hint ?? "",
       usable: usable(type),
       needs: spec.env || null,
       // need가 [["tags","prompt"]] 형식이면 "둘 중 하나"라는 뜻이다
       either: spec.need.filter((g) => g.length > 1).map((g) => [...g]),
-      fields: (spec.fields || []).map((one) => ({ ...one, required: required.has(one.key), ...fill(one, type, years, anisong) })),
+      fields: (spec.fields || []).map((one) => ({ ...viewField(text, type, one), required: required.has(one.key), ...fill(one, type, years, anisong) })),
       // 곡이 많을 때 선택하는 범위. 화면이 "상위 n곡 중에서"를 표시한다
       window: spec.window || null,
     };
@@ -109,9 +111,9 @@ async function catalog(): Promise<SourceTypeView[]> {
 /** 설정에 적힌 소스 하나를 곡 목록으로. 예외를 던지면 호출부가 다음 소스로 넘어간다. */
 async function fetchFrom(source: GenreSource, deps: FetchDeps = {}): Promise<Candidate[]> {
   const fetcher = FETCHERS[source?.type];
-  if (!fetcher) throw new Error(`모르는 소스: ${source?.type}`);
+  if (!fetcher) throw logTextError(L.autoplay.unknownSource({ type: source?.type }));
   const tracks = await fetcher(source, deps);
-  log.debug(`${source.type}: ${tracks.length}곡`);
+  log.debug(L.autoplay.sourceFetched({ type: source.type, count: tracks.length }));
   return tracks;
 }
 

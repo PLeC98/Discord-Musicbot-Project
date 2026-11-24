@@ -1,0 +1,26 @@
+{
+  "src/autoplay/assist/index.ts": {
+    "bug": 1
+  },
+  "src/dashboard/middleware/require-auth.ts": {
+    "bug": 1
+  },
+  "src/dashboard/session-requests.ts": {
+    "bug": 2
+  },
+  "src/dashboard/session-store.ts": {
+    "bug": 1
+  },
+  "src/media/encode-worker.ts": {
+    "bug": 4
+  },
+  "src/rules/tunables.ts": {
+    "bug": 1
+  },
+  "src/ui/icon-images.ts": {
+    "bug": 1
+  },
+  "src/usecases/add-tracks.ts": {
+    "bug": 1
+  }
+}

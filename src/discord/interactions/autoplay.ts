@@ -2,7 +2,6 @@
 // 켜기, 끄기, 권한, 플레이어 만들기는 usecases/controls의 autoplay가 한다
 
 import { RESTJSONErrorCodes, type ButtonInteraction, type RepliableInteraction, type StringSelectMenuInteraction } from "discord.js";
-import * as errors from "../../ui/text/ko/errors.ts";
 import * as controls from "../../usecases/controls.ts";
 import { ensurePlayer } from "../../usecases/add-tracks.ts";
 import { waitForRestore } from "../../player/session-restore.ts";
@@ -16,6 +15,8 @@ import type { Player } from "../../player/player.ts";
 import type { AppEmojis } from "../../app/app-emojis.ts";
 import { LIFETIME, noticeSelf, toAll, toSelf, unlessGone } from "../../ui/delivery.ts";
 import logger from "../../infra/log/logger.ts";
+import { privateText, publicText } from "../../ui/language.ts";
+import { L } from "../../infra/log/text.ts";
 
 const log = logger.child({ category: "events" });
 
@@ -47,13 +48,13 @@ async function sendMenu(interaction: RepliableInteraction, build: () => Menu, em
 async function answerAutoplay(interaction: RepliableInteraction<"cached">, player: Player | undefined, emojis: AppEmojis | undefined) {
   const actor = { member: interaction.member };
   if (player?.autoplay) {
-    const r = await controls.autoplay(player, actor, false, { onAccepted: () => sendMenu(interaction, buildAutoplayOffMenu, emojis) });
-    if (!r.ok) return noticeSelf(interaction, controlMessage(r));
+    const r = await controls.autoplay(player, actor, false, { onAccepted: () => sendMenu(interaction, () => buildAutoplayOffMenu(privateText(interaction)), emojis) });
+    if (!r.ok) return noticeSelf(interaction, controlMessage(privateText(interaction), r));
     return;
   }
   const blocked = await controls.autoplayBlocked(actor);
-  if (blocked) return noticeSelf(interaction, controlMessage(blocked));
-  return sendMenu(interaction, buildGenreMenu, emojis);
+  if (blocked) return noticeSelf(interaction, controlMessage(privateText(interaction), blocked));
+  return sendMenu(interaction, () => buildGenreMenu(privateText(interaction)), emojis);
 }
 
 // 끝난 패널, 재생 중 패널 양쪽에서 온다. 재생 중 패널의 버튼은 다른 패널 버튼처럼 패널의 세션이 지금 세션이어야 한다.
@@ -61,7 +62,7 @@ async function answerAutoplay(interaction: RepliableInteraction<"cached">, playe
 async function handleAutoplayButton(interaction: ButtonInteraction<"cached">, { players, appEmojis }: BotContext) {
   const player = players.get(interaction.guild.id);
   const sessionId = partsOf(interaction.customId).rest[0];
-  if (player && sessionId && sessionId !== IDLE_SESSION && player.sessionId && sessionId !== player.sessionId) return noticeSelf(interaction, errors.notice("stale-session"));
+  if (player && sessionId && sessionId !== IDLE_SESSION && player.sessionId && sessionId !== player.sessionId) return noticeSelf(interaction, privateText(interaction).errors.notice("stale-session"));
   return answerAutoplay(interaction, player, appEmojis);
 }
 
@@ -79,11 +80,11 @@ async function handleAutoplayGenre(interaction: StringSelectMenuInteraction<"cac
   };
   const r = await controls.autoplay(bot.players.get(guild.id), { member }, genre, {
     create,
-    onAccepted: () => toAll(interaction, autoplayOn(genre, member), LIFETIME.result),
+    onAccepted: () => toAll(interaction, autoplayOn(publicText(interaction.guildId), genre, member), LIFETIME.result),
   });
   if (!r.ok) {
-    await interaction.editReply({ components: interaction.message.components }).catch(unlessGone(log, "장르 메뉴 선택 비우기"));
-    return noticeSelf(interaction, controlMessage(r));
+    await interaction.editReply({ components: interaction.message.components }).catch(unlessGone(log, L.events.genreMenuClear()));
+    return noticeSelf(interaction, controlMessage(privateText(interaction), r));
   }
 }
 

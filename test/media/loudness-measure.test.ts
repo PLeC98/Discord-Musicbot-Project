@@ -62,7 +62,11 @@ test("실패 분류: 환경 탓과 파일 탓", () => {
   assert.equal(verdictOf({ code: 1, timedOut: false }, ok, 0.6).kind, "env", "0이 아닌 종료 코드");
   assert.equal(verdictOf(done, { ...ok, lines: 0 }, 0.6).kind, "env", "줄 형식이 다른 빌드");
   assert.equal(verdictOf(done, { ...ok, integrated: null }, 0.6).kind, "env", "요약 없음");
-  assert.equal(verdictOf(done, { ...ok, integrated: -9 }, 0.7).kind, "ok", "한 줄 차이는 허용한다");
+  assert.equal(verdictOf(done, { ...ok, integrated: -9 }, 0.8).kind, "ok", "짧은 파일은 두 줄 차이까지 받아들인다");
+  assert.equal(verdictOf(done, { ...ok, integrated: -9 }, 0.9).kind, "file", "짧은 파일의 세 줄 차이");
+  assert.equal(verdictOf(done, { ...ok, integrated: -9, lines: 1967 }, 196.9).kind, "ok", "반올림한 길이에서 한 줄이 더 빠진 정상 파일");
+  assert.equal(verdictOf(done, { ...ok, integrated: -9, lines: 1960 }, 196.9).kind, "ok", "길이의 0.5%까지는 받아들인다");
+  assert.equal(verdictOf(done, { ...ok, integrated: -9, lines: 1959 }, 196.9).kind, "file", "길이의 0.5%를 넘으면 잘린 파일");
   assert.equal(verdictOf(done, { ...ok, integrated: -9 }, 61).kind, "file", "앞부분만 남은 파일");
   assert.equal(verdictOf(done, { ...ok, integrated: -9 }, null).kind, "ok", "길이를 모르면 대조하지 않는다");
   assert.equal(verdictOf(done, ok, 0.6).kind, "ok");

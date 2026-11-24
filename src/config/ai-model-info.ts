@@ -7,8 +7,9 @@ import * as prices from "./ai-prices.ts";
 import * as aiConfig from "./ai.ts";
 import { PROVIDER_SPECS } from "./schema/ai-providers.ts";
 import logger from "../infra/log/logger.ts";
-import { messageOf } from "../rules/error-kind.ts";
+import { errorText } from "../rules/text/index.ts";
 import type { RefreshResult } from "./ai-model-types.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "config" });
 
 /** 프로필을 받을 레지스트리(PROVIDER_SPECS의 registry) */
@@ -35,11 +36,11 @@ async function both(force: boolean): Promise<RefreshResult> {
   try {
     got = await models.refresh({ registries: registries(), force });
   } catch (error) {
-    log.warn(`AI 모델 정보 불러오기 실패(PocketRisu 레지스트리): ${messageOf(error)}. 기존 정보를 씀`);
+    log.warn(L.config.aiModelInfoLoadFailed({ error: errorText(error) }));
     throw error;
   }
   const priced = await prices.refresh().catch((error: unknown) => {
-    log.warn(`AI 가격표 불러오기 실패(models.dev): ${messageOf(error)}. 기존 가격표로 비용 계산`);
+    log.warn(L.config.aiPricesLoadFailed({ error: errorText(error) }));
     return null;
   });
   return { ...got, changed: got.changed || !!priced?.changed };

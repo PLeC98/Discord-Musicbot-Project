@@ -15,6 +15,7 @@ import * as secrets from "../store/secrets.ts";
 import * as tunables from "../store/tunables.ts";
 import * as serviceKeys from "../store/service-keys.ts";
 import * as guildSettings from "../store/guild-settings.ts";
+import * as userSettings from "../store/user-settings.ts";
 import * as snapshots from "../store/snapshots.ts";
 import * as documents from "../config/documents.ts";
 import * as appearance from "./appearance.ts";
@@ -27,10 +28,11 @@ import * as sponsorBlock from "../sources/sponsor-block.ts";
 import * as spotify from "../sources/spotify.ts";
 import type { AudioCachePart } from "../rules/audio-cache-parts.ts";
 import logger from "../infra/log/logger.ts";
-import { josa } from "../rules/josa.ts";
+import { L } from "../infra/log/text.ts";
+import { asText, type LogText } from "../infra/log/log-text.ts";
 const log = logger.child({ category: "dashboard" });
 
-const PART_NAMES: Record<AudioCachePart, string> = { files: "캐시 파일", ledger: "곡 찾기 기록", external: "바깥 서비스 데이터", pins: "직접 지정한 음원" };
+const PART_NAMES: Record<AudioCachePart, LogText> = { files: L.dashboard.cachePartFiles(), ledger: L.dashboard.cachePartLedger(), external: L.dashboard.cachePartExternal(), pins: L.dashboard.cachePartPins() };
 const MB = (bytes: number) => Math.round(bytes / 1024 / 1024);
 
 /**
@@ -48,9 +50,9 @@ async function resetAudioCache(parts: readonly AudioCachePart[], by: string, go?
     sponsorBlock.forget();
     spotify.forgetAnonState();
   }
-  const files = parts.includes("files") ? [`캐시 파일 ${result.removed}개(${MB(result.freedBytes)}MB) 삭제${result.kept ? `(재생 중이거나 대기열 앞에 있는 곡, 또는 삭제하지 못한 ${result.kept}개는 남김)` : ""}`] : [];
-  const rows = parts.filter((part) => part !== "files").map((part) => `${PART_NAMES[part]} ${result.cleared[part] ?? 0}행`);
-  log.warn({ sub: "admin" }, `대시보드에서 오디오 캐시 초기화: ${[...files, ...rows].join(", ")}. 실행 ${by}`);
+  const files = parts.includes("files") ? [L.dashboard.cacheFilesReset({ removed: result.removed, mb: MB(result.freedBytes), kept: result.kept })] : [];
+  const rows = parts.filter((part) => part !== "files").map((part) => L.dashboard.cachePartRows({ part: PART_NAMES[part], rows: result.cleared[part] ?? 0 }));
+  log.warn({ sub: "admin" }, L.dashboard.audioCacheReset({ targets: [...files, ...rows].map(asText).join(", "), by }));
   return result;
 }
 
@@ -68,7 +70,7 @@ async function resetBotSettings(by: string, go?: () => void) {
   tunables.reload();
   serviceKeys.load();
   const restart = tunables.view().pending.length > 0;
-  log.warn({ sub: "admin" }, `대시보드에서 봇 설정 초기화: 설정 문서 ${removed.documents}개, 비밀값 ${removed.secrets}개 삭제(되돌릴 스냅샷 ${snapshot})${restart ? ". 다시 시작해야 적용되는 값이 있음" : ""}. 실행 ${by}`);
+  log.warn({ sub: "admin" }, L.dashboard.botSettingsReset({ documents: removed.documents, secrets: removed.secrets, snapshot, restart, by }));
   return { snapshot, restart };
 }
 
@@ -79,8 +81,16 @@ async function resetGuildSettings(by: string, go?: () => void) {
   snapshots.tidy();
   const guilds = guildSettings.guildCount();
   guildSettings.removeAll();
-  log.warn({ sub: "admin" }, `대시보드에서 서버별 설정 초기화: 서버 ${guilds}곳(되돌릴 스냅샷 ${snapshot}). 실행 ${by}`);
+  log.warn({ sub: "admin" }, L.dashboard.guildSettingsReset({ guilds, snapshot, by }));
   return { snapshot, guilds };
+}
+
+/** 모든 사람의 사용자 데이터(개인 언어)를 삭제한다. 설정 스냅샷에 들지 않는 값이라 스냅샷을 남기지 않는다 */
+function resetUserData(by: string) {
+  const users = userSettings.userCount();
+  userSettings.removeAll();
+  log.warn({ sub: "admin" }, L.dashboard.userDataReset({ users, by }));
+  return { users };
 }
 
 /** 파비콘, 로그인 배경(기록, 화면 값, 한도까지)을 비운다. 로그인 배경은 백업 불러오기와 같은 길(도는 단계를 멈추고 기록을 통째로 바꾼다) */
@@ -89,7 +99,7 @@ function resetDisplay(by: string) {
   const backgrounds = backgroundStore.items().length;
   backgroundRunner.stopAll();
   backgroundStore.replace({ current: null, items: [], options: LOGIN_BG_OPTIONS_DEFAULT, limits: LOGIN_BG_LIMITS_DEFAULT });
-  log.warn({ sub: "admin" }, `대시보드에서 디스플레이 설정 초기화: 파비콘 ${favicons}개, 로그인 배경 ${backgrounds}개. 실행 ${by}`);
+  log.warn({ sub: "admin" }, L.dashboard.displayReset({ favicons, backgrounds, by }));
   return { favicons, backgrounds };
 }
 
@@ -110,6 +120,7 @@ function overview(botName: string, launcher: boolean): ResetOverview {
     audioCache: { files, bytes, ledger: rows.track_lookup, checks: rows.source_checks, sponsorSegments: rows.sponsorblock_cache, ageRestricted: rows.age_restricted, pins: rows.pinned_sources },
     botSettings: { tunables: Object.keys(tunables.view().values).length, documents: settingsDocs.names().filter((name) => name !== "tunables").length, secrets: secrets.count() },
     guildSettings: { guilds: guildSettings.guildCount() },
+    userData: { users: userSettings.userCount() },
     display: { favicons: appearance.faviconCount(), backgrounds: backgroundStore.items().length },
     botName,
     launcher,
@@ -131,15 +142,15 @@ async function stageFullReset(by: string, restarting: boolean, go?: () => void) 
   snapshots.unstage();
   fs.rmSync(stagedAudioFile(), { force: true });
   fullReset.request();
-  log.warn({ sub: "admin" }, `대시보드에서 봇 전체 초기화 예약(${restarting ? "곧바로 다시 시작해 삭제" : "다음 기동 시 삭제"}, 되돌릴 스냅샷 ${snapshot}${unstaged.snapshot ? `, 예약한 복원 ${unstaged.snapshot}${josa(unstaged.snapshot, "은")} 취소` : ""}${unstaged.audioCache ? ", 예약한 오디오 캐시 번들은 삭제" : ""}). 실행 ${by}`);
+  log.warn({ sub: "admin" }, L.dashboard.fullResetScheduled({ restarting, snapshot, restore: unstaged.snapshot, audioCache: unstaged.audioCache, by }));
   return { snapshot, unstaged };
 }
 
 /** 봇 전체 초기화 예약을 취소한다. 예약되어 있었으면 true */
 function cancelFullReset(by: string): boolean {
   if (!fullReset.cancel()) return false;
-  log.warn({ sub: "admin" }, `대시보드에서 봇 전체 초기화 예약 취소. 실행 ${by}`);
+  log.warn({ sub: "admin" }, L.dashboard.fullResetCancelled({ by }));
   return true;
 }
 
-export { resetAudioCache, resetBotSettings, resetGuildSettings, resetDisplay, overview, stageFullReset, cancelFullReset };
+export { resetAudioCache, resetBotSettings, resetGuildSettings, resetUserData, resetDisplay, overview, stageFullReset, cancelFullReset };

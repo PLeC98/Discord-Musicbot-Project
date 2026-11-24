@@ -3,19 +3,21 @@
 
 import { errorKind, messageOf } from "./error-kind.ts";
 import { operatorHint } from "./operator-hints.ts";
+import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
 
-// 로그에 적을 이름. 문장이 넓게 걸리는 종류(stream-failed 등)는 넣지 않는다. 이름만 남기면 무엇이 깨졌는지 잃는다
-const LABELS: Record<string, string> = {
-  "yt-age-cookies-invalid": "연령 제한, 쿠키가 유효하지 않음. 쿠키를 다시 입력해 주세요",
-  "age-content-off": "연령 제한 콘텐츠 꺼짐",
-  "age-channel-only": "연령 제한 채널이 아님",
-  "yt-bot-check": "봇 감지",
-  "unavailable-contents": "없거나 비공개 또는 삭제된 곡",
-  "unavailable-playlist": "없거나 비공개인 재생목록",
-  "sc-preview-only": "미리듣기만 열린 곡",
-  "geo-blocked": "지역 차단",
-  "rate-limited": "요청 제한",
-  "sp-no-youtube-match": "유튜브에서 같은 곡을 못 찾음",
+// 로그에 적을 이름(로그 문구). 여러 원인을 뭉뚱그리는 종류(stream-failed 등)는 넣지 않는다. 이름만 남기면 무엇이 깨졌는지 알 수 없다
+const LABELS: Readonly<Record<string, () => LogText>> = {
+  "yt-age-cookies-invalid": L.reason.ytAgeCookiesInvalid,
+  "age-content-off": L.reason.ageContentOff,
+  "age-channel-only": L.reason.ageChannelOnly,
+  "yt-bot-check": L.reason.ytBotCheck,
+  "unavailable-contents": L.reason.unavailableContents,
+  "unavailable-playlist": L.reason.unavailablePlaylist,
+  "sc-preview-only": L.reason.scPreviewOnly,
+  "geo-blocked": L.reason.geoBlocked,
+  "rate-limited": L.reason.rateLimited,
+  "sp-no-youtube-match": L.reason.spNoYoutubeMatch,
 };
 
 const VIDEO_ID = /\[youtube\] ([\w-]{11}):/;
@@ -38,13 +40,12 @@ function causeOf(error: unknown, text: string) {
   return line === firstLine(text) ? "" : ` (${line})`;
 }
 
-/** cookiesConfigured: 쿠키를 설정해 두었나. 연령 제한이 쿠키가 없어서인지 쿠키로도 안 되는지를 구분한다 */
-function failureReason(error: unknown, cookiesConfigured: boolean): string {
+/** 실패 이유(로그 문구). cookiesConfigured: 쿠키를 설정해 두었나. 연령 제한이 쿠키가 없어서인지 쿠키로도 안 되는지를 구분한다 */
+function failureReason(error: unknown, cookiesConfigured: boolean): LogText {
   const kind = errorKind(error);
   const text = messageOf(error);
-  const why = kind === "yt-age-no-cookies" ? `연령 제한, ${cookiesConfigured ? "쿠키로도 재생 불가" : "쿠키 없음"}` : `${LABELS[kind] ?? `${firstLine(text)}${causeOf(error, text)}`}${operatorHint(kind)}`;
-  const id = VIDEO_ID.exec(text)?.[1];
-  return id ? `${why} (${id})` : why;
+  const why = kind === "yt-age-no-cookies" ? L.reason.ytAgeNoCookies({ configured: cookiesConfigured }) : (LABELS[kind]?.() ?? `${firstLine(text)}${causeOf(error, text)}`);
+  return L.reason.line({ why, hint: operatorHint(kind) ?? "", id: VIDEO_ID.exec(text)?.[1] ?? "" });
 }
 
 export { failureReason };

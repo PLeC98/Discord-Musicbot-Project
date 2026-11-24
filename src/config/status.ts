@@ -3,7 +3,10 @@
 // 틀린 문서는 쓰지 않는다. 문제를 전부 알리고 직전에 맞던 설정으로, 그것도 없으면(기동 시점부터 틀림) 빈 설정(활동 문구 없음)으로 돈다.
 // 기동을 멈추지 않는다. 고칠 대시보드가 실행돼야 한다. 고치면 다음 회전부터 새 설정이 들어간다.
 
+import { logRuleLine } from "../rules/text/index.ts";
 import logger from "../infra/log/logger.ts";
+import { L } from "../infra/log/text.ts";
+import { logTextError } from "../infra/log/log-text.ts";
 const log = logger.child({ category: "config" });
 import * as documents from "./documents.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
@@ -27,7 +30,7 @@ function checkedStatus(): StatusConfig {
   const data = documents.get("status");
   const problems = validateStatus(data);
   if (problems.length) {
-    throw Object.assign(new Error(["활동 문구 설정 읽기 실패:", ...problems.map((p) => `   ${p}`)].join("\n")), { code: "CONFIG_INVALID" });
+    throw Object.assign(logTextError(L.config.statusReadFailed({ problems: problems.map((p) => `   ${logRuleLine(p)}`).join("\n") })), { code: "CONFIG_INVALID" });
   }
   return data as StatusConfig;
 }
@@ -44,7 +47,7 @@ function status(): StatusConfig {
   } catch (error) {
     if (codeOf(error) !== "CONFIG_INVALID") throw error;
     const message = messageOf(error);
-    if (message !== reported) log.error(`${message}\n   ${lastGood ? "고칠 때까지 이전 정상 설정으로 동작" : "고칠 때까지 활동 문구를 걸지 않음. 운영자 패널의 상태 문구 탭에서 고치세요"}`);
+    if (message !== reported) log.error(L.config.statusInvalid({ error: message, kept: Boolean(lastGood) }));
     reported = message;
     return lastGood ?? EMPTY;
   }

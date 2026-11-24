@@ -1,4 +1,5 @@
 // src/sources/ytdlp-release.ts: 환경마다 onedir 에셋을 정하고, 한 태그의 체크섬 목록, 서명, zip을 받아 서명과 SHA-256을 맞춘다. 전송은 가짜다
+import { rule } from "../../src/rules/rule-problem.ts";
 import { test, after, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
@@ -44,10 +45,10 @@ test("환경마다 에셋과 실행 파일 이름(Windows arm64의 실행 파일
 
 test("armv7l 판은 stable에만 있다. 표에 없는 환경은 이유를 준다", () => {
   assert.deepEqual(assetFor({ platform: "linux", arch: "arm", libc: "glibc", channel: "stable" }), { zip: "yt-dlp_linux_armv7l.zip", exe: "yt-dlp_linux_armv7l" });
-  assert.deepEqual(assetFor({ platform: "linux", arch: "arm", libc: "glibc", channel: "nightly" }), { missing: "nightly 채널에는 arm 판이 없음(운영자 패널 업데이트 탭의 yt-dlp 채널을 stable로 바꾸세요)" });
-  assert.deepEqual(assetFor({ platform: "linux", arch: "arm", libc: "musl", channel: "stable" }), { missing: "이 OS, CPU 용 yt-dlp 판이 없음(linux-arm-musl)" });
-  assert.deepEqual(assetFor({ platform: "freebsd", arch: "x64", libc: null, channel: "stable" }), { missing: "이 OS, CPU 용 yt-dlp 판이 없음(freebsd-x64)" });
-  assert.deepEqual(assetFor({ platform: "win32", arch: "ia32", libc: null, channel: "stable" }), { missing: "이 OS, CPU 용 yt-dlp 판이 없음(win32-ia32)" });
+  assert.deepEqual(assetFor({ platform: "linux", arch: "arm", libc: "glibc", channel: "nightly" }), { missing: rule("ytdlp-stable-only", { channel: "nightly", arch: "arm" }) });
+  assert.deepEqual(assetFor({ platform: "linux", arch: "arm", libc: "musl", channel: "stable" }), { missing: rule("ytdlp-no-asset", { where: "linux-arm-musl" }) });
+  assert.deepEqual(assetFor({ platform: "freebsd", arch: "x64", libc: null, channel: "stable" }), { missing: rule("ytdlp-no-asset", { where: "freebsd-x64" }) });
+  assert.deepEqual(assetFor({ platform: "win32", arch: "ia32", libc: null, channel: "stable" }), { missing: rule("ytdlp-no-asset", { where: "win32-ia32" }) });
 });
 
 test("체크섬 목록: 이름이 정확히 같은 줄 하나(앞부분이 같은 다른 에셋, 바이너리 표시, 둘 이상)", () => {

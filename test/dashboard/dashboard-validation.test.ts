@@ -19,7 +19,7 @@ import { signedInAs, requestJson } from "../helpers/dashboard.ts";
 import { textsOf } from "../helpers/cv2.ts";
 
 /** 이 테스트가 읽는 응답의 필드 */
-type Reply = { error?: string; code?: string; more?: { offset: number; requesterId?: unknown; collection?: string; batch?: number }; note?: string; shortfall?: unknown; added?: { count: number; position: number | null; title: string | null } | null };
+type Reply = { error?: string; code?: string; more?: { offset: number; requesterId?: unknown; collection?: string; batch?: number }; result?: { collection: string; added: number; nextOffset: number | null }; dropped?: number; queueLimited?: boolean; skipped?: number; added?: { count: number; position: number | null; title: string | null } | null };
 
 // ── 서버 설정: 진짜를 임시 DB로 ──────────────────────────
 const { openTempStore } = await import("../helpers/temp-store.ts");
@@ -177,7 +177,7 @@ test("queue add: 길이 상한 초과는 400, 제어문자는 공백 정규화 �
   const sent = resolverCalls.at(-1) ?? "";
   assert.doesNotMatch(sent, /[\x00-\x1f\x7f]/, "제어문자가 yt-dlp/로그로 흘러가지 않음");
   assert.match(sent, /hello +world +!/);
-  assert.equal(r.json.shortfall, null, "다 넣었으면 경고가 없다");
+  assert.deepEqual([r.json.dropped, r.json.queueLimited, r.json.skipped], [0, false, 0], "다 넣었으면 경고할 것이 없다");
   assert.deepEqual([r.json.added?.count, r.json.added?.position, r.json.added?.title], [1, 4, "추가곡"], "넣은 것을 싣는다");
   assert.equal(embedCalls.length, 1, "대시보드도 슬래시 명령과 같은 코어를 지난다");
 });
@@ -436,8 +436,8 @@ test("queue/more: 목록 정보가 깨졌거나 곡 수가 범위 밖이면 400.
   assert.equal(ok.json.more?.requesterId, undefined);
   assert.equal(ok.json.more?.collection, "playlist", "출처의 종류를 싣는다(화면이 이름을 단다)");
   assert.equal(typeof ok.json.more?.batch, "number");
-  // 디스코드 더 넣기 결과와 같은 글(usecases/playlist-more의 resultText)
-  assert.match(ok.json.note ?? "", /10곡을 더 넣었어요/);
+  // 결과는 데이터로(화면이 디스코드 더 넣기 결과와 같은 글로 그린다)
+  assert.deepEqual(ok.json.result && [ok.json.result.collection, ok.json.result.added, ok.json.result.nextOffset], ["playlist", 10, 60]);
 });
 
 test("조작 거절은 디스코드와 같은 코드의 문제 응답으로 보낸다(문장은 클라이언트가 코드로 만든다)", async () => {

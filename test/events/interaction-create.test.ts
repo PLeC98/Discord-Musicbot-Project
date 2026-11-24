@@ -10,9 +10,10 @@ import type { SlashCommand } from "../../src/app/command-loader.ts";
 import { fake, fakeWith, fakeBot } from "../helpers/fake.ts";
 import { networkError } from "../helpers/errors.ts";
 import { showFailureWith } from "../../src/ui/failure-notice.ts";
-import * as errors from "../../src/ui/text/ko/errors.ts";
 import { noticeReply } from "../../src/ui/frame.ts";
 import sink from "../../src/infra/log/sink.ts";
+import { textFor } from "../../src/ui/text/index.ts";
+const errors = textFor("ko").errors;
 
 type Sent = [string, unknown?];
 
@@ -24,6 +25,7 @@ function interaction({ name = "play", chat = true, commands = {} as Record<strin
     deferred,
     isChatInputCommand: () => chat,
     isAutocomplete: () => false,
+    inGuild: () => guild,
     inCachedGuild: () => guild,
     isButton: () => false,
     isStringSelectMenu: () => false,
@@ -103,7 +105,7 @@ test("서버 관리 계층의 명령은 서버 관리 권한을 다시 본다(�
 
 test("서버 관리 계층으로 표시한 명령은 설정 명령 셋이다(도움말의 표시가 곧 검사)", async () => {
   const { COMMANDS } = await import("../../src/discord/commands/index.ts");
-  const names = COMMANDS.filter((c) => c.help?.tier === "server-manager").map((c) => c.data.name);
+  const names = COMMANDS.filter((c) => c.help?.tier === "server-manager").map((c) => c.name);
   assert.deepEqual(names.sort(), ["setchannel", "setplaylistlimit", "setting"]);
 });
 
@@ -183,6 +185,7 @@ function press({ customId = "x:1", replied = false, deferred = false, dead = fal
     deferred,
     isChatInputCommand: () => false,
     isAutocomplete: () => false,
+    inGuild: () => true,
     inCachedGuild: () => true,
     isButton: () => true,
     reply: async (p: unknown) => {
@@ -242,6 +245,7 @@ function suggest({ name = "search", guild = true, commands = {} as Record<string
     responded: false,
     isChatInputCommand: () => false,
     isAutocomplete: () => true,
+    inGuild: () => guild,
     inCachedGuild: () => guild,
     respond: async (choices: unknown) => {
       answered.push(choices);

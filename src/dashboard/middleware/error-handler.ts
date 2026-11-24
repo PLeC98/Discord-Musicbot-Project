@@ -2,9 +2,10 @@ import crypto from "crypto";
 import type { NextFunction, Request, Response } from "express";
 import logger from "../../infra/log/logger.ts";
 import { PROBLEMS, type Code } from "../../rules/problems.ts";
-import { noticeFor } from "../../ui/text/ko/errors.ts";
+import { htmlPage } from "../html-page.ts";
 import { sendProblem } from "../problem.ts";
 import { SessionEndedError, isEnded, sessionEnded } from "../session-requests.ts";
+import { L } from "../../infra/log/text.ts";
 const log = logger.child({ category: "dashboard" });
 
 // 오류 응답에 스택, 내부 경로, 의존성 버전이 실리지 않게 한다.
@@ -70,7 +71,7 @@ function errorHandler(err: unknown, req: Request, res: Response, next: NextFunct
   // 요청 처리 중 세션이 끝나 중단됐다(상태 변경 직전의 세션 확인, 봇이 끊은 업로드의 본문 수신 실패). 해당 사용자의 세션 문제라 봇에는 영향이 없다.
   // 그 밖의 오류는 끝난 요청이어도 아래로 간다(봇 버그를 숨기지 않는다)
   if (err instanceof SessionEndedError || (isEnded(req) && cutShort(err))) {
-    log.debug(`${req.method} ${req.originalUrl} → 401 세션이 진행 중에 끝남`);
+    log.debug(L.dashboard.sessionEndedMidRequest({ method: req.method, url: req.originalUrl }));
     if (!sessionEnded(res, err) && !res.headersSent) sendProblem(res, "login-required");
     return;
   }
@@ -83,10 +84,10 @@ function errorHandler(err: unknown, req: Request, res: Response, next: NextFunct
   //
   // 4xx는 보낸 쪽이 잘못한 것이라 우리 스택을 남길 이유가 없다. 긴 공지 한 번에 열 줄짜리
   // PayloadTooLargeError 스택이 쌓이면 그게 곧 도배다. 한 줄로 사실만 남긴다.
-  const line = `[${errorId}] ${req.method} ${req.originalUrl} → ${status}`;
+  const at = { errorId, method: req.method, url: req.originalUrl, status };
   const e = fieldsOf(err);
-  if (status >= 500) log.error(line, e.stack || e.message || err);
-  else log.warn(`${line} ${String(e.type || e.code || e.name || "")}`.trimEnd());
+  if (status >= 500) log.error(L.dashboard.requestFailed(at), e.stack || e.message || err);
+  else log.warn(L.dashboard.requestRejected({ ...at, kind: String(e.type || e.code || e.name || "") }));
 
   // 헤더가 나간 뒤에 또 쓰면 ERR_HTTP_HEADERS_SENT로 사고가 커진다. 연결 정리는 express에 맡긴다.
   if (res.headersSent) return next(err);
@@ -95,7 +96,7 @@ function errorHandler(err: unknown, req: Request, res: Response, next: NextFunct
   res
     .status(status)
     .type("html")
-    .send(`<!doctype html><meta charset="utf-8"><title>${status}</title><h1>${status}</h1><p>${noticeFor(code).title}</p><p>오류 ID: ${errorId}</p>`);
+    .send(htmlPage(req, (T) => `<h1>${status}</h1><p>${T.errors.noticeFor(code).title}</p><p>${T.pages.errorId(errorId)}</p>`, String(status)));
 }
 
 export { errorHandler, notFoundJson };

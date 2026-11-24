@@ -1,11 +1,12 @@
-// src/ui/text/ko/errors.ts: 오류, 거절 안내를 코드마다 적어 둔다(경고 수준, 이모지, 헤더 줄, 본문은 다음 줄). 문장을 고치면 여기도 같이 고친다
+// locales/ko/bot/errors.ts: 오류, 거절 안내를 코드마다 적어 둔다(경고 수준, 이모지, 헤더 줄, 본문은 다음 줄). 문장을 고치면 여기도 같이 고친다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { notice } from "../../../../src/ui/text/ko/errors.ts";
+import { textFor } from "../../../../src/ui/text/index.ts";
 import { shown } from "../../../helpers/notice.ts";
-import { DISCORD_LOOK } from "../../../../src/ui/mentions.ts";
+import { discordLook } from "../../../../src/ui/mentions.ts";
 import config from "../../../../src/config/index.ts";
+const { notice } = textFor("ko").errors;
 
 test("모든 문장", () => {
   assert.deepEqual(
@@ -47,7 +48,7 @@ test("모든 문장", () => {
       "beyond-end": shown(notice("beyond-end", { durationMs: 185000 })),
       "unknown-genre": shown(notice("unknown-genre", { genre: "jazz" })),
       "unknown-genre (받침)": shown(notice("unknown-genre", { genre: "가요" })),
-      "genre-unusable": shown(notice("genre-unusable", { genre: "재즈", keys: "Last.fm" })),
+      "genre-unusable": shown(notice("genre-unusable", { genre: "재즈", keys: "lastfm" })),
       "playlist-limit-out-of-range": shown(notice("playlist-limit-out-of-range", { min: 1, max: 100, queueCap: null })),
       "playlist-limit-out-of-range (대기열 상한)": shown(notice("playlist-limit-out-of-range", { min: 1, max: 100, queueCap: 100 })),
       "more-bad-count": shown(notice("more-bad-count")),
@@ -217,8 +218,8 @@ test("모든 문장", () => {
       "yt-age-no-cookies": "warning 🔒 연령 제한 영상은 틀 수 없어요!\n제한되지 않은 곡을 틀어주세요.",
       "sc-preview-only": "warning 🔒 미리듣기만 가능한 곡이라 틀 수 없어요.\n다른 곡을 재생하거나, 다른 플랫폼으로 시도해 주세요.",
       "geo-blocked": "warning 🔒 지역 제한 콘텐츠예요!\n이 링크의 콘텐츠는 제가 있는 곳에서 접근할 수 없어요. 다른 링크로 시도해 보세요.",
-      "nothing-playable": "warning 🔒 앞의 7곡이 전부 재생할 수 없는 곡이에요.\n미리듣기만 가능하거나 지역 제한 등이 걸린 곡들이에요.",
-      "more-nothing-playable": "warning 🔒 해당 구간에는 재생할 수 없는 곡뿐이에요.\n미리듣기나 지역 제한 등이 걸린 곡들이라 넣지 못했어요. (7곡)",
+      "nothing-playable": "warning 🔒 앞의 7곡이 전부 재생할 수 없는 곡이에요.\n삭제되거나 비공개인 영상, 미리듣기만 가능하거나 지역 제한이 걸린 곡들이에요.",
+      "more-nothing-playable": "warning 🔒 해당 구간에는 재생할 수 없는 곡뿐이에요.\n삭제되거나 비공개인 영상, 미리듣기만 가능하거나 지역 제한이 걸린 곡들이라 넣지 못했어요. (7곡)",
       "yt-bot-check": "error ❌ 유튜브가 요청을 차단했어요!\n잠시 후에 재시도해 보고, 계속 동일한 문제가 발생하면 봇 운영자에게 알려주세요.",
       "network-error": "error ❌ 연결 오류가 발생했어요!\n해당 플랫폼에 연결하지 못했어요. 보통은 일시적인 오류이니 잠시 뒤에 다시 시도해 보세요. 오류가 계속되면 봇 운영자에게 알려주세요.",
       "stream-failed": "error ❌ 오디오를 받아오지 못했어요!\n링크에 성공적으로 접속했지만 정상적으로 재생 가능한 음원을 가져오지 못했어요. 다시 시도하거나 다른 버전을 넣어 주세요.",
@@ -308,6 +309,6 @@ test("모든 문장", () => {
 
 test("봇 개발자는 그리는 쪽이 적는다: 대시보드는 글자, 디스코드는 소스 저장소 링크", () => {
   assert.equal(notice("bad-loop-mode").body, "일반적으로는 발생할 수 없는 오류이니, 봇 개발자에게 보고해 주세요.");
-  assert.equal(notice("bad-loop-mode", {}, DISCORD_LOOK).body, `일반적으로는 발생할 수 없는 오류이니, [봇 개발자](${config.bot.sourceRepo})에게 보고해 주세요.`);
-  assert.match(notice("bad-tier", {}, DISCORD_LOOK).body ?? "", /계속되면 \[봇 개발자\]\(/);
+  assert.equal(notice("bad-loop-mode", {}, discordLook(textFor("ko"))).body, `일반적으로는 발생할 수 없는 오류이니, [봇 개발자](${config.bot.sourceRepo})에게 보고해 주세요.`);
+  assert.match(notice("bad-tier", {}, discordLook(textFor("ko"))).body ?? "", /계속되면 \[봇 개발자\]\(/);
 });

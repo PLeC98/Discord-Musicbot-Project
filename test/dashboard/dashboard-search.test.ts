@@ -14,6 +14,7 @@ import type { Song, SongResults } from "../../src/usecases/song-search.ts";
 import { codedError } from "../../src/rules/error-kind.ts";
 import { fakePlayer, fakeBot } from "../helpers/fake.ts";
 import { signedInAs, requestJson } from "../helpers/dashboard.ts";
+import { testText } from "../helpers/log-text.ts";
 
 const { openTempStore } = await import("../helpers/temp-store.ts");
 const { createGuildsRouter } = await import("../../src/dashboard/routes/guilds.ts");
@@ -129,8 +130,8 @@ test("검색: 연령 인증 안내만 왔으면 gated", async () => {
 test("검색: 실패는 그 원인의 코드로(요청 제한 503, 연결 오류 502, 코드 없는 오류 500 unknown-error)", async () => {
   fresh();
   for (const [error, code, status] of [
-    [codedError("rate-limited", "429"), "rate-limited", 503],
-    [codedError("network-error", "fetch failed"), "network-error", 502],
+    [codedError("rate-limited", testText("429")), "rate-limited", 503],
+    [codedError("network-error", testText("fetch failed")), "network-error", 502],
     [new Error("parse"), "unknown-error", 500],
   ] as const) {
     answer = async () => {

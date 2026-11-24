@@ -6,6 +6,7 @@ import { EventEmitter } from "node:events";
 import { installShutdown, stopFailedStart, type ShutdownBoundary } from "../../src/app/shutdown.ts";
 import { fakeWith } from "../helpers/fake.ts";
 import sink from "../../src/infra/log/sink.ts";
+import { renderLogText, type LogText } from "../../src/infra/log/log-text.ts";
 import { EXIT } from "../../src/app/exit-codes.ts";
 import { isShuttingDown, _resetShutdown } from "../../src/infra/shutdown-state.ts";
 
@@ -36,9 +37,9 @@ function setup({ saveFails = false, releaseFails = false, status = async () => {
       },
     },
     voice: {
-      release: (reason: string) => {
+      release: (reason: LogText) => {
         if (releaseFails) throw new Error("연결 정리 실패");
-        steps.push(`release:${id}:${reason}`);
+        steps.push(`release:${id}:${renderLogText(reason)}`);
         live.get(id)?.destroy(false);
       },
     },

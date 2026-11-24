@@ -12,19 +12,24 @@ import * as pinnedSources from "../store/pinned-sources.ts";
 import type { Pin } from "../store/pinned-sources.ts";
 import { codedError, errorKind, messageOf, codeOf } from "../rules/error-kind.ts";
 import { failureReason } from "../rules/failure-reason.ts";
+import { renderLogText } from "../infra/log/log-text.ts";
 import type { CacheHit } from "../store/track-lookup.ts";
-import { inputKind } from "../rules/input-kind.ts";
+import { inputKind, type InputKind } from "../rules/input-kind.ts";
 import { queryNamesTrack } from "../rules/query-cover.ts";
 import logger from "../infra/log/logger.ts";
 import { logTitle } from "../infra/log/title.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "track" });
 
 /** 소스가 찾은 곡(player/track의 TrackInfo). 소스마다 필드가 더 있다 */
 type FoundTrack = TrackInfo;
 /** 여러 곡 출처에서 불러올 구간 */
 type Range = { offset?: number; limit?: number };
-/** 여러 곡 출처의 한 구간. 소스가 준 그대로라 필드가 빠질 수 있다. total은 모르면 null, skipped는 받을 수 없어 뺀 곡 수 */
-type Collection = { tracks: FoundTrack[]; total?: number | null; nextOffset?: number | null; skipped?: number };
+/**
+ * 여러 곡 출처의 한 구간. 소스가 준 그대로라 필드가 빠질 수 있다. total은 모르면 null, skipped는 받을 수 없어 뺀 곡 수,
+ * skippedAt은 그 곡들의 목록 안 위치(0부터, 유튜브만. 이어 불러오기가 앞을 다시 읽을 때 같은 곡을 두 번 세지 않게)
+ */
+type Collection = { tracks: FoundTrack[]; total?: number | null; nextOffset?: number | null; skipped?: number; skippedAt?: number[] };
 /** 곡을 찾지 못한 원인. 로그에 적고, 사용자 문장은 ui/error-messages가 선택한다 */
 type LookupRefusal = "no-song-result" | "lookup-failed" | "yt-unplayable" | "unsupported-link" | "shoutcast-v1" | "sc-unsupported" | "nothing-playable" | "search-age-gated";
 /**
@@ -41,12 +46,6 @@ type Sources = {
   direct: { getInfo(url: string, opts?: Pick<directSource.InfoOptions, "tags">): Promise<FoundTrack[]> };
 };
 const REAL: Sources = { youtube: youtubeSource, spotify: spotifySource, soundcloud: soundcloudSource, direct: directSource };
-
-// 쿼리 문자열이 어느 쪽으로 가나. 링크가 아닌 입력은 유튜브에서 찾는다. 모르는 링크는 unknown(거절)
-function detectPlatform(query: string) {
-  const kind = inputKind(query);
-  return kind === "search" ? "youtube" : kind;
-}
 
 /**
  * 봇이 다루지 않는 링크인가(유튜브 클립, 채널, 검색 결과 페이지, 스포티파이 에피소드 같은 알려진 사이트의 다른 주소).
@@ -69,17 +68,16 @@ async function fromYouTubeSearch(query: string, { youtube, spotify }: Pick<Sourc
   if (!found.gated) return single(found.tracks.slice(0, 1));
   const top = await spotify.searchTracks(query).then(
     (tracks) => tracks[0],
-    (e: unknown) => log.debug(`연령 인증 검색어의 스포티파이 검색 실패(연령 인증 안내로 응답함): ${messageOf(e)}`),
+    (e: unknown) => log.debug(L.track.ageGatedSpotifySearchFailed({ error: messageOf(e) })),
   );
-  if (!top || !queryNamesTrack(query, top)) throw codedError("search-age-gated", `유튜브가 검색어에 연령 인증 안내만 줌: ${query}`);
-  log.debug({ tags: ["fallback"] }, `유튜브가 검색어에 연령 인증 안내만 줘 스포티파이 1위 곡으로: ${query} → "${logTitle(top.title)}"`);
+  if (!top || !queryNamesTrack(query, top)) throw codedError("search-age-gated", L.track.searchAgeGated({ query }));
+  log.debug({ tags: ["fallback"] }, L.track.searchAgeGatedSpotifyTop({ query, title: logTitle(top.title) }));
   return single([top]);
 }
 
 // 유튜브 링크. 재생목록 주소가 영상도 가리키면(watch?v=…&list=…) 목록을 못 불러올 때 그 영상 하나로 간다.
 // 목록만 가리키는 주소는 목록이 비면 없음, 목록을 못 불러오면 그 오류를 그대로 던진다
-async function fromYouTube(query: string, range: Range, { youtube, spotify }: Pick<Sources, "youtube" | "spotify">): Promise<Found> {
-  if (inputKind(query) === "search") return fromYouTubeSearch(query, { youtube, spotify });
+async function fromYouTube(query: string, range: Range, youtube: Sources["youtube"]): Promise<Found> {
   if (links.isYouTubePlaylist(query)) {
     const video = links.extractVideoId(query);
     let list: Collection | null;
@@ -87,18 +85,28 @@ async function fromYouTube(query: string, range: Range, { youtube, spotify }: Pi
       list = await youtube.getPlaylist(query, range);
     } catch (error) {
       if (!video) throw error;
-      log.warn(`재생목록을 불러오지 못해 단일 영상으로 처리: ${messageOf(error).split("\n")[0]}`);
+      log.warn(L.track.playlistLoadFailedAsSingle({ error: messageOf(error).split("\n")[0] }));
       return single([await youtube.getInfo(query)]);
     }
-    if (list?.tracks?.length) return { tracks: list.tracks, isPlaylist: true, collection: "playlist", total: list.total ?? null, nextOffset: list.nextOffset ?? null };
+    const found = list && youTubeList(query, list, video);
+    if (found) return found;
     if (!video) return single([]);
     // yt-dlp가 비공개, 개인 목록(LL 등)을 알아보지 못하면 영상 하나만 준다
-    log.info(`재생목록이 비었거나 열리지 않아 단일 영상으로 처리(${video})`);
+    log.info(L.track.playlistEmptyAsSingle({ video }));
   }
   return single([await youtube.getInfo(query)]);
 }
 
-// 스포티파이 링크(곡, 앨범, 재생목록, 아티스트). 링크가 아닌 입력은 유튜브로 간다(detectPlatform)
+// 불러온 유튜브 재생목록 구간. 곡이 없으면 null(호출부가 영상 하나로 가거나 없음).
+// 구간이 모두 재생할 수 없는 곡이면 빈 목록과 뺀 곡 수(findTracks가 nothing-playable로 알린다). 주소에 영상이 있으면 그 영상 하나로 가게 null
+function youTubeList(query: string, list: Collection, video: string | null): Found | null {
+  const skipped = list.skipped ?? 0;
+  if (skipped > 0) log.info(L.track.youtubePlaylistSkipped({ skipped, query }));
+  if (!list.tracks?.length && (skipped === 0 || video)) return null;
+  return { tracks: list.tracks ?? [], isPlaylist: true, collection: "playlist", total: list.total ?? null, nextOffset: list.nextOffset ?? null, skipped };
+}
+
+// 스포티파이 링크(곡, 앨범, 재생목록, 아티스트)
 async function fromSpotify(query: string, range: Range, spotify: Sources["spotify"]): Promise<Found> {
   const part = await spotify.getCollection(query, range);
   const type = links.parseSpotify(query)?.type;
@@ -113,27 +121,28 @@ async function fromSoundCloud(query: string, range: Range, soundcloud: Sources["
   const found = await soundcloud.find(query, { ...range, what: links.parseSoundCloud(query)?.kind === "set" ? "set" : "track" });
   if (found.kind === "track") return single([found.track]);
   const { skipped } = found;
-  if (skipped > 0) log.info(`사운드클라우드 세트에서 재생할 수 없는 ${skipped}곡을 제외(미리듣기, 지역 제한 등): ${found.title ?? query}`);
+  if (skipped > 0) log.info(L.track.soundcloudSetSkipped({ skipped, title: found.title ?? query }));
   const secret = links.parseSoundCloud(query)?.secret ?? false;
   return { tracks: found.tracks, isPlaylist: true, collection: "playlist", collectionId: secret ? null : found.setId, total: found.total, nextOffset: found.nextOffset, skipped };
 }
 
-// 링크 종류마다 부르는 곳. 직접 링크는 tags면 파일 태그(제목, 가수, 앨범)로 곡 정보를 고친다
-function findOn(platform: string, query: string, range: Range, { youtube, spotify, soundcloud, direct }: Sources, tags: boolean): Promise<Found> {
-  if (platform === "youtube") return fromYouTube(query, range, { youtube, spotify });
-  if (platform === "spotify") return fromSpotify(query, range, spotify);
-  if (platform === "soundcloud") return fromSoundCloud(query, range, soundcloud);
+// 링크 종류마다 부르는 곳. 링크가 아닌 입력은 유튜브에서 검색한다. 직접 링크는 tags면 파일 태그(제목, 가수, 앨범)로 곡 정보를 고친다
+function findOn(kind: Exclude<InputKind, "unknown">, query: string, range: Range, { youtube, spotify, soundcloud, direct }: Sources, tags: boolean): Promise<Found> {
+  if (kind === "search") return fromYouTubeSearch(query, { youtube, spotify });
+  if (kind === "youtube") return fromYouTube(query, range, youtube);
+  if (kind === "spotify") return fromSpotify(query, range, spotify);
+  if (kind === "soundcloud") return fromSoundCloud(query, range, soundcloud);
   return direct.getInfo(query, tags ? { tags: applyTags } : {}).then(single); // getInfo는 [곡] 또는 []
 }
 
 /** offset, limit: 여러 곡 출처에서 불러올 구간(한 곡이면 무시). tags: 직접 링크의 파일 태그를 곡 정보로 쓰나(직접 지정한 음원을 읽을 때는 쓰지 않는다. 곡 정보는 요청의 것) */
 async function findTracks(query: string, context: string | null = "lookup.findTracks", { offset = 0, limit }: Range = {}, sources: Partial<Sources> = {}, options: { tags?: boolean } = {}): Promise<LookupResult> {
-  const platform = detectPlatform(query);
-  if (platform === "unknown") return links.isYouTubeHost(query) ? { success: false, code: "yt-unplayable" } : { success: false, code: "unsupported-link" };
+  const kind = inputKind(query);
+  if (kind === "unknown") return links.isYouTubeHost(query) ? { success: false, code: "yt-unplayable" } : { success: false, code: "unsupported-link" };
   // 프로필, 좋아요 같은 모음은 곡으로 잘못 읽지 않는다
-  if (platform === "soundcloud" && links.parseSoundCloud(query)?.kind === "other") return { success: false, code: "sc-unsupported" };
+  if (kind === "soundcloud" && links.parseSoundCloud(query)?.kind === "other") return { success: false, code: "sc-unsupported" };
   try {
-    const found = await findOn(platform, query, { offset, limit }, { ...REAL, ...sources }, options.tags !== false);
+    const found = await findOn(kind, query, { offset, limit }, { ...REAL, ...sources }, options.tags !== false);
     // 불러온 구간에 틀 수 있는 곡이 하나도 없는 세트는 nothing-playable과 뺀 곡 수를 알린다
     if (!found.tracks.length) return found.skipped ? { success: false, code: "nothing-playable", skipped: found.skipped } : { success: false, code: "no-song-result" };
     return { success: true, ...found };
@@ -146,12 +155,12 @@ async function findTracks(query: string, context: string | null = "lookup.findTr
 function lookupFailed(error: unknown, context: string | null): LookupResult {
   const code = codeOf(error);
   if (code === "unsupported-link" || code === "shoutcast-v1" || code === "search-age-gated") {
-    log.debug({ sub: context || undefined }, `찾을 수 없음(${code}): ${messageOf(error)}`);
+    log.debug({ sub: context || undefined }, L.track.lookupNotFound({ code, error: messageOf(error) }));
     return { success: false, code };
   }
   // 한 줄에는 무엇이 막았는지만. 원문(yt-dlp의 WARNING 줄 포함)은 조사할 때 본다
-  log.error({ sub: context || undefined, kind: errorKind(error) }, `곡 찾기 실패: ${failureReason(error, youtubeSource.cookiesConfigured())}`);
-  log.debug({ sub: context || undefined }, `곡 찾기 실패 원문: ${youtubeSource.briefError(error)}`);
+  log.error({ sub: context || undefined, kind: errorKind(error) }, L.track.lookupFailed({ reason: renderLogText(failureReason(error, youtubeSource.cookiesConfigured())) }));
+  log.debug({ sub: context || undefined }, L.track.lookupFailedRaw({ error: youtubeSource.briefError(error) }));
   return { success: false, code: "lookup-failed", error };
 }
 
@@ -162,7 +171,7 @@ async function getCollection(url: string, range?: Range, sources: Partial<Source
   const none: Collection = { tracks: [], total: null, nextOffset: null };
   if (links.isYouTubePlaylist(url)) {
     const r = await youtube.getPlaylist(url, range);
-    return r ? { tracks: r.tracks, total: r.total ?? null, nextOffset: r.nextOffset ?? null } : none;
+    return r ? { tracks: r.tracks, total: r.total ?? null, nextOffset: r.nextOffset ?? null, ...(r.skipped ? { skipped: r.skipped, skippedAt: r.skippedAt } : {}) } : none;
   }
   if (links.isSpotifyURL(url)) return spotify.getCollection(url, range);
   if (links.parseSoundCloud(url)?.kind === "set") {
@@ -188,7 +197,7 @@ async function resolveQuery(query: string, context?: string | null, range: Range
   if (pin) return { success: true, isPlaylist: false, tracks: [await pinnedTrack(query, pin, context, sources)] };
   const cacheHit: CacheHit = skipCache ? { hit: false } : trackLookup.resolveFromCache(query);
   if (cacheHit.hit && (inputKind(query) !== "direct" || cacheHit.track.audioFoundBy === "given")) {
-    log.debug(`캐시 히트(조회, 검색 생략): "${logTitle(cacheHit.track.title)}" → ${cacheHit.track.audioUrl}`);
+    log.debug(L.track.cacheHitLookup({ title: logTitle(cacheHit.track.title), audioUrl: cacheHit.track.audioUrl }));
     return { success: true, isPlaylist: false, tracks: [cacheHit.track] };
   }
   return findTracks(query, context, range, sources);
@@ -208,13 +217,14 @@ async function pinnedTrack(query: string, pin: Pin, context: string | null | und
   if (!track) {
     const audio = await findTracks(pin.audioUrl, context, {}, sources, { tags: false });
     const from = audio.success ? audio.tracks[0] : null;
-    track = { title: from?.title ?? null, artist: from?.artist, thumbnail: from?.thumbnail ?? null, pageUrl: query, requestKey: pin.requestKey, platform: detectPlatform(query), duration: 0 };
+    const kind = inputKind(query);
+    track = { title: from?.title ?? null, artist: from?.artist, thumbnail: from?.thumbnail ?? null, pageUrl: query, requestKey: pin.requestKey, platform: kind === "search" ? "youtube" : kind, duration: 0 };
   }
   pinnedSources.applyPin(track, pin);
-  log.debug(`직접 지정한 음원(조회 생략): "${logTitle(track.title)}" → ${track.audioUrl ?? "없음"}`);
+  log.debug(L.track.pinnedLookupSkipped({ title: logTitle(track.title), audioUrl: track.audioUrl ?? null }));
   return track;
 }
 
-export { detectPlatform, isUnsupportedLink, findTracks, getCollection, resolveQuery };
+export { isUnsupportedLink, findTracks, getCollection, resolveQuery };
 
 export type { FoundTrack, Range, Collection, Sources, LookupResult };

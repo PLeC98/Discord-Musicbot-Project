@@ -3,7 +3,9 @@
 // 글은 보지 않는다. 이름이 없으면 unknown-error다. 우리가 못 고치는 문장(yt-dlp 출력)은 그 출처(sources/youtube/errors)가 읽어 이름을 붙인다.
 
 import { isCode, type Code } from "./problems.ts";
-import { codeOf, messageOf, timeoutError } from "../infra/error-text.ts";
+import { codeOf, errorFacts, messageOf, messageWithCode, problemError, timeoutError, type ErrorFacts } from "../infra/error-text.ts";
+import { isRuleCode, plain, rule, type RuleProblem } from "./rule-problem.ts";
+import { logTextError, type LogText } from "../infra/log/log-text.ts";
 
 // 이름이 곧 종류인 것. 오류를 만든 곳이 붙인다
 const KINDS = new Set<Code>(["yt-age-cookies-invalid", "yt-age-no-cookies", "age-content-off", "age-channel-only", "yt-bot-check", "unavailable-contents", "sc-preview-only", "unavailable-playlist", "geo-blocked", "rate-limited", "sp-no-youtube-match", "direct-unavailable", "network-error", "stream-failed", "voice-failed", "encoder-unavailable"]);
@@ -15,17 +17,41 @@ const STREAM_FAILED = new Set(["no-audio-only", "client-fault", "stale-media", "
 // 디스코드 API 오류 번호. 50001 접근 없음, 50013 권한 없음
 const PERMISSION_CODES = new Set([50001, 50013]);
 
-/** 코드를 단 오류. 만든 곳이 무엇이 안 됐는지 안다 */
-function codedError(code: string, message: string, options?: { cause?: unknown }) {
-  return Object.assign(new Error(message, options), { code });
+/** 코드를 단 오류. 만든 곳이 무엇이 안 됐는지 안다. 메시지는 로그 문구 서술자다(로그로만 가는 예외, infra/log/log-text의 logTextError) */
+function codedError(code: string, message: LogText, options?: { cause?: unknown }) {
+  return Object.assign(logTextError(message, { cause: options?.cause }), { code });
+}
+
+/**
+ * 오류에 담긴 규칙 문제(problem 필드). 없으면 오류의 사실(infra/error-text의 errorFacts)로: 메시지, 이름, 줄인 내용은 그 글 그대로(plain),
+ * 메시지가 없어 알 수 있는 것은 규칙 문제(던진 값, 오류 코드, 메시지 없는 오류)라 보는 사람의 언어로 그린다
+ */
+function errorProblem(error: unknown): RuleProblem {
+  const problem: unknown = error && typeof error === "object" && "problem" in error ? error.problem : null;
+  return problem && typeof problem === "object" && "code" in problem && isRuleCode(problem.code) ? (problem as RuleProblem) : factsProblem(errorFacts(error));
+}
+
+function factsProblem(facts: ErrorFacts): RuleProblem {
+  switch (facts.kind) {
+    case "message":
+      return plain(facts.message);
+    case "name":
+      return plain(facts.name);
+    case "summary":
+      return plain(facts.summary);
+    case "thrown":
+      return rule("error-thrown", { value: facts.value });
+    case "code":
+      return rule("error-code", { code: facts.code });
+    case "at":
+      return rule("error-no-message", { name: facts.name ?? "", at: facts.at });
+    case "unknown":
+      return rule("error-no-message", { name: facts.name ?? "", at: "" });
+  }
 }
 
 /** 로그에 싣는 오류: 메시지와 코드(있으면) */
-function describeError(error: unknown): string {
-  const code = codeOf(error);
-  const text = messageOf(error);
-  return code === undefined || text === `오류 코드 ${code}` ? text : `${text} (${code})`;
-}
+const describeError = messageWithCode;
 
 // 디스코드가 권한 없음으로 거절한 요청. 거절된 요청의 주소로 구분한다: 음성 채널 상태는 음성, 메시지, 고정, 웹훅은 글, 그 밖.
 // 음성 채널 접속은 게이트웨이로 가 이 번호를 받지 않는다(접속 전에 권한을 본다. usecases/permissions)
@@ -73,4 +99,4 @@ function errorKind(error: unknown): Code {
   return "unknown-error";
 }
 
-export { errorKind, codedError, codeOf, messageOf, timeoutError, describeError, chainOf, isNetworkCode };
+export { errorKind, errorProblem, codedError, problemError, codeOf, messageOf, timeoutError, describeError, chainOf, isNetworkCode };

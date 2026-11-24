@@ -8,6 +8,8 @@ import ytdlp from "../ytdlp-spawn.ts";
 import * as run from "./run.ts";
 import type { YtInfo } from "../ytdlp-info.ts";
 import type { RunYtDlp, YtDlpFlags } from "../ytdlp-spawn.ts";
+import { L } from "../../infra/log/text.ts";
+import { logTextError } from "../../infra/log/log-text.ts";
 
 /** 세트에서 한 번에 불러오는 곡 수. 곡마다 요청이 3번 들어 서버의 재생목록 곡 수 설정과 상관없이 이만큼씩 불러오고 나머지는 "더 넣기"로 */
 const SET_BATCH = 10;
@@ -48,9 +50,9 @@ function trackOf(item: YtInfo): ScTrack | null {
 
 // 곡 하나. 미리듣기만 열린 곡은 30초 조각을 곡처럼 틀지 않는다
 function oneTrack(item: YtInfo): ScTrack {
-  if (previewOnly(item)) throw codedError("sc-preview-only", `미리듣기만 열린 곡: ${item.title ?? item.webpage_url ?? "없음"}`);
+  if (previewOnly(item)) throw codedError("sc-preview-only", L.soundcloud.previewOnly({ title: item.title ?? item.webpage_url ?? null }));
   const track = trackOf(item);
-  if (!track) throw new Error(`사운드클라우드 곡 찾기: yt-dlp 곡 정보에 페이지 URL이 없음 | id=${item.id ?? "없음"}`);
+  if (!track) throw logTextError(L.soundcloud.lookupNoPageUrl({ id: item.id ?? null }));
   return track;
 }
 
@@ -74,7 +76,7 @@ async function find(url: string, { offset = 0, limit = SET_BATCH, what = "track"
   const size = Math.max(1, Math.min(limit, SET_BATCH));
   const raw = await run.read(url, what === "set" ? "play" : "lookup", what, { playlistItems: `${offset + 1}:${offset + size}` }, exec);
   const info = readInfo(raw);
-  if (!info) throw new Error(`사운드클라우드 곡 찾기: yt-dlp 출력이 JSON 객체가 아님 | ${answerShape(raw)}`);
+  if (!info) throw logTextError(L.soundcloud.lookupNotJson({ shape: answerShape(raw) }));
   if (info._type === "playlist") return { kind: "set", ...setOf(info, offset) };
   return { kind: "track", track: oneTrack(info) };
 }
@@ -87,7 +89,7 @@ async function streamInfo(url: string, canPlayHls: boolean, exec: RunYtDlp) {
   } catch (error) {
     if (codeOf(error) !== "no-formats") throw error;
     // 범위: mp3가 있는 곡은 된다(player/failure-scope)
-    if (!canPlayHls) throw Object.assign(codedError("stream-failed", "이 ffmpeg는 HLS를 열지 못하고, 이 곡에는 mp3가 없음", { cause: error }), { scope: "track" });
+    if (!canPlayHls) throw Object.assign(codedError("stream-failed", L.soundcloud.hlsNoMp3(), { cause: error }), { scope: "track" });
     return ask("lookup");
   }
 }
@@ -99,9 +101,9 @@ async function streamInfo(url: string, canPlayHls: boolean, exec: RunYtDlp) {
 async function getStream(url: string, { canPlayHls = true }: { canPlayHls?: boolean } = {}, exec: RunYtDlp = ytdlp) {
   const raw = await streamInfo(url, canPlayHls, exec);
   const info = readInfo(raw);
-  if (!info) throw codedError("stream-failed", `사운드클라우드 재생용 스트림: yt-dlp 출력이 JSON 객체가 아님 | ${answerShape(raw)}`);
-  if (!info.url) throw codedError("stream-failed", `사운드클라우드 재생용 스트림: yt-dlp 응답에 스트림 URL이 없음 | format_id=${info.format_id ?? "없음"}`);
-  if (/_preview$/.test(info.format_id || "")) throw codedError("sc-preview-only", `미리듣기만 열린 곡: ${info.title ?? url}`);
+  if (!info) throw codedError("stream-failed", L.soundcloud.streamNotJson({ shape: answerShape(raw) }));
+  if (!info.url) throw codedError("stream-failed", L.soundcloud.streamNoUrl({ formatId: info.format_id ?? null }));
+  if (/_preview$/.test(info.format_id || "")) throw codedError("sc-preview-only", L.soundcloud.previewOnly({ title: info.title ?? url }));
   return {
     url: info.url,
     protocol: info.protocol || null,

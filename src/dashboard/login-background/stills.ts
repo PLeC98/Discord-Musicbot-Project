@@ -14,6 +14,7 @@ import * as store from "./store.ts";
 import { cropped, scaleTo, seekArgs, sourceFilter, squareCrop, stillWidths, TRANSPARENT_FILL, turned, turnFilter } from "./ladder.ts";
 import { MAX_PIXELS, probeVideo, READ_ARGS, type Probed } from "./source.ts";
 import type { LoginBackgroundCrop, LoginBackgroundEdit } from "../contract/login-background.ts";
+import { L } from "../../infra/log/text.ts";
 
 /** 정지 그림 WebP 품질 */
 const QUALITY = 95;
@@ -88,9 +89,9 @@ async function frameAt({ source, probed, at, crop, turn = {}, size, channels }: 
   const span = { from: Number(at.toFixed(3)), to: null };
   const graph = `${sourceFilter(probed, crop, span)}${turnFilter(turn)},${scaleTo(size, channels === 4 ? "rgba" : "rgb24")}[o]`;
   const run = await ffmpeg(["-v", "error", ...seekArgs(probed, span), ...READ_ARGS, "-i", source, "-filter_complex", graph, "-map", "[o]", "-frames:v", "1", "-f", "rawvideo", "-"], { signal, timeoutMs: 600_000 });
-  if (run.aborted) throw codedError("aborted", "중단됨");
+  if (run.aborted) throw codedError("aborted", L.dashboard.backgroundAborted());
   const bytes = size.width * size.height * channels;
-  if (run.code !== 0 || run.output.length < bytes) throw codedError("background-failed", `장면 추출 실패(${at}초): ${run.stderr.split("\n").filter(Boolean).at(-1) ?? ""}`);
+  if (run.code !== 0 || run.output.length < bytes) throw codedError("background-failed", L.dashboard.backgroundStillFailed({ at, stderr: run.stderr.split("\n").filter(Boolean).at(-1) ?? "" }));
   return run.output.subarray(0, bytes);
 }
 

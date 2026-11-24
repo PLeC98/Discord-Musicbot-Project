@@ -41,13 +41,13 @@ type FilePage = { name: string; since: number; lines: FileLine[]; more: boolean;
 /** 필터. 비운 필드는 필터링하지 않는다 */
 type LogFilter = { levels?: ReadonlySet<LevelName>; category?: string; tag?: string; q?: string };
 
-/** 줄이 필터에 맞는지. 검색은 글, 카테고리, 하위 카테고리, 태그에서(한국어 조합 중 글자, 초성도) */
-function matchesLog(line: Pick<WireFields, "level" | "text" | "category" | "sub" | "tags">, filter: LogFilter): boolean {
+/** 줄이 필터에 맞는지. 검색은 글, 카테고리, 하위 카테고리, 태그, 문구 코드(값 안의 것 포함)에서 한다(조합 중인 한글, 초성도) */
+function matchesLog(line: Pick<WireFields, "level" | "text" | "category" | "sub" | "tags" | "events">, filter: LogFilter): boolean {
   if (filter.levels && !filter.levels.has(line.level)) return false;
   if (filter.category && line.category !== filter.category) return false;
   if (filter.tag && !(line.tags ?? []).includes(filter.tag)) return false;
   const q = filter.q?.trim();
-  return !q || [line.text, line.category ?? "", line.sub ?? "", ...(line.tags ?? [])].some((one) => koMatch(one, q));
+  return !q || [line.text, line.category ?? "", line.sub ?? "", ...(line.tags ?? []), ...(line.events ?? [])].some((one) => koMatch(one, q));
 }
 
 export { FILE_PAGE_LINES, FILE_PAGE_MAX, AT_AFTER_LINES, LOG_SEARCH_MAX, matchesLog };

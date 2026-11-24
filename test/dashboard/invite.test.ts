@@ -14,13 +14,16 @@ import { listenForFetch, baseUrl } from "../helpers/listen.ts";
 import * as sessionRequests from "../../src/dashboard/session-requests.ts";
 import { SqliteSessionStore } from "../../src/dashboard/session-store.ts";
 import { createInviteRouter } from "../../src/dashboard/routes/invite.ts";
-import { _setAppInfo, canInvite, loadAppInfo, managedGuilds } from "../../src/dashboard/invite.ts";
-import { KEEP_MS, FRESH_GAP_MS } from "../../src/dashboard/user-guilds.ts";
+import { canInvite, managedGuilds } from "../../src/dashboard/invite.ts";
+import { KEEP_MS, FRESH_GAP_MS, _resetUserGuilds } from "../../src/dashboard/user-guilds.ts";
+import { _setAppOwners } from "../../src/usecases/app-owners.ts";
+import { personalApp, teamApp } from "../helpers/app-owners.ts";
 import type { DiscordHttp } from "../../src/dashboard/discord-api.ts";
-import type { Client } from "discord.js";
 import type { InviteList } from "../../src/dashboard/contract/invite.ts";
 import * as secrets from "../../src/store/secrets.ts";
 import { newSecretsKey } from "../../src/rules/secrets-key.ts";
+import { useAppId } from "../../src/infra/app-id.ts";
+useAppId("123456789012345678"); // 기동은 봇 토큰으로 앱 ID를 읽어 넣는다(app/app-info). 세션 쿠키 이름, 로그인, 초대 링크, 명령 배포가 쓴다
 
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-invite-"));
 secrets._useKey(newSecretsKey());
@@ -58,7 +61,7 @@ const base = baseUrl(server);
 after(() => {
   server.close();
   store.close();
-  _setAppInfo(null);
+  _setAppOwners(null);
   secrets._useKey();
   fs.rmSync(tmpDir, { recursive: true, force: true, maxRetries: 5 });
 });
@@ -69,7 +72,8 @@ const signIn = (id: string, token: string | null) => {
 };
 
 beforeEach(() => {
-  _setAppInfo({ botPublic: true, requireCodeGrant: false, ownerIds: [] });
+  _setAppOwners(personalApp("owner-of-app", { botPublic: true }));
+  _resetUserGuilds();
   reply = async () => ({ data: ROWS });
   asked.length = 0;
   sid = `sid-${Math.random()}`;
@@ -135,31 +139,21 @@ test("디스코드가 요청을 막으면(429) rate-limited, 초대할 수 없�
   const limited = await requestJson<ProblemReply>(base, "GET", "/api/invite");
   assert.deepEqual([limited.status, limited.json.code], [503, "rate-limited"]);
 
-  _setAppInfo({ botPublic: false, requireCodeGrant: false, ownerIds: ["someone-else"] });
+  _setAppOwners(personalApp("someone-else"));
   const refused = await requestJson<ProblemReply>(base, "GET", "/api/invite");
   assert.deepEqual([refused.status, refused.json.code], [403, "invite-unavailable"]);
 });
 
-test("앱 정보: 봇이 준비되기 전에 물어도 막히지 않고, 준비된 뒤 받는다. 팀이면 팀원", async () => {
-  _setAppInfo(null);
-  const client = { application: null as unknown };
-  await loadAppInfo(fake<Client>(client));
-  assert.equal(canInvite(fake<Client>(client), "u1"), false, "준비 전");
-
-  client.application = {
-    fetch: async () => ({
-      botPublic: false,
-      botRequireCodeGrant: false,
-      owner: {
-        members: new Map([
-          ["t1", {}],
-          ["t2", {}],
-        ]),
-      },
-    }),
-  };
-  await loadAppInfo(fake<Client>(client));
-  assert.deepEqual([canInvite(fake<Client>(client), "t2"), canInvite(fake<Client>(client), "u1")], [true, false]);
+test("앱 정보: 받기 전에는 아무도, 팀이면 팀 소유자와 수락한 팀원", async () => {
+  _setAppOwners(null);
+  assert.equal(canInvite("u1"), false, "받기 전");
+  _setAppOwners(
+    teamApp("t1", [
+      { id: "t2", role: "developer" },
+      { id: "t3", role: "admin", state: 1 },
+    ]),
+  );
+  assert.deepEqual([canInvite("t1"), canInvite("t2"), canInvite("t3"), canInvite("u1"), canInvite("team-pseudo-user")], [true, true, false, false, false]);
 });
 
 test("응답 어디에도 디스코드 토큰이 없다(목록, 다시 로그인, 실패)", async () => {

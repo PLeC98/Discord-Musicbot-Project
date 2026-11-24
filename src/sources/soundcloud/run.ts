@@ -7,9 +7,11 @@
 import ytdlp from "../ytdlp-spawn.ts";
 import { baseOptions } from "../ytdlp-options.ts";
 import { codedError, codeOf } from "../../rules/error-kind.ts";
+import { saidOf } from "../youtube/errors.ts";
 import type { RunYtDlp, YtDlpFlags } from "../ytdlp-spawn.ts";
 import logger from "../../infra/log/logger.ts";
 import { record } from "../../infra/link-status.ts";
+import { L } from "../../infra/log/text.ts";
 const log = logger.child({ category: "track" });
 
 /**
@@ -24,7 +26,7 @@ type Formats = keyof typeof FORMATS;
 /** 무엇을 읽는가. 없는 것(404)의 이름이 달라진다 */
 type What = "track" | "set";
 
-// yt-dlp 오류에서 읽을 텍스트
+// yt-dlp 오류에서 로그에 남길 텍스트(판정은 saidOf)
 const textOf = (error: unknown) => {
   const e = error as { stderr?: unknown; message?: unknown } | null;
   return String(e?.stderr || e?.message || error || "");
@@ -37,7 +39,7 @@ const textOf = (error: unknown) => {
  *   403         사운드클라우드가 요청이 몰린 IP를 막았다(client_id가 낡은 경우는 yt-dlp가 새로 받아 한 번 더 요청한다)
  */
 function nameOf(error: unknown, what: What): string | null {
-  const text = textOf(error);
+  const text = saidOf(error);
   if (/No video formats found|Requested format is not available/i.test(text)) return "no-formats";
   if (/HTTP Error 404/.test(text)) return what === "set" ? "unavailable-playlist" : "unavailable-contents";
   if (/HTTP Error 403/.test(text)) return "rate-limited";
@@ -50,7 +52,7 @@ function nameOf(error: unknown, what: What): string | null {
 function partialPlaylist(error: unknown): unknown {
   const stdout = (error as { stdout?: unknown } | null)?.stdout;
   if (typeof stdout !== "string" || !stdout.trim()) return null;
-  if (/HTTP Error (?:403|429)/.test(textOf(error))) return null;
+  if (/HTTP Error (?:403|429)/.test(saidOf(error))) return null;
   try {
     const out = JSON.parse(stdout) as { _type?: unknown; entries?: unknown };
     return out && out._type === "playlist" && Array.isArray(out.entries) ? out : null;
@@ -103,12 +105,12 @@ async function call(url: string, formats: Formats, what: What, extra: YtDlpFlags
             .filter((line) => /^ERROR/.test(line)),
         ),
       ];
-      log.debug(`사운드클라우드 세트에서 제외한 곡 사유: ${reasons.join(" / ")}`);
+      log.debug(L.track.soundcloudSetSkipReasons({ reasons: reasons.join(" / ") }));
       return partial;
     }
     if (!name) throw error;
     const text = textOf(error);
-    throw codedError(name, text.split("\n").find((line) => /^ERROR/.test(line)) || text, { cause: error });
+    throw codedError(name, L.track.soundcloudYtdlpError({ text: text.split("\n").find((line) => /^ERROR/.test(line)) || text }), { cause: error });
   }
 }
 

@@ -212,6 +212,8 @@ const WEB = {
   // 대시보드 서버 설정: 화면에서 읽은 뒤 같은 설정이 다른 곳(디스코드 명령, 다른 탭, 다른 관리자)에서 먼저 바뀌어 그 설정은 저장하지 않았다
   "settings-changed": { status: 409, title: "Server settings changed since they were read" },
   "config-save-failed": { status: 409, title: "Config could not be saved" },
+  // 봇 운영자 범위: 앱 소유자(팀 소유자)가 아니거나 범위를 쓰지 않는 상태(개인 앱, OWNER_ID, 앱 정보 없음)
+  "operator-scope-owner-only": { status: 403, title: "Only the team owner can change the bot operator scope" },
   // 설정 불러오기: ZIP이 깨졌거나 이 봇의 내보내기가 아니다
   "bad-archive": { status: 400, title: "Not a settings archive" },
   // 올린 파일을 둘 디스크의 남은 크기가 모자라다(size: 남은 크기)

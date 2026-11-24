@@ -51,7 +51,7 @@
       <NoticeBox v-else-if="(state.enabled || state.installed) && (state.missing?.length || state.failure) && !onTarget" variant="note" tone="error" icon="error">
         <span class="flex-1 min-w-0 flex items-center gap-3 flex-wrap"
           ><span class="flex-1 min-w-0 wrap-break-word"
-            ><BgutilNeeds v-if="state.missing?.length" :needs="state.missing" /><template v-else-if="state.failure">{{ T.failed(state.failure.reason) }}</template></span
+            ><BgutilNeeds v-if="state.missing?.length" :needs="state.missing" /><template v-else-if="state.failure">{{ T.failed(ruleLine(state.failure.reason)) }}</template></span
           ><BaseButton variant="secondary" size="sm" class="-my-1.5" :disabled="working" @click="install">{{ T.retry }}</BaseButton></span
         >
       </NoticeBox>
@@ -94,6 +94,7 @@ import { BGUTIL_REPO } from "../../../src/rules/bgutil-install.ts";
 import type { BgutilResolveReply, VendorReply } from "../../../src/dashboard/contract/admin.ts";
 import type { BgutilCardStatus } from "../../../src/sources/bgutil/status-types.ts";
 import { text } from "../text/index.ts";
+import { ruleLine } from "../utils/rule-line.ts";
 const T = text.bgutil;
 
 const BASE = "/api/admin/vendor";

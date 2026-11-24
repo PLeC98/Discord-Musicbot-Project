@@ -21,7 +21,7 @@
       <form v-if="linking" class="flex flex-col gap-1" @submit.prevent="submitLink">
         <label class="text-xs text-on-surface-variant" for="favicon-link">{{ D.linkLabel }}</label>
         <span class="flex gap-2">
-          <input id="favicon-link" ref="linkInput" v-model.trim="link" type="url" inputmode="url" :placeholder="D.linkPlaceholder" :class="[FIELD, 'flex-1 min-w-0']" />
+          <input id="favicon-link" ref="linkInput" v-model.trim="link" type="url" inputmode="url" :placeholder="URL_PLACEHOLDER" :class="[FIELD, 'flex-1 min-w-0']" />
           <BaseButton type="submit" :disabled="busy || !link">{{ D.linkFetch }}</BaseButton>
         </span>
         <span v-if="linkError" class="text-xs text-error">{{ linkError }}</span>
@@ -55,7 +55,7 @@
 <script setup lang="ts">
 import { nextTick, ref, watch } from "vue";
 import BaseDialog from "./BaseDialog.vue";
-import { FIELD } from "../utils/field.ts";
+import { FIELD, URL_PLACEHOLDER } from "../utils/field.ts";
 import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";
 import { ICON_BTN } from "../utils/icon-button.ts";

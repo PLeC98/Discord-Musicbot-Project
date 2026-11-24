@@ -18,10 +18,10 @@ function reasonOf(stderr: string, encoder: string): string {
   return (own.length ? own.join(" ") : (lines.at(-1) ?? "")).slice(0, 300);
 }
 
-/** 그 인코더, 옵션으로 테스트 영상을 인코딩해 본다. 실패하면 ffmpeg가 알린 원인 */
-async function tryEncoder(encoder: string, options: string[]): Promise<{ ok: true } | { ok: false; reason: string }> {
+/** 그 인코더, 옵션으로 테스트 영상을 인코딩해 본다. 실패하면 ffmpeg가 알린 원인(output, 없으면 빈 문자열)과 종료 코드 */
+async function tryEncoder(encoder: string, options: string[]): Promise<{ ok: true } | { ok: false; output: string; code: number | null }> {
   const { code, stderr } = await runFfmpeg(["-v", "error", "-f", "lavfi", "-i", "testsrc2=size=256x144:rate=30", "-frames:v", "8", "-c:v", encoder, ...options, "-f", "null", "-"], { timeoutMs: TRIAL_MS, label: "encoder-check" });
-  return code === 0 ? { ok: true } : { ok: false, reason: reasonOf(stderr, encoder) || `끝난 코드 ${code ?? "없음"}` };
+  return code === 0 ? { ok: true } : { ok: false, output: reasonOf(stderr, encoder), code };
 }
 
 /** 그 필터 그래프를 테스트 영상(source, lavfi) 한 프레임에 돌려 본다. 필터가 없거나 실패하면 false */

@@ -19,6 +19,8 @@ import { queryMemo } from "../infra/query-memo.ts";
 import { repeatingFailure } from "../infra/repeating-failure.ts";
 import type { KeyCheck } from "../rules/service-keys.ts";
 import { PLAYLIST_ADD_DEFAULT } from "../rules/limits.ts";
+import { L } from "../infra/log/text.ts";
+import { logTextError } from "../infra/log/log-text.ts";
 
 // 바깥으로 나가는 요청은 공유 HTTP 클라이언트로(부른 결과가 남는다). 테스트는 useFetch로 가짜를 넘긴다(null이면 실제 fetch)
 const http = httpFor("spotify");
@@ -158,7 +160,7 @@ function playable(items: GqlItems) {
 // 앨범 한 페이지. 앨범 이름, 앨범아트는 곡에 없어 앨범의 것을 붙인다. 없는 앨범은 NotFound로 온다. count: 받은 항목 수(원본 위치를 센다)
 async function albumPage(query: Net["query"], id: string, offset: number, limit: number) {
   const a = ((await query("getAlbum", "getAlbum", { uri: `spotify:album:${id}`, locale: "", offset, limit })) as GqlAlbum | null)?.albumUnion;
-  if (!a || a.__typename === "NotFound") throw codedError("not-found", `앨범 없음(NotFound) ${id}`);
+  if (!a || a.__typename === "NotFound") throw codedError("not-found", L.spotify.albumNotFound({ id }));
   const items = a.tracksV2?.items ?? [];
   const albumOfTrack = { name: a.name, coverArt: a.coverArt };
   const tracks = items.map((it) => (it.track ? normGqlTrack({ ...it.track, albumOfTrack }) : null)).filter(isTrack);
@@ -169,7 +171,7 @@ async function albumPage(query: Net["query"], id: string, offset: number, limit:
 async function playlistPage(query: Net["query"], id: string, offset: number, limit: number) {
   const data = (await query("fetchPlaylist", "fetchPlaylist", { uri: `spotify:playlist:${id}`, offset, limit, enableWatchFeedEntrypoint: false })) as GqlPlaylist | null;
   const pl = data?.playlistV2;
-  if (!pl || pl.__typename === "NotFound") throw codedError("unavailable-playlist", "플레이리스트 접근 불가(NotFound)");
+  if (!pl || pl.__typename === "NotFound") throw codedError("unavailable-playlist", L.spotify.playlistNotFound());
   return { items: pl.content?.items || [], total: pl.content?.totalCount ?? null };
 }
 
@@ -225,7 +227,7 @@ const official = {
 
   async _accessToken(): Promise<string> {
     // 키가 없으면 라우팅이 부르지 않는다(routesOf). 직접 부른 것만 여기 닿는다
-    if (!config.spotify.clientId || !config.spotify.clientSecret) throw codedError("spotify-failed", "Spotify 키 미설정(운영자 패널의 API 키 탭)");
+    if (!config.spotify.clientId || !config.spotify.clientSecret) throw codedError("spotify-failed", L.spotify.apiKeyMissing());
     const auth = Buffer.from(`${config.spotify.clientId}:${config.spotify.clientSecret}`).toString("base64");
     // 키를 바꿨으면 쥐고 있던 토큰을 버린다(옛 키로 받은 것이다)
     if (this._token && this._token.auth === auth && Date.now() < this._token.expiresAt - 60000) return this._token.value;
@@ -236,7 +238,7 @@ const official = {
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     // 400, 401은 자격증명이 틀린 것이다(운영자 설정). 라우팅이 익명 GraphQL로 넘기고 이 줄은 운영자 로그에 남는다
-    if (!r.ok) throw codedError("spotify-failed", `토큰 발급 실패 ${r.status}${r.status === 400 || r.status === 401 ? "(키가 틀림. 운영자 패널의 API 키 탭)" : ""}`);
+    if (!r.ok) throw codedError("spotify-failed", L.spotify.tokenIssueFailed({ status: r.status }));
     const j = (await r.json()) as { access_token: string; expires_in?: number };
     this._token = { value: j.access_token, expiresAt: Date.now() + (j.expires_in || 3600) * 1000, auth };
     return this._token.value;
@@ -247,7 +249,7 @@ const official = {
     const url = path.startsWith("http") ? path : `${API_BASE}${path}`;
     const r = await send(url, { headers: { Authorization: `Bearer ${tok}`, "User-Agent": ua() }, signal: AbortSignal.timeout(TIMEOUT_MS) });
     // 없는 곡, 앨범, 가수는 없음이다(resolveType). 요청 제한은 rate-limited 코드를 단다
-    if (!r.ok) throw codedError(r.status === 404 ? "not-found" : r.status === 429 ? "rate-limited" : "spotify-failed", `API ${r.status} (${path.slice(0, 40)})`);
+    if (!r.ok) throw codedError(r.status === 404 ? "not-found" : r.status === 429 ? "rate-limited" : "spotify-failed", L.spotify.apiFailed({ status: r.status, path: path.slice(0, 40) }));
     return r.json();
   },
 
@@ -288,11 +290,11 @@ const official = {
 async function searchChunkHash(js: string, bundleUrl: string): Promise<string> {
   const id = js.match(new RegExp(`(\\d+):"${SEARCH_CHUNK}"`))?.[1];
   const chunk = id ? js.match(new RegExp(`[,{]${id}:"([a-f0-9]{8})"`))?.[1] : undefined;
-  if (!chunk) throw new Error("번들에 검색 화면 청크가 없음");
+  if (!chunk) throw logTextError(L.spotify.searchChunkMissing());
   const res = await send(new URL(`${SEARCH_CHUNK}.${chunk}.js`, bundleUrl).href, { headers: { "User-Agent": ua() }, signal: AbortSignal.timeout(BUNDLE_TIMEOUT_MS) });
-  if (!res.ok) throw new Error(`검색 청크 ${res.status}`);
+  if (!res.ok) throw logTextError(L.spotify.searchChunkStatus({ status: res.status }));
   const hash = (await res.text()).match(/"searchTracks","query","([0-9a-f]{64})"/)?.[1];
-  if (!hash) throw new Error("검색 청크에 searchTracks 해시가 없음");
+  if (!hash) throw logTextError(L.spotify.searchHashMissing());
   return hash;
 }
 
@@ -301,7 +303,7 @@ async function searchHash(js: string, bundleUrl: string, previous: AnonState | n
   try {
     return { searchTracks: await searchChunkHash(js, bundleUrl) };
   } catch (e) {
-    log.warn(`곡 검색 해시 추출 실패(${previous?.hashes.searchTracks ? "직전 값 사용" : "검색을 쓰지 못함"}): ${messageOf(e)}`);
+    log.warn(L.spotify.searchHashFailed({ kept: Boolean(previous?.hashes.searchTracks), error: messageOf(e) }));
     return {};
   }
 }
@@ -348,8 +350,8 @@ const graphql = {
       externalCaches.setSpotifyAnonState(extracted);
     } catch (e) {
       this._failedAt = Date.now();
-      if (!usable) throw new Error(`익명 상태 받기 실패: ${messageOf(e)}`, { cause: e });
-      log.warn({ tags: ["fallback"] }, `익명 상태 추출 실패: ${messageOf(e)}. 저장값 사용`);
+      if (!usable) throw logTextError(L.spotify.anonStateFailed({ error: messageOf(e) }), { cause: e });
+      log.warn({ tags: ["fallback"] }, L.spotify.anonStateExtractFailed({ error: messageOf(e) }));
       this._state = usable;
     }
     return this._state;
@@ -359,7 +361,7 @@ const graphql = {
   // 못 찾은 해시는 직전 값을 둔다. 그 쿼리만 해시 만료로 실패해 다시 추출하게 된다
   async _extract(previous: AnonState | null = null): Promise<Omit<AnonState, "fetchedAt">> {
     const homeRes = await send("https://open.spotify.com/", { headers: htmlHeaders(), signal: AbortSignal.timeout(TIMEOUT_MS) });
-    if (!homeRes.ok) throw new Error(`홈 ${homeRes.status}`);
+    if (!homeRes.ok) throw logTextError(L.spotify.homeStatus({ status: homeRes.status }));
     const home = await homeRes.text();
     let clientVersion = previous?.clientVersion || CLIENT_VERSION;
     const cfg = home.match(/id="appServerConfig"[^>]*>([^<]+)</);
@@ -368,16 +370,16 @@ const graphql = {
         clientVersion = JSON.parse(Buffer.from(cfg[1], "base64").toString()).clientVersion || clientVersion;
       } catch (e) {
         // 버전을 못 읽으면 직전 값
-        log.warn(`clientVersion 읽기 실패(직전 값 ${clientVersion}): ${messageOf(e)}`);
+        log.warn(L.spotify.clientVersionReadFailed({ clientVersion, error: messageOf(e) }));
       }
     }
     const scriptUrl = (home.match(/https:\/\/[^"']*\/web-player\.[a-f0-9]+\.js/) || [])[0];
-    if (!scriptUrl) throw new Error("홈에 웹플레이어 번들 주소가 없음");
+    if (!scriptUrl) throw logTextError(L.spotify.bundleUrlMissing());
     const jsRes = await send(scriptUrl, { headers: { "User-Agent": ua() }, signal: AbortSignal.timeout(BUNDLE_TIMEOUT_MS) });
-    if (!jsRes.ok) throw new Error(`번들 ${jsRes.status}`);
+    if (!jsRes.ok) throw logTextError(L.spotify.bundleStatus({ status: jsRes.status }));
     const js = await jsRes.text();
     const secrets = parseSecrets(js);
-    if (!secrets.length) throw new Error("번들에서 secret을 찾지 못함");
+    if (!secrets.length) throw logTextError(L.spotify.bundleSecretMissing());
     const hashes = { ...previous?.hashes };
     for (const name of OPERATIONS) {
       const found = js.match(new RegExp(`"${name}","query","([0-9a-f]{64})"`));
@@ -396,7 +398,7 @@ const graphql = {
     const key = deriveKey(secret);
     const qs = new URLSearchParams({ reason: "init", productType: "web-player", totp: totp(key, Date.now()), totpServer: totp(key, serverSec * 1000), totpVer: String(version) });
     const r = await send(`https://open.spotify.com/api/token?${qs.toString()}`, { headers: { ...htmlHeaders(), Cookie: cookies, Referer: REFERER, "App-Platform": "WebPlayer" }, signal: AbortSignal.timeout(TIMEOUT_MS) });
-    if (!r.ok) throw Object.assign(new Error(`익명 토큰 ${r.status}`), { status: r.status });
+    if (!r.ok) throw Object.assign(logTextError(L.spotify.anonTokenStatus({ status: r.status })), { status: r.status });
     return (await r.json()) as { accessToken: string; accessTokenExpirationTimestampMs?: number };
   },
 
@@ -444,7 +446,7 @@ const graphql = {
     } catch (e) {
       const status = (e as { status?: unknown } | null)?.status;
       if (status === 400 || status === 403) {
-        log.warn({ tags: ["retry"] }, `익명 토큰 오류 ${status}(secret을 다시 추출해 재시도)`);
+        log.warn({ tags: ["retry"] }, L.spotify.anonTokenRetry({ status }));
         await this._ensureState(true);
         j = await this._mintToken();
       } else throw e;
@@ -460,23 +462,24 @@ const graphql = {
     const run = async () => {
       const state = await this._ensureState(false);
       // 번들에서 못 찾은 해시. 해시 만료와 같이 다시 추출하게 한다
-      if (!state.hashes[hashKey]) throw Object.assign(new Error(`${hashKey} 해시가 없음(번들에서 못 찾음)`), { retry: "hash" });
+      if (!state.hashes[hashKey]) throw Object.assign(logTextError(L.spotify.operationHashMissing({ hashKey })), { retry: "hash" });
       const tok = await this._token();
       const r = await send(PARTNER, { method: "POST", headers: partnerHeaders(tok, state.clientVersion), body: JSON.stringify({ operationName, variables, extensions: { persistedQuery: { version: 1, sha256Hash: state.hashes[hashKey] } } }), signal: AbortSignal.timeout(TIMEOUT_MS) });
       if (r.status === 401) {
         this._dropToken();
-        throw Object.assign(new Error("익명 토큰이 거절됨(401)"), { retry: "token" });
+        throw Object.assign(logTextError(L.spotify.anonTokenRejected()), { retry: "token" });
       }
       const text = await r.text();
       let j: { data?: unknown; errors?: Array<{ message?: string }> };
       try {
         j = JSON.parse(text);
       } catch {
-        throw new Error(`GraphQL 응답 파싱 실패 ${r.status}`);
+        throw logTextError(L.spotify.graphqlParseFailed({ status: r.status }));
       }
       if (j.errors) {
-        const msg = j.errors[0]?.message || "GraphQL 오류";
-        throw Object.assign(new Error(msg), { retry: /persistedquery/i.test(msg) && /not.?found/i.test(msg) ? "hash" : null });
+        // 저쪽 문구가 없으면 우리 문구로. 해시 만료는 저쪽 문구로만 알아본다
+        const msg = j.errors[0]?.message || "";
+        throw Object.assign(msg ? new Error(msg) : logTextError(L.spotify.graphqlError()), { retry: /persistedquery/i.test(msg) && /not.?found/i.test(msg) ? "hash" : null });
       }
       return j.data;
     };
@@ -486,12 +489,12 @@ const graphql = {
     } catch (e) {
       const retry = (e as { retry?: unknown } | null)?.retry;
       if (retry === "hash") {
-        log.warn({ tags: ["retry"] }, "저장된 해시 만료(다시 추출해 재시도)");
+        log.warn({ tags: ["retry"] }, L.spotify.hashExpired());
         await this._ensureState(true);
         return run();
       }
       if (retry === "token") {
-        log.warn({ tags: ["retry"] }, "익명 토큰이 거절됨(새로 받아 재시도)");
+        log.warn({ tags: ["retry"] }, L.spotify.anonTokenRejectedRetry());
         return run();
       }
       throw e;
@@ -523,7 +526,7 @@ const graphql = {
   // 곡 하나. 없는 곡은 NotFound로 온다
   async track(id: string, over: Partial<Net> = {}) {
     const t = ((await net(over).query("getTrack", "getTrack", { uri: `spotify:track:${id}` })) as GqlTrackUnion | null)?.trackUnion;
-    if (!t || t.__typename === "NotFound") throw codedError("not-found", `곡 없음(NotFound) ${id}`);
+    if (!t || t.__typename === "NotFound") throw codedError("not-found", L.spotify.trackNotFound({ id }));
     const n = normGqlTrack({ ...t, artists: { items: [...(t.firstArtist?.items ?? []), ...(t.otherArtists?.items ?? [])] } });
     return n ? [n] : [];
   },
@@ -595,7 +598,7 @@ async function resolveType(type: string, id: string, options: Range, over: Parti
     } catch (e) {
       // 없는 곡, 앨범, 가수다. 다른 경로도 같은 답이라 조회하지 않는다
       if (codeOf(e) === "not-found") return empty;
-      log.warn({ sub: type }, `${i === 0 ? "주 경로" : "폴백"} 실패: ${messageOf(e)}${last ? "" : ", 폴백 전환"}`);
+      log.warn({ sub: type }, L.spotify.routeFailed({ primary: i === 0, error: messageOf(e), last }));
       failure = e;
     }
   }
@@ -612,16 +615,16 @@ async function getCollection(url: string, { offset = 0, limit = PLAYLIST_ADD_DEF
   const { type, id } = link;
   const result = await resolveType(type, id, { offset, limit }, over);
   const { tracks, total } = result;
-  const head = tracks[0] ? `"${tracks[0].title}" - ${tracks[0].artist ?? "?"}${tracks.length > 1 ? ` 외 ${tracks.length - 1}곡` : ""}` : "결과 없음";
-  const range = total != null && total > tracks.length ? ` (전체 ${total}곡 중 ${offset + 1}번째부터)` : "";
-  log.info(`${type} ${id} → ${tracks.length}곡${range}: ${head}`);
+  const head = tracks[0] ? L.spotify.collectionHead({ title: tracks[0].title, artist: tracks[0].artist ?? "?", more: tracks.length - 1 }) : L.spotify.collectionEmpty();
+  const range = total != null && total > tracks.length ? L.spotify.collectionRange({ total, start: offset + 1 }) : "";
+  log.info(L.spotify.collectionLoaded({ type, id, count: tracks.length, range, head }));
   return result;
 }
 
 // ── 곡 검색 ──
 const newSearchMemo = () => queryMemo<SpotifyTrack[]>({ ttlMs: SEARCH_MEMO_MS, max: SEARCH_MEMO_MAX, now: () => Date.now() });
 let searchMemo = newSearchMemo();
-const searchFailures = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "곡 검색");
+const searchFailures = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.spotify.trackSearch());
 const searchKey = (query: string) => query.trim().toLowerCase();
 
 /**
@@ -630,7 +633,7 @@ const searchKey = (query: string) => query.trim().toLowerCase();
  */
 function searchReady(): boolean {
   if (graphql._reusable(false, graphql._state)?.hashes.searchTracks) return true;
-  graphql._ensureState(false).catch((e: unknown) => searchFailures.fail(`준비 실패: ${messageOf(e)}`));
+  graphql._ensureState(false).catch((e: unknown) => searchFailures.fail(L.spotify.searchPrepareFailed({ error: messageOf(e) })));
   return false;
 }
 
@@ -643,7 +646,7 @@ async function prepareAnonymous() {
     await graphql._ensureState(false);
     await graphql._token();
   } catch (e) {
-    log.warn(`익명 경로 준비 실패(쓸 때 다시 시도): ${messageOf(e)}`);
+    log.warn(L.spotify.anonPrepareFailed({ error: messageOf(e) }));
   }
 }
 
@@ -707,10 +710,10 @@ async function checkCredentials(): Promise<KeyCheck> {
     });
     if (r.ok) return { ok: true };
     if (r.status === 400 || r.status === 401) return { ok: false, reason: "rejected" };
-    log.warn(`API 키 확인 실패: HTTP ${r.status}`);
+    log.warn(L.spotify.apiKeyCheckHttp({ status: r.status }));
     return { ok: false, reason: "unreachable" };
   } catch (e) {
-    log.warn(`API 키 확인 실패: ${messageOf(e)}`);
+    log.warn(L.spotify.apiKeyCheckFailed({ error: messageOf(e) }));
     return { ok: false, reason: "unreachable" };
   }
 }

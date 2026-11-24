@@ -7,6 +7,7 @@
 // 화면은 이름 대신 코드포인트를 그리므로 합자 표는 담지 않는다. 결과물은 저장소에 넣는다.
 // 원본에 없는 라이선스 설명, 주소(name 13, 14번)를 넣고, 패키지의 라이선스를 글꼴 옆에 둔다(scripts/font-names.ts)
 
+import "../src/infra/log/choose-at-start.ts"; // 다른 import보다 먼저 로그 언어를 고른다
 import fs from "node:fs";
 import path from "node:path";
 import * as fontkit from "fontkit";
@@ -14,6 +15,8 @@ import subsetFont from "subset-font";
 import * as prettier from "prettier";
 import { PROJECT } from "../src/infra/project-paths.ts";
 import { setNames, toSfnt, LICENSE_NAME_IDS, OFL_NAMES } from "./font-names.ts";
+import { L } from "../src/infra/log/text.ts";
+import { asText } from "../src/infra/log/log-text.ts";
 
 const SOURCE = path.join(PROJECT.root, "dashboard", "node_modules", "@fontsource-variable", "material-symbols-rounded", "files", "material-symbols-rounded-latin-fill-normal.woff2");
 const OUT_FONT = path.join(PROJECT.root, "dashboard", "src", "assets", "material-symbols.woff2");
@@ -44,7 +47,7 @@ async function main() {
   const table = names.map((name) => [name, codepointOf(name)] as const);
   const unknown = table.filter(([, cp]) => cp === null).map(([name]) => name);
   if (unknown.length) {
-    console.error(`Material Symbols에 없는 이름: ${unknown.join(", ")}`);
+    console.error(asText(L.build.iconsUnknown({ names: unknown.join(", ") })));
     process.exit(1);
   }
 
@@ -68,7 +71,7 @@ export type { IconName, DrawnIcon };
 `;
   const options = (await prettier.resolveConfig(OUT_TABLE)) ?? {};
   fs.writeFileSync(OUT_TABLE, await prettier.format(body, { ...options, filepath: OUT_TABLE }));
-  console.log(`기호 ${table.length}개, 글꼴 ${(font.length / 1024).toFixed(1)}KB (원본 ${(source.length / 1024).toFixed(0)}KB)`);
+  console.log(asText(L.build.iconFontWritten({ count: table.length, kb: (font.length / 1024).toFixed(1), sourceKb: (source.length / 1024).toFixed(0) })));
 }
 
 await main();

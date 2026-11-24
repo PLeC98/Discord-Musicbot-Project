@@ -161,15 +161,18 @@ const router = useRouter();
 const ALWAYS_OPEN: readonly string[] = ["model", "advanced", "log", "usage"];
 
 // ── 목록, 상세. 주소 ?ai= 에 선택한 항목(model, prompt, advanced, log, usage). 2열이면 선택한 것이 없을 때 모델 ──
-const ITEMS = [
-  { id: "model", label: T.items.model, icon: "model_training" },
-  { id: "prompt", label: T.items.prompt, icon: "terminal" },
-  { id: "advanced", label: T.items.advanced, icon: "settings" },
-  { id: "log", label: T.items.log, icon: "history" },
-  { id: "usage", label: T.items.usage, icon: "bar_chart" },
-] as const;
+const ITEMS = computed(
+  () =>
+    [
+      { id: "model", label: T.items.model, icon: "model_training" },
+      { id: "prompt", label: T.items.prompt, icon: "terminal" },
+      { id: "advanced", label: T.items.advanced, icon: "settings" },
+      { id: "log", label: T.items.log, icon: "history" },
+      { id: "usage", label: T.items.usage, icon: "bar_chart" },
+    ] as const,
+);
 // 고급 설정은 운영자 패널의 "고급 설정 보기"를 따른다
-const FIXED_ITEMS = computed(() => ITEMS.filter((item) => item.id !== "advanced" || showAdvanced.value));
+const FIXED_ITEMS = computed(() => ITEMS.value.filter((item) => item.id !== "advanced" || showAdvanced.value));
 const paneEl = ref<HTMLElement | null>(null);
 const { twoPane, listCardClass, paneClass } = useListDetailLayout(paneEl);
 // 1열이면 운영자 패널 위 막대 ← 로 목록에

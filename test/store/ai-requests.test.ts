@@ -1,5 +1,7 @@
 // src/store/ai-requests.ts: AI 리퀘스트 로그, 사용량 통계 저장. 쓰기, 필터, 페이지 넘기기, 저장 용량 맞추기, 삭제, 필드 자르기
 
+import { plain, rule } from "../../src/rules/rule-problem.ts";
+import { aiLogDb } from "../../src/store/ai-log-db.ts";
 import test, { after } from "node:test";
 import assert from "node:assert";
 import { openTempStore } from "../helpers/temp-store.ts";
@@ -53,11 +55,11 @@ test("쓴 행은 목록, 한 행 읽기로 돌아오고, 듣는 쪽에 알린다
 test("필터: 출처, 결과, 찾는 말(대소문자 무시, 이름까지), 최근 것부터 페이지 넘기기", () => {
   requests.clearRequests();
   add({ source: "models", model: "", name: "", url: "https://api.openai.com/v1/models", tokens: null });
-  add({ ok: false, status: 429, error: "Too Many Requests" });
+  add({ ok: false, status: 429, error: plain("Too Many Requests") });
   add({ source: "ping", name: "Fancy Model" });
   const all: AiLogQuery = { sources: [], result: "", q: "" };
   assert.equal(requests.list({ ...all, sources: ["models"] }, { limit: 50 }).matched, 1);
-  assert.equal(requests.list({ ...all, result: "failed" }, { limit: 50 }).entries[0].error, "Too Many Requests");
+  assert.deepEqual(requests.list({ ...all, result: "failed" }, { limit: 50 }).entries[0].error, plain("Too Many Requests"));
   assert.equal(requests.list({ ...all, q: "too many" }, { limit: 50 }).matched, 1);
   assert.equal(requests.list({ ...all, q: "FANCY" }, { limit: 50 }).matched, 1);
   // %는 글자 그대로다(LIKE처럼 아무 글자나가 아니다)
@@ -69,7 +71,7 @@ test("필터: 출처, 결과, 찾는 말(대소문자 무시, 이름까지), 최
   assert.equal(aiLogMatches(requests.list({ ...all, q: "ㅈㅁㄴ" }, { limit: 50 }).entries[0], { ...all, q: "ㅈㅁㄴ" }), true);
   requests.clearRequests();
   add({ source: "models", model: "", name: "", url: "https://api.openai.com/v1/models", tokens: null });
-  add({ ok: false, status: 429, error: "Too Many Requests" });
+  add({ ok: false, status: 429, error: plain("Too Many Requests") });
   add({ source: "ping", name: "Fancy Model" });
   const first = requests.list(all, { limit: 2 });
   assert.equal(first.entries.length, 2);
@@ -103,6 +105,14 @@ test("로그를 지워도 통계는 남고, 통계를 지워도 로그는 남는
   assert.equal(requests.earliestDay(), null);
 });
 
+test("실패 원인은 규칙 문제로 저장해 그대로 읽고, 이 형식 전에 문자열로 저장된 행은 plain으로 읽는다", () => {
+  requests.clearRequests();
+  const entry = add({ ok: false, status: null, error: rule("ai-verdict-unreadable") });
+  assert.deepEqual(requests.one(entry.id)?.error, rule("ai-verdict-unreadable"));
+  aiLogDb.get().prepare("UPDATE requests SET error = ? WHERE id = ?").run("판정을 읽지 못함", entry.id);
+  assert.deepEqual(requests.one(entry.id)?.error, plain("판정을 읽지 못함"));
+});
+
 test("너무 큰 필드는 앞뒤를 남기고 잘라 잘림을 적는다", () => {
   requests.clearRequests();
   const huge = `${"a".repeat(requests.MAX_FIELD_BYTES)}끝`;
@@ -112,6 +122,7 @@ test("너무 큰 필드는 앞뒤를 남기고 잘라 잘림을 적는다", () =
   assert.ok(detail.response.startsWith("aaaa"));
   assert.ok(detail.response.endsWith("끝"));
   assert.ok(Buffer.byteLength(detail.response) < requests.MAX_FIELD_BYTES + 200);
+  assert.match(detail.response, /\n\n\.\.\.\[\d+ KB\]\.\.\.\n\n/, "줄인 자리에 줄인 크기만 적는다(언어와 상관없이)");
   assert.ok(entry.bytes < requests.MAX_FIELD_BYTES + 1000);
 });
 

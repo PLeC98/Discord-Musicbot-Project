@@ -19,8 +19,10 @@ import { playState } from "../../ui/player-status.ts";
 import type { CardData } from "../../ui/system-card/draw.ts";
 import { renderSystemCards } from "../../ui/card-render/render.ts";
 import { systemView, type SystemView } from "../../ui/system-card/view.ts";
-import * as errors from "../../ui/text/ko/errors.ts";
 import { isBotOwner } from "../../usecases/permissions.ts";
+import { personLanguage, privateText } from "../../ui/language.ts";
+import { textFor } from "../../ui/text/index.ts";
+import type { Language } from "../../rules/languages.ts";
 
 const MB = 1024 * 1024;
 type Bot = Pick<BotContext, "client" | "players">;
@@ -36,13 +38,14 @@ const cpuModelName = (model: string) =>
 const peak = (values: number[]) => Math.max(0, ...values);
 
 /** 이미지에 그릴 값. 그래프 세로축은 대시보드와 같은 하한(CPU 100%, 이벤트 루프 지연 100ms, 인코딩은 응답 예산)과 최댓값 중 큰 쪽 */
-function cardDataOf(core: StatusCore, { client, players }: Bot): CardData {
+function cardDataOf(core: StatusCore, { client, players }: Bot, language: Language): CardData {
   const input = statusInputOf(core);
   const level = metricLevels(input);
   const h = core.history;
   const memory = core.node.memory;
   const budget = (core.encoding.maxDepth - 1) * FRAME_MS;
   return {
+    language,
     seed: colorOf("brand"),
     overall: overallOf(attentionOf(input)),
     recent: { warn: core.recent.warn, error: core.recent.error },
@@ -75,27 +78,29 @@ function headOf({ client }: Bot): Omit<SystemView, "images" | "updatedAt"> {
 }
 
 /** 현재 값으로 그린 화면. 그리지 못하면 이미지 자리에 한 줄(원인은 ui/card-render/render가 warn으로 남긴다) */
-async function systemScreen(bot: Bot) {
+/** language: 보는 사람의 언어(본인에게만 보이는 화면) */
+async function systemScreen(bot: Bot, language: Language) {
   const core = statusCore(bot, COUNTS_ONLY);
   const base = { ...headOf(bot), updatedAt: Math.floor(Date.now() / 1000) };
-  const images = await renderSystemCards(cardDataOf(core, bot)).catch(() => "failed" as const);
-  return systemView({ ...base, images });
+  const images = await renderSystemCards(cardDataOf(core, bot, language)).catch(() => "failed" as const);
+  return systemView(textFor(language), { ...base, images });
 }
 
 const exported: GuildCommand = {
   help: { section: "info", tier: "owner" },
-  data: new SlashCommandBuilder().setName("system").setDescription("봇의 시스템 정보를 보여줘요"),
+  name: "system",
+  data: (C) => new SlashCommandBuilder().setName("system").setDescription(C.system.description),
 
   async execute(interaction, bot) {
     // 호스트 CPU, 메모리 정보가 나간다
     if (!isBotOwner(interaction.user.id)) {
-      return noticeSelf(interaction, errors.notice("must-owner"));
+      return noticeSelf(interaction, privateText(interaction).errors.notice("must-owner"));
     }
-    await interaction.reply(reply(systemView({ ...headOf(bot), updatedAt: Math.floor(Date.now() / 1000), images: "drawing" }).view));
+    await interaction.reply(reply(systemView(privateText(interaction), { ...headOf(bot), updatedAt: Math.floor(Date.now() / 1000), images: "drawing" }).view));
     expireSelf(interaction, LIFETIME.screen);
     // 여기서부터 예외를 던지면 자리표시자를 오류 안내로 바꾼다(그리는 중인 화면이 남지 않게)
     showFailureWith(interaction, (notice) => replaceSelf(interaction, noticeFrame(notice), noticeMs(notice)));
-    const { view, files } = await systemScreen(bot);
+    const { view, files } = await systemScreen(bot, personLanguage(interaction));
     await interaction.editReply(post(view, files));
   },
 };

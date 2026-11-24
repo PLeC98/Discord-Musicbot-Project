@@ -44,7 +44,7 @@ type StatusInput = {
   encoding: Encoding;
   cpuBot: number;
   heap: { heapUsed: number; heapLimit: number };
-  links: Array<Pick<LinkRow, "id" | "group" | "name" | "state">>;
+  links: Array<Pick<LinkRow, "id" | "group" | "state">>;
   clients: ClientStatus[];
   disk: { drive: string; usedBytes: number; totalBytes: number };
   stray: Array<Pick<ProcessRow, "pid" | "label">>;
@@ -71,7 +71,7 @@ function statusInputOf(s: Pick<AdminStatus, "bot" | "loop" | "encoding" | "cpu" 
 
 type Metric = "ping" | "loop" | "encoding" | "cpu" | "heap";
 /** 주의 항목 하나. count: 이 항목에 묶인 수(칩으로 따로 보이지 않은 남은 프로세스), 없으면 1 */
-type Attention = { level: Exclude<Level, "ok">; count?: number } & ({ kind: "metric"; metric: Metric } | { kind: "link"; name: string; state: LinkState } | { kind: "client"; name: string; excluded: boolean } | { kind: "disk"; drive: string } | { kind: "stray"; label: string; pid: number } | { kind: "strayMore" } | { kind: "extractions" });
+type Attention = { level: Exclude<Level, "ok">; count?: number } & ({ kind: "metric"; metric: Metric } | { kind: "link"; id: string; state: LinkState } | { kind: "client"; name: string; excluded: boolean } | { kind: "disk"; drive: string } | { kind: "stray"; label: string; pid: number } | { kind: "strayMore" } | { kind: "extractions" });
 
 /** 지표별 단계(화면 지표 카드 순서) */
 function metricLevels(s: StatusInput): Record<Metric, Level> {
@@ -93,7 +93,7 @@ function attentionOf(s: StatusInput): Attention[] {
   for (const { group, critical } of LINK_GROUPS) {
     for (const link of s.links.filter((l) => l.group === group)) {
       const level = linkLevel(link.state, critical);
-      if (level !== "ok") out.push({ kind: "link", name: link.name, state: link.state, level });
+      if (level !== "ok") out.push({ kind: "link", id: link.id, state: link.state, level });
     }
   }
   for (const c of s.clients) {

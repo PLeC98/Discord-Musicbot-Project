@@ -10,6 +10,7 @@ import { bindCommand, bindProcess } from "../../infra/cpu-affinity.ts";
 import type { Job } from "../../infra/process-job.ts";
 import { messageOf } from "../../rules/error-kind.ts";
 import logger from "../../infra/log/logger.ts";
+import { L } from "../../infra/log/text.ts";
 const log = logger.child({ category: "ffmpeg" });
 
 /** 남겨 둘 표준 오류의 끝 */
@@ -110,7 +111,7 @@ function runFfmpeg(args: string[], { input, signal, timeoutMs, stallMs, discardS
     child.on("close", (code, ended) => done(code, "", ended));
     if (input) {
       // ffmpeg가 입력을 다 읽기 전에 끝나면 쓰기가 EPIPE로 터진다. 끝난 코드, 표준 오류는 close가 넘긴다
-      child.stdin?.on("error", (error) => log.trace(`ffmpeg(${label}) 입력 쓰기 실패: ${messageOf(error)}`));
+      child.stdin?.on("error", (error) => log.trace(L.ffmpeg.inputWriteFailed({ job: label, error: messageOf(error) })));
       child.stdin?.end(input);
     }
   });

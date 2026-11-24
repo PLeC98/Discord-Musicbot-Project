@@ -13,6 +13,7 @@ import * as store from "../../src/dashboard/login-background/store.ts";
 import * as encoders from "../../src/dashboard/login-background/encoders.ts";
 import { inspectSource } from "../../src/dashboard/login-background/source.ts";
 import { bakeNow, drop, encode, h264, plansFor } from "../../src/dashboard/login-background/encode.ts";
+import { testText } from "../helpers/log-text.ts";
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "login-bg-encode-"));
 const SAMPLE = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "login-bg-encode-sample-")), "clip.mp4");
@@ -156,10 +157,10 @@ test("굽기 코어: 논리 코어의 80%, 최소 2개는 비운다(위쪽 코�
 test("메모리 관문: 넉넉하면 바로 지나고, 멈추면 기다리지 않는다", async () => {
   const { enoughMemory } = await import("../../src/dashboard/login-background/memory.ts");
   const started = Date.now();
-  await enoughMemory(0, "테스트", signal);
+  await enoughMemory(0, testText("테스트"), signal);
   const stopped = new AbortController();
   stopped.abort();
-  await enoughMemory(Number.MAX_SAFE_INTEGER, "테스트", stopped.signal);
+  await enoughMemory(Number.MAX_SAFE_INTEGER, testText("테스트"), stopped.signal);
   assert.ok(Date.now() - started < 1000);
 });
 

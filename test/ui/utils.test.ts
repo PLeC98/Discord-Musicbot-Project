@@ -2,7 +2,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { formatDuration, formatMs, formatSpan, formatBytes, byteUnit, scaledText } from "../../src/ui/format.ts";
+import { formatDuration, formatMs, formatBytes, byteUnit, scaledText } from "../../src/ui/format.ts";
 
 test("formatDuration: 초 → M:SS / H:MM:SS", () => {
   const cases: Array<[number, string]> = [
@@ -37,14 +37,6 @@ test("formatMs: 밀리초 → M:SS / H:MM:SS(/seek, /highlight, 조작 거절)",
     [0, 999, 1000, 65_500, 3_725_000, 90_061_000].map((ms) => formatMs(ms, "0:00")),
     ["0:00", "0:00", "0:01", "1:05", "1:02:05", "25:01:01"],
   );
-});
-
-test("formatSpan: 일, 시간, 분(0인 단위는 빼고, 다 0이면 0분). /system 업타임, 대시보드 봇 상태 탭", () => {
-  assert.deepEqual(
-    SECS.map((s) => formatSpan(s)),
-    ["0분", "0분", "0분", "0분", "1분", "59분", "1시간", "1시간 2분", "23시간 59분", "1일", "1일 1시간 1분", "4일 4시간", "4일 15시간 6분"],
-  );
-  assert.equal(formatSpan(86400 + 120), "1일 2분", "0인 단위는 가운데여도 뺀다");
 });
 
 test("formatBytes: 소수 한 자리, 1024 GB부터 TB", () => {

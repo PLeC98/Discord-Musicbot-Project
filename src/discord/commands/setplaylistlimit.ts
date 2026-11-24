@@ -3,25 +3,27 @@ import * as guildSettings from "../../store/guild-settings.ts";
 import config from "../../config/index.ts";
 import type { GuildCommand } from "../../app/command-loader.ts";
 import type { ChatInputCommandInteraction } from "discord.js";
-import * as settingsText from "../../ui/text/ko/settings.ts";
-import * as errors from "../../ui/text/ko/errors.ts";
 import { post, reply } from "../../ui/frame.ts";
 import * as screens from "../../ui/settings-screens.ts";
 import { LIFETIME, noticeSelf, toSelf } from "../../ui/delivery.ts";
+import { privateText, publicText } from "../../ui/language.ts";
 import logger from "../../infra/log/logger.ts";
 import { messageOf } from "../../rules/error-kind.ts";
+import { L } from "../../infra/log/text.ts";
 const log = logger.child({ category: "commands" });
 
 // 재생목록을 넣을 때 한 번에 들어가는 곡 수. 남은 곡은 "더 넣기"로 이어 넣고, 그쪽은 대기열 상한만 본다.
 // 위쪽 끝은 대기열 상한을 따라 바뀌므로 명령 옵션에 못박지 않고 실행할 때 검사한다.
 const exported: GuildCommand = {
   help: { section: "channel", tier: "server-manager" },
-  data: new SlashCommandBuilder()
-    .setName("setplaylistlimit")
-    .setDescription("재생목록을 넣을 때 한 번에 넣을 곡 수를 정해요")
-    .addIntegerOption((option) => option.setName("count").setNameLocalizations({ ko: "곡수" }).setDescription("한 번에 넣을 곡 수 (비우면 현재 설정 값 표시)").setMinValue(1).setRequired(false))
-    .addStringOption((option) => option.setName("action").setNameLocalizations({ ko: "동작" }).setDescription("설정 또는 기본값으로 되돌리기").addChoices({ name: "설정", value: "set" }, { name: "기본값", value: "reset" }).setRequired(false))
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+  name: "setplaylistlimit",
+  data: (C) =>
+    new SlashCommandBuilder()
+      .setName("setplaylistlimit")
+      .setDescription(C.setplaylistlimit.description)
+      .addIntegerOption((option) => option.setName("count").setDescription(C.setplaylistlimit.options.count.description).setMinValue(1).setRequired(false))
+      .addStringOption((option) => option.setName("action").setDescription(C.setplaylistlimit.options.action.description).addChoices({ name: C.setplaylistlimit.options.action.choices.set, value: "set" }, { name: C.setplaylistlimit.options.action.choices.reset, value: "reset" }).setRequired(false))
+      .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
   async execute(interaction) {
     const guildId = interaction.guild.id;
@@ -31,22 +33,22 @@ const exported: GuildCommand = {
 
     if (action === "reset") {
       if (!(await saved(interaction, () => guildSettings.setPlaylistAddMax(guildId, null)))) return failed(interaction);
-      return interaction.reply(post(screens.saved(settingsText.playlistLimitReset(guildSettings.resolvePlaylistAddMax(guildId)))));
+      return interaction.reply(post(screens.saved(publicText(guildId).settings.playlistLimitReset(guildSettings.resolvePlaylistAddMax(guildId)))));
     }
 
     if (count === null) {
       const stored = await guildSettings.getPlaylistAddMax(guildId);
       const current = guildSettings.resolvePlaylistAddMax(guildId);
-      return toSelf(interaction, reply(screens.shown(settingsText.playlistLimitNow({ count: current, isDefault: stored === null, min, max }))), LIFETIME.glance);
+      return toSelf(interaction, reply(screens.shown(privateText(interaction).settings.playlistLimitNow({ count: current, isDefault: stored === null, min, max }))), LIFETIME.glance);
     }
 
     if (count < min || count > max) {
       const queueCap = config.bot.maxQueueSize > 0 && max === config.bot.maxQueueSize ? config.bot.maxQueueSize : null;
-      return noticeSelf(interaction, errors.notice("playlist-limit-out-of-range", { min, max, queueCap }));
+      return noticeSelf(interaction, privateText(interaction).errors.notice("playlist-limit-out-of-range", { min, max, queueCap }));
     }
 
     if (!(await saved(interaction, () => guildSettings.setPlaylistAddMax(guildId, count)))) return failed(interaction);
-    return interaction.reply(post(screens.saved(settingsText.playlistLimitSet(count))));
+    return interaction.reply(post(screens.saved(publicText(guildId).settings.playlistLimitSet(count))));
   },
 };
 export default exported;
@@ -57,11 +59,11 @@ async function saved(interaction: ChatInputCommandInteraction<"cached">, work: (
     await work();
     return true;
   } catch (error) {
-    log.error(`서버 설정 저장 실패(/setplaylistlimit): ${interaction.guild.name} (${interaction.guild.id}) | ${guildSettings.FIELD_LABEL.playlistAddMax} | ${messageOf(error)}`);
+    log.error(L.commands.setplaylistlimitSaveFailed({ name: interaction.guild.name, id: interaction.guild.id, field: guildSettings.FIELD_LABEL.playlistAddMax, error: messageOf(error) }));
     return false;
   }
 }
 
 function failed(interaction: ChatInputCommandInteraction) {
-  return noticeSelf(interaction, errors.notice("settings-save-failed"));
+  return noticeSelf(interaction, privateText(interaction).errors.notice("settings-save-failed"));
 }

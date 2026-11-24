@@ -132,10 +132,10 @@ test("직렬화 불가(순환 참조)여도 예외를 던지지 않고 메시지
   const dest = createFileDestination({ file, maxBytes: 1e9, keep: 3 });
   const circular: { self?: object } = {};
   circular.self = circular;
-  dest.write(rec("순환 포함", { ctx: circular }));
+  dest.write(rec("순환 포함", { ctx: circular, category: "player", event: "player.demo" }));
   dest.close();
 
-  assert.equal(lines(file)[0].msg, "순환 포함");
+  assert.deepEqual(lines(file)[0], { time: 1757400000000, level: 30, category: "player", event: "player.demo", msg: "순환 포함" }, "분류와 문구 코드도 남긴다");
 });
 
 test("한 줄이 상한(LINE_MAX)을 넘으면 시각, 레벨, 카테고리, 글만 남기고 뺀 필드를 글 뒤에 적는다. 상한까지는 그대로", () => {
@@ -165,12 +165,13 @@ test("필드가 아주 많아 상한을 넘어도 줄인 레코드는 뺀 필드
   const file = path.join(tmpdir(), "bot.log");
   const dest = createFileDestination({ file, maxBytes: 0, keep: 0 });
   const many = Object.fromEntries(Array.from({ length: 20_000 }, (_, i) => [`${"k".repeat(60)}${i}`, i]));
-  dest.write(rec("필드 많음", many));
+  dest.write(rec("필드 많음", { ...many, event: "demo.many" }));
   dest.close();
   const [raw] = fs.readFileSync(file, "utf8").split("\n");
   assert.ok(Buffer.byteLength(raw!) + 1 <= LINE_MAX, `${Buffer.byteLength(raw!)}바이트`);
   const names = Array.from({ length: 10 }, () => "k".repeat(40)).join(", ");
   assert.match(JSON.parse(raw!).msg, new RegExp(`^필드 많음 \\| 로그 줄이 상한을 넘어\\(\\d+바이트\\) 뺀 필드: ${names} 외 19990개$`));
+  assert.equal(JSON.parse(raw!).event, "demo.many", "문구 코드는 남긴다");
 });
 
 test("파일을 못 열면 예외를 던지지 않고 조용히 중단한다 (로깅이 봇을 멈추지 않는다)", () => {
@@ -208,6 +209,8 @@ test("멈춘 파일 로그는 간격마다 다시 열어 보고, 열리면 한 �
   assert.match(notices[1], /복구\(실패 2회\)/);
   const got = lines(path.join(dir, "bot.log"));
   assert.match(String(got[0].msg), /^파일 로그가 70초 동안 멈췄다가 재개됨\. 그동안 3줄을 남기지 못함$/);
+  assert.equal(got[0].event, "log.fileResumed");
+  assert.deepEqual(got[0].args, { seconds: 70, lost: 3 });
   assert.equal(got[1].msg, "다시 남김");
 });
 

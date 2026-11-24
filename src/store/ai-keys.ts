@@ -9,6 +9,7 @@ const log = logger.child({ category: "config" });
 import { PROJECT } from "../infra/project-paths.ts";
 import * as secrets from "./secrets.ts";
 import type { AiKeyState } from "../rules/service-keys.ts";
+import { L } from "../infra/log/text.ts";
 
 const nameOf = (provider: string) => `ai.${provider}`;
 
@@ -52,7 +53,7 @@ function allValues(providers: readonly string[]) {
 function warnLegacyFile(dir = PROJECT.config) {
   const file = path.join(dir, "ai-keys.yaml");
   if (fs.existsSync(file) && fs.statSync(file).size > 0) {
-    log.warn("config/ai-keys.yaml은 이제 읽지 않음. 운영자 패널의 AI 보조 탭에서 키를 다시 입력하고 이 파일은 삭제하세요");
+    log.warn(L.config.aiKeysFileIgnored());
   }
 }
 

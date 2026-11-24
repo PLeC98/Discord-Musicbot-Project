@@ -6,6 +6,7 @@ import { PassThrough, type Readable } from "node:stream";
 import { parseBuffer, parseFile, parseStream, selectCover, type IAudioMetadata, type IOptions } from "music-metadata";
 import { codeOf, messageOf, timeoutError } from "../rules/error-kind.ts";
 import logger from "../infra/log/logger.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "track" });
 
 type Picture = { data: Uint8Array; format: string };
@@ -43,7 +44,7 @@ async function fromFile(file: string): Promise<Tags | null> {
     return tagsOf(await parseFile(file, { ...OPTIONS, maxMemoryAllocation: FILE_MAX_ALLOCATION }));
   } catch (error) {
     if (codeOf(error) === "ENOENT") return null;
-    const line = `파일 태그 읽기 실패: ${file} | ${messageOf(error)}`;
+    const line = L.track.fileTagReadFailed({ file, error: messageOf(error) });
     // 파일 시스템 오류(syscall이 있다)는 봇 쪽 문제라 warn, 형식을 읽지 못한 것은 그 파일 탓이라 debug
     if (typeof (error as { syscall?: unknown } | null)?.syscall === "string") log.warn(line);
     else log.debug(line);
@@ -144,7 +145,7 @@ async function mp4Tags(prefix: Prefix, limits: StreamLimits, budget: { left: num
   try {
     return tagsOf(await parseBuffer(Buffer.concat([head, moov]), { mimeType: "audio/mp4" }, OPTIONS));
   } catch (error) {
-    log.debug(`MP4 태그 읽기 실패: ${messageOf(error)}`);
+    log.debug(L.track.mp4TagsReadFailed({ error: messageOf(error) }));
     return null;
   }
 }
@@ -160,7 +161,7 @@ async function streamTags(prefix: Prefix, next: () => Promise<IteratorResult<Buf
   const parsing = parseStream(feed, undefined, OPTIONS).then(
     (meta) => ((settled = true), meta),
     (error: unknown) => {
-      if (!closed) log.debug(`스트림 태그 읽기 실패: ${messageOf(error)}`);
+      if (!closed) log.debug(L.track.streamTagsReadFailed({ error: messageOf(error) }));
       return ((settled = unreadable = true), null);
     },
   );
@@ -192,7 +193,7 @@ async function fromStream(source: Readable, limits: StreamLimits): Promise<Tags 
   const opened: Readable[] = [source];
   const budget = { left: limits.maxBytes };
   const timer = setTimeout(() => {
-    for (const stream of opened) stream.destroy(timeoutError(`태그를 ${limits.timeoutMs}ms 안에 읽지 못함`));
+    for (const stream of opened) stream.destroy(timeoutError(L.track.tagsReadTimedOut({ timeoutMs: limits.timeoutMs })));
   }, limits.timeoutMs);
   try {
     const next = reader(source);

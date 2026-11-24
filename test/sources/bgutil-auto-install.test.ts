@@ -1,5 +1,7 @@
 // src/sources/bgutil/auto-install.ts: POToken 서버 사용을 켰는데 bgutil이 없으면 알아서 설치한다. 저장된 켜기, 설치 여부, 작업 실행기, 필요한 도구는 가짜다
 
+import { rule } from "../../src/rules/rule-problem.ts";
+import { logRuleLine } from "../../src/rules/text/index.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { BgutilAutoInstall, type BgutilAutoDeps, type BgutilBuildRef } from "../../src/sources/bgutil/auto-install.ts";
@@ -70,7 +72,7 @@ test("실패하면 사유를 남기고 혼자서는 다시 하지 않는다. 운
   const { w, auto, end } = world();
   await auto.ensure("startup");
   end("failed");
-  assert.match(auto.failure?.reason ?? "", /exit, 종료 코드 1: 의존성 설치\(npm ci --ignore-scripts\) \| 2\.0\.2 설치 실패/, "스크립트 출력의 앞부분(수준, 분류)을 뗀다");
+  assert.match(auto.failure ? logRuleLine(auto.failure.reason) : "", /exit, 종료 코드 1: 의존성 설치\(npm ci --ignore-scripts\) \| 2\.0\.2 설치 실패/, "스크립트 출력의 앞부분(수준, 분류)을 뗀다");
   await auto.ensure("settings");
   await auto.ensure("startup");
   assert.equal(w.starts, 1);
@@ -118,7 +120,7 @@ test("끄면 도는 설치를 중단하고, 다시 켜면 시도 기록을 지�
   w.enabled = false;
   await auto.ensure("settings");
   assert.deepEqual(w.cancels, [1]);
-  assert.equal(auto.failure?.reason, "중단");
+  assert.deepEqual(auto.failure?.reason, rule("bgutil-install-cancelled"));
   w.enabled = true;
   await auto.ensure("settings");
   assert.equal(w.starts, 2);

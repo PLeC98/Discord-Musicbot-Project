@@ -4,13 +4,15 @@
 import fs from "node:fs";
 import path from "node:path";
 import { isCommitSha, isPlainTag } from "../../rules/bgutil-install.ts";
+import type { LogText } from "../../infra/log/log-text.ts";
+import { L } from "../../infra/log/text.ts";
 
 /** 받아 둔 빌드 하나. folder: vendor/bgutil 안의 폴더 이름, tag: 저장소 태그, commit: 그 태그가 가리킨 커밋, version: server/package.json의 버전 */
 type BgutilBuild = { folder: string; tag: string; commit: string; version: string };
 /** active: 쓰는 빌드, previous: 이전 빌드 */
 type BgutilState = { active: BgutilBuild | null; previous: BgutilBuild | null };
 /** none: 기록이 없다(받은 적 없음), broken: 읽지 못했다(error는 원인) */
-type ReadState = { kind: "ok"; state: BgutilState } | { kind: "none" } | { kind: "broken"; error: string };
+type ReadState = { kind: "ok"; state: BgutilState } | { kind: "none" } | { kind: "broken"; error: string | LogText };
 
 const STATE_FILE = "state.json";
 const EMPTY: BgutilState = { active: null, previous: null };
@@ -35,7 +37,7 @@ function readState(dir: string): ReadState {
     const data = JSON.parse(raw) as Partial<Record<keyof BgutilState, unknown>>;
     const active = data.active ?? null;
     const previous = data.previous ?? null;
-    if ((active !== null && !isBuild(active)) || (previous !== null && !isBuild(previous))) return { kind: "broken", error: "빌드 기록 형식이 올바르지 않음" };
+    if ((active !== null && !isBuild(active)) || (previous !== null && !isBuild(previous))) return { kind: "broken", error: L.bgutil.stateBuildInvalid() };
     return { kind: "ok", state: { active, previous } };
   } catch (error) {
     return { kind: "broken", error: String((error as Error).message) };

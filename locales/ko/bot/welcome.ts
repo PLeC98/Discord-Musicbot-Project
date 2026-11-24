@@ -1,0 +1,18 @@
+// 봇이 새 서버에 들어왔을 때 올리는 안내의 문구
+
+/**
+ * 명령은 멘션(누르면 입력창에 채워진다)으로, server는 마크다운을 이스케이프한 서버 이름으로 받는다.
+ * language는 /language 멘션(쓸 수 있는 언어가 하나뿐이면 null, 줄을 넣지 않는다), dashboard는 웹 대시보드 버튼이 있는지, fork는 운영 중인 봇이 수정본인지(SOURCE_REPO_URL을 따로 정했다), typed는 전용 채널에 채팅으로 곡을 넣을 수 있는지
+ */
+const welcome = ({ server, play, setchannel, help, language, dashboard, projectRepo, sourceRepo, fork, typed }: { server: string; play: string; setchannel: string; help: string; language: string | null; dashboard: boolean; projectRepo: string; sourceRepo: string; fork: boolean; typed: boolean }) => ({
+  title: "반가워요!",
+  intro: [`**${server}** 서버에 초대해 주셔서 고마워요!`, "기본적인 사용법을 알려 드릴게요."],
+  usage: [`- 음성 채널에 접속해서 ${play}로 곡을 재생해요.`, `- 서버 관리자가 ${setchannel}로 전용 채널을 지정할 수 있어요.`, ...(typed ? ["  - 전용 채널에서는 명령어 없이 곡 이름이나 링크만 넣어도 돼요!"] : []), ...(language ? [`- ${language}로 봇이 쓰는 언어를 바꿀 수 있어요.`] : []), `- 다른 명령어들에 대해 알고 싶다면 ${help}를 사용해 보세요!`, ...(dashboard ? ["- 모든 조작과 설정은 대시보드에서도 가능해요!"] : [])],
+  source: [`- 봇을 직접 운영하는 데 관심이 있다면 [GitHub 저장소](${projectRepo})를 확인해 보세요!`, ...(fork ? ["- 이 봇은 원본 프로젝트의 포크 버전이에요.", `  지금 쓰는 봇의 코드가 궁금하다면 [이곳](${sourceRepo})을 확인해 보세요!`] : [])],
+  license: fork ? "GNU AGPL-3.0-or-later" : "Copyright (C) 2026 PLeC - GNU AGPL-3.0-or-later",
+});
+
+/** 버튼. project는 원본 저장소, source는 수정본 저장소(fork일 때만) */
+const buttons = (fork: boolean) => ({ dashboard: "웹 대시보드", project: fork ? "원본 GitHub" : "GitHub", source: "이 봇의 GitHub" });
+
+export { welcome, buttons };

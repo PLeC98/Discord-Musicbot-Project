@@ -16,7 +16,8 @@ import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
 import { PROVIDER_SPECS, PROVIDERS } from "../../config/schema/ai-providers.ts";
 import { AI_TIMEOUT_RANGE } from "../../config/schema/ai.ts";
-import { errorKind, messageOf } from "../../rules/error-kind.ts";
+import { errorKind, errorProblem, messageOf } from "../../rules/error-kind.ts";
+import { plain, rule, type RuleProblem } from "../../rules/rule-problem.ts";
 import { logTitle } from "../../infra/log/title.ts";
 import { setTimeout as sleep } from "timers/promises";
 import * as retry from "./retry.ts";
@@ -27,9 +28,15 @@ import { SAMPLE_CANDIDATES } from "./sample.ts";
 import type { ModelField } from "../../config/ai-model-types.ts";
 import { vertexBase as vertexBaseOf, vertexChatUrl, vertexHost } from "../../rules/vertex-url.ts";
 import { httpFor } from "../../infra/http.ts";
-import { REDACTED, mask, safeHeaders } from "./mask.ts";
+import { REDACTED, mask, maskProblem, safeHeaders } from "./mask.ts";
 import { sendLogged, type Call } from "./request-log.ts";
 import { sec } from "../../infra/log/seconds.ts";
+import { UNSAFE_KEYS, delPath, setPath } from "../../rules/dot-path.ts";
+import { readExtra, type Extra } from "../../rules/ai-extra.ts";
+import { L } from "../../infra/log/text.ts";
+import { asText, logTextError, renderLogText, type LogText } from "../../infra/log/log-text.ts";
+import { errorText, ruleError } from "../../rules/text/index.ts";
+import { bug } from "../../infra/bug.ts";
 
 // 바깥으로 나가는 요청은 공유 HTTP 클라이언트로(부른 결과가 남는다). 테스트는 useFetch로 가짜를 넘긴다(null이면 진짜 fetch)
 const http = httpFor("ai");
@@ -37,7 +44,6 @@ const send = http.fetch;
 const useFetch = http.useFetch;
 
 type Draft = Partial<AiSettings> | null | undefined;
-type Extra = { body: Body; headers: Record<string, string>; drop: string[]; dropHeaders: string[]; problems: string[] };
 type Verdict = { song: boolean; fits: boolean };
 /**
  * 자동재생 선택 하나. 선택은 출처마다 후보를 몇 번 판정하는데, 그중 하나가 재시도 끝에 실패하면
@@ -156,7 +162,13 @@ function withDefaults(...layers: Array<Partial<AiSettings> | null | undefined>):
 const specOf = (provider: string | undefined) => (provider && PROVIDER_SPECS[provider]) || null;
 const live = (one: Partial<AiSettings> | null | undefined) => !!one?.provider && one.provider !== "off" && !!specOf(one.provider);
 /** 화면의 테스트가 요청을 보낼 수 없는 이유(프로바이더를 고르지 않았거나 모르는 이름). 보낼 수 있으면 null */
-const notLive = (one: Partial<AiSettings>) => (live(one) ? null : !one.provider || one.provider === "off" ? "프로바이더가 설정되지 않았어요" : `모르는 프로바이더예요(${one.provider})`);
+const notLive = (one: Partial<AiSettings>): RuleProblem | null => (live(one) ? null : !one.provider || one.provider === "off" ? rule("ai-no-provider") : rule("ai-unknown-provider", { provider: String(one.provider) }));
+
+// 확인이 실패한 이유. 오류에 규칙 문제가 없으면 키와 주소를 가린 메시지를 plain으로 담는다. 규칙 문제 안의 바깥 글도 가린다
+function checkFailure(error: unknown): RuleProblem {
+  const problem = errorProblem(error);
+  return problem.code === "plain" ? plain(mask(messageOf(error))) : maskProblem(problem);
+}
 
 // 끝의 슬래시를 뗀다. `/\/+$/`로 하면 끝에 없는 슬래시 더미에 역추적이 붙어 O(n²)가 된다.
 function stripTrailingSlash(text: unknown) {
@@ -226,155 +238,8 @@ function settings(): AiSettings | null {
   return { ...one, prompt: aiConfig.aiPrompt() };
 }
 
-// `__proto__` 한 마디면 Object.prototype이 통째로 오염된다. 점 경로는 설정 글뿐 아니라
-// 모델 레지스트리(외부에서 받아 오는 데이터)의 mapsTo.path로도 들어오므로 여기서 막는다.
-const UNSAFE_KEYS = new Set(["__proto__", "constructor", "prototype"]);
-const safeKeys = (path: string) => {
-  const keys = String(path).split(".");
-  return keys.some((one) => UNSAFE_KEYS.has(one)) ? null : keys;
-};
-
-function setPath(obj: Body, path: string, value: unknown): Body {
-  const keys = safeKeys(path);
-  if (!keys) return obj;
-  let at = obj;
-  for (let i = 0; i < keys.length - 1; i++) {
-    const k = keys[i];
-    // safeKeys가 이미 필터링했지만 여기서도 본다. 분석기가 알아보는 위치는 대입 바로 옆이다
-    if (k === "__proto__" || k === "constructor" || k === "prototype") return obj;
-    // 앞 줄이 같은 경로에 값을 넣어 뒀으면 덮어쓴다. 안쪽에 더 넣을 수 없는 모양이다
-    if (!at[k] || typeof at[k] !== "object" || Array.isArray(at[k])) at[k] = {};
-    at = at[k] as Body;
-  }
-  const last = keys[keys.length - 1];
-  if (last === "__proto__" || last === "constructor" || last === "prototype") return obj;
-  at[last] = value;
-  return obj;
-}
-
-/** 점 경로로 삭제한다. 없는 경로면 아무 일도 안 한다. */
-function delPath(obj: Body, path: string) {
-  const keys = safeKeys(path);
-  if (!keys) return;
-  let at: Body | undefined = obj;
-  for (let i = 0; i < keys.length - 1; i++) {
-    const k = keys[i];
-    if (k === "__proto__" || k === "constructor" || k === "prototype") return;
-    const next: unknown = at?.[k];
-    if (!next || typeof next !== "object") return;
-    at = next as Body;
-  }
-  const last = keys[keys.length - 1];
-  if (last === "__proto__" || last === "constructor" || last === "prototype") return;
-  delete at[last];
-}
-
-// 파이썬 형식 키워드를 JSON이 읽을 수 있게 바꾼다. 따옴표 안은 건드리지 않는다.
-const RELAXED: Array<[string, string]> = [
-  ["True", "true"],
-  ["False", "false"],
-  ["None", "null"],
-];
-function relaxJson(text: string) {
-  let out = "";
-  let quote: string | null = null;
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (quote) {
-      out += ch;
-      if (ch === "\\" && i + 1 < text.length) out += text[++i];
-      else if (ch === quote) quote = null;
-      continue;
-    }
-    if (ch === '"' || ch === "'") {
-      quote = ch;
-      out += ch;
-      continue;
-    }
-    // 단어 경계에서만 바꾼다. Nonetype 같은 것을 건드리면 안 된다
-    const edge = (c: string | undefined) => !c || !/[A-Za-z0-9_$]/.test(c);
-    const hit = RELAXED.find(([word]) => text.startsWith(word, i) && edge(text[i - 1]) && edge(text[i + word.length]));
-    if (hit) {
-      out += hit[1];
-      i += hit[0].length - 1;
-    } else out += ch;
-  }
-  return out;
-}
-
-function readJson(text: string): { ok: true; value: unknown } | { ok: false } {
-  try {
-    return { ok: true, value: JSON.parse(text) };
-  } catch {
-    /* 그대로는 JSON이 아니다. 흔한 흠을 고쳐 다시 본다 */
-  }
-  const relaxed = relaxJson(text);
-  if (relaxed !== text) {
-    try {
-      return { ok: true, value: JSON.parse(relaxed) };
-    } catch {
-      /* 고쳐도 JSON이 아니다 */
-    }
-  }
-  return { ok: false };
-}
-
-/**
- * 추가 파라미터. 한 줄에 하나씩. 서비스마다 이름도 위치도 달라 글로 받는다.
- *
- *   key=value            그대로 (true, false, null, 숫자는 알아서 바꾼다)
- *   key="value"          따옴표로 두르면 숫자처럼 보여도 글자다
- *   a.b.c=value          점으로 안쪽 필드에 넣는다 (thinking.budget_tokens처럼)
- *   key=json::{...}      JSON으로 읽어 넣는다 (객체, 배열)
- *   header::Name=value   본문이 아니라 요청 헤더에 넣는다
- *   key={{none}}         그 값을 아예 안 보낸다 (header::Name={{none}}이면 헤더를 뺀다)
- *   # 주석
- *
- * RisuAI와 같은 입력법이다. 못 읽은 줄은 조용히 버리지 않고 problems로 돌려준다.
- */
-function parseExtra(text: unknown): Extra {
-  const out: Extra = { body: {}, headers: {}, drop: [], dropHeaders: [], problems: [] };
-  for (const raw of String(text || "").split(/\r?\n/)) {
-    const line = raw.trim();
-    if (line && !line.startsWith("#")) readExtraLine(line, out);
-  }
-  return out;
-}
-
-// 한 줄(이름=값)을 담는다. 못 읽으면 이유를 problems에
-function readExtraLine(line: string, out: Extra) {
-  const at = line.indexOf("=");
-  if (at < 1) return out.problems.push(`이름이 없음: ${line}`);
-  const name = line.slice(0, at).trim();
-  const value = line.slice(at + 1).trim();
-  const header = /^header::/i.test(name) ? name.slice(8).trim() : null;
-
-  // {{none}}을 header:: 보다 먼저 본다. 안 그러면 헤더에 "{{none}}"을 넣게 된다
-  if (value === "{{none}}") return header !== null ? out.dropHeaders.push(header) : out.drop.push(name);
-  if (header !== null) {
-    out.headers[header] = value;
-    return;
-  }
-  if (value === "") return out.problems.push(`값이 없음: ${name}`);
-  if (!safeKeys(name)) return out.problems.push(`쓸 수 없는 이름: ${name}`);
-
-  if (value.startsWith("json::")) {
-    const got = readJson(value.slice(6));
-    if (got.ok) setPath(out.body, name, got.value);
-    else out.problems.push(`JSON으로 읽지 못함: ${name}`);
-    return;
-  }
-  setPath(out.body, name, scalarOf(value));
-}
-
-// 값 글 → 값. 따옴표로 싸면 글자, true, false, null, 수는 그 값, 나머지는 글자
-function scalarOf(value: string): unknown {
-  const quoted = (value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"));
-  if (quoted && value.length >= 2) return value.slice(1, -1);
-  if (value === "true" || value === "false") return value === "true";
-  if (value === "null") return null;
-  return Number.isNaN(Number(value)) ? value : Number(value);
-}
+/** 추가 파라미터를 요청에 넣을 형식으로 바꾼다(rules/ai-extra). 파싱에 실패한 줄은 뺀다 */
+const parseExtra = (text: unknown): Extra => readExtra(text).extra;
 
 /**
  * 후보 한 줄(config/schema의 검사, 대시보드 미리보기와 같은 해석기 rules/line-format). 길이 필드 이름은 후보(durationSec)와 트랙(duration)이 다르다. 둘 다 받는다.
@@ -607,7 +472,7 @@ async function countTokens(one: AiSettings, messages: Wire[]): Promise<TokenCoun
     return await tokens.countMessages(messages, by, spec?.dialect || "openai");
   } catch (error) {
     // 못 세도 요청은 나가야 한다
-    log.warn(`토큰 세기 실패(${String(one.provider)}, ${String(one.model ?? "")}): ${mask(messageOf(error))}`);
+    log.warn(L.autoplay.tokenCountFailed({ provider: String(one.provider), model: String(one.model ?? ""), error: mask(messageOf(error)) }));
     return null;
   }
 }
@@ -649,7 +514,7 @@ async function buildRequest(one: AiSettings, batch: Judged[], genre: string | un
 
   // 추가 파라미터가 맨 나중이다. 프로필이 모르는 것을 넣는 비상구이므로 마지막 말을 갖는다
   const body = withExtra(withParams(dialect.body(one, wire), one), extra);
-  return { url: dialect.chatUrl(one), headers: headersWith(await dialect.headers(one, { live }), extra), body, messages, wire, problems: extra.problems };
+  return { url: dialect.chatUrl(one), headers: headersWith(await dialect.headers(one, { live }), extra), body, messages, wire };
 }
 
 /** 안쪽 필드까지 합친다. 점 표기로 만든 중첩을 통째로 덮어쓰지 않게. */
@@ -752,17 +617,20 @@ function arraysIn(text: string): string[] {
  * 켜 둔 기능이 한도, 서버 오류로 죽어 있으면 평소 로그 수준에서 보여야 한다
  */
 function skipped(error: unknown) {
-  const calls = error instanceof AskFailure && error.calls > 1 ? `(${error.calls}번 불러 모두 실패)` : "";
-  log.warn(`AI 보조 실패${calls}: ${messageOf(error)}. 이번 판정은 규칙만으로 선택`);
+  const calls = error instanceof AskFailure && error.calls > 1 ? L.autoplay.aiAssistCallsFailed({ calls: error.calls }) : "";
+  log.warn(L.autoplay.aiAssistFailed({ callsSuffix: calls, error: messageOf(error) }));
 }
 
-/** 판정 하나(재시도, 다시 묻기까지 끝낸 것)의 실패. reason은 원인, detail은 저쪽 문구, calls는 부른 수 */
+/** 판정 하나(재시도, 다시 묻기까지 끝낸 것)의 실패. reason은 원인, detail은 저쪽 문구, calls는 부른 수. 메시지는 로그 언어로 그린 글이고 서술자(logText)를 함께 갖는다 */
 class AskFailure extends Error {
-  reason: string;
+  readonly logText: LogText;
+  reason: string | LogText;
   detail: string;
   calls: number;
-  constructor(reason: string, detail: string, calls: number) {
-    super(detail ? `${reason} (${detail})` : reason);
+  constructor(reason: string | LogText, detail: string, calls: number) {
+    const text = L.autoplay.askFailed({ reason, detail });
+    super(renderLogText(text));
+    this.logText = text;
     this.reason = reason;
     this.detail = detail;
     this.calls = calls;
@@ -770,10 +638,10 @@ class AskFailure extends Error {
 }
 
 /** 부르기 한 번의 결과. 실패면 다시 해도 되는지와 저쪽이 기다리라고 한 시간 */
-type Attempt = { ok: true; verdicts: Array<Verdict | null> } | { ok: false; reason: string; detail: string; retry: boolean; adviceMs?: number | null; unreadable?: boolean };
+type Attempt = { ok: true; verdicts: Array<Verdict | null> } | { ok: false; reason: string | LogText; detail: string | LogText; retry: boolean; adviceMs?: number | null; unreadable?: boolean };
 
 // 판정 하나의 상한(totalTimeoutMs)으로 끊었을 때의 원인. 부르기 한 번의 시간 초과와 구분한다
-const OVER_TOTAL = new Error("판정 상한");
+const overTotal = () => ruleError(rule("ai-judge-total-limit"));
 
 /** 리퀘스트 로그에 적을 것: 응답의 토큰, 2xx인데 판정을 읽지 못한 원인 */
 function judgeCall(one: AiSettings, size: number): Pick<Call, "provider" | "model" | "tokensOf" | "explain"> {
@@ -783,9 +651,9 @@ function judgeCall(one: AiSettings, size: number): Pick<Call, "provider" | "mode
     tokensOf: (json) => dialectOf(one).usageOf?.(json as Reply) ?? null,
     explain: (raw) => {
       try {
-        return readVerdicts(dialectOf(one).answerOf(JSON.parse(raw) as Reply) || "", size) ? undefined : "판정을 읽지 못함";
+        return readVerdicts(dialectOf(one).answerOf(JSON.parse(raw) as Reply) || "", size) ? undefined : rule("ai-verdict-unreadable");
       } catch {
-        return "판정을 읽지 못함(JSON이 아닌 응답)";
+        return rule("ai-verdict-not-json");
       }
     },
   };
@@ -811,25 +679,25 @@ async function attempt(one: AiSettings, request: Awaited<ReturnType<typeof build
     const text = dialectOf(one).answerOf(JSON.parse(raw) as Reply) || "";
     const verdicts = readVerdicts(text, request.size);
     if (verdicts) return { ok: true, verdicts };
-    return { ok: false, reason: "판정을 읽지 못함", detail: `답 ${text.length}자: ${text.slice(0, 160)}`, retry: false, unreadable: true };
+    return { ok: false, reason: L.autoplay.verdictUnreadable(), detail: L.autoplay.verdictAnswerPreview({ length: text.length, preview: text.slice(0, 160) }), retry: false, unreadable: true };
   } catch (error) {
-    if (total?.aborted) return { ok: false, reason: "판정 상한 초과", detail: `${Number(one.totalTimeoutMs) / 1000}초`, retry: false };
-    if (perCall.aborted) return { ok: false, reason: "시간 초과", detail: `${Number(one.timeoutMs) / 1000}초`, retry: !!one.retryTimeouts };
-    if (errorKind(error) === "network-error") return { ok: false, reason: "네트워크 오류", detail: messageOf(error), retry: true };
+    if (total?.aborted) return { ok: false, reason: L.autoplay.judgeTotalTimedOut(), detail: L.autoplay.secondsText({ seconds: Number(one.totalTimeoutMs) / 1000 }), retry: false };
+    if (perCall.aborted) return { ok: false, reason: L.autoplay.callTimedOut(), detail: L.autoplay.secondsText({ seconds: Number(one.timeoutMs) / 1000 }), retry: !!one.retryTimeouts };
+    if (errorKind(error) === "network-error") return { ok: false, reason: L.autoplay.networkError(), detail: errorText(error), retry: true };
     // 200인데 본문이 JSON이 아니다(앞에 둔 프록시의 안내 페이지 등). 판정을 못 읽은 응답과 같이 한 번 더 묻는다
-    if (error instanceof SyntaxError) return { ok: false, reason: "판정을 읽지 못함", detail: `JSON이 아닌 응답(${messageOf(error)})`, retry: false, unreadable: true };
+    if (error instanceof SyntaxError) return { ok: false, reason: L.autoplay.verdictUnreadable(), detail: L.autoplay.verdictNotJson({ error: messageOf(error) }), retry: false, unreadable: true };
     return { ok: false, reason: messageOf(error), detail: "", retry: false };
   }
 }
 
 /** 다음 재시도 전의 대기 시간(ms). 재시도하지 않으면 stop에 이유(재시도 대상이 아니거나 횟수를 다 썼으면 빈 문자열) */
-function waitBefore(one: AiSettings, used: number, failed: Attempt & { ok: false }, endsAt: number | null): { ms: number } | { stop: string } {
+function waitBefore(one: AiSettings, used: number, failed: Attempt & { ok: false }, endsAt: number | null): { ms: number } | { stop: string | LogText } {
   if (!failed.retry) return { stop: "" };
   if (used >= Number(one.retries)) return { stop: "" };
   const maxMs = Number(one.retryDelayMaxMs);
-  if (failed.adviceMs != null && failed.adviceMs > maxMs) return { stop: `서버가 ${Math.ceil(failed.adviceMs / 1000)}초 뒤라고 함, 대기 상한 ${maxMs / 1000}초` };
+  if (failed.adviceMs != null && failed.adviceMs > maxMs) return { stop: L.autoplay.retryAdviceTooLong({ advice: Math.ceil(failed.adviceMs / 1000), max: maxMs / 1000 }) };
   const ms = failed.adviceMs ?? retry.backoffMs(used + 1, Number(one.retryDelayMs), maxMs);
-  if (endsAt !== null && Date.now() + ms >= endsAt) return { stop: "판정 상한까지 남은 시간이 모자람" };
+  if (endsAt !== null && Date.now() + ms >= endsAt) return { stop: L.autoplay.totalTimeTooShort() };
   return { ms };
 }
 
@@ -841,7 +709,7 @@ async function askBatch(one: AiSettings, cands: Judged[], genre: string | undefi
   const request = { ...(await buildRequest(one, cands, genre)), size: cands.length };
   const totalMs = Number(one.totalTimeoutMs);
   const total = totalMs > 0 ? new AbortController() : null;
-  const timer = total ? setTimeout(() => total.abort(OVER_TOTAL), totalMs) : null;
+  const timer = total ? setTimeout(() => total.abort(overTotal()), totalMs) : null;
   const endsAt = total ? Date.now() + totalMs : null;
   const limited = { ...one, retries };
   try {
@@ -852,13 +720,13 @@ async function askBatch(one: AiSettings, cands: Judged[], genre: string | undefi
       if (got.ok) return got.verdicts;
       if (got.unreadable && !reasked) {
         reasked = true;
-        log.debug(`AI 보조: 판정 응답 파싱 실패(재요청): ${got.detail.slice(0, 80)}`);
+        log.debug(L.autoplay.verdictParseRetry({ detail: asText(got.detail).slice(0, 80) }));
         continue;
       }
       const wait = waitBefore(limited, used, got, endsAt);
-      if ("stop" in wait) throw new AskFailure(got.reason, [got.detail, wait.stop].filter(Boolean).join(". "), calls);
+      if ("stop" in wait) throw new AskFailure(got.reason, [got.detail, wait.stop].filter(Boolean).map(asText).join(". "), calls);
       used++;
-      log.debug(`AI 보조 재시도 ${used}/${retries}(${got.reason}) ${sec(wait.ms)}초 뒤`);
+      log.debug(L.autoplay.aiAssistRetry({ used, retries, reason: got.reason, seconds: sec(wait.ms) }));
       await sleep(wait.ms);
     }
   } finally {
@@ -897,7 +765,7 @@ async function filter<T extends Judged>(candidates: T[] | null | undefined, abou
     });
   }
 
-  if (kept.length !== candidates.length) log.debug(`AI 보조: ${candidates.length}개 중 ${kept.length}개 남김${about.genre ? ` [${about.genre}]` : ""}`);
+  if (kept.length !== candidates.length) log.debug(L.autoplay.aiAssistKept({ candidates: candidates.length, kept: kept.length, genreSuffix: about.genre ? ` [${about.genre}]` : "" }));
   // 전부 떨어졌다면 모델이 너무 박한 것이다. 규칙이 선택한 것을 쓴다.
   return kept.length ? kept : candidates;
 }
@@ -916,7 +784,7 @@ async function accepts(candidate: Judged | null | undefined, about: About = {}):
     const [verdict] = await askBatch(one, [candidate], about.genre, { retries: retriesIn(about) });
     if (!verdict) return true; // 판정을 못 읽었다. 버릴 근거가 없다
     if (verdict.song && verdict.fits) return true;
-    log.debug(`AI 보조가 필터링함(${verdict.song ? "장르가 다름" : "곡 하나가 아님"})${about.genre ? ` [${about.genre}]` : ""}: ${logTitle(candidate.title)}`);
+    log.debug(L.autoplay.aiAssistRejected({ song: verdict.song, genre: about.genre ?? "", title: logTitle(candidate.title) }));
     return false;
   } catch (error) {
     failedIn(about);
@@ -935,11 +803,11 @@ async function listModels(draft: Draft): Promise<ModelsCheck> {
   if (why) return { ok: false, reason: why };
 
   // 키가 있어야 하는데 없다. 저쪽에 물어 봐야 거절(401)이라 묻지 않고 다운로드해 둔 목록으로 채운다
-  if (wantsKey(one) && !storedKey(one)) return withPreset(one, { ok: false, reason: "키가 없어 요청하지 않았어요" });
+  if (wantsKey(one) && !storedKey(one)) return withPreset(one, { ok: false, reason: rule("ai-key-not-asked") });
 
   const dialect = dialectOf(one);
   const first = dialect.modelsUrl(one);
-  if (!first) return { ok: false, reason: "엔드포인트 주소가 비어 있어요(custom이면 직접 적어야 해요)" };
+  if (!first) return { ok: false, reason: rule("ai-no-endpoint") };
 
   // 같은 곳인데 API 버전마다 주소 체계가 다른 데가 있다(버텍스). 404면 다음 것을 물어본다.
   // 그래야 어느 버전을 쓰는 프로젝트든 목록이 표시된다. 404가 아니면 그 답이 곧 사실이다.
@@ -951,7 +819,7 @@ async function listModels(draft: Draft): Promise<ModelsCheck> {
     const asked = await askModels(urls, await dialect.headers(one), one, (tried) => (url = tried));
     const { res, text } = asked;
     const took = Date.now() - started;
-    if (!res.ok) return withPreset(one, { ok: false, url, status: res.status, response: text, tookMs: took, reason: `HTTP ${res.status}` });
+    if (!res.ok) return withPreset(one, { ok: false, url, status: res.status, response: text, tookMs: took, reason: plain(`HTTP ${res.status}`) });
 
     // 모양은 규격마다 다르다. 못 읽어도 목록만 못 채우고 연결은 된 것이다.
     let all: string[] = [];
@@ -966,7 +834,7 @@ async function listModels(draft: Draft): Promise<ModelsCheck> {
     return { ok: true, url, status: res.status, ...visibleModels(all, one), response: text, tookMs: took };
   } catch (error) {
     // 운영자가 누른 연결 테스트의 응답이다. 실패 원인은 화면으로 돌려주고 요청은 AI 리퀘스트 로그에 남았다
-    return withPreset(one, { ok: false, url, status: null, response: mask(messageOf(error)), tookMs: Date.now() - started, reason: mask(messageOf(error)) });
+    return withPreset(one, { ok: false, url, status: null, response: mask(messageOf(error)), tookMs: Date.now() - started, reason: checkFailure(error) });
   }
 }
 
@@ -980,7 +848,8 @@ async function askModels(urls: string[], headers: Record<string, string>, one: A
     const text = mask(raw);
     if (last(res)) return { res, text };
   }
-  throw new Error("요청할 주소가 없음");
+  // 부르는 쪽이 늘 주소를 하나 이상 넘기고, 마지막 주소의 답은 그대로 돌려준다
+  throw bug("요청할 주소가 없음");
 }
 
 // 가릴 것을 뺀 목록과 뺀 수
@@ -1026,7 +895,7 @@ async function ping(draft: Draft): Promise<PingCheck> {
   const one = withDefaults(draft);
   const why = notLive(one);
   if (why) return { ok: false, reason: why };
-  if (!one.model) return { ok: false, reason: "모델 이름이 비어 있어요" };
+  if (!one.model) return { ok: false, reason: rule("ai-no-model") };
 
   const dialect = dialectOf(one);
   const url = dialect.chatUrl(one);
@@ -1048,10 +917,10 @@ async function ping(draft: Draft): Promise<PingCheck> {
     } catch {
       /* 모양이 다르면 원문으로 본다 */
     }
-    return { ok: res.ok, url, headers: safeHeaders(headers), body, status: res.status, response: text, answer, tookMs: took, reason: res.ok ? "" : `HTTP ${res.status}` };
+    return { ok: res.ok, url, headers: safeHeaders(headers), body, status: res.status, response: text, answer, tookMs: took, ...(res.ok ? {} : { reason: plain(`HTTP ${res.status}`) }) };
   } catch (error) {
     // 연결 테스트의 응답이다. 실패 원인은 화면으로 돌려주고 요청은 AI 리퀘스트 로그에 남았다
-    return { ok: false, url, headers: safeHeaders(headers), body, status: null, response: mask(messageOf(error)), tookMs: Date.now() - started, reason: mask(messageOf(error)) };
+    return { ok: false, url, headers: safeHeaders(headers), body, status: null, response: mask(messageOf(error)), tookMs: Date.now() - started, reason: checkFailure(error) };
   }
 }
 
@@ -1064,30 +933,30 @@ async function ping(draft: Draft): Promise<PingCheck> {
 async function preview(draft: Draft, genre = "rock"): Promise<Preview> {
   const one = withDefaults(draft);
   const request = await buildRequest(one, SAMPLE_CANDIDATES, genre, { live: false });
-  return { url: request.url, headers: safeHeaders(request.headers), body: request.body, messages: request.messages, tokens: await countTokens(one, request.wire), problems: request.problems };
+  return { url: request.url, headers: safeHeaders(request.headers), body: request.body, messages: request.messages, tokens: await countTokens(one, request.wire) };
 }
 
 /**
  * 유튜브 주소로 후보를 만든다. 판정 테스트가 진짜 곡으로 테스트할 수 있게.
  * 못 읽은 줄은 버리지 않고 왜 안 됐는지 같이 돌려준다. describe: 읽다 던진 오류 → 화면에 보일 안내(진입점이 고른다)
  */
-async function candidatesFromUrls(urls: unknown[] | null | undefined, { describe, timeoutMs = 30000 }: { describe: (error: unknown) => string; timeoutMs?: number }): Promise<TestCandidate[]> {
+async function candidatesFromUrls(urls: unknown[] | null | undefined, { describe, timeoutMs = 30000 }: { describe: (error: unknown) => RuleProblem; timeoutMs?: number }): Promise<TestCandidate[]> {
   const out: TestCandidate[] = [];
   for (const raw of (urls || []).slice(0, 20)) {
     const url = String(raw || "").trim();
     if (!url) continue;
     if (!links.isYouTubeURL(url)) {
-      out.push({ url, error: "유튜브 URL이 아니라 건너뛰었어요." });
+      out.push({ url, error: rule("ai-cand-not-youtube") });
       continue;
     }
-    const timedOut = new Error(`시간 초과(${timeoutMs / 1000}초)`);
+    const timedOut = logTextError(L.autoplay.candidateLookupTimedOut({ seconds: timeoutMs / 1000 }));
     try {
       const info = await Promise.race([youtubeSource.getInfo(url), new Promise<never>((_, no) => setTimeout(() => no(timedOut), timeoutMs))]);
       out.push({ url, title: info.title, durationSec: info.duration, thumbnail: info.thumbnail, channel: info.artist });
     } catch (error) {
       // 화면에는 호출부가 고른 안내(describe), yt-dlp 원문은 운영자 로그로
-      log.warn(`AI 판정 테스트 후보 조회 실패: ${url} | ${messageOf(error)}`);
-      out.push({ url, error: error === timedOut ? `시간 초과(${timeoutMs / 1000}초)로 곡 정보를 불러오지 못했어요.` : describe(error) });
+      log.warn(L.autoplay.judgeTestCandidateFailed({ url, error: messageOf(error) }));
+      out.push({ url, error: error === timedOut ? rule("ai-cand-timeout", { sec: timeoutMs / 1000 }) : describe(error) });
     }
   }
   return out;
@@ -1114,10 +983,10 @@ async function judgeTest(draft: Draft, cands: TestCandidate[] | null | undefined
   try {
     request = await buildRequest(one, usable, genre);
   } catch (error) {
-    // 헤더 생성 실패 시(버텍스 토큰을 못 받는 등). 원인을 화면으로 반환한다
-    return { url: "", headers: {}, body: {}, messages: [], tokens: null, problems: [], status: null, response: mask(messageOf(error)), verdicts: null, tookMs: Date.now() - started } satisfies JudgeResult;
+    // 헤더 생성 실패 시(버텍스 토큰을 못 받는 등). 원인을 화면으로 반환한다(reason)
+    return { url: "", headers: {}, body: {}, messages: [], tokens: null, status: null, response: "", reason: checkFailure(error), verdicts: null, tookMs: Date.now() - started } satisfies JudgeResult;
   }
-  const out: JudgeResult = { url: request.url, headers: safeHeaders(request.headers), body: request.body, messages: request.messages, tokens: await countTokens(one, request.wire), problems: request.problems, status: null, response: "", verdicts: null };
+  const out: JudgeResult = { url: request.url, headers: safeHeaders(request.headers), body: request.body, messages: request.messages, tokens: await countTokens(one, request.wire), status: null, response: "", verdicts: null };
 
   try {
     const call: Call = { source: "judge-test", genre, candidates: usable.length, ...judgeCall(one, usable.length) };
@@ -1135,8 +1004,8 @@ async function judgeTest(draft: Draft, cands: TestCandidate[] | null | undefined
       out.verdicts = null;
     }
   } catch (error) {
-    // 판정 테스트의 응답이다. 실패 원인은 화면으로 돌려주고 요청은 AI 리퀘스트 로그에 남았다
-    out.response = mask(String((error as Error | null)?.message));
+    // 판정 테스트의 응답이다. 실패 원인은 화면으로 돌려주고(reason) 요청은 AI 리퀘스트 로그에 남았다
+    out.reason = checkFailure(error);
   }
   out.tookMs = Date.now() - started;
   return out;

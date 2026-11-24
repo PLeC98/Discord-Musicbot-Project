@@ -40,8 +40,14 @@ const isRootIndex = (rel: string) => rel === "src/index.ts";
 const isRootConfig = (rel: string) => rel === "src/config/index.ts";
 // 진입 파일의 첫 줄(.env를 만들고 읽는다)
 const ENV_BOOTSTRAP = "src/app/env-bootstrap.ts";
+// .env를 읽지 않는 진입 파일의 첫 줄(로그 언어를 고른다)
+const CHOOSE_AT_START = "src/infra/log/choose-at-start.ts";
+const CHOOSE_LANGUAGE = "src/infra/log/choose-language.ts";
 
 function layerOf(rel: string) {
+  // 언어 폴더(locales/<언어>/)는 자신을 부르는 진입점의 층을 따른다
+  const locale = /^locales\/[^/]+\/(bot|rules|log)\//.exec(rel);
+  if (locale) return locale[1] === "bot" ? "ui" : locale[1] === "rules" ? "rules" : "infra";
   if (isRootIndex(rel)) return "app";
   if (isRootConfig(rel)) return "config";
   if (/^src\/(discord|dashboard)\//.test(rel)) return "진입점";
@@ -274,7 +280,7 @@ function cycleEdges(graph: Map<string, Set<string>>) {
 }
 
 function scan() {
-  const sources = walk("src").map(scanSource);
+  const sources = [...walk("src"), ...walk("locales").filter((rel) => layerOf(rel) !== null)].map(scanSource);
   const tests = walk("test").map(scanTest);
 
   const direction: string[] = [];
@@ -312,6 +318,24 @@ function scan() {
   };
   const entries = [...sources.filter((f) => isRootIndex(f.rel)), ...scripts].filter((f) => reachesConfig(f.deps.map((d) => d.to)));
   const stripComments = (rel: string) => fs.readFileSync(path.join(ROOT, rel), "utf8").replace(/\/\/.*$/gm, "");
+  // 실행을 시작하는 파일: 기동과, 다른 파일이 정적으로 부르지 않는 scripts. 로그 언어를 다른 무엇보다 먼저 고른다
+  // 정적 import 만 센다(dev 는 맨 위에서 import("./launch.ts") 로 launch 를 실행한다)
+  const staticTargets = (rel: string) => [...stripComments(rel).matchAll(/^\s*(?:import|export)\s[^;]*?["'](\.[^"']+)["']/gm)].map((m) => path.posix.join(path.posix.dirname(rel), m[1]));
+  const imported = new Set([...sources, ...scripts].flatMap((f) => staticTargets(f.rel)));
+  const startFiles = [...sources.filter((f) => isRootIndex(f.rel)), ...scripts.filter((f) => !f.rel.endsWith(".d.ts") && !imported.has(f.rel))];
+  // 로그 언어 모듈이 직간접으로 부르는 것. 설정, 로거보다 먼저 돌므로 다른 프로젝트 모듈을 끌어오면 .env를 읽기 전에 설정이 돈다
+  const reachOf = (start: string) => {
+    const seen = new Set<string>();
+    for (const queue = [start]; queue.length;) {
+      const v = queue.shift() as string;
+      if (seen.has(v)) continue;
+      seen.add(v);
+      queue.push(...(graph.get(v) ?? []));
+    }
+    return [...seen].sort();
+  };
+  // 그 파일들의 import 중 프로젝트 밖(Node 내장 모듈, 패키지)
+  const bareImportsOf = (files: string[]) => files.flatMap((rel) => [...stripComments(rel).matchAll(/\bfrom\s+["']([^."'][^"']*)["']|\bimport\s+["']([^."'][^"']*)["']/g)].map((m) => m[1] ?? m[2]));
 
   const perFile = <T extends { rel: string }>(list: T[], pick: (f: T) => number) => Object.fromEntries(list.map((f): [string, number] => [f.rel, pick(f)]).filter(([, n]) => n > 0));
   return {
@@ -326,6 +350,19 @@ function scan() {
     lateAwait: tests.filter((f) => f.lateAwaits.length).map((f) => `${f.rel}:${f.lateAwaits.join(",")}`),
     configEntries: entries.map((f) => f.rel),
     withoutBootstrap: entries.filter((f) => f.deps[0]?.to !== ENV_BOOTSTRAP).map((f) => f.rel),
+    startFiles: startFiles.map((f) => f.rel),
+    withoutLogLanguage: startFiles.filter((f) => f.deps[0]?.to !== ENV_BOOTSTRAP && f.deps[0]?.to !== CHOOSE_AT_START).map((f) => f.rel),
+    // 고르기(화면 번들까지 닿는다)와 .env를 읽지 않는 진입의 첫 줄(.env 한 줄을 읽는다)
+    chooseReach: reachOf(CHOOSE_LANGUAGE),
+    chooseBareImports: bareImportsOf(reachOf(CHOOSE_LANGUAGE)),
+    atStartReach: reachOf(CHOOSE_AT_START),
+    atStartBareImports: bareImportsOf(reachOf(CHOOSE_AT_START)),
+    // 로그 문구 진입점(설정보다 먼저, node_modules 없이도 돈다)
+    logTextReach: reachOf("src/infra/log/text.ts"),
+    logTextBareImports: bareImportsOf(reachOf("src/infra/log/text.ts")),
+    // 워커 진입 파일(parentPort를 쓴다)과 그중 로그 문구 진입점에 닿는 것. 워커는 로그 언어를 고르지 않아 문구를 그리면 기준 언어가 된다
+    workerFiles: sources.filter((f) => /\bparentPort\b/.test(stripComments(f.rel))).map((f) => f.rel),
+    workerLogText: sources.filter((f) => /\bparentPort\b/.test(stripComments(f.rel)) && reachOf(f.rel).includes("src/infra/log/text.ts")).map((f) => f.rel),
     // .env를 process.env에 올리는 파일(주석은 뺀다)
     envFileLoad: [...sources, ...scripts].map((f) => f.rel).filter((rel) => /process\.loadEnvFile\b/.test(stripComments(rel))),
     // 실행 중 경로를 파일 위치에서 세는 파일(import.meta.dirname, 주석은 뺀다)

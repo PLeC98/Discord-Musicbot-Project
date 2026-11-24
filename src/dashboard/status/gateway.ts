@@ -6,6 +6,8 @@
 import { Events, GatewayCloseCodes, type Client } from "discord.js";
 import logger from "../../infra/log/logger.ts";
 import { messageOf } from "../../rules/error-kind.ts";
+import { L } from "../../infra/log/text.ts";
+import { asText, type LogText } from "../../infra/log/log-text.ts";
 const log = logger.child({ category: "discord" });
 
 let reconnects = 0;
@@ -23,11 +25,11 @@ let destroyed = false;
 // @discordjs/ws는 연결을 닫을 때마다 debug로 "Destroying shard / Reason / Code"를 낸다. 열린 소켓이면 그 뒤 shardReconnecting이,
 // 디스코드가 닫았으면 shardReconnecting이 먼저 온다. 열리기 전에 닫았으면 shardReconnecting 없이 재연결한다
 const DESTROYED = /Destroying shard\n\tReason: (.*)\n\tCode: (\d+)/;
-const REASONS: Record<string, string> = {
-  "Told to reconnect by Discord": "디스코드가 재연결을 요청함(op 7)",
-  "Zombie connection": "하트비트 응답 없음",
-  "Got disconnected by Discord": "디스코드가 끊음",
-  "Invalid session": "세션이 무효",
+const REASONS: Record<string, LogText> = {
+  "Told to reconnect by Discord": L.discord.gatewayReasonReconnect(),
+  "Zombie connection": L.discord.gatewayReasonZombie(),
+  "Got disconnected by Discord": L.discord.gatewayReasonDisconnected(),
+  "Invalid session": L.discord.gatewayReasonInvalidSession(),
 };
 // 디스코드가 정상 절차로 재연결하게 한 것(오류가 아니다)
 const ROUTINE_REASONS = new Set(["Told to reconnect by Discord", "Got disconnected by Discord", "Invalid session"]);
@@ -38,17 +40,17 @@ const ROUTINE_CODES = new Set([1000, 1001]);
 const routine = () => errors === null && closedBy !== null && (ROUTINE_REASONS.has(closedBy.reason) || (closedBy.reason === "none" && ROUTINE_CODES.has(closedBy.code)));
 
 function causeText() {
-  const parts: string[] = [];
-  if (closedBy) parts.push(closedBy.reason === "none" ? `닫힘 코드 ${closedBy.code}` : `${REASONS[closedBy.reason] ?? closedBy.reason}, 코드 ${closedBy.code}`);
-  if (errors) parts.push(`연결 오류 ${errors.count}번(첫: ${errors.first})`);
-  return parts.join("; ") || "모름";
+  const parts: LogText[] = [];
+  if (closedBy) parts.push(closedBy.reason === "none" ? L.discord.gatewayCloseCode({ code: closedBy.code }) : L.discord.gatewayCloseReason({ reason: REASONS[closedBy.reason] ?? closedBy.reason, code: closedBy.code }));
+  if (errors) parts.push(L.discord.gatewayErrors({ count: errors.count, first: errors.first }));
+  return parts.map(asText).join("; ") || L.discord.gatewayCauseUnknown();
 }
 
 // 끊김이 정상 절차가 아니면 끊길 때 알린다(오래 연결되지 못하면 그동안 아무 줄도 없게 되지 않게). 이유가 시도 알림보다 늦게 올 수 있어 둘 다에서 부른다
 function announce(shardId: number) {
   if (destroyed || announced || !attempt || !closedBy || routine()) return;
   announced = true;
-  log.warn(`게이트웨이 연결 끊김(샤드 ${shardId}): ${causeText()}. 재연결 중`);
+  log.warn(L.discord.gatewayDisconnected({ shardId, cause: causeText() }));
 }
 
 function onDebug(message: string, shardId: number) {
@@ -72,15 +74,15 @@ function onError(error: Error, shardId: number) {
 function onReconnecting(shardId: number) {
   if (destroyed) return;
   attempt += 1;
-  log.debug(`게이트웨이 연결이 끊겨 재연결 중(${attempt}번째 시도)`);
+  log.debug(L.discord.gatewayReconnecting({ attempt }));
   announce(shardId);
 }
 
-function onConnected(how: string) {
+function onConnected(how: LogText) {
   // 처음 연결된 것은 재연결이 아니다. 열리기 전에 닫힌 것(시도 알림 없음)도 남긴다
   if (attempt || errors || closedBy) {
     if (attempt) reconnects += 1;
-    const line = `게이트웨이 재연결: ${how} | 시도 ${attempt}회 | 원인=${causeText()}`;
+    const line = L.discord.gatewayReconnected({ how, attempt, cause: causeText() });
     if (announced || routine()) log.info(line);
     else log.warn(line);
   }
@@ -92,7 +94,7 @@ function onConnected(how: string) {
 
 function onDisconnect(code: number, shardId: number) {
   const name = (GatewayCloseCodes as Record<number, string | undefined>)[code];
-  log.error(`게이트웨이 연결이 닫혀 재연결하지 않음(샤드 ${shardId}): 닫힘 코드 ${code}${name ? ` ${name}` : ""}${errors ? ` · ${errors.first}` : ""}`);
+  log.error(L.discord.gatewayClosed({ shardId, code, closeName: name ? ` ${name}` : "", firstError: errors ? ` · ${errors.first}` : "" }));
   attempt = 0;
   closedBy = null;
   errors = null;
@@ -106,8 +108,8 @@ function watchGateway(client: Client) {
     const shard = /^\[WS => Shard (\d+)\]/.exec(message);
     onDebug(message, shard ? Number(shard[1]) : 0);
   };
-  const resumed = () => onConnected("세션 재개");
-  const ready = () => onConnected("새 세션");
+  const resumed = () => onConnected(L.discord.gatewaySessionResumed());
+  const ready = () => onConnected(L.discord.gatewayNewSession());
   const disconnected = (event: { code: number }, shardId: number) => onDisconnect(event.code, shardId);
   client.on(Events.Debug, debug);
   client.on(Events.ShardError, onError);

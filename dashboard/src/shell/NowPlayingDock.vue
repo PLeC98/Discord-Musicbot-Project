@@ -80,9 +80,9 @@ import { useNowPlayingStore } from "../stores/now-playing.ts";
 import { art } from "../theme/theme.ts";
 import { loopEnabled, previousEnabled, shuffleEnabled, skipEnabled } from "../utils/playback.ts";
 import { loopTip } from "../utils/loop-tip.ts";
-import { songTitle } from "../../../src/ui/text/ko/labels.ts";
 import { formatDuration } from "../../../src/ui/format.ts";
 import { text } from "../text/index.ts";
+const songTitle = (title: string | null | undefined) => text.bot.labels.songTitle(title);
 const T = text.player;
 
 const np = useNowPlayingStore();
@@ -124,14 +124,14 @@ function openServer() {
 const seekable = computed(() => np.canControl && np.duration > 0 && !np.track?.isLive);
 const seekBar = useSeekBar({
   el: trackEl,
-  duration: () => np.duration,
+  duration: () => np.barLength,
   enabled: () => seekable.value,
   entry: () => np.track?.entry ?? null,
   send: (sec, entry) => np.seek(sec, entry),
 });
 const shownTime = computed(() => (seekBar.dragging.value ? seekBar.value.value : np.position));
-const progressRate = computed(() => (np.running && np.duration > 0 && !np.track?.isLive && !seekBar.dragging.value ? 100 / np.duration : 0));
-const progressPct = computed(() => (np.duration > 0 ? Math.min(100, (shownTime.value / np.duration) * 100) : 0));
+const progressRate = computed(() => (np.running && np.barLength > 0 && !np.track?.isLive && !seekBar.dragging.value ? 100 / np.barLength : 0));
+const progressPct = computed(() => (np.barLength > 0 ? Math.min(100, (shownTime.value / np.barLength) * 100) : 0));
 
 onMounted(() => np.start());
 onUnmounted(() => np.stop());

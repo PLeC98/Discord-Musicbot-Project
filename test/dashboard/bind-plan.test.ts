@@ -4,6 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import type os from "node:os";
 import { bindLine, bindNotes, inContainer, planBind, reachableAddresses, scopeOf, widenedNote } from "../../src/dashboard/bind-plan.ts";
+import { asText } from "../../src/infra/log/log-text.ts";
 
 const plan = (over: Partial<Parameters<typeof planBind>[0]>) => planBind({ envHost: null, url: "http://localhost:33333", container: false, certs: false, ...over });
 
@@ -37,9 +38,9 @@ test("컨테이너 판별: /.dockerenv, /run/.containerenv, KUBERNETES_SERVICE_H
 });
 
 test("연 주소 한 줄: 실제로 연 주소와 이유를 표시한다", () => {
-  assert.equal(bindLine(plan({}), ["127.0.0.1", "::1"], 33333, "http"), "🌐 Dashboard: http://127.0.0.1:33333, http://[::1]:33333 (공개 주소가 없거나 이 기기 주소)");
-  assert.match(bindLine(plan({ url: "http://bot.example.com" }), ["0.0.0.0"], 33333, "http"), /모든 주소\(0\.0\.0\.0\):33333 \(공개 주소가 http/);
-  assert.equal(bindLine(plan({ url: "https://music.example.com" }), ["127.0.0.1", "::1"], 33333, "http"), "🌐 Dashboard: http://127.0.0.1:33333, http://[::1]:33333 (공개 주소가 https라 프록시가 같은 기기에 있다고 판단)");
+  assert.equal(asText(bindLine(plan({}), ["127.0.0.1", "::1"], 33333, "http")), "🌐 Dashboard: http://127.0.0.1:33333, http://[::1]:33333 (공개 주소가 없거나 이 기기 주소)");
+  assert.match(asText(bindLine(plan({ url: "http://bot.example.com" }), ["0.0.0.0"], 33333, "http")), /모든 주소\(0\.0\.0\.0\):33333 \(공개 주소가 http/);
+  assert.equal(asText(bindLine(plan({ url: "https://music.example.com" }), ["127.0.0.1", "::1"], 33333, "http")), "🌐 Dashboard: http://127.0.0.1:33333, http://[::1]:33333 (공개 주소가 https라 프록시가 같은 기기에 있다고 판단)");
 });
 
 test("접속할 수 있는 주소: loopback, 링크 로컬은 빼고 중복 없이 돌려준다", () => {
@@ -51,17 +52,17 @@ test("접속할 수 있는 주소: loopback, 링크 로컬은 빼고 중복 없�
 test("기동 진단: 공개 주소가 없으면 다른 기기에서 쓰는 법과 이 기기의 주소를, 컨테이너면 컨테이너 밖 주소를 안내한다", () => {
   const notes = bindNotes(plan({}), { url: "http://localhost:33333", port: 33333, envHost: null, container: false, reachable: ["192.168.0.10"] });
   assert.equal(notes.length, 1);
-  assert.match(notes[0].text, /DASHBOARD_URL/);
-  assert.match(notes[0].text, /http:\/\/192\.168\.0\.10:33333/);
+  assert.match(asText(notes[0].text), /DASHBOARD_URL/);
+  assert.match(asText(notes[0].text), /http:\/\/192\.168\.0\.10:33333/);
   const container = bindNotes(plan({ container: true }), { url: "http://localhost:33333", port: 33333, envHost: null, container: true, reachable: [] });
-  assert.match(container.map((n) => n.text).join("\n"), /컨테이너 밖에서 접속할 주소/);
+  assert.match(container.map((n) => asText(n.text)).join("\n"), /컨테이너 밖에서 접속할 주소/);
 });
 
 test("기동 진단: 모든 주소면 접속할 수 있는 주소, http면 HTTPS 사용법, https인데 DASHBOARD_HOST로 망에 열면 평문 직접 접속 시 로그인되지 않음을 안내한다", () => {
-  const plain = bindNotes(plan({ url: "http://bot.example.com" }), { url: "http://bot.example.com", port: 33333, envHost: null, container: false, reachable: ["192.168.0.10"] }).map((n) => n.text);
+  const plain = bindNotes(plan({ url: "http://bot.example.com" }), { url: "http://bot.example.com", port: 33333, envHost: null, container: false, reachable: ["192.168.0.10"] }).map((n) => asText(n.text));
   assert.ok(plain.some((t) => t.includes("다른 기기에서 접속할 수 있는 주소: http://192.168.0.10:33333")));
   assert.ok(plain.some((t) => t.includes("HTTPS로 쓸 수 있음")));
-  const https = bindNotes(plan({ envHost: "0.0.0.0", url: "https://music.example.com" }), { url: "https://music.example.com", port: 33333, envHost: "0.0.0.0", container: false, reachable: [] }).map((n) => n.text);
+  const https = bindNotes(plan({ envHost: "0.0.0.0", url: "https://music.example.com" }), { url: "https://music.example.com", port: 33333, envHost: "0.0.0.0", container: false, reachable: [] }).map((n) => asText(n.text));
   assert.ok(https.some((t) => t.includes("로그인되지 않음")));
   const local = bindNotes(plan({ envHost: "127.0.0.1", url: "https://music.example.com" }), { url: "https://music.example.com", port: 33333, envHost: "127.0.0.1", container: false, reachable: [] });
   assert.deepEqual(local, [], "DASHBOARD_HOST가 이 기기 주소면 없다");
@@ -71,8 +72,8 @@ test("넓어진 범위: 이전 실행이 이 기기 전용이었는데 이번에
   assert.equal(scopeOf(plan({})), "loopback");
   assert.equal(scopeOf(plan({ url: "http://bot.example.com" })), "all");
   assert.equal(scopeOf(plan({ envHost: "192.168.0.10" })), "192.168.0.10");
-  assert.match(widenedNote("loopback", plan({ url: "http://bot.example.com" }))?.text ?? "", /더 넓게 열림\(모든 주소:/);
-  assert.match(widenedNote("loopback", plan({ envHost: "192.168.0.10" }))?.text ?? "", /더 넓게 열림\(192\.168\.0\.10:/);
+  assert.match(asText(widenedNote("loopback", plan({ url: "http://bot.example.com" }))?.text ?? ""), /더 넓게 열림\(모든 주소:/);
+  assert.match(asText(widenedNote("loopback", plan({ envHost: "192.168.0.10" }))?.text ?? ""), /더 넓게 열림\(192\.168\.0\.10:/);
   assert.equal(widenedNote("loopback", plan({ url: "https://music.example.com" })), null);
   assert.equal(widenedNote(null, plan({ url: "http://bot.example.com" })), null, "처음 실행");
   assert.equal(widenedNote("all", plan({ url: "http://bot.example.com" })), null);
@@ -84,7 +85,7 @@ test("컨테이너 안이면 공개 주소, 여는 주소와 상관없이 출발
     [null, "http://bot.lan:33333"],
     ["0.0.0.0", "https://music.example.com"],
   ] as const) {
-    const texts = bindNotes(planBind({ envHost, url, container: true, certs: false }), { url, port: 33333, envHost, container: true, reachable: [] }).map((n) => n.text);
+    const texts = bindNotes(planBind({ envHost, url, container: true, certs: false }), { url, port: 33333, envHost, container: true, reachable: [] }).map((n) => asText(n.text));
     assert.ok(
       texts.some((t) => t.includes("인터넷 평문 접속을 감지하지 못함")),
       `${envHost} ${url}`,

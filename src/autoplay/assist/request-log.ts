@@ -3,19 +3,21 @@
 // 기록은 저장할 때 키를 가린다(assist/mask: 헤더 값, 주소, 본문, 응답). 비용은 그때의 값표로 센다(config/ai-prices).
 // 기록이 꺼져 있거나(AI_LOG_ENABLED) DB가 열려 있지 않으면(스크립트, 테스트) 남기지 않는다. 기록이 실패해도 요청은 그대로 간다.
 
+import { plain, type RuleProblem } from "../../rules/rule-problem.ts";
 import config from "../../config/index.ts";
 import * as requests from "../../store/ai-requests.ts";
 import * as prices from "../../config/ai-prices.ts";
 import * as models from "../../config/ai-models.ts";
 import { PROVIDER_SPECS } from "../../config/schema/ai-providers.ts";
 import { currentGuild } from "../../infra/guild-context.ts";
-import { messageOf } from "../../rules/error-kind.ts";
+import { errorProblem, messageOf } from "../../rules/error-kind.ts";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
-import { mask, safeHeaders } from "./mask.ts";
+import { mask, maskProblem, safeHeaders } from "./mask.ts";
 import * as retry from "./retry.ts";
 import type { AiLogSource, AiTokens } from "../../dashboard/contract/ai-log.ts";
 import type { Usage } from "./types.ts";
+import { L } from "../../infra/log/text.ts";
 
 type Send = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -28,7 +30,7 @@ type Call = {
   genre?: string;
   candidates?: number;
   tokensOf?: (json: unknown) => Usage | null;
-  explain?: (text: string) => string | undefined;
+  explain?: (text: string) => RuleProblem | undefined;
   keep?: (res: Response) => boolean;
 };
 
@@ -70,7 +72,7 @@ function tokensFrom(call: Call, text: string): AiTokens | null {
   }
 }
 
-type Outcome = { status: number | null; ok: boolean; aborted: boolean; tookMs: number; firstMs: number | null; text: string; error?: string };
+type Outcome = { status: number | null; ok: boolean; aborted: boolean; tookMs: number; firstMs: number | null; text: string; error?: RuleProblem };
 
 function write(call: Call, url: string, init: RequestInit, got: Outcome) {
   if (!config.aiLog.enabled || !requests.isOpen()) return;
@@ -99,7 +101,7 @@ function write(call: Call, url: string, init: RequestInit, got: Outcome) {
         ...(call.candidates ? { candidates: call.candidates } : {}),
         tokens,
         costUsd,
-        ...(got.error ? { error: mask(got.error) } : {}),
+        ...(got.error ? { error: maskProblem(got.error) } : {}),
         requestHeaders: JSON.stringify(safeHeaders(init.headers as Record<string, string> | undefined)),
         requestBody: mask(typeof init.body === "string" ? init.body : ""),
         response: mask(got.text),
@@ -108,15 +110,15 @@ function write(call: Call, url: string, init: RequestInit, got: Outcome) {
     );
     warned = false;
   } catch (error) {
-    if (!warned) log.warn(`AI 리퀘스트 로그 기록 실패(요청은 계속 진행): ${messageOf(error)}`);
+    if (!warned) log.warn(L.autoplay.aiRequestLogWriteFailed({ error: messageOf(error) }));
     warned = true;
   }
 }
 
 /** 실패 응답의 원인 한 줄(HTTP 상태와 저쪽 문구) */
-function failureOf(status: number, text: string) {
+function failureOf(status: number, text: string): RuleProblem {
   const { key, detail } = retry.summaryOf(status, text);
-  return detail ? `${key}: ${detail}` : key;
+  return plain(detail ? `${key}: ${detail}` : key);
 }
 
 /** 보내고 기록한다. 닿지 못했으면(연결 실패, 시간 초과) 기록한 뒤 그 오류를 그대로 던진다 */
@@ -131,7 +133,8 @@ async function sendLogged(send: Send, call: Call, url: string, init: RequestInit
     return { res, text };
   } catch (error) {
     const aborted = Boolean(init.signal?.aborted);
-    write(call, url, init, { status: res?.status ?? null, ok: false, aborted, tookMs: Date.now() - started, firstMs: null, text: "", error: messageOf(error) });
+    // 규칙 문제를 가진 오류(판정 상한)는 그 문제로 남긴다. 화면이 보는 사람의 언어로 그린다
+    write(call, url, init, { status: res?.status ?? null, ok: false, aborted, tookMs: Date.now() - started, firstMs: null, text: "", error: errorProblem(error) });
     throw error;
   }
 }

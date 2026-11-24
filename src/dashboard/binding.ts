@@ -9,6 +9,7 @@ import type { Duplex } from "node:stream";
 import type { RequestListener } from "node:http";
 import logger from "../infra/log/logger.ts";
 import { describeError, messageOf } from "../rules/error-kind.ts";
+import { L } from "../infra/log/text.ts";
 
 const log = logger.child({ category: "dashboard" });
 
@@ -18,7 +19,7 @@ const CLIENT_ERROR_STATUS: Record<string, string> = { HPE_HEADER_OVERFLOW: "431 
 function onClientError(error: Error & { code?: string }, duplex: Duplex) {
   const socket = duplex as Socket & { _httpMessage?: { _headerSent?: boolean } | null };
   // 받는 도중 브라우저가 끊는 것(ECONNRESET)은 흔해 남기지 않는다
-  if (error.code !== "ECONNRESET") log.trace(`대시보드 요청 읽기 실패(${socket.remoteAddress ?? "주소 모름"}): ${describeError(error)}`);
+  if (error.code !== "ECONNRESET") log.trace(L.dashboard.clientRequestReadFailed({ address: socket.remoteAddress ?? null, error: describeError(error) }));
   // 나가던 응답의 헤더가 이미 소켓에 나갔으면 오류 응답을 끼워 쓰지 않는다
   if (socket.writable && !socket._httpMessage?._headerSent) socket.write(`HTTP/1.1 ${CLIENT_ERROR_STATUS[error.code ?? ""] ?? "400 Bad Request"}\r\nConnection: close\r\n\r\n`);
   socket.destroy(error);
@@ -41,7 +42,7 @@ function openOn(server: Server, host: string, port: number) {
     server.listen(port, host, () => {
       server.off("error", onError);
       // 연 뒤의 서버 오류. 리스너가 없으면 프로세스가 죽는다
-      server.on("error", (error) => log.error(`대시보드 서버 오류(${host}:${port}): ${messageOf(error)}`));
+      server.on("error", (error) => log.error(L.dashboard.serverError({ host, port, error: messageOf(error) })));
       done();
     });
   });
@@ -75,7 +76,7 @@ async function listenAll(makeServer: () => Server, hosts: string[], port: number
       let error = first;
       if (codeOf(error) === "EADDRINUSE") {
         close();
-        log.error(`대시보드 포트(${port})를 다른 프로그램이 쓰고 있어 대시보드를 열지 못함(대시보드 없이 계속 실행). .env의 DASHBOARD_PORT를 바꾸세요`);
+        log.error(L.dashboard.portInUse({ port }));
         return opened;
       }
       if (host === "::" && familyMissing(error)) {
@@ -84,18 +85,18 @@ async function listenAll(makeServer: () => Server, hosts: string[], port: number
           await openOn(fallback, "0.0.0.0", port);
           opened.servers.push(fallback);
           opened.hosts.push("0.0.0.0");
-          log.info("IPv6를 쓸 수 없어 0.0.0.0(IPv4의 모든 주소)으로 바인딩");
+          log.info(L.dashboard.ipv6FallbackAny());
           continue;
         } catch (fallbackError) {
           error = fallbackError;
         }
       }
       if (host === "::1" && familyMissing(error) && opened.servers.length) {
-        log.info("IPv6를 쓸 수 없어 ::1은 열지 않음(127.0.0.1만)");
+        log.info(L.dashboard.ipv6LoopbackSkipped());
         continue;
       }
       close();
-      log.error(`대시보드 서버 실행 실패(대시보드 없이 계속 실행): ${host}:${port}, ${messageOf(error)}`);
+      log.error(L.dashboard.listenFailed({ host, port, error: messageOf(error) }));
       return opened;
     }
   }

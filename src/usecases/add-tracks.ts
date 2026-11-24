@@ -9,7 +9,8 @@ const log = logger.child({ category: "player" });
 import config from "../config/index.ts";
 import * as trackState from "../player/track-state.ts";
 import { waitForRestore } from "../player/session-restore.ts";
-import * as labels from "../ui/text/ko/labels.ts";
+import { textFor } from "../ui/text/index.ts";
+import { logLanguage } from "../rules/languages.ts";
 import { continuation, validState, batchFor, KINDS } from "./playlist-more.ts";
 import { roomFor, roomLeft } from "../rules/queue-room.ts";
 import type { More, MoreState } from "../rules/more-choices.ts";
@@ -26,11 +27,29 @@ import type { Guild, GuildTextBasedChannel, VoiceBasedChannel } from "discord.js
 import type { PlayerSeats } from "../player/registry.ts";
 import type { QueuedTrack, Requester, TrackInfo } from "../player/track.ts";
 import type { NowPlayingPanel, Responder } from "../ui/now-playing-panel.ts";
+import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
+import { bug } from "../infra/bug.ts";
 
 /** 곡 찾기에서 부르는 것 */
 type Lookup = Pick<typeof songLookup, "resolveQuery" | "getCollection">;
 /** 요청자로 받는 것: 디스코드 멤버, 사용자, 대시보드 세션 사용자, 세션 복구 스텁(이름 문자열) */
 type RequesterSource = string | { id?: string | null; displayName?: string | null; username?: string | null; tag?: string | null; user?: { displayName?: string | null; username?: string | null; tag?: string | null } } | null | undefined;
+
+/** 이름이 문구인 곡 요청 입구. 코드는 언어와 상관없어 로그의 sub에 쓰고, 요청 줄의 글에는 그 문구를 쓴다 */
+const NAMED_ENTRANCES = {
+  "bot-channel": () => L.events.sourceBotChannel(),
+  dashboard: () => L.player.sourceDashboard(),
+  "dashboard-more": () => L.player.sourceDashboardMore(),
+  "search-autocomplete": () => L.player.sourceSearchAutocomplete(),
+  "search-results": () => L.player.sourceSearchResults(),
+  more: () => L.player.sourceMore(),
+} satisfies Record<string, () => LogText>;
+/** 곡 요청 입구: 슬래시 명령은 "/<명령 이름>", 나머지는 NAMED_ENTRANCES의 코드 */
+type Entrance = `/${string}` | keyof typeof NAMED_ENTRANCES;
+const isCommand = (entrance: Entrance): entrance is `/${string}` => entrance.startsWith("/");
+/** 요청 줄에 쓰는 입구 이름. 슬래시 명령은 그 이름 그대로 */
+const entranceLabel = (entrance: Entrance): string | LogText => (isCommand(entrance) ? entrance : NAMED_ENTRANCES[entrance]());
 
 // 곡 찾기. 진입점(명령, 이벤트, 대시보드)을 거쳐 부르는 테스트는 useLookup으로 가짜를 넘긴다(플레이어의 useBoundary와 같다)
 let defaultLookup: Lookup = songLookup;
@@ -106,7 +125,7 @@ async function resolveFallbackTextChannel(guild: Guild) {
     return canSend(channel) ? channel : null;
   } catch (error) {
     if (codeOf(error) === "DB_NOT_OPEN") throw error;
-    log.warn(`전용 채널 설정 읽기 실패(안내 채널 없이 진행) (${guild.id}): ${messageOf(error)}`);
+    log.warn(L.player.botChannelReadFailed({ guildId: guild.id, error: messageOf(error) }));
     return null;
   }
 }
@@ -114,7 +133,7 @@ async function resolveFallbackTextChannel(guild: Guild) {
 /**
  * 곡 추가/재생 요청. 검색어(query)나 이미 찾은 곡(tracks) 가운데 하나는 있어야 한다.
  * textChannel은 안내, 패널을 보낼 채널, voiceChannel은 붙을 음성 채널, single은 재생목록이어도 첫 곡만,
- * responder는 결과를 알리는 매체(기본: 무동작), source는 로그 라벨
+ * responder는 결과를 알리는 매체(기본: 무동작), source는 요청이 들어온 입구
  */
 type PlaybackRequest = {
   guild: Guild;
@@ -126,7 +145,7 @@ type PlaybackRequest = {
   insertAfterId?: string | null;
   single?: boolean;
   responder?: Responder;
-  source?: string;
+  source?: Entrance;
   lookup?: Lookup;
   ffmpegReady?: () => boolean;
   /** 곡 검색과 대기가 끝난 뒤, 플레이어를 생성하기(첫 상태 변경) 전에 하는 확인이다. 예외를 던지면 아무것도 바꾸지 않는다(대시보드: 세션 종료) */
@@ -160,7 +179,7 @@ function useAdder(fake: typeof queueTracks | null | undefined) {
   defaultAdder = fake ?? ((...args) => queueTracks(...args));
 }
 
-/** 곡을 넣을 목록. 찾은 결과거나 이미 찾은 곡. skipped는 출처가 받을 수 없어 뺀 곡 수(사운드클라우드 세트의 미리듣기, 지역 제한) */
+/** 곡을 넣을 목록. 찾은 결과거나 이미 찾은 곡. skipped는 출처가 받을 수 없어 뺀 곡 수(유튜브 재생목록의 삭제, 비공개 영상, 사운드클라우드 세트의 미리듣기, 지역 제한) */
 type Found = { isPlaylist: boolean; collection?: string | null; collectionId?: string | null; tracks: TrackInfo[]; total?: number | null; nextOffset?: number | null; skipped?: number; queueLimited?: boolean };
 
 async function requestPlayback(bot: Bot, asked: PlaybackRequest): Promise<PlaybackResult> {
@@ -221,13 +240,13 @@ async function tracksFor(player: Player | null, request: PlaybackRequest, batch:
   return withoutBlocked(found, request.ffmpegReady);
 }
 
-async function search(player: Player | null, query: string, { single = false, source = "play", lookup = defaultLookup }: PlaybackRequest, batch: number): Promise<Found | Refused> {
+async function search(player: Player | null, query: string, { single = false, source = "/play", lookup = defaultLookup }: PlaybackRequest, batch: number): Promise<Found | Refused> {
   // 불러올 곡 수. 한 번에 넣는 배치와 남은 자리 중 작은 쪽. 비어 있으면 첫 곡은 지금 곡이 되니 한 자리 더.
   // 추산값이다: 최종 판정은 서버별로 줄 선 추가 구간(enqueue)이 한다. 자리가 없으면 곡을 찾기 전에 거절한다(찾는 사이 자리가 나도 기다리지 않는다)
   const room = roomFor(player ?? { queue: [], currentTrack: null }, config.bot.maxQueueSize);
   if (room <= 0) return { code: "queue-full" };
   const limit = single ? 1 : Math.max(1, Math.min(batch, room));
-  // 로그의 하위 이름. 진입점 이름의 "/"(슬래시 명령)는 뺀다. 카테고리와 "/"로 이어 붙으므로 그대로 두면 track//play가 된다
+  // 로그의 하위 이름. 슬래시 명령의 "/"는 뺀다. 카테고리와 "/"로 이어 붙으므로 그대로 두면 track//play가 된다
   const found = await lookup.resolveQuery(query, `${source.replace(/^\//, "")}.resolveQuery`, { limit });
   // 곡 찾기 중 예외(lookup-failed)는 곡 찾기가 오류 원문과 함께 이미 로그로 남김. 여기서는 원인 코드(code)와 오류 종류(kind)만 반환
   if (!found.success) return { code: found.code, ...kindOf(found.error), ...(found.skipped ? { skipped: found.skipped } : {}) };
@@ -270,23 +289,22 @@ function placement({ insertFirst = false, insertAfterId = null }: PlaybackReques
 }
 
 // 조작 하나에 info 한 줄: 누가 무엇을 찾아 무엇이 선택됐나. 틀거나 넣기 전에 남겨, 곧바로 튼 곡의 "재생" 줄보다 앞선다
-function logRequest({ source = "play", query, insertFirst = false }: PlaybackRequest, who: Requester | null, found: Found | Refused) {
+function logRequest({ source = "/play", query, insertFirst = false }: PlaybackRequest, who: Requester | null, found: Found | Refused) {
   const asked = query ?? null;
-  const head = `곡 요청: ${source} | ${nameOf(who)}${asked ? ` | "${asked}"` : ""}`;
+  const head = { source: entranceLabel(source), who: nameOf(who), query: asked };
   if (isRefused(found)) {
-    log.info({ sub: "play" }, `${head} → 대기열 추가 불가: ${causeOf(found)}`);
+    log.info({ sub: "play" }, L.player.requestRefused({ ...head, cause: causeOf(found) }));
     return;
   }
-  const notes = [insertFirst ? " | 맨 앞" : "", found.skipped ? ` | 재생할 수 없어 ${found.skipped}곡 제외` : "", found.queueLimited ? " | 대기열 상한에 걸려 일부만 불러옴" : ""].join("");
-  log.info({ sub: "play" }, `${head} → ${whatOf(found, asked)}${notes}`);
+  log.info({ sub: "play" }, L.player.requested({ ...head, what: whatOf(found, asked), first: insertFirst, skipped: found.skipped ?? 0, queueLimited: Boolean(found.queueLimited) }));
 }
 
 // 찾은 것. 목록이면 출처와 곡 수, 한 곡이면 제목. 주소로 요청하지 않았으면 선택한 곡의 주소를 붙인다
 function whatOf({ isPlaylist, collection, tracks }: Found, asked: string | null) {
   const first = tracks[0];
   const title = first?.title ?? "?";
-  if (isPlaylist) return `${labels.collection(collection)} ${tracks.length}곡 (첫 곡 "${title}")`;
-  return first && !(asked && isUrl(asked)) ? `"${title}" (${first.pageUrl})` : `"${title}"`;
+  if (isPlaylist) return L.player.requestedCollection({ collection: textFor(logLanguage()).labels.collection(collection), count: tracks.length, title });
+  return L.player.requestedTrack({ title, url: first && !(asked && isUrl(asked)) ? first.pageUrl : null });
 }
 
 const isUrl = (text: string) => /^https?:\/\//i.test(text.trim());
@@ -294,8 +312,8 @@ const isUrl = (text: string) => /^https?:\/\//i.test(text.trim());
 // 추가한 뒤의 로그. 추가하지 못했으면 원인을 info로. 추가했으면 대기열 상태는 추적용이라 debug로(곧바로 튼 곡은 "재생" 줄이 따로 남김).
 // 상한으로 일부를 뺀 것도 담긴 것이라 debug 줄에 싣는다. 사용자에게는 담은 안내가 말한다
 function logOutcome(result: AddResult, player: Player) {
-  if (result.success === false) log.info({ sub: "play" }, `곡 추가 실패: ${causeOf(result)}`);
-  else log.debug({ sub: "play" }, `곡 추가 완료${result.dropped ? ` | 상한으로 ${result.dropped}곡 뺌` : ""} | 대기열 ${player.queue.length}곡`);
+  if (result.success === false) log.info({ sub: "play" }, L.player.addFailed({ cause: causeOf(result) }));
+  else log.debug({ sub: "play" }, L.player.addDone({ dropped: result.dropped ?? 0, queued: player.queue.length }));
 }
 
 const nameOf = (who: Requester | null) => who?.tag ?? who?.username ?? who?.id ?? "?";
@@ -312,7 +330,7 @@ type CollectionRequest = {
   count: number;
   textChannel?: GuildTextBasedChannel | null;
   voiceChannel?: VoiceBasedChannel | null;
-  source?: string;
+  source?: Entrance;
   onProgress?: (done: number, want: number) => void;
   lookup?: Lookup;
   /** 곡을 불러온 뒤, 추가하기 전에 하는 확인이다(requestPlayback의 go) */
@@ -352,7 +370,7 @@ async function continueCollection(bot: Bot, request: CollectionRequest): Promise
     textChannel: request.textChannel,
     voiceChannel: request.voiceChannel,
     insertAfterId: state.insertFirst ? state.anchorId : null,
-    source: request.source ?? "더 넣기",
+    source: request.source ?? "more",
     go: request.go,
   });
   const remaining = total != null ? Math.max(0, total - nextOffset) : 0;
@@ -367,9 +385,15 @@ async function nextPart(lookup: Lookup, url: string, range: { offset: number; li
     return await lookup.getCollection(url, range);
   } catch (error) {
     if (gathered === 0) throw error;
-    log.warn(`재생목록 추가 불러오기를 ${gathered}곡에서 중단: ${messageOf(error)}`);
+    log.warn(L.player.playlistMoreStopped({ gathered, error: messageOf(error) }));
     return null;
   }
+}
+
+// 불러온 구간에서 뺀 곡. before는 다시 읽은 앞 구간(cursor 앞)의 것으로 지난번에 셌다. 위치를 모르는 출처(앞을 다시 읽지 않는다)는 받은 수 그대로
+function skippedIn(part: songLookup.Collection, cursor: number) {
+  const before = part.skippedAt?.filter((at) => at < cursor).length ?? 0;
+  return { before, newlySkipped: part.skippedAt ? part.skippedAt.length - before : (part.skipped ?? 0) };
 }
 
 // 불러온 구간에서 새 곡. 앵커(직전 마지막 곡)를 찾으면 그 뒤, 못 찾으면 다시 불러온 앞 back 곡을 건너뛴 뒤
@@ -396,15 +420,16 @@ async function gather({ state, onProgress = ignoreProgress, lookup = defaultLook
     const part = await nextPart(lookup, url, { offset: cursor - back, limit }, found.length);
     if (!part) break;
     if (part.total != null) total = part.total;
-    skipped += part.skipped ?? 0;
-    const fresh = freshOf(part.tracks, anchor, back);
+    const { before, newlySkipped } = skippedIn(part, cursor);
+    skipped += newlySkipped;
+    const fresh = freshOf(part.tracks, anchor, back - before);
     found.push(...fresh);
     anchor = fresh.at(-1)?.id ?? anchor;
     const next = part.nextOffset;
     const advanced = next != null && next > cursor;
     if (advanced) cursor = next;
     onProgress(Math.min(found.length, want), want);
-    if (fresh.length === 0 || !advanced || atEnd(cursor, total)) break;
+    if ((fresh.length === 0 && newlySkipped === 0) || !advanced || atEnd(cursor, total)) break;
   }
   return { found, cursor, total, skipped };
 }
@@ -440,7 +465,7 @@ async function processTracks(bot: Bot, guildId: string, trackData: TrackData, re
   try {
     return await place(bot.panels, player, trackData, requester, responder);
   } catch (error) {
-    log.error({ kind: errorKind(error) }, "곡 추가 처리 실패:", error);
+    log.error({ kind: errorKind(error) }, L.player.addHandlingFailed(), error);
     return { success: false, code: "add-failed", ...kindOf(error) };
   }
 }
@@ -481,7 +506,7 @@ async function startAndEnqueue(panel: Panel, player: Player, trackData: TrackDat
 async function place(panel: Panel, player: Player, trackData: TrackData, requester: Requester | null, responder: Responder): Promise<AddResult> {
   const { tracks } = trackData;
   // 호출부(곡 찾기, 더 넣기)가 빈 결과를 거절한다
-  if (tracks.length === 0) throw new Error("추가할 곡이 없음");
+  if (tracks.length === 0) throw bug("추가할 곡이 없음");
   const stamp = (track: QueuedTrack): QueuedTrack => ({ ...track, requestedBy: requester });
   const outcome = await startAndEnqueue(panel, player, trackData, tracks.map(stamp), responder);
 
@@ -489,7 +514,7 @@ async function place(panel: Panel, player: Player, trackData: TrackData, request
   // 음성 채널에 붙지 못한 플레이어는 버린다(저장한 세션은 둔다). 틀 곡이 남지 않았으면 다 튼 것과 같이 끝낸다(나갈 예약).
   // 연달아 실패해 멈추고 남은 곡이 있으면 그 패널 그대로 둔다
   if (outcome.kind === "failed") {
-    if (notJoined(outcome.refused)) await player.dispose({ reason: "음성 채널 접속 실패", session: "keep", end: "connect-failed" });
+    if (notJoined(outcome.refused)) await player.dispose({ reason: L.player.disposeVoiceConnectFailed(), session: "keep", end: "connect-failed" });
     else if (!player.currentTrack && player.queue.length === 0) await player.finishQueue();
     return { success: false, ...outcome.refused };
   }
@@ -555,7 +580,7 @@ async function startPlayback(player: Player): Promise<Refused | null> {
     if (playResult && playResult.ok === false && playResult.code !== "superseded") return { code: playResult.code ?? "play-failed", ...kindOf(playResult.error) };
     return null;
   } catch (playError) {
-    log.error("재생 처리 중 오류:", playError);
+    log.error(L.player.playHandlingFailed(), playError);
     return { code: "play-threw", ...kindOf(playError) };
   }
 }
@@ -570,7 +595,7 @@ async function startNext(panel: Panel, player: Player, responder: Responder): Pr
       return await openPanel(panel, player, player.currentTrack, responder);
     }
   } catch (e) {
-    log.error("첫 곡 실패 후 다음 곡 시작 실패:", messageOf(e));
+    log.error(L.player.nextStartAfterFirstFailed({ error: messageOf(e) }));
   }
   return null;
 }
@@ -580,7 +605,7 @@ async function openPanel(panel: Panel, player: Player, track: QueuedTrack, respo
   try {
     return await panel.postPlaying(player, track, responder);
   } catch (error) {
-    log.error("재생 패널 올리기 실패:", error);
+    log.error(L.player.panelPostFailed(), error);
     return { success: true };
   }
 }
@@ -616,11 +641,11 @@ async function queueOnly(panel: Panel, player: Player, responder: Responder, { q
     await panel.updatePlaying(player);
   }
 
-  await responder.notifyQueued(addedView({ tracks: queued, collection, insertFirst, position, notice }));
+  await responder.notifyQueued((T) => addedView(T, { tracks: queued, collection, insertFirst, position, notice }));
 
   return { success: true, dropped: notice.dropped, queueLimited: notice.queueLimited };
 }
 
 export { requestPlayback, continueCollection, queueTracks, toRequester, requesterName, ensurePlayer, resolveFallbackTextChannel, useLookup, useAdder };
 export const _internals = { resolveFallbackTextChannel };
-export type { PlaybackRequest, RequesterSource, Lookup, CollectionResult, TrackData, AddResult, Placed };
+export type { PlaybackRequest, RequesterSource, Entrance, Lookup, CollectionResult, TrackData, AddResult, Placed };

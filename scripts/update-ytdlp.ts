@@ -15,6 +15,7 @@
 import "../src/app/env-bootstrap.ts"; // 설정을 읽기 전에 .env를 읽는다(없으면 만든다)
 import path from "node:path";
 import logger from "../src/infra/log/logger.ts";
+import { asText, logTextError, type LogText } from "../src/infra/log/log-text.ts";
 import config from "../src/config/index.ts";
 import { PROJECT } from "../src/infra/project-paths.ts";
 import { acquireInstanceLock } from "../src/infra/instance-lock.ts";
@@ -22,11 +23,12 @@ import { ytdlpBinary, describe, type YtdlpOutcome } from "../src/sources/ytdlp-b
 import { parseUpdateArgs } from "../src/sources/ytdlp-cli-args.ts";
 import type { YtdlpChannelName } from "../src/rules/ytdlp-tag.ts";
 import { messageOf } from "../src/rules/error-kind.ts";
+import { L } from "../src/infra/log/text.ts";
 
 const SETTINGS_DB = path.join(PROJECT.database, "settings.db");
 
 const log = logger.child({ category: "ytdlp" });
-const say = (level: "info" | "warn", line: string) => log[level](line);
+const say = (level: "info" | "warn", line: LogText) => log[level](line);
 
 // 설정 DB의 채널과 버전 고정을 설정 객체에 올린다. 읽지 못했으면 false
 async function loadTarget(): Promise<boolean> {
@@ -35,7 +37,7 @@ async function loadTarget(): Promise<boolean> {
     tunables.loadReadOnly(SETTINGS_DB, { strict: true });
     return true;
   } catch (error) {
-    say("warn", `설정 DB에서 yt-dlp 설정을 읽지 못했습니다: ${messageOf(error)}`);
+    say("warn", L.ytdlp.settingsUnread({ error: messageOf(error) }));
     return false;
   }
 }
@@ -45,12 +47,12 @@ async function converge(skipSignature: boolean): Promise<boolean> {
   const { version, outcome: first } = await ytdlpBinary.prepare({ force: true, skipSignature });
   const outcome: YtdlpOutcome | null = first ?? (await ytdlpBinary.check({ force: true, skipSignature }));
   if (!outcome) {
-    say("info", `설치된 yt-dlp를 그대로 씁니다(${version ?? "없음"})`);
+    say("info", L.ytdlp.installedKept({ version: version ?? null }));
     return true;
   }
   const { level, line } = describe(outcome);
   say(level, line);
-  if ((outcome.kind === "installed" || outcome.kind === "reused") && outcome.from) say("info", "실행 중인 봇은 다음 yt-dlp 실행부터 바뀐 버전을 씁니다");
+  if ((outcome.kind === "installed" || outcome.kind === "reused") && outcome.from) say("info", L.ytdlp.botUsesNextRun());
   return outcome.kind === "installed" || outcome.kind === "reused" || outcome.kind === "current";
 }
 
@@ -60,7 +62,7 @@ type Change = { pin: string | null | undefined; channel: YtdlpChannelName | unde
 // --pin, --unpin, --channel: 봇이 꺼져 있을 때만. 설정 DB를 쓰기로 열고, 바꾼 설정으로 받은 뒤 저장한다
 async function changeSettings(change: Change, skipSignature: boolean): Promise<boolean> {
   const held = await acquireInstanceLock(PROJECT.database);
-  if (!held.ok) throw new Error(`봇이 실행 중이라(${held.holder ? `PID ${held.holder}` : "PID 모름"}) yt-dlp 설정을 바꾸지 않습니다. 대시보드 운영자 패널의 업데이트 탭에서 바꾸거나, 봇을 끄고 다시 실행하세요`);
+  if (!held.ok) throw logTextError(L.ytdlp.settingsBotRunning({ holder: held.holder }));
   const { settingsDb } = await import("../src/store/settings-db.ts");
   const tunables = await import("../src/store/tunables.ts");
   try {
@@ -69,16 +71,16 @@ async function changeSettings(change: Change, skipSignature: boolean): Promise<b
     const was = { pin: config.ytdlp.version, channel: config.ytdlp.channel };
     const pin = change.pin === undefined ? was.pin : change.pin;
     const channel = change.channel ?? was.channel;
-    if (change.pin === undefined && was.pin && channel !== was.channel) throw new Error(`버전을 고정한 동안(${was.pin})에는 채널만 바꾸지 않습니다. --unpin이나 --pin <태그>를 함께 넣으세요`);
+    if (change.pin === undefined && was.pin && channel !== was.channel) throw logTextError(L.ytdlp.channelChangeWhilePinned({ pin: was.pin }));
     Object.assign(config.ytdlp, { version: pin, channel });
     if (!(await converge(skipSignature))) {
-      say("warn", `받지 못해 설정은 그대로 둡니다(고정 ${was.pin ?? "없음"}, 채널 ${was.channel})`);
+      say("warn", L.ytdlp.settingsKept({ pin: was.pin ?? null, channel: was.channel }));
       return false;
     }
     // 채널은 고정과 함께 저장한다(고정이 잠그는 값이라 카드 저장이 둘을 같이 받는다)
     tunables.saveCard({ YTDLP_VERSION: pin, ...(channel !== was.channel ? { YTDLP_CHANNEL: channel } : {}) });
-    if (pin !== was.pin) say("warn", `터미널에서 yt-dlp 고정 버전 변경: ${was.pin ?? "없음"} → ${pin ?? "없음"}`);
-    if (channel !== was.channel) say("warn", `터미널에서 yt-dlp 채널 변경: ${was.channel} → ${channel}`);
+    if (pin !== was.pin) say("warn", L.ytdlp.pinChanged({ from: was.pin ?? null, to: pin ?? null }));
+    if (channel !== was.channel) say("warn", L.ytdlp.channelChanged({ from: was.channel, to: channel }));
     return true;
   } finally {
     settingsDb.close();
@@ -88,16 +90,16 @@ async function changeSettings(change: Change, skipSignature: boolean): Promise<b
 
 try {
   const args = parseUpdateArgs(process.argv);
-  if ("error" in args) throw new Error(args.error);
-  if (args.skipSignature) say("warn", "이번 실행은 yt-dlp 릴리스의 서명을 확인하지 않습니다(--skip-signature, 체크섬은 확인)");
+  if ("error" in args) throw new Error(asText(args.error));
+  if (args.skipSignature) say("warn", L.ytdlp.signatureSkipped());
   if (args.pin !== undefined || args.channel !== undefined) {
     if (!(await changeSettings({ pin: args.pin, channel: args.channel }, args.skipSignature))) process.exitCode = 1;
   } else {
     const loaded = await loadTarget();
-    if (!loaded) throw new Error("설정 DB(database/settings.db)에서 채널과 버전 고정을 읽지 못해 다운로드하지 않습니다");
+    if (!loaded) throw logTextError(L.ytdlp.settingsUnreadNoDownload());
     if (!(await converge(args.skipSignature))) process.exitCode = 1;
   }
 } catch (error) {
-  say("warn", `버전을 맞추지 못했습니다: ${messageOf(error)}`);
+  say("warn", L.ytdlp.alignFailed({ error: messageOf(error) }));
   process.exitCode = 1;
 }

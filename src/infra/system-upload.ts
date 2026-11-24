@@ -14,6 +14,8 @@ import { messageOf } from "./error-text.ts";
 import { repeatingFailure } from "./repeating-failure.ts";
 import { isShuttingDown } from "./shutdown-state.ts";
 import * as processRegistry from "./process-registry.ts";
+import { L } from "./log/text.ts";
+import type { LogText } from "./log/log-text.ts";
 const log = logger.child({ category: "proc" });
 
 type Sent = Map<string, number>;
@@ -23,7 +25,7 @@ const ANSWER_TIMEOUT_MS = 10_000;
 // 셸이 죽거나 응답하지 않으면 이만큼 기다렸다 다시 띄운다(띄우는 비용이 크다). 다시 응답하면 처음 간격부터
 const RESTART_DELAYS_MS = [60_000, 300_000, 1_800_000];
 
-const failures = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "시스템 업로드 읽기");
+const failures = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.proc.systemUploadRead());
 
 /** 두 누계 사이에 보낸 양. 두 번 다 있는 인터페이스만 센다(새로 생기거나 사라진 것은 뺀다). 누계가 줄었으면(다시 만들어졌다) 그 인터페이스는 뺀다 */
 function sentBetween(from: Sent, to: Sent) {
@@ -72,7 +74,7 @@ function parseAnswer(lines: string[]): Sent {
   return sent;
 }
 
-type Shell = { child: ChildProcessWithoutNullStreams; release: () => void; lines: string[]; rest: string; answer: ((got: Sent | { failed: string }) => void) | null; stderr: string };
+type Shell = { child: ChildProcessWithoutNullStreams; release: () => void; lines: string[]; rest: string; answer: ((got: Sent | { failed: string | LogText }) => void) | null; stderr: string };
 let shell: Shell | null = null;
 let restartAt = 0;
 let restarts = 0;
@@ -100,7 +102,7 @@ function startShell(): Shell {
     /* 끝난 뒤 쓰면 EPIPE가 난다. 끝남은 exit가 알린다 */
   });
   // 묻는 중이 아니면 비우고 다음 구간에 다시 띄운다. 봇이 내려가며 내린 것이 아니면 warn으로 알리고 재실행을 미룬다
-  const gone = (why: string, exit?: string) => {
+  const gone = (why: string | LogText, exit?: string) => {
     const idle = shell === self && !self.answer;
     if (shell === self) shell = null;
     self.release();
@@ -108,26 +110,26 @@ function startShell(): Shell {
     if (idle && !isShuttingDown()) {
       const delay = RESTART_DELAYS_MS[Math.min(restarts++, RESTART_DELAYS_MS.length - 1)];
       restartAt = Date.now() + delay;
-      log.warn(`시스템 업로드 측정 PowerShell 헬퍼 유휴 중 종료(대기 중인 쿼리 없음): 종료=${exit ?? why} | 실행 시간=${Math.round((Date.now() - startedAt) / 1000)}초 | 재실행 대기=${delay / 1000}초 | stderr=${self.stderr.trim()}`);
+      log.warn(L.proc.uploadHelperIdleExit({ exit: exit ?? why, seconds: Math.round((Date.now() - startedAt) / 1000), retrySeconds: delay / 1000, stderr: self.stderr.trim() }));
     }
   };
   child.on("error", (error) => gone(messageOf(error)));
-  child.on("exit", (code, signal) => gone(`PowerShell 종료(${signal ?? `종료 코드 ${String(code)}`})${self.stderr.trim() ? ` · ${self.stderr.trim()}` : ""}`, signal ?? String(code)));
+  child.on("exit", (code, signal) => gone(L.proc.uploadShellExited({ signal: signal ?? null, code: String(code), stderr: self.stderr.trim() }), signal ?? String(code)));
   // 봇이 나가는 것을 붙잡지 않는다
   child.unref();
   for (const stream of [child.stdin, child.stdout, child.stderr]) (stream as unknown as { unref?: () => void }).unref?.();
   return self;
 }
 
-function ask(self: Shell): Promise<Sent | { failed: string }> {
+function ask(self: Shell): Promise<Sent | { failed: string | LogText }> {
   return new Promise((resolve) => {
     const timer = setTimeout(() => {
       // 끝나기를 기다리지 않고 놓는다(다음 구간이 멈춘 셸에 다시 묻지 않게)
       if (shell === self) shell = null;
       processRegistry.kill(self.child);
-      finish({ failed: `${ANSWER_TIMEOUT_MS / 1000}초 안에 응답이 없어 종료` });
+      finish({ failed: L.proc.uploadNoAnswer({ seconds: ANSWER_TIMEOUT_MS / 1000 }) });
     }, ANSWER_TIMEOUT_MS).unref();
-    const finish = (got: Sent | { failed: string }) => {
+    const finish = (got: Sent | { failed: string | LogText }) => {
       clearTimeout(timer);
       self.answer = null;
       resolve(got);
@@ -137,7 +139,7 @@ function ask(self: Shell): Promise<Sent | { failed: string }> {
   });
 }
 
-async function fromShell(): Promise<Sent | { failed: string } | null> {
+async function fromShell(): Promise<Sent | { failed: string | LogText } | null> {
   if (!shell) {
     // 다시 띄울 때가 아니면 이번 구간은 비운다(실패는 이미 알렸다)
     if (Date.now() < restartAt) return null;
@@ -155,7 +157,7 @@ async function fromShell(): Promise<Sent | { failed: string } | null> {
 
 /** 지금 누계. 재지 않는 운영체제거나 읽지 못했으면 null */
 async function systemSent(): Promise<Sent | null> {
-  let got: Sent | { failed: string } | null;
+  let got: Sent | { failed: string | LogText } | null;
   if (process.platform === "linux") {
     try {
       got = await fromSysfs();
@@ -166,7 +168,7 @@ async function systemSent(): Promise<Sent | null> {
   else return null;
   if (got === null) return null;
   // 잴 인터페이스가 하나도 없으면 0이 아니라 못 잰 것이다
-  if (!("failed" in got) && got.size === 0) got = { failed: "측정할 수 있는 네트워크 인터페이스가 없음" };
+  if (!("failed" in got) && got.size === 0) got = { failed: L.proc.uploadNoInterface() };
   if ("failed" in got) {
     failures.fail(got.failed);
     return null;

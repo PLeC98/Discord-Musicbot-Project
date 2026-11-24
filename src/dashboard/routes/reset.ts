@@ -9,11 +9,12 @@ import { requireRecentLogin } from "../middleware/recent-login.ts";
 import { sendProblem } from "../problem.ts";
 import { ranBy } from "../ran-by.ts";
 import { parse, ResetBody } from "../request-schemas.ts";
-import { messageOf } from "../../rules/error-kind.ts";
+import { errorProblem, messageOf } from "../../rules/error-kind.ts";
 import * as reset from "../reset.ts";
 import * as fullReset from "../../store/full-reset.ts";
 import type { ResetDone, ResetOverview } from "../contract/reset.ts";
 import { assertSignedIn, sessionEnded } from "../session-requests.ts";
+import { L } from "../../infra/log/text.ts";
 
 const resetRouter = express.Router();
 resetRouter.use(requireOwner);
@@ -44,6 +45,7 @@ resetRouter.post("/", requireRecentLogin, async (req, res) => {
       done = { kind: "audio-cache", removedFiles: result.removed, freedBytes: result.freedBytes, keptFiles: result.kept, cleared: result.cleared };
     } else if (request.kind === "bot-settings") done = { kind: "bot-settings", ...(await reset.resetBotSettings(by, go)) };
     else if (request.kind === "guild-settings") done = { kind: "guild-settings", ...(await reset.resetGuildSettings(by, go)) };
+    else if (request.kind === "user-data") done = { kind: "user-data", ...reset.resetUserData(by) };
     else if (request.kind === "display") done = { kind: "display", ...reset.resetDisplay(by) };
     else {
       const restart = req.app.locals.restart;
@@ -53,8 +55,8 @@ resetRouter.post("/", requireRecentLogin, async (req, res) => {
     }
   } catch (error) {
     if (sessionEnded(res, error)) return;
-    log.error({ sub: "admin" }, `초기화(${request.kind}) 실패: ${messageOf(error)}`);
-    return sendProblem(res, "reset-failed", {}, { detail: messageOf(error) });
+    log.error({ sub: "admin" }, L.dashboard.resetFailed({ kind: request.kind, error: messageOf(error) }));
+    return sendProblem(res, "reset-failed", {}, { errors: [{ code: "reset-failed", rule: errorProblem(error) }] });
   }
   res.json(done);
 });

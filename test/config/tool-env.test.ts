@@ -28,12 +28,12 @@ test("비밀값 목록의 이름은 설정 모듈이 실제로 읽는다(옛 이
 });
 
 test("비밀값 환경 변수를 빼고 나머지(PATH, 프록시)는 그대로 둔다", () => {
-  const env = { PATH: "/bin", HTTPS_PROXY: "http://proxy:3128", DISCORD_TOKEN: "t", CLIENT_SECRET: "c", SECRETS_KEY: "k", SESSION_SECRET: "s" };
+  const env = { PATH: "/bin", HTTPS_PROXY: "http://proxy:3128", DISCORD_TOKEN: "t", CLIENT_SECRET: "c", SECRETS_KEY: "k" };
   assert.deepEqual(toolEnv(env, "linux"), { PATH: "/bin", HTTPS_PROXY: "http://proxy:3128" });
 });
 
 test("Windows는 대소문자가 다른 비밀값 이름도 뺀다. 다른 OS는 다른 이름으로 본다", () => {
-  const env = { Path: "C:\\Windows", discord_token: "t", Session_Secret: "s" };
+  const env = { Path: "C:\\Windows", discord_token: "t", Secrets_Key: "k" };
   assert.deepEqual(toolEnv(env, "win32"), { Path: "C:\\Windows" });
   assert.deepEqual(toolEnv(env, "linux"), env);
 });

@@ -7,6 +7,9 @@ import assert from "node:assert/strict";
 import { cut, guildList, guildQueryOf, statusQueryOf } from "../../src/dashboard/list-window.ts";
 import { GUILD_QUERY, LIST_WINDOW_MAX, Q_MAX, STATUS_QUERY, guildParams, statusParams, type AdminGuild } from "../../src/dashboard/contract/admin.ts";
 
+// 이름 비교(봇은 봇 기본 언어의 형식 로케일)
+const KO = new Intl.Collator("ko").compare;
+
 test("쿼리가 없으면 화면의 처음 값", () => {
   assert.deepEqual(statusQueryOf({}), STATUS_QUERY);
 });
@@ -51,11 +54,11 @@ test("서버 관리 쿼리: 없으면 처음 값, 화면이 보낸 것은 그대
 test("서버 관리 목록: 재생 중만, 이름 검색으로 필터링하고, 정렬은 같으면 서버 ID(자릿수부터), 수는 전부, 재생 중, 필터링된 것", () => {
   const g = (id: string, name: string, memberCount: number, hasPlayer = false): AdminGuild => ({ id, name, icon: null, memberCount, hasPlayer });
   const all = [g("300000000000000000", "나비", 5, true), g("99999999999999999", "가람", 5), g("200000000000000000", "음악 감상실", 9, true), g("100000000000000000", "가람", 7)];
-  const ids = (query: Partial<typeof GUILD_QUERY>) => guildList(all, { ...GUILD_QUERY, ...query }).guilds.map((one) => one.id);
+  const ids = (query: Partial<typeof GUILD_QUERY>) => guildList(all, { ...GUILD_QUERY, ...query }, KO).guilds.map((one) => one.id);
   assert.deepEqual(ids({}), ["99999999999999999", "100000000000000000", "300000000000000000", "200000000000000000"], "가나다, 같은 이름은 서버 ID 순서");
   assert.deepEqual(ids({ sort: "name-desc" }), ["200000000000000000", "300000000000000000", "99999999999999999", "100000000000000000"]);
   assert.deepEqual(ids({ sort: "members-desc" }), ["200000000000000000", "100000000000000000", "99999999999999999", "300000000000000000"]);
   assert.deepEqual(ids({ sort: "members-asc" }), ["99999999999999999", "300000000000000000", "100000000000000000", "200000000000000000"]);
-  const view = guildList(all, { ...GUILD_QUERY, playing: true, q: "음" });
+  const view = guildList(all, { ...GUILD_QUERY, playing: true, q: "음" }, KO);
   assert.deepEqual([view.total, view.playing, view.matched, view.guilds.map((one) => one.id)], [4, 2, 1, ["200000000000000000"]]);
 });

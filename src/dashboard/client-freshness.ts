@@ -6,6 +6,8 @@ import fs from "node:fs";
 import path from "node:path";
 import logger from "../infra/log/logger.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
+import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
 const log = logger.child({ category: "dashboard" });
 
 /** 빌드가 남기는 것. files는 저장소 루트에서의 상대 경로(/ 구분) */
@@ -19,7 +21,7 @@ function mtimeOf(file: string) {
   try {
     return fs.statSync(file).mtimeMs;
   } catch (error) {
-    if (codeOf(error) !== "ENOENT") log.warn(`화면 소스 수정 시각 읽기 실패: ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(L.dashboard.screenSourceTimeReadFailed({ error: messageOf(error) }));
     return null;
   }
 }
@@ -29,7 +31,7 @@ function readInputs(file: string): BuildInputs | null {
     const data = JSON.parse(fs.readFileSync(file, "utf8")) as Partial<BuildInputs>;
     return typeof data.builtAt === "number" && Array.isArray(data.files) ? { builtAt: data.builtAt, files: data.files } : null;
   } catch (error) {
-    if (codeOf(error) !== "ENOENT") log.warn(`화면 빌드 정보(${BUILD_INPUTS}) 읽기 실패: ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(L.dashboard.screenBuildInfoReadFailed({ file: BUILD_INPUTS, error: messageOf(error) }));
     return null;
   }
 }
@@ -46,22 +48,22 @@ function clientFreshness(dist: string, root: string): Freshness {
   return changed.length ? { state: "stale", changed } : { state: "fresh" };
 }
 
-const REBUILD = "pnpm run build:dashboard로 빌드하세요(봇은 다시 시작하지 않아도 됨)";
+const REBUILD = L.dashboard.screenRebuildHint();
 const SHOWN = 3;
 
 /** 운영자에게 남길 경고. 새것이면 null */
-function freshnessWarning(freshness: Freshness): string | null {
+function freshnessWarning(freshness: Freshness): LogText | null {
   switch (freshness.state) {
     case "fresh":
       return null;
     case "missing":
-      return `대시보드 화면이 빌드되지 않음. ${REBUILD}`;
+      return L.dashboard.screenNotBuilt({ rebuild: REBUILD });
     case "unknown":
-      return `대시보드 화면 빌드 시점을 알 수 없음(빌드 정보 없음). ${REBUILD}`;
+      return L.dashboard.screenBuildTimeUnknown({ rebuild: REBUILD });
     case "stale": {
       const { changed } = freshness;
-      const more = changed.length > SHOWN ? ` 외 ${changed.length - SHOWN}개` : "";
-      return `대시보드 빌드 결과물이 소스 코드보다 오래됨(빌드 후 변경된 화면 소스 ${changed.length}개: ${changed.slice(0, SHOWN).join(", ")}${more}). ${REBUILD}`;
+      const more = changed.length > SHOWN ? L.dashboard.screenStaleMore({ count: changed.length - SHOWN }) : "";
+      return L.dashboard.screenStale({ count: changed.length, files: changed.slice(0, SHOWN).join(", "), more, rebuild: REBUILD });
     }
   }
 }

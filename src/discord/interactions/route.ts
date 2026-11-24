@@ -3,12 +3,13 @@
 import type { BotContext } from "../../app/bot-context.ts";
 import type { ButtonInteraction, Interaction, ModalSubmitInteraction, RoleSelectMenuInteraction, StringSelectMenuInteraction } from "discord.js";
 
-/** 종류마다 핸들러가 받는 상호작용. 서버 안의 것만 온다 */
+/** 종류마다 핸들러가 받는 상호작용. 서버 안의 것만 온다. 서버 밖(DM)에서도 받을 메뉴는 dmSelect로 따로 등록한다 */
 type ByKind = {
   button: ButtonInteraction<"cached">;
   select: StringSelectMenuInteraction<"cached">;
   roleSelect: RoleSelectMenuInteraction<"cached">;
   modal: ModalSubmitInteraction<"cached">;
+  dmSelect: StringSelectMenuInteraction;
 };
 type Kind = keyof ByKind;
 /** enabled: 운영자 설정으로 기능을 껐으면 false. 꺼진 기능의 핸들러는 없는 것과 같다(명령의 enabled와 같은 뜻) */
@@ -17,8 +18,9 @@ type Route = { kind: Kind; prefix: string; enabled?: () => boolean; handle(inter
 /** 핸들러 하나. prefix로 시작하는 custom_id를 받는다 */
 const route = <K extends Kind>(kind: K, prefix: string, handle: (interaction: ByKind[K], bot: BotContext) => unknown, opts: { enabled?: () => boolean } = {}): Route => ({ kind, prefix, ...opts, handle: handle as Route["handle"] });
 
-/** 서버 안의 버튼, 메뉴, 모달이면 그 종류와 좁힌 상호작용. 아니면 null */
+/** 서버 안의 버튼, 메뉴, 모달이면 그 종류와 좁힌 상호작용. DM의 문자열 메뉴는 dmSelect. 아니면 null(캐시에 없는 서버 포함) */
 function componentOf(interaction: Interaction): { kind: Kind; interaction: ByKind[Kind] } | null {
+  if (!interaction.inGuild()) return interaction.isStringSelectMenu() ? { kind: "dmSelect", interaction } : null;
   if (!interaction.inCachedGuild()) return null;
   if (interaction.isButton()) return { kind: "button", interaction };
   if (interaction.isStringSelectMenu()) return { kind: "select", interaction };

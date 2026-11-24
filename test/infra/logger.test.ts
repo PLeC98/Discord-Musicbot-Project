@@ -9,6 +9,11 @@ import logger from "../../src/infra/log/logger.ts";
 import sink from "../../src/infra/log/sink.ts";
 import config from "../../src/config/index.ts";
 import { KEPT_LINES } from "../../src/infra/log/levels.ts";
+import { FAILED_MARK, logText, renderLogText, takeRenderFailures, type LogText } from "../../src/infra/log/log-text.ts";
+import { logRuleLine, ruleLogText } from "../../src/rules/text/index.ts";
+import { rule } from "../../src/rules/rule-problem.ts";
+import { testText } from "../helpers/log-text.ts";
+import { L } from "../../src/infra/log/text.ts";
 const { buildRecord, createLogger, LEVELS } = logger._internals;
 const { LogSink } = sink;
 // 터미널 소음 억제
@@ -38,6 +43,98 @@ test("buildRecord: (err). err는 필드로 남고 stack이 msg에 접붙음", ()
   assert.match(String(r.err), /펑/);
 });
 
+test("buildRecord: (err, msg). err는 필드로, msg 뒤에 stack을 붙인다", () => {
+  const e = new Error("펑");
+  const r = buildRecord(LEVELS.error, {}, [e, "저장 실패"]);
+  assert.match(r.msg, /^저장 실패 Error: 펑/);
+  assert.match(String(r.err), /^Error: 펑/);
+});
+
+test("buildRecord: (msg, 덧붙인 값). util.format으로 이어 붙이고 Error는 err 필드가 아니다", () => {
+  const e = new Error("펑");
+  const r = buildRecord(LEVELS.error, {}, ["재생 실패:", e]);
+  assert.match(r.msg, /^재생 실패: Error: 펑/);
+  assert.equal(r.err, undefined);
+});
+
+test("buildRecord: (obj, msg, ...interp). 병합하고 util.format", () => {
+  const r = buildRecord(LEVELS.info, {}, [{ tags: ["a"] }, "곡 %d개", 3]);
+  assert.equal(r.msg, "곡 3개");
+  assert.deepEqual(r.tags, ["a"]);
+});
+
+// ── facade: 문구(서술자) 형식 ─────────────────────────────
+const demo = (args: Record<string, string | number | boolean | null | LogText> = {}, render = () => "문구 글") => logText("demo.line", args, render);
+
+test("buildRecord: (문구). msg는 그린 글, event와 args를 싣는다", () => {
+  const r = buildRecord(LEVELS.warn, { category: "player" }, [demo({ track: "곡", n: 2 })]);
+  assert.equal(r.msg, "문구 글");
+  assert.equal(r.event, "demo.line");
+  assert.deepEqual(r.args, { track: "곡", n: 2 });
+  assert.equal(r.category, "player");
+});
+
+test("buildRecord: (바인딩, 문구), (err, 문구)", () => {
+  const bound = buildRecord(LEVELS.info, {}, [{ tags: ["a"] }, demo()]);
+  assert.deepEqual([bound.msg, bound.event, bound.tags], ["문구 글", "demo.line", ["a"]]);
+  const failed = buildRecord(LEVELS.error, {}, [new Error("펑"), demo()]);
+  assert.match(failed.msg, /^문구 글 Error: 펑/);
+  assert.match(String(failed.err), /^Error: 펑/);
+  assert.equal(failed.event, "demo.line");
+});
+
+test("buildRecord: 문구 뒤에 값이 오면 형식 문자열로 쓰지 않고 차례대로 뒤에 붙이고(Error는 inspect), Error는 err로도 올린다", () => {
+  const r = buildRecord(LEVELS.error, {}, [demo({}, () => "곡 %s 100%d"), "덧붙임", new Error("펑"), { a: 1 }]);
+  assert.match(r.msg, /^곡 %s 100%d 덧붙임 Error: 펑[\s\S]* \{ a: 1 \}$/);
+  assert.equal(r.msg.split("Error: 펑").length, 2, "스택을 두 번 붙이지 않는다");
+  assert.match(String(r.err), /^Error: 펑/);
+});
+
+test("buildRecord: 글 뒤의 오류는 글 형식(util.format)과 같은 글로 남는다(오류 코드, 원인까지)", () => {
+  const error = Object.assign(new Error("끊김"), { code: "ECONNRESET" });
+  const legacy = buildRecord(LEVELS.warn, {}, ["저장 실패:", error]);
+  const described = buildRecord(LEVELS.warn, {}, [demo({}, () => "저장 실패:"), error]);
+  assert.equal(described.msg, legacy.msg);
+  assert.match(described.msg, /ECONNRESET/);
+});
+
+test("buildRecord: 값 안의 서술자(라벨)는 레코드에 { event, args }로 싣는다", () => {
+  const label = logText("demo.label", { id: 1 }, () => "라벨");
+  const r = buildRecord(LEVELS.info, {}, [demo({ label })]);
+  assert.deepEqual(r.args, { label: { event: "demo.label", args: { id: 1 } } });
+  assert.deepEqual(JSON.parse(JSON.stringify(r.args)), r.args, "그대로 직렬화된다");
+});
+
+test("buildRecord: 문구 함수가 던져도 던지지 않고 표식이 붙은 대체 글을 남긴다", () => {
+  const r = buildRecord(LEVELS.warn, {}, [
+    demo({ n: 1 }, () => {
+      throw new Error("x");
+    }),
+  ]);
+  assert.equal(r.msg, `${FAILED_MARK} demo.line {"n":1}`);
+  assert.equal(r.event, "demo.line");
+  // 일부러 낸 실패라 꺼내 비운다(실행 전체 검사)
+  assert.deepEqual(takeRenderFailures(), ["demo.line"]);
+});
+
+test("레벨에 걸러지는 줄은 문구를 그리지 않는다", () => {
+  let renders = 0;
+  const got: LogRecord[] = [];
+  const l = createLogger({}, "warn", (rec) => got.push(rec));
+  l.debug(demo({}, () => `글 ${++renders}`));
+  assert.deepEqual([got.length, renders], [0, 0]);
+  l.warn(demo({}, () => `글 ${++renders}`));
+  assert.deepEqual([got.length, renders], [1, 1]);
+});
+
+test("규칙 문제를 로그 문구로: event는 rule.<코드>, 감싼 이유는 값 안의 서술자, 글은 logRuleLine과 같다", () => {
+  const problem = rule("tune-value", { key: "LOG_LEVEL", value: "x" }, rule("one-of", { allowed: "a, b" }));
+  const text = ruleLogText(problem);
+  assert.equal(text.event, "rule.tune-value");
+  assert.deepEqual(buildRecord(LEVELS.warn, {}, [text]).args, { key: "LOG_LEVEL", value: "x", cause: { event: "rule.one-of", args: { allowed: "a, b" } } });
+  assert.equal(renderLogText(text), logRuleLine(problem));
+});
+
 test("buildRecord: (obj) 단독. msg 빈 문자열", () => {
   const r = buildRecord(LEVELS.info, {}, [{ a: 1 }]);
   assert.equal(r.msg, "");
@@ -48,8 +145,8 @@ test("buildRecord: (obj) 단독. msg 빈 문자열", () => {
 test("레벨 게이팅: 현재 레벨 미만은 기록하지 않는다", () => {
   const calls: LogRecord[] = [];
   const log = createLogger({}, "info", (r) => calls.push(r));
-  log.debug("이건 무시"); // 20 < 30
-  log.info("이건 통과"); // 30 >= 30
+  log.debug(testText("이건 무시")); // 20 < 30
+  log.info(testText("이건 통과")); // 30 >= 30
   assert.equal(calls.length, 1);
   assert.equal(calls[0].msg, "이건 통과");
 });
@@ -59,7 +156,7 @@ test("level 세터로 게이팅 조정 가능", () => {
   const log = createLogger({}, "info", (r) => calls.push(r));
   log.level = "debug";
   assert.equal(log.level, "debug");
-  log.debug("이제 통과");
+  log.debug(testText("이제 통과"));
   assert.equal(calls.length, 1);
 });
 
@@ -68,7 +165,7 @@ test("child: 바인딩 병합, 부모 레벨 상속", () => {
   const parent = createLogger({ category: "a" }, "warn", (r) => calls.push(r));
   const child = parent.child({ sub: "b" });
   assert.equal(child.level, "warn");
-  child.error("x");
+  child.error(testText("x"));
   assert.equal(calls[0].category, "a");
   assert.equal(calls[0].sub, "b");
 });
@@ -121,8 +218,8 @@ test("레드액션: 메시지 패턴은 msg 밖의 글 값에도 건다(Error의
   const got: LogRecord[] = [];
   lm.destinations.push((r) => got.push(r));
   const log = createLogger({ category: "test" }, null, (rec) => lm.record(rec));
-  log.error(new Error("요청 실패 Bearer abcDEF123456ghized"));
-  log.error({ body: JSON.stringify({ error: "x", token: "body-token-5678" }), status: 401 }, "토큰 교환 실패");
+  log.error(new Error("요청 실패 Bearer abcDEF123456ghized"), testText("요청 실패"));
+  log.error({ body: JSON.stringify({ error: "x", token: "body-token-5678" }), status: 401 }, testText("토큰 교환 실패"));
   const [thrown, bound] = got;
   for (const field of [thrown.msg, thrown.err]) {
     assert.match(String(field), /Bearer \[REDACTED\]/);
@@ -131,6 +228,36 @@ test("레드액션: 메시지 패턴은 msg 밖의 글 값에도 건다(Error의
   assert.equal(bound.body, '{"error":"x","token":"[REDACTED]"}');
   assert.equal(bound.status, 401);
   assert.equal(bound.category, "test", "패턴에 걸리지 않는 글은 그대로");
+});
+
+test("레드액션: 문구 값(args)은 모든 깊이에서 키 이름과 글 값을 가리고, 원본 서술자는 바꾸지 않는다", () => {
+  const lm = new LogSink({ intercept: false, terminal: quiet });
+  const got: LogRecord[] = [];
+  lm.destinations.push((r) => got.push(r));
+  const log = createLogger({}, null, (rec) => lm.record(rec));
+  const label = logText("demo.label", { token: "inner-secret-1", note: "Bearer abcDEF123456ghized" }, () => "라벨");
+  const text = logText("demo.line", { label, status: 401, long: "가".repeat(20_000) }, () => "글");
+  log.warn(text);
+  const args = got[0].args as { label: { args: { token: string; note: string } }; status: number; long: string };
+  assert.equal(args.label.args.token, "[REDACTED]");
+  assert.equal(args.label.args.note, "Bearer [REDACTED]");
+  assert.equal(args.status, 401);
+  assert.ok(args.long.length < 20_000, "글 값 길이 상한도 건다");
+  assert.equal(label.args.token, "inner-secret-1", "원본 서술자는 그대로");
+  assert.equal((text.args.long as string).length, 20_000);
+});
+
+test("바깥 글을 그대로 싣는 문구(값 이름 text)는 글을 msg에만 싣고(가린다) 값에는 다시 싣지 않는다", () => {
+  const lm = new LogSink({ intercept: false, terminal: quiet });
+  const got: LogRecord[] = [];
+  lm.destinations.push((r) => got.push(r));
+  const log = createLogger({}, "trace", (rec) => lm.record(rec));
+  const identify = `[WS] >> ${JSON.stringify({ op: 0, d: { server_id: "1", session_id: "abc", token: "voice-token-1234" } })}`;
+  log.trace(L.voice.connectionDebug({ text: identify, channel: "채널" }));
+  const msg = String(got[0].msg);
+  assert.doesNotMatch(msg, /voice-token-1234/, msg);
+  assert.match(msg, /"token":"\[REDACTED\]"/);
+  assert.deepEqual([got[0].event, got[0].args], ["voice.connectionDebug", { channel: "채널" }]);
 });
 
 // ── sink: 글 값의 길이 상한 ──────────────────────────────────
@@ -279,7 +406,7 @@ function fakeRes({ writeResult = true, writableLength = 0 } = {}) {
 test("관리자 SSE: Connection: close로 연다(끊을 때 그 소켓을 강제로 닫으므로 다시 쓰지 않게)", () => {
   const lm = new LogSink({ intercept: false, terminal: quiet });
   const res = fakeRes();
-  assert.equal(lm.addClient(res, "owner"), true);
+  assert.equal(lm.addClient(res, "owner", config.dashboard.sse), true);
   assert.equal(res.head?.Connection, "close");
 });
 
@@ -287,16 +414,16 @@ test("관리자 SSE: 연결 상한은 사용자마다 센다(설정 이름대로
   const lm = new LogSink({ intercept: false, terminal: quiet });
   const { maxPerUser } = config.dashboard.sse;
 
-  for (let i = 0; i < maxPerUser; i++) lm.addClient(fakeRes(), "owner");
+  for (let i = 0; i < maxPerUser; i++) lm.addClient(fakeRes(), "owner", config.dashboard.sse);
   assert.equal(lm.clients.size, maxPerUser);
 
   const over = fakeRes();
-  assert.equal(lm.addClient(over, "owner"), false);
+  assert.equal(lm.addClient(over, "owner", config.dashboard.sse), false);
   assert.equal(over.statusCode, null, "부른 경로가 문제 응답(too-many-streams)을 쓴다");
   assert.equal(lm.clients.size, maxPerUser, "상한을 넘는 연결은 등록하지 않는다");
 
   const other = fakeRes();
-  assert.equal(lm.addClient(other, "someone-else"), true, "다른 사용자는 따로 센다");
+  assert.equal(lm.addClient(other, "someone-else", config.dashboard.sse), true, "다른 사용자는 따로 센다");
   assert.equal(lm.clients.size, maxPerUser + 1);
 });
 
@@ -305,13 +432,13 @@ test("관리자 SSE: 쓰기가 잠깐 밀린 것으로는 끊지 않고, 밀린 
 
   // 붙을 때 쌓인 줄을 한꺼번에 보내면 write가 false를 돌려준다. 그것만으로 끊으면 붙는 순간 로그가 나면 끊긴다
   const busy = fakeRes({ writeResult: false, writableLength: 100_000 });
-  lm.addClient(busy, "owner");
+  lm.addClient(busy, "owner", config.dashboard.sse);
   lm.record({ level: 30, time: 1, msg: "한 줄" });
   assert.equal(busy.ended, false);
   assert.equal(lm.clients.size, 1);
 
   const stuck = fakeRes({ writeResult: false, writableLength: 2 * 1024 * 1024 });
-  lm.addClient(stuck, "owner");
+  lm.addClient(stuck, "owner", config.dashboard.sse);
   lm.record({ level: 30, time: 2, msg: "한 줄" });
   assert.equal(stuck.destroyed, true, "end로는 읽지 않는 소켓과 쌓인 바이트가 남으므로 강제로 닫는다(destroy)");
   assert.equal(lm.clients.size, 1, "정리까지 되어야 다음 기록에서 다시 만나지 않는다");
@@ -321,7 +448,7 @@ test("관리자 SSE: 붙는 중에 로그가 나도 끊기지 않는다(쌓아 �
   const http = await import("node:http");
   const lm = new LogSink({ intercept: false, terminal: quiet });
   for (let i = 0; i < KEPT_LINES; i++) lm.record({ level: 30, time: i, msg: `줄 ${i} ` + "x".repeat(120) });
-  const server = http.createServer((_req, res) => lm.addClient(res, "owner"));
+  const server = http.createServer((_req, res) => lm.addClient(res, "owner", config.dashboard.sse));
   await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
   const { port } = server.address() as { port: number };
   let ended = false;
@@ -346,15 +473,15 @@ test("관리자 SSE: 줄마다 기동표.번호를 싣고, 재연결하면 마�
   const ids = (res: ReturnType<typeof fakeRes>) => res.writes.flatMap((w) => [...w.matchAll(/^id: \d+\.(\d+)$/gm)].map((m) => Number(m[1])));
 
   const first = fakeRes();
-  lm.addClient(first, "owner");
+  lm.addClient(first, "owner", config.dashboard.sse);
   assert.deepEqual(ids(first), [1, 2, 3]);
 
   const resumed = fakeRes();
-  lm.addClient(resumed, "owner", `${lm.boot}.2`);
+  lm.addClient(resumed, "owner", config.dashboard.sse, `${lm.boot}.2`);
   assert.deepEqual(ids(resumed), [3], "이미 받은 줄은 다시 보내지 않는다");
 
   const restarted = fakeRes();
-  lm.addClient(restarted, "owner", `${lm.boot - 1}.2`);
+  lm.addClient(restarted, "owner", config.dashboard.sse, `${lm.boot - 1}.2`);
   assert.match(restarted.writes[0], /^event: reset\n/);
   assert.deepEqual(ids(restarted), [1, 2, 3]);
 });
@@ -366,21 +493,21 @@ test("관리자 SSE: 이어 받을 줄이 쌓아 둔 줄 밖으로 밀려났으�
   const ids = (res: ReturnType<typeof fakeRes>) => res.writes.flatMap((w) => [...w.matchAll(/^id: \d+\.(\d+)$/gm)].map((m) => Number(m[1])));
 
   const resumed = fakeRes();
-  lm.addClient(resumed, "owner", `${lm.boot}.4`);
+  lm.addClient(resumed, "owner", config.dashboard.sse, `${lm.boot}.4`);
   assert.deepEqual(gapOf(resumed), [{ missed: 3 }], "5, 6, 7번이 밀려났다");
   assert.ok(resumed.writes.findIndex((w) => w.startsWith("event: gap")) < resumed.writes.findIndex((w) => w.startsWith("id:")), "줄보다 먼저");
   assert.deepEqual(ids(resumed), [8, 9, 10]);
 
   const caughtUp = fakeRes();
-  lm.addClient(caughtUp, "owner", `${lm.boot}.7`);
+  lm.addClient(caughtUp, "owner", config.dashboard.sse, `${lm.boot}.7`);
   assert.deepEqual(gapOf(caughtUp), [], "바로 다음 줄부터 남아 있으면 빠진 것이 없다");
 
   const restarted = fakeRes();
-  lm.addClient(restarted, "owner", `${lm.boot - 1}.99`);
+  lm.addClient(restarted, "owner", config.dashboard.sse, `${lm.boot - 1}.99`);
   assert.deepEqual(gapOf(restarted), [{ missed: 7 }], "다시 시작했으면 이 실행의 1번부터 센다");
 
   const fresh = fakeRes();
-  lm.addClient(fresh, "owner");
+  lm.addClient(fresh, "owner", config.dashboard.sse);
   assert.deepEqual(gapOf(fresh), [], "처음 연결");
 });
 
@@ -388,7 +515,7 @@ test("관리자 SSE: 연결이 닫히면 하트비트도 함께 제거한다", (
   const lm = new LogSink({ intercept: false, terminal: quiet });
 
   const res = fakeRes();
-  lm.addClient(res, "owner");
+  lm.addClient(res, "owner", config.dashboard.sse);
   assert.equal(typeof res.handlers.close, "function");
   assert.equal(typeof res.handlers.error, "function");
 
@@ -434,13 +561,13 @@ test("관리자 SSE: 하트비트는 바뀐 간격으로 다시 건다", () => {
   try {
     sse.heartbeatMs = 20_000;
     const res = fakeRes();
-    lm.addClient(res, "owner");
+    lm.addClient(res, "owner", config.dashboard.sse);
     const pings = () => res.writes.filter((w) => w.startsWith(": ping")).length;
     mock.timers.tick(20_000);
     assert.equal(pings(), 1);
 
     sse.heartbeatMs = 5_000;
-    lm.syncHeartbeat();
+    lm.syncHeartbeat(sse.heartbeatMs);
     mock.timers.tick(5_000);
     assert.equal(pings(), 2, "새 간격");
   } finally {

@@ -4,6 +4,7 @@ import logger from "../infra/log/logger.ts";
 import { messageOf } from "../rules/error-kind.ts";
 import { cacheDb } from "./cache-db.ts";
 import { DONE, GONE, changedTo, type Guarded } from "./guarded-write.ts";
+import { L } from "../infra/log/text.ts";
 
 const log = logger.child({ category: "cache" });
 
@@ -120,7 +121,7 @@ function anonData(row: JsonRow | undefined): Record<string, unknown> | null {
     return JSON.parse(row.data_json) as Record<string, unknown>;
   } catch (error) {
     // 봇이 쓴 행이므로 깨졌으면 저장이 잘못된 것이다. 없는 것으로 보고 새로 받아 덮어쓴다
-    log.warn(`저장된 스포티파이 익명 상태 JSON 파싱 실패(캐시 미스로 처리): ${messageOf(error)}`);
+    log.warn(L.cache.spotifyAnonStateParseFailed({ error: messageOf(error) }));
     return null;
   }
 }

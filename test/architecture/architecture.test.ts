@@ -4,6 +4,7 @@
 // 안 지우면 실패한다. 남은 슬롯만큼 새 위반이 숨기 때문이다(eslint 억제 파일과 같은 규칙).
 
 import fs from "node:fs";
+import { builtinModules } from "node:module";
 import path from "node:path";
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -76,6 +77,44 @@ test(".env는 진입 파일의 첫 줄만 읽는다", () => {
   assert.deepEqual(now.withoutBootstrap, [], "설정에 닿는 진입 파일은 프로젝트 모듈 중 app/env-bootstrap을 맨 먼저 부른다");
 });
 
+// 설정 검사 글은 설정 모듈을 평가할 때 그려지므로, 로그 언어는 그보다 먼저 정해져 있어야 한다
+test("실행을 시작하는 파일은 다른 무엇보다 먼저 로그 언어를 고른다(.env를 읽는 진입은 읽은 바로 뒤에)", () => {
+  assert.ok(
+    ["src/index.ts", "scripts/setup-config.ts", "scripts/launch.ts"].every((rel) => now.startFiles.includes(rel)),
+    now.startFiles.join(", "),
+  );
+  assert.ok(!now.startFiles.includes("scripts/download.ts"), "다른 파일이 부르는 scripts 모듈은 진입이 아니다");
+  assert.deepEqual(now.withoutLogLanguage, [], "첫 부름이 app/env-bootstrap 이나 infra/log/choose-at-start");
+  const boot = fs.readFileSync(path.join(PROJECT.root, "src", "app", "env-bootstrap.ts"), "utf8");
+  assert.match(boot, /\nloadEnv\(\);\nchooseLogLanguage\(\);\n/, "env-bootstrap 은 .env를 읽은 바로 뒤에 고른다");
+});
+
+test("로그 언어를 고르는 모듈은 태그 맞추기와 그 데이터 말고 다른 프로젝트 모듈, Node 내장 모듈, 패키지를 부르지 않는다(화면 번들까지 닿고 설정, 로거보다 먼저 돈다)", () => {
+  assert.deepEqual(now.chooseReach, ["data/cldr-region-groups.json", "src/infra/language-tag.ts", "src/infra/log/choose-language.ts", "src/infra/log/language.ts"]);
+  assert.deepEqual(now.chooseBareImports, []);
+});
+
+test("로그 문구 진입점은 문구 번들 장치와 로그 문구표만 부른다(로그, 설정, Node 내장 모듈, 패키지 없이). 한국어 문구표는 조사 도우미와 그 받침 표도", () => {
+  const allowed = (rel: string) => /^src\/infra\/(text-bundle|text-fill|pseudo-text)\.ts$|^src\/infra\/log\/(text|log-text|language)\.ts$|^locales\/[^/]+\/log\/|^src\/infra\/(josa|english-final)\.ts$|^data\/(kanji|english)-finals\.json$/.test(rel);
+  assert.ok(
+    now.logTextReach.some((rel) => rel.startsWith("locales/ko/log/")),
+    "따라가기가 문구표까지 닿는다",
+  );
+  assert.deepEqual(
+    now.logTextReach.filter((rel) => !allowed(rel)),
+    [],
+  );
+  assert.deepEqual(now.logTextBareImports, []);
+});
+
+test(".env를 읽지 않는 진입의 첫 줄은 경로 모듈과 Node 내장 모듈만 더 부른다(node_modules 없이 돈다)", () => {
+  assert.deepEqual(now.atStartReach, ["data/cldr-region-groups.json", "src/infra/language-tag.ts", "src/infra/log/choose-at-start.ts", "src/infra/log/choose-language.ts", "src/infra/log/language.ts", "src/infra/project-paths.ts"]);
+  assert.deepEqual(
+    now.atStartBareImports.filter((spec) => !builtinModules.includes(spec.replace(/^node:/, ""))),
+    [],
+  );
+});
+
 test("저장소 루트를 맞게 가리킨다", () => {
   assert.ok(fs.existsSync(path.join(PROJECT.root, "package.json")), PROJECT.root);
   assert.ok(fs.existsSync(path.join(PROJECT.root, "pnpm-workspace.yaml")), "다른 package.json이 아니라 이 저장소의 루트");
@@ -100,4 +139,9 @@ test("봇, 테스트, 스크립트의 파일 이름은 kebab-case", () => {
   const files = (dir: string): string[] => fs.readdirSync(path.join(PROJECT.root, dir), { recursive: true, encoding: "utf8" }).filter((f) => /\.(ts|js|mjs)$/.test(f));
   const bad = ["src", "test", "scripts"].flatMap((dir) => files(dir).map((f) => `${dir}/${f.split(path.sep).join("/")}`)).filter((f) => !/^[a-z0-9]+(-[a-z0-9]+)*(\.[a-z0-9]+)*\.(ts|js|mjs)$/.test(path.posix.basename(f)));
   assert.deepEqual(bad, []);
+});
+
+test("워커는 로그 문구 진입점을 부르지 않는다(로그 언어를 고르지 않아 기준 언어로 그린다. 메인에 글이나 코드를 보낸다)", () => {
+  assert.ok(now.workerFiles.length > 0, "따라가기가 워커 진입 파일을 찾는다");
+  assert.deepEqual(now.workerLogText, []);
 });

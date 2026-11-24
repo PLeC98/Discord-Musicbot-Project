@@ -9,6 +9,9 @@ import type { NextFunction, Request, RequestHandler, Response } from "express";
 import logger from "../infra/log/logger.ts";
 import { trustedPeer } from "./browser-side.ts";
 import { warnGate } from "./warn-gate.ts";
+import { htmlPage } from "./html-page.ts";
+import { L } from "../infra/log/text.ts";
+import { asText, type LogText } from "../infra/log/log-text.ts";
 
 const log = logger.child({ category: "dashboard" });
 
@@ -38,7 +41,7 @@ function allowedHost(host: string, urlHost: string | null) {
   return LOCAL_SUFFIXES.some((s) => host.endsWith(s));
 }
 
-type HostValue = { header: string; value: string };
+type HostValue = { header: string | LogText; value: string };
 
 /** 이 요청에서 검사할 호스트 값들(어느 헤더에서 왔는지와 함께). Host 헤더가 없거나 여러 개면 null */
 function hostValues(req: Request): HostValue[] | null {
@@ -46,7 +49,7 @@ function hostValues(req: Request): HostValue[] | null {
   if (hosts.length !== 1 || req.headers.host === undefined) return null;
   const values: HostValue[] = [{ header: "Host", value: req.headers.host }];
   const absolute = /^[a-z][a-z0-9+.-]*:\/\/([^/?#]*)/i.exec(req.url);
-  if (absolute) values.push({ header: "요청 대상", value: absolute[1] });
+  if (absolute) values.push({ header: L.dashboard.hostHeaderRequestTarget(), value: absolute[1] });
   const forwarded = trustedPeer(req) ? req.headers["x-forwarded-host"] : undefined;
   for (const value of String(forwarded ?? "").split(",")) if (value.trim()) values.push({ header: "X-Forwarded-Host", value });
   return values;
@@ -70,14 +73,16 @@ function hostCheck(url: string): RequestHandler {
     const bad = checked.find(({ host }) => host === null || !allowedHost(host, urlHost));
     if (!bad) return next();
     const shown = bad.host;
-    const verdict = gate(`${bad.header}:${shown ?? ""}`);
+    const verdict = gate(`${asText(bad.header)}:${shown ?? ""}`);
     if (verdict === "warn") {
-      log.warn(shown ? `허용하지 않은 호스트로 온 요청 차단(${bad.header}): ${shown}. 이 주소로 접속하려면 DASHBOARD_URL을 이 주소로 바꾸세요.` : "Host 헤더가 없거나 여러 개이거나 형식이 잘못된 요청 차단");
+      log.warn(shown ? L.dashboard.hostBlocked({ header: bad.header, host: shown }) : L.dashboard.hostHeaderBad());
     } else if (verdict === "cap") {
-      log.warn("허용하지 않은 호스트로 온 요청이 많아 1시간 동안 더는 로그에 남기지 않음(차단은 그대로)");
+      log.warn(L.dashboard.badHostMuted());
     }
-    const body = shown ? `<p>이 주소(${escapeHtml(shown)})로는 대시보드를 열 수 없어요.</p><p>이 주소로 접속하려면 봇의 .env에서 <code>DASHBOARD_URL</code>을 이 주소로 바꾸고 봇을 다시 시작하세요.</p>` : "<p>요청의 Host 헤더가 잘못되어 대시보드를 열 수 없어요.</p>";
-    res.status(403).type("html").send(`<!doctype html><meta charset="utf-8"><title>대시보드</title>${body}`);
+    res
+      .status(403)
+      .type("html")
+      .send(htmlPage(req, (T) => (shown ? T.pages.badHost(escapeHtml(shown)) : T.pages.badHostHeader)));
   };
 }
 

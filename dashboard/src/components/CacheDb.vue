@@ -34,9 +34,9 @@
       </Transition>
     </div>
 
-    <div class="flex flex-col lg:flex-row gap-2 min-w-0">
-      <!-- 격자 -->
-      <div ref="scroller" tabindex="0" class="relative min-w-0 lg:flex-1 overflow-auto h-128 rounded-(--r-inner) border border-outline-variant/40 outline-none focus-visible:border-primary" @scroll="onScroll" @keydown="onKey">
+    <div ref="splitRow" class="flex flex-col lg:flex-row min-w-0">
+      <!-- 격자. 좁은 화면의 높이는 아래 경계가 정한다 -->
+      <div ref="scroller" tabindex="0" class="relative min-w-0 lg:flex-1 overflow-auto lg:h-128 rounded-(--r-inner) border border-outline-variant/40 outline-none focus-visible:border-primary" :style="wide ? undefined : { height: `${gridH}px` }" @scroll="onScroll" @keydown="onKey">
         <table class="text-xs nums border-separate border-spacing-0 table-fixed select-none" :style="{ width: `${tableWidth}px` }">
           <colgroup>
             <col :style="{ width: `${HEAD_W}px` }" />
@@ -101,8 +101,13 @@
         <p v-if="!loading && matched === 0 && !changes.newRows.length" class="py-10 text-center text-sm text-on-surface-variant">{{ T.values.noRows }}</p>
       </div>
 
+      <!-- 격자와 편집 창 사이 경계. 끌거나 화살표 키로 넓은 화면은 편집 창 폭, 좁은 화면은 격자 높이를 바꾸고, 두 번 누르면 처음 크기로 돌아간다 -->
+      <div role="separator" tabindex="0" :aria-orientation="wide ? 'vertical' : 'horizontal'" :aria-label="T.editPane.resize" class="group shrink-0 flex items-center justify-center h-2 cursor-row-resize touch-none outline-none lg:h-auto lg:w-2 lg:cursor-col-resize" @pointerdown="startSplit" @dblclick="resetSplit" @keydown="splitKey">
+        <span class="w-8 h-1 rounded-full bg-outline-variant transition-colors group-hover:bg-primary group-focus-visible:bg-primary lg:w-1 lg:h-8"></span>
+      </div>
+
       <!-- 셀 편집 창(DB4S의 Edit Database Cell) -->
-      <aside class="lg:w-80 shrink-0 flex flex-col gap-2 rounded-(--r-inner) border border-outline-variant/40 p-3">
+      <aside class="shrink-0 flex flex-col gap-2 rounded-(--r-inner) border border-outline-variant/40 p-3" :style="wide ? { width: `${paneW}px` } : undefined">
         <template v-if="focusInfo">
           <p class="text-xs font-medium text-on-surface">{{ T.editPane.title(T.columns[focusInfo.column], focusInfo.label) }}</p>
           <textarea v-model="pane.value" rows="5" :readonly="!focusInfo.editable" :class="AREA" class="text-xs! break-all" @keydown.ctrl.enter.prevent="applyPane(true)" @keydown.esc.prevent="cancelPane()" @input="pane.dirty = true"></textarea>
@@ -159,6 +164,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from "vue";
+import { useElementSize, useMediaQuery, useWindowSize } from "@vueuse/core";
 import { useCloseLayer } from "../composables/close-layer.ts";
 import axios from "axios";
 import BaseButton from "./BaseButton.vue";
@@ -203,9 +209,25 @@ import {
   type TrackAgeRow,
 } from "../../../src/dashboard/contract/track-cache.ts";
 import { cellText, changeCount, editable, emptyChanges, keyOf, opsOf, rawText, stamp, summaryOf, type AnyRow, type Changes, type NewRow } from "../cache-db/model.ts";
+import { GRID_HEIGHT, KEY_STEP, PANE_WIDTH, gridHeight, paneWidth } from "../cache-db/split.ts";
 import { text } from "../text/index.ts";
 const T = text.cacheDb;
-const tableOptions = TRACK_CACHE_TABLES.map((one) => ({ value: one, label: T.tables[one] }));
+
+// 필터 입력란 오른쪽 클릭: 차례, 보기, 넣는 글(필터 문법은 DB Browser for SQLite와 같다). 항목 이름은 문구표에 둔다
+const FILTER_OPS: ReadonlyArray<{ id: keyof typeof T.filterMenu; hint: string; insert: string }> = [
+  { id: "contains", hint: "abc", insert: "" },
+  { id: "equal", hint: "=abc", insert: "=" },
+  { id: "notEqual", hint: "<>abc", insert: "<>" },
+  { id: "greater", hint: ">10", insert: ">" },
+  { id: "less", hint: "<10", insert: "<" },
+  { id: "atLeast", hint: ">=10", insert: ">=" },
+  { id: "atMost", hint: "<=10", insert: "<=" },
+  { id: "range", hint: "10~20", insert: "~" },
+  { id: "regex", hint: "/abc/", insert: "//" },
+  { id: "empty", hint: "=''", insert: "=''" },
+  { id: "notEmpty", hint: "<>''", insert: "<>''" },
+];
+const tableOptions = computed(() => TRACK_CACHE_TABLES.map((one) => ({ value: one, label: T.tables[one] })));
 
 const API = "/api/admin/track-cache";
 const ROW_H = 28;
@@ -260,6 +282,62 @@ function startResize(event: MouseEvent, c: string) {
   };
   window.addEventListener("mousemove", move);
   window.addEventListener("mouseup", up);
+}
+
+// ── 격자와 편집 창 사이 경계(크기는 브라우저에 사람마다) ──────────────────────
+
+const SPLIT_KEY = "cacheDb.split";
+// 나란히 놓이는 화면. 템플릿의 lg:와 같은 기준이다
+const wide = useMediaQuery("(min-width: 64rem)");
+const splitRow = ref<HTMLElement | null>(null);
+const { width: rowWidth } = useElementSize(splitRow);
+const { height: windowHeight } = useWindowSize();
+const split = reactive(readSplit());
+function readSplit() {
+  try {
+    const saved = JSON.parse(readStored(SPLIT_KEY) ?? "{}") as { pane?: unknown; grid?: unknown };
+    return { pane: Number(saved.pane) || PANE_WIDTH.initial, grid: Number(saved.grid) || GRID_HEIGHT.initial };
+  } catch {
+    return { pane: PANE_WIDTH.initial, grid: GRID_HEIGHT.initial };
+  }
+}
+const saveSplit = () => writeStored(SPLIT_KEY, JSON.stringify(split));
+// 저장한 크기를 지금 화면에 맞춘다(창을 줄였으면 격자 최소 폭, 창 높이의 80%까지)
+const paneW = computed(() => paneWidth(split.pane, rowWidth.value));
+const gridH = computed(() => gridHeight(split.grid, windowHeight.value));
+
+function startSplit(event: PointerEvent) {
+  if (event.button !== 0) return;
+  event.preventDefault();
+  const handle = event.currentTarget as HTMLElement;
+  handle.setPointerCapture(event.pointerId);
+  const from = { x: event.clientX, y: event.clientY, pane: paneW.value, grid: gridH.value };
+  const move = (e: PointerEvent) => {
+    // 편집 창이 오른쪽이라 왼쪽으로 끌면 넓어진다
+    if (wide.value) split.pane = paneWidth(from.pane - (e.clientX - from.x), rowWidth.value);
+    else split.grid = gridHeight(from.grid + (e.clientY - from.y), windowHeight.value);
+  };
+  const up = () => {
+    handle.removeEventListener("pointermove", move);
+    handle.removeEventListener("pointerup", up);
+    handle.removeEventListener("pointercancel", up);
+    saveSplit();
+  };
+  handle.addEventListener("pointermove", move);
+  handle.addEventListener("pointerup", up);
+  handle.addEventListener("pointercancel", up);
+}
+function splitKey(event: KeyboardEvent) {
+  if (wide.value && (event.key === "ArrowLeft" || event.key === "ArrowRight")) split.pane = paneWidth(paneW.value + (event.key === "ArrowLeft" ? KEY_STEP : -KEY_STEP), rowWidth.value);
+  else if (!wide.value && (event.key === "ArrowUp" || event.key === "ArrowDown")) split.grid = gridHeight(gridH.value + (event.key === "ArrowDown" ? KEY_STEP : -KEY_STEP), windowHeight.value);
+  else return;
+  event.preventDefault();
+  saveSplit();
+}
+function resetSplit() {
+  split.pane = PANE_WIDTH.initial;
+  split.grid = GRID_HEIGHT.initial;
+  saveSplit();
 }
 
 // ── 행 읽기(이어 불러오기: 보이는 구간의 청크만 불러온다) ─────────────────────
@@ -419,12 +497,12 @@ function jumpTo(r: number) {
   scroller.value?.focus({ preventScroll: true });
 }
 const pageRows = () => Math.max(1, Math.floor(viewHeight.value / ROW_H) - 3);
-const PAGER: Array<{ icon: IconName; label: string; go: () => void }> = [
+const PAGER = computed<Array<{ icon: IconName; label: string; go: () => void }>>(() => [
   { icon: "skip_previous", label: T.pager.first, go: () => scrollToRow(0) },
   { icon: "arrow_back", label: T.pager.prev, go: () => scrollToRow(Math.floor(scrollTop.value / ROW_H) - pageRows()) },
   { icon: "arrow_forward", label: T.pager.next, go: () => scrollToRow(Math.floor(scrollTop.value / ROW_H) + pageRows()) },
   { icon: "skip_next", label: T.pager.last, go: () => scrollToRow(matched.value - 1) },
-];
+]);
 
 // 상태 줄의 안내(잠깐)
 const hint = ref("");
@@ -1037,7 +1115,7 @@ function openHeaderMenu(event: MouseEvent, c: string, i: number) {
 function openFilterMenu(event: MouseEvent, c: string) {
   const now = () => filters[table.value][c] ?? "";
   const bare = () => now().replace(/^(<>|>=|<=|=|>|<)/, "");
-  place(event, [...T.filterMenu.map((one): Item => ({ label: one.label, hint: one.hint, run: () => setFilter(c, one.insert === "~" ? `${now()}~` : one.insert === "//" ? `/${now()}/` : `${one.insert}${bare()}`) })), "-", { label: T.filterHelp }], false);
+  place(event, [...FILTER_OPS.map((one): Item => ({ label: T.filterMenu[one.id], hint: one.hint, run: () => setFilter(c, one.insert === "~" ? `${now()}~` : one.insert === "//" ? `/${now()}/` : `${one.insert}${bare()}`) })), "-", { label: T.filterHelp }], false);
 }
 function openCellMenu(event: MouseEvent, r: number, i: number) {
   if (!isSelected(r, i)) {

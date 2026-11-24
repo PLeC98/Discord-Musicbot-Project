@@ -4,6 +4,7 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "guild" });
 import { stateDb } from "./state-db.ts";
 import { codeOf } from "../rules/error-kind.ts";
+import { L } from "../infra/log/text.ts";
 
 /** 현재 재생 패널의 위치 */
 type PanelRecord = { channelId: string | null; messageId: string };
@@ -28,7 +29,7 @@ async function getPanel(guildId: string): Promise<PanelRecord | null> {
     return record;
   } catch (error) {
     if (codeOf(error) === "DB_NOT_OPEN") throw error;
-    log.error("현재 재생 패널 위치 읽기 실패(이전 패널 정리 생략):", error);
+    log.error(L.guild.panelPlaceReadFailed(), error);
     return null;
   }
 }
@@ -51,7 +52,7 @@ async function setPanel(guildId: string, channelId: string | null, messageId: st
     cache.set(guildId, messageId ? { channelId, messageId } : null);
   } catch (error) {
     if (codeOf(error) === "DB_NOT_OPEN") throw error;
-    log.error("현재 재생 패널 위치 저장 실패:", error);
+    log.error(L.guild.panelPlaceSaveFailed(), error);
   }
 }
 

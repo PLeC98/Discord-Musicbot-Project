@@ -16,6 +16,8 @@ import type { PotStop } from "../sources/youtube/pot-server.ts";
 import { finishSessions } from "../dashboard/session-store.ts";
 import { beginShutdown } from "../infra/shutdown-state.ts";
 import { stopJob } from "../infra/script-job.ts";
+import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
 
 // 바깥 경계. 테스트는 가짜를 넘긴다
 type Boundary = {
@@ -45,7 +47,7 @@ const REAL: Boundary = {
 /** 내릴 POToken 서버, 닫을 로그 파일(없으면 null), 나머지는 바깥 경계(생략하면 실제 구현) */
 type ShutdownDeps = { potServer: { stop(): Promise<PotStop> }; logFile: { close(): unknown } | null } & Partial<Boundary>;
 /** 종료할 때 세션을 저장하고 음성 연결을 정리할 플레이어 */
-type Saver = { persistence: { save(reason: string): Promise<unknown> }; gain?: { checkpoint(): void }; voice: { release(reason: string): unknown }; updateVoiceStatus(status: string): Promise<unknown> };
+type Saver = { persistence: { save(reason: string): Promise<unknown> }; gain?: { checkpoint(): void }; voice: { release(reason: LogText): unknown }; updateVoiceStatus(status: string): Promise<unknown> };
 // 음성 채널 상태 문구를 지우는 데 기다리는 상한. 넘으면 그대로 끝낸다
 const STATUS_CLEAR_MS = 2000;
 // 다시 시작 공지를 보내는 데 기다리는 상한(모든 서버 합쳐). 넘으면 보낸 것만 세고 종료를 잇는다
@@ -69,15 +71,15 @@ function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
   let bot: ShutdownBot | null = null;
   let shuttingDown = false;
   // why: 로그, 연결 정리에 적는 원인. restart면 다시 시작 코드로 나간다. announce: 다시 시작 전에 재생 중인 서버에 알린다
-  const gracefulShutdown = async (why: string, restart = false, announce = false) => {
+  const gracefulShutdown = async (why: string | LogText, restart = false, announce = false) => {
     // Windows 콘솔의 Ctrl+C는 프로세스 신호와 입력 쪽 신호로 두 번 들어온다. 한 번만 한다
     if (shuttingDown) return;
     shuttingDown = true;
     // 새 음성 연결과 새 작업을 시작하지 않게 한다(막는 곳은 infra/shutdown-state)
     beginShutdown();
     const client = bot?.client ?? null;
-    const reason = restart ? `다시 시작(${why})` : `프로세스 종료(${why})`;
-    log.info(`종료 시작: ${reason}`);
+    const reason = restart ? L.core.shutdownRestartReason({ why }) : L.core.shutdownExitReason({ why });
+    log.info(L.core.shutdownStarted({ reason }));
     // 상주 모드가 재접속을 예약하거나 플레이어 정리 때 상주 설정을 지우지 않게 세션 저장 전에 멈춘다
     bot?.stay?.stop();
     // 공지는 세션을 저장하기 전에(저장하면서 음성 연결을 정리한다). announce는 다시 시작(restart)으로만 들어온다
@@ -91,9 +93,9 @@ function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
   };
 
   // 종료가 중간에 예외를 던져도 나간다. 못 한 정리는 프로세스와 함께 닫힌다(다시 시작이었으면 그래도 다시 실행하게 같은 코드로)
-  const stop = (why: string, restart = false, announce = false) => {
+  const stop = (why: string | LogText, restart = false, announce = false) => {
     gracefulShutdown(why, restart, announce).catch((error: unknown) => {
-      log.error("종료 중 오류:", error);
+      log.error(L.core.shutdownError(), error);
       exit(restart ? EXIT.restart : EXIT.stopped);
     });
   };
@@ -113,7 +115,7 @@ function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
       bot = next;
     },
     /** 정리하고 다시 시작 코드로 나간다. 실행기가 다시 실행한다. by: 누가(로그). announce: 재생 중인 서버에 다시 시작한다고 알린다 */
-    restart(by: string, { announce = false }: { announce?: boolean } = {}) {
+    restart(by: string | LogText, { announce = false }: { announce?: boolean } = {}) {
       stop(by, true, announce);
     },
   };
@@ -126,7 +128,7 @@ async function announceRestart(notices: (() => Promise<boolean>[]) | undefined) 
   try {
     sending = notices();
   } catch (error) {
-    return void log.warn(`다시 시작 공지 실패: ${messageOf(error)}`);
+    return void log.warn(L.core.restartNoticeFailed({ error: messageOf(error) }));
   }
   if (!sending.length) return;
   let sent = 0;
@@ -142,24 +144,24 @@ async function announceRestart(notices: (() => Promise<boolean>[]) | undefined) 
   let cap: NodeJS.Timeout | undefined;
   await Promise.race([Promise.all(counted), new Promise((done) => (cap = setTimeout(done, NOTICE_MS)))]);
   clearTimeout(cap);
-  log.info(`다시 시작 공지: 재생 중인 서버 ${sending.length}곳 중 ${sent}곳에 보냄${pending ? `(${NOTICE_MS / 1000}초 안에 끝나지 않은 ${pending}곳은 그대로 진행)` : ""}`);
+  log.info(L.core.restartNoticesSent({ total: sending.length, sent, pending, seconds: NOTICE_MS / 1000 }));
 }
 
 // 레지스트리에 없던 연결도 나가기 요청 없이 정리한다
-function destroyLeftovers(connections: ReturnType<Boundary["voiceConnections"]>, client: ShutdownBot["client"] | null, reason: string) {
+function destroyLeftovers(connections: ReturnType<Boundary["voiceConnections"]>, client: ShutdownBot["client"] | null, reason: LogText) {
   for (const [guildId, connection] of connections) {
     const name = client?.guilds.cache.get(guildId)?.name ?? guildId;
     try {
       connection.destroy(false);
-      log.info(`음성 연결 정리: ${name} | 원인=${reason} | 레지스트리에 없던 연결`);
+      log.info(L.core.voiceConnectionCleaned({ guild: name, reason }));
     } catch (error) {
-      log.error(`음성 연결 정리 실패: ${name}`, error);
+      log.error(L.core.voiceConnectionCleanFailed({ guild: name }), error);
     }
   }
 }
 
 // 플레이어의 세션을 저장하고, 음성 채널 상태 문구를 지우고, 나가기 요청 없이 연결을 정리한다
-async function savePlayers(players: ShutdownBot["players"], reason: string) {
+async function savePlayers(players: ShutdownBot["players"], reason: LogText) {
   const saves = [];
   for (const [guildId, player] of players) {
     if (!player) continue;
@@ -168,12 +170,12 @@ async function savePlayers(players: ShutdownBot["players"], reason: string) {
     saves.push(
       player.persistence.save("shutdown").then(
         () => true,
-        (err: unknown) => (log.error(`세션 저장 실패 (서버 ID ${guildId}):`, err), false),
+        (err: unknown) => (log.error(L.core.sessionSaveFailed({ guildId }), err), false),
       ),
     );
   }
   const saved = (await Promise.all(saves)).filter(Boolean).length;
-  if (saved) log.info(`세션 저장: 서버 ${saved}곳`);
+  if (saved) log.info(L.core.sessionsSaved({ count: saved }));
 
   // 상태 문구는 채널에 붙어 봇이 빠져도 남는다. 재생 중이던 곡 이름이 소리 없이 떠 있지 않게 지운다
   let cleared = 0;
@@ -187,7 +189,7 @@ async function savePlayers(players: ShutdownBot["players"], reason: string) {
         .updateVoiceStatus("")
         .then(
           () => void cleared++,
-          (error: unknown) => log.warn(`음성 채널 상태 지우기 실패: ${messageOf(error)}`),
+          (error: unknown) => log.warn(L.core.voiceStatusClearFailed({ error: messageOf(error) })),
         )
         .finally(() => pending--),
     );
@@ -195,8 +197,8 @@ async function savePlayers(players: ShutdownBot["players"], reason: string) {
   let cap: NodeJS.Timeout | undefined;
   await Promise.race([Promise.all(clears), new Promise((done) => (cap = setTimeout(done, STATUS_CLEAR_MS)))]);
   clearTimeout(cap);
-  if (cleared) log.info(`음성 채널 상태 문구 지움: ${cleared}곳`);
-  if (pending) log.warn(`음성 채널 상태 문구 지우기가 ${STATUS_CLEAR_MS / 1000}초 안에 끝나지 않아 그대로 진행: ${pending}곳`);
+  if (cleared) log.info(L.core.voiceStatusCleared({ count: cleared }));
+  if (pending) log.warn(L.core.voiceStatusClearTimedOut({ seconds: STATUS_CLEAR_MS / 1000, count: pending }));
 
   // 이 쪽 연결만 정리한다. 리스너를 먼저 떼므로 "연결이 끊겼으니 복구"로 받지 않는다
   for (const [, player] of players) player?.voice.release(reason);
@@ -205,10 +207,10 @@ async function savePlayers(players: ShutdownBot["players"], reason: string) {
 /** 기동이 실패했다. 실행한 것을 내리고 잠시 뒤 code(설정, 토큰이 틀림 또는 일시적 실패)로 나간다 */
 function stopFailedStart(client: { destroy(): unknown } | null, { potServer, logFile, ...boundary }: ShutdownDeps, code: ExitCode, graceMs = FAILED_START_GRACE_MS) {
   const { killAll, stopJob, exit, record } = { ...REAL, ...boundary };
-  log.info("종료 시작: 기동 실패");
+  log.info(L.core.shutdownAfterStartupFailed());
   record.end("startup-failed");
   void release(client, { potServer, logFile, killAll, stopJob })
-    .catch((error: unknown) => log.error("종료 중 오류:", error))
+    .catch((error: unknown) => log.error(L.core.shutdownError(), error))
     .finally(() => setTimeout(() => exit(code), graceMs));
 }
 
@@ -216,21 +218,21 @@ function stopFailedStart(client: { destroy(): unknown } | null, { potServer, log
 async function release(client: { destroy(): unknown } | null, { potServer, logFile, killAll, stopJob }: Pick<ShutdownDeps, "potServer" | "logFile"> & Pick<Boundary, "killAll" | "stopJob">) {
   if (client) await closeClient(client);
   const pot = await potServer.stop();
-  if (pot === "stopped") log.info("POToken 서버 내림");
-  else if (pot === "timeout") log.warn("POToken 서버가 꺼지지 않아 남은 자식 프로세스와 함께 내림");
+  if (pot === "stopped") log.info(L.core.potServerStopped());
+  else if (pot === "timeout") log.warn(L.core.potServerKilled());
 
   const job = await stopJob();
-  if (job) log.info(`진행 중이던 설치 작업 중단: ${job}`);
+  if (job) log.info(L.core.installJobStopped({ job }));
 
   // 진행 중이던 yt-dlp/FFmpeg를 자손까지 정리한다.
   // 정리하지 않으면 Windows에서는 봇만 죽고 ffmpeg가 남아 (라이브 등) 무한 다운로드를 계속한다.
   const killed = killAll();
-  if (killed.length) log.info(`남은 자식 프로세스 정리: ${killed.length}개 (${countByLabel(killed)})`);
+  if (killed.length) log.info(L.core.childProcessesKilled({ count: killed.length, labels: countByLabel(killed) }));
 
   // 끊었지만 삭제하지 못한 로그인 세션을 마지막으로 다시 삭제해 보고, 여전히 남으면 그 수와 다시 시작할 때 일어날 일을 로그에 남긴다
   finishSessions();
 
-  log.info("종료 완료");
+  log.info(L.core.shutdownDone());
   if (logFile) logFile.close();
 }
 
@@ -241,12 +243,12 @@ async function closeClient(client: { destroy(): unknown }) {
     .then(() => client.destroy())
     .then(
       () => "closed" as const,
-      (error: unknown) => (log.warn(`디스코드 연결 닫기 실패: ${messageOf(error)}`), "failed" as const),
+      (error: unknown) => (log.warn(L.core.discordCloseFailed({ error: messageOf(error) })), "failed" as const),
     );
   const how = await Promise.race([closing, new Promise<"timeout">((done) => (cap = setTimeout(done, CLIENT_CLOSE_MS, "timeout")))]);
   clearTimeout(cap);
-  if (how === "closed") log.info("디스코드 연결 닫음");
-  else if (how === "timeout") log.warn(`디스코드 연결이 ${CLIENT_CLOSE_MS / 1000}초 안에 닫히지 않아 그대로 진행`);
+  if (how === "closed") log.info(L.core.discordClosed());
+  else if (how === "timeout") log.warn(L.core.discordCloseTimedOut({ seconds: CLIENT_CLOSE_MS / 1000 }));
 }
 
 // 라벨별 개수. 예: "ffmpeg:playback 2 · yt-dlp 1"

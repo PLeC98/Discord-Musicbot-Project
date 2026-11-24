@@ -1,5 +1,6 @@
 // src/autoplay/sources/http.ts: 자동재생 출처의 요청은 공유 HTTP 클라이언트를 지나고, 부른 결과가 서비스마다 남는다
 
+import { plain } from "../../src/rules/rule-problem.ts";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { getJson, postJson, useFetch } from "../../src/autoplay/sources/http.ts";
@@ -16,6 +17,6 @@ test("부른 서비스 이름으로 남고, 테스트의 가짜 전송은 출처
 
   assert.equal(linkStatus("vocadb")?.recent[0].ok, true);
   assert.equal(linkStatus("anilist")?.recent[0].ok, true);
-  assert.equal(linkStatus("touhoudb")?.recent[0].error, "HTTP 503");
+  assert.deepEqual(linkStatus("touhoudb")?.recent[0].error, plain("HTTP 503"));
   assert.equal(linkStatus("lastfm"), null);
 });

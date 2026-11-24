@@ -19,9 +19,4 @@ function isSecretsKey(value: string) {
   return bytes.length === SECRETS_KEY_BYTES && bytes.toString("base64") === text;
 }
 
-/** 세션 쿠키 서명 비밀. 64자 */
-function newSessionSecret() {
-  return crypto.randomBytes(48).toString("base64url");
-}
-
-export { SECRETS_KEY_BYTES, SECRETS_KEY_COMMAND, newSecretsKey, isSecretsKey, newSessionSecret };
+export { SECRETS_KEY_BYTES, SECRETS_KEY_COMMAND, newSecretsKey, isSecretsKey };

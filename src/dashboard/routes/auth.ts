@@ -3,6 +3,7 @@ import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import crypto from "crypto";
 import config from "../../config/index.ts";
+import { appIdOf } from "../../infra/app-id.ts";
 import type { SessionUser } from "../express-slots.d.ts";
 import { loginFailed, type LoginError, type Tier } from "../contract/identity.ts";
 import { tokenStoreOf, type SqliteSessionStore } from "../session-store.ts";
@@ -15,6 +16,11 @@ import { LOGIN_COOKIE_MS, clearSessionCookie, setLoginCookie, takeLoginCookie } 
 import * as secrets from "../../store/secrets.ts";
 import { sendProblem } from "../problem.ts";
 import { messageOf } from "../../rules/error-kind.ts";
+import { L } from "../../infra/log/text.ts";
+import type { LogText } from "../../infra/log/log-text.ts";
+import { logTextError } from "../../infra/log/log-text.ts";
+import { refreshOnLogin } from "../../usecases/app-owners.ts";
+import { isBadClient, revokeToken } from "../oauth-client.ts";
 
 /** 여기서 읽는 필드만 */
 type TokenReply = { access_token: string; token_type: string };
@@ -23,26 +29,19 @@ type UserReply = { id: string; username: string; global_name: string | null; ava
 // 요청 실패에서 읽는 필드. 응답이 있으면 상태와 본문, 없으면(시간 초과, 연결 실패) 이름과 문장
 type Failure = { response?: { status?: number; data?: unknown }; name?: string; message?: string; cause?: { code?: string } };
 const failureOf = (error: unknown): Failure => (typeof error === "object" && error !== null ? error : {});
-/** 디스코드가 봇의 앱 자격(클라이언트 ID, 시크릿)을 거절한 응답인가 */
-const isBadClient = (response: Failure["response"]) => (response?.data as { error?: unknown } | undefined)?.error === "invalid_client";
 
 /** 콜백에서 디스코드 호출이 실패했을 때. 원인을 로그에 남기고 로그인 화면에 보일 원인 코드(LoginError)를 반환 */
 function callbackFailure(error: unknown, redirectUri: string): LoginError {
   const { response, name, message, cause } = failureOf(error);
   // 디스코드가 봇의 앱 자격을 거절했다(RFC 6749 5.2 invalid_client): 사용자가 다시 해도 안 되고 운영자가 고칠 일이다
   if (isBadClient(response)) {
-    log.error({ status: response?.status }, "OAuth 토큰 교환 거절됨: CLIENT_SECRET이 디스코드 개발자 포털(OAuth2)의 클라이언트 시크릿과 다름");
+    log.error({ status: response?.status }, L.dashboard.oauthSecretMismatch());
     return "bad_client";
   }
   // 응답 없는 실패(시간 초과, 연결 실패)도 읽히게
-  const what = response ? `상태 코드 ${response.status ?? "없음"}` : name === "TimeoutError" ? "응답 시간 초과" : cause?.code || message;
-  log.error({ status: response?.status, body: JSON.stringify(response?.data), redirectUri }, `OAuth 콜백 오류: ${what ?? "없음"}`);
+  const what = response ? L.dashboard.oauthStatusCode({ status: response.status ?? null }) : name === "TimeoutError" ? L.dashboard.oauthResponseTimedOut() : cause?.code || message;
+  log.error({ status: response?.status, body: JSON.stringify(response?.data), redirectUri }, L.dashboard.oauthCallbackError({ what: what ?? L.dashboard.oauthNoCause() }));
   return "auth_failed";
-}
-
-/** 디스코드에 접근 토큰 폐기를 요청한다(RFC 7009). 로그아웃, 다른 기기 로그아웃 */
-function revokeToken(http: DiscordHttp, token: string) {
-  return http.post(`${DISCORD_API}/oauth2/token/revoke`, new URLSearchParams({ client_id: config.discord.clientId, client_secret: config.discord.clientSecret ?? "", token, token_type_hint: "access_token" }), { headers: { "Content-Type": "application/x-www-form-urlencoded" } });
 }
 
 /** 디스코드 개발자 포털 OAuth2 Redirects에 등록할 콜백 주소 */
@@ -70,7 +69,7 @@ function publicLogin(req: express.Request): string | null {
 type LoginRequest = { state: string; verifier: string; popup: boolean; at: number };
 const LOGIN_PURPOSE = "oauth-login";
 // 잠근 값을 이 대시보드에 묶는다(다른 봇의 쿠키로 바꿔 넣어도 열리지 않는다)
-const loginBound = () => `${config.discord.clientId}|${config.dashboard.url}`;
+const loginBound = () => `${appIdOf()}|${config.dashboard.url}`;
 
 function sealLogin(login: LoginRequest) {
   return secrets.sealBlob(LOGIN_PURPOSE, JSON.stringify(login), loginBound()).toString("base64url");
@@ -100,7 +99,7 @@ function sameText(a: string, b: string) {
 const USED_MAX = 10_000;
 
 /** 새 세션 id로 여는 세션에 담을 값. token: 디스코드 토큰(없으면 적지 않는다), signedInAt: 기기 기록의 로그인 시각, failure: 실패 로그의 앞부분 */
-type Fresh = { user: SessionUser; loginAt: number; viewAs?: Tier; token: string | null; signedInAt: number; failure: string };
+type Fresh = { user: SessionUser; loginAt: number; viewAs?: Tier; token: string | null; signedInAt: number; failure: LogText };
 
 // 이 요청의 세션을 끝내고 새 세션 id로 연다(로그인, 다른 기기 로그아웃). 사용자 정보를 담아 저장하고 같은 행에 디스코드 토큰과 기기 기록을 적는다.
 // 이전 세션 삭제나 새 세션 저장에 실패하면 요청에서 세션을 분리하고 false를 반환한다:
@@ -118,11 +117,11 @@ async function startSession(req: express.Request, fresh: Fresh) {
     await step((done) => req.session.save(done));
     // 토큰은 암호화해 세션 행에 별도로 저장하고(세션 JSON 밖), 세션 행과 함께 삭제한다. 디스코드 토큰의 수명(7일)이 세션보다 먼저 만료되면 서버 목록을 다시 불러올 때 재로그인을 안내한다. 리프레시 토큰은 저장하지 않는다
     const store = tokenStoreOf(req);
-    if (store && fresh.token && !store.saveDiscordToken(req.sessionID, fresh.token)) throw new Error("저장된 세션 행 없음");
+    if (store && fresh.token && !store.saveDiscordToken(req.sessionID, fresh.token)) throw logTextError(L.dashboard.sessionRowMissing());
     if (store) recordFirstDevice(req, store, fresh.signedInAt);
     return true;
   } catch (error) {
-    log.error(`${fresh.failure}: ${messageOf(error)}`);
+    log.error(L.dashboard.sessionStartFailed({ failure: fresh.failure, error: messageOf(error) }));
     const sid = req.sessionID;
     (req as { session: unknown }).session = null;
     tokenStoreOf(req)?.destroy(sid, () => undefined);
@@ -132,7 +131,7 @@ async function startSession(req: express.Request, fresh: Fresh) {
 
 function signIn(req: express.Request, user: SessionUser, token: string) {
   const now = Date.now();
-  return startSession(req, { user, loginAt: now, token, signedInAt: now, failure: "로그인 세션 저장 실패(로그인 실패로 처리)" });
+  return startSession(req, { user, loginAt: now, token, signedInAt: now, failure: L.dashboard.loginSessionSaveFailed() });
 }
 
 // 로그인한 기기의 첫 기록. 적지 못해도 로그인은 그대로 유지된다(다음 요청에서 noteDevice가 적는다)
@@ -140,7 +139,7 @@ function recordFirstDevice(req: express.Request, store: SqliteSessionStore, sign
   try {
     recordDevice(req, store, signedInAt);
   } catch (error) {
-    log.warn(`로그인 기기 첫 기록 실패(다음 요청에서 다시 기록): ${messageOf(error)}`);
+    log.warn(L.dashboard.firstDeviceRecordFailed({ error: messageOf(error) }));
   }
 }
 
@@ -150,7 +149,6 @@ function recordFirstDevice(req: express.Request, store: SqliteSessionStore, sign
  */
 function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
   const router = express.Router();
-  const CLIENT_ID = config.discord.clientId;
   const CLIENT_SECRET = config.discord.clientSecret ?? ""; // 비면 기동이 멈춘다(config)
   const REDIRECT_URI = callbackUrl();
   // 사용한 state → 만료 시각. 쿠키 삭제를 무시하는 클라이언트가 있어 쿠키만으로는 재사용을 막을 수 없다. 다시 시작하면 초기화되지만 쿠키 수명이 남아 있는 동안의 재사용은 막는다
@@ -176,7 +174,7 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
     const verifier = crypto.randomBytes(32).toString("base64url");
     setLoginCookie(req, res, sealLogin({ state, verifier, popup: req.query.popup === "1", at: Date.now() }));
     const params = new URLSearchParams({
-      client_id: CLIENT_ID,
+      client_id: appIdOf(),
       redirect_uri: REDIRECT_URI,
       response_type: "code",
       scope: "identify guilds",
@@ -206,7 +204,7 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
       const tokenRes = await http.post<TokenReply>(
         `${DISCORD_API}/oauth2/token`,
         new URLSearchParams({
-          client_id: CLIENT_ID,
+          client_id: appIdOf(),
           client_secret: CLIENT_SECRET,
           grant_type: "authorization_code",
           code,
@@ -232,6 +230,8 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
 
       // 로그인 성공 시 세션 ID를 재발급한다(session fixation 방어). 이 브라우저의 기존 세션(재로그인이면 이전 로그인 세션)은 종료된다
       if (!(await signIn(req, sessionUser, access_token))) return res.redirect(loginFailed("auth_failed"));
+      // 방금 팀에 들어오거나 범위가 넓어진 운영자가 다시 받기를 기다리지 않게 앱 정보를 다시 받는다(조금만 기다린다)
+      await refreshOnLogin();
       res.redirect(login.popup ? "/login-done" : "/dashboard");
     } catch (error) {
       res.redirect(loginFailed(callbackFailure(error, REDIRECT_URI)));
@@ -245,9 +245,9 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
     if (!req.session?.user) return res.status(204).end();
     try {
       const token = tokenStoreOf(req)?.readDiscordToken(req.sessionID) ?? null;
-      if (token) bestEffort(log, revokeToken(http, token), "디스코드 토큰 폐기", "warn");
+      if (token) bestEffort(log, revokeToken(http, token), L.dashboard.discordTokenRevoke(), "warn");
     } catch (error) {
-      log.warn(`디스코드 토큰 읽기 실패(폐기 요청 생략, 로그아웃은 진행): ${messageOf(error)}`);
+      log.warn(L.dashboard.discordTokenReadFailed({ error: messageOf(error) }));
     }
     forgetGuilds(req.sessionID);
     release(req);
@@ -264,4 +264,4 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
   return router;
 }
 
-export { createAuthRouter, callbackUrl, revokeToken, startSession };
+export { createAuthRouter, callbackUrl, startSession };

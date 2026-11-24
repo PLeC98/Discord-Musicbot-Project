@@ -130,6 +130,12 @@
           <NoticeBox v-if="agePlace === 'all'" variant="note" tone="notice" icon="warning">{{ T.agePlace.allWarning }}</NoticeBox>
         </BaseCard>
 
+        <!-- 서버 언어(디스코드 /language의 서버 언어). 언어가 하나면 카드가 없다 -->
+        <BaseCard v-if="s.language" icon="language" :title="T.language.title" class="mb-(--gap-in)">
+          <p class="text-on-surface-variant text-sm mb-3">{{ T.language.desc }}</p>
+          <SingleSelect v-model="guildLanguage" :options="guildLanguageOptions" class="w-full max-w-72" />
+        </BaseCard>
+
         <!-- 봇 내보내기(디스코드에서 봇을 추방할 수 있는 사람). 되돌릴 수 없어 확인을 받는다 -->
         <BaseCard v-if="s.cards.includes('leave')" icon="logout" :title="T.leave.title" class="mb-(--gap-in)">
           <p class="text-on-surface-variant text-sm mb-3">{{ T.leave.desc }}</p>
@@ -159,6 +165,7 @@ import SaveIndicator, { type SaveState } from "../components/SaveIndicator.vue";
 import { FIELD } from "../utils/field.ts";
 import { problemCodeOf, replyOf } from "../utils/request.ts";
 import SingleSelect from "../components/SingleSelect.vue";
+import type { Option } from "../utils/options.ts";
 import SearchInput from "../components/SearchInput.vue";
 import BaseSwitch from "../components/BaseSwitch.vue";
 import SponsorCategories from "../components/SponsorCategories.vue";
@@ -172,6 +179,7 @@ import { koMatch } from "../../../src/rules/ko-search.ts";
 import { useOverflowing } from "../composables/overflowing.ts";
 import { DJ_ROLE_MAX } from "../../../src/rules/limits.ts";
 import { AGE_PLACES, type AgePlace } from "../../../src/rules/age-place.ts";
+import type { Language } from "../../../src/rules/languages.ts";
 import type { GuildSettings, NormalizeCard, Saved, SettingsSaved, StayCard } from "../../../src/dashboard/contract/guilds.ts";
 import type { Code } from "../../../src/rules/problems.ts";
 import type { IconName } from "../icons.ts";
@@ -206,6 +214,15 @@ const sbEnabled = ref(true);
 const sbCategories = ref<string[]>([]);
 // 연령 제한 콘텐츠를 틀 곳. 카드가 없으면(운영자가 꺼 두었다) 보내지 않는다
 const agePlace = ref<AgePlace>("channel");
+// 서버 언어. 드롭다운은 null을 값으로 쓰지 못해 봇 기본 언어를 따름은 FOLLOW_BOT으로 둔다
+const FOLLOW_BOT = "bot";
+const guildLanguage = ref<Language | typeof FOLLOW_BOT>(FOLLOW_BOT);
+const guildLanguageOptions = computed<Option[]>(() => {
+  const card = s.value.language;
+  if (!card) return [];
+  const botName = card.languages.find((one) => one.tag === card.botLanguage)?.name ?? card.botLanguage;
+  return [{ value: FOLLOW_BOT, label: T.language.followBot(botName) }, ...card.languages.map(({ tag, name }) => ({ value: tag, label: name }))];
+});
 const roleListEl = ref<HTMLElement | null>(null);
 const roleListOverflowing = useOverflowing(roleListEl);
 
@@ -378,6 +395,7 @@ function readValues(): SettingsValues {
     ...(v.sponsorblock && { sponsorblock: { enabled: sbEnabled.value, categories: [...sbCategories.value] } }),
     ...(v.playlistAdd && { playlistAddMax: paValue.value }),
     ...(v.agePlace !== undefined && { agePlace: agePlace.value }),
+    ...(v.language && { language: guildLanguage.value === FOLLOW_BOT ? null : guildLanguage.value }),
   };
 }
 
@@ -393,6 +411,7 @@ const WRITE: Record<SettingsKey, (value: unknown) => void> = {
     paCount.value = count;
   },
   agePlace: (value) => (agePlace.value = (value as AgePlace | undefined) ?? "channel"),
+  language: (value) => (guildLanguage.value = (value as Language | null | undefined) ?? FOLLOW_BOT),
 };
 function writeValues(values: SettingsValues, keys: readonly SettingsKey[]) {
   for (const key of keys) WRITE[key](valueAt(values, key));
@@ -430,7 +449,7 @@ const saver = createSettingsSaver({
     loadGone.value = true;
   },
 });
-watch([selectedChannel, selectedRoles, sbEnabled, sbCategories, paValue, agePlace], () => saver.edited(), { deep: true });
+watch([selectedChannel, selectedRoles, sbEnabled, sbCategories, paValue, agePlace, guildLanguage], () => saver.edited(), { deep: true });
 watch(typing, (now) => !now && saver.edited());
 
 // 떠날 때는 남은 저장을 먼저 끝낸다(입력 중이던 값, 실패했던 것도 한 번 더 보낸다). 그래도 저장하지 못한 고친 값이 있으면 묻는다.

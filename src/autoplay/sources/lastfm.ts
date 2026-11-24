@@ -7,6 +7,8 @@ import type { GenreSource } from "../../config/genres.ts";
 import type { Candidate } from "./candidate.ts";
 import { messageOf } from "../../rules/error-kind.ts";
 import logger from "../../infra/log/logger.ts";
+import { L } from "../../infra/log/text.ts";
+import { logTextError } from "../../infra/log/log-text.ts";
 const log = logger.child({ category: "autoplay" });
 
 // 여기서 읽는 필드만
@@ -15,7 +17,7 @@ type TopTracks = { tracks?: { track?: Array<{ name?: string; url?: string; artis
 // 길이를 안 준다(유튜브에서 찾은 영상이 길이 신호 없이 필터를 거친다). 상위 페이지보다 깊은 쪽이 오히려 알차서 무작위 페이지를 불러온다.
 async function lastfm(source: GenreSource): Promise<Candidate[]> {
   const key = config.sources?.lastfmKey;
-  if (!key) throw new Error("Last.fm 키 없음");
+  if (!key) throw logTextError(L.autoplay.lastfmKeyMissing());
   const tag = pick(source.tags || []);
   if (!tag) return [];
 
@@ -38,7 +40,7 @@ async function checkLastfmKey(): Promise<KeyCheck> {
   const res = await probe("lastfm", `https://ws.audioscrobbler.com/2.0/?${query({ method: "tag.getInfo", tag: "rock", api_key: key, format: "json" })}`);
   if (!res) return { ok: false, reason: "unreachable" };
   const body = (await res.json().catch((error: unknown) => {
-    log.warn(`Last.fm 키 확인 응답 파싱 실패(HTTP ${res.status}): ${messageOf(error)}`);
+    log.warn(L.autoplay.lastfmKeyCheckParseFailed({ status: res.status, error: messageOf(error) }));
     return null;
   })) as { error?: number } | null;
   if (res.ok && body && !body.error) return { ok: true };

@@ -2,15 +2,18 @@
 
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, SlashCommandBuilder } from "discord.js";
 import config from "../../config/index.ts";
+import { appIdOf } from "../../infra/app-id.ts";
+import { inviteUrl } from "../../rules/invite-url.ts";
 import type { GuildCommand } from "../../app/command-loader.ts";
 import { frame, reply } from "../../ui/frame.ts";
 import { buttonEmoji } from "../../ui/icons.ts";
 import { LIFETIME, toSelf } from "../../ui/delivery.ts";
-import * as inviteText from "../../ui/text/ko/invite.ts";
+import type { BotText } from "../../ui/text/index.ts";
+import { privateText } from "../../ui/language.ts";
 
 /** 초대 화면. website가 없으면 초대 버튼 하나 */
-function inviteView({ invite, website }: { invite: string; website: string | null }) {
-  const t = inviteText.invite();
+function inviteView(T: BotText, { invite, website }: { invite: string; website: string | null }) {
+  const t = T.invite.invite();
   const container = frame({ icon: "invite", title: t.title, body: t.body });
   const buttons = [new ButtonBuilder().setLabel(t.buttons.invite).setEmoji(buttonEmoji("invite")).setURL(invite).setStyle(ButtonStyle.Link)];
   if (website) buttons.push(new ButtonBuilder().setLabel(t.buttons.website).setEmoji(buttonEmoji("web")).setURL(website).setStyle(ButtonStyle.Link));
@@ -20,10 +23,11 @@ function inviteView({ invite, website }: { invite: string; website: string | nul
 const exported: GuildCommand = {
   help: { section: "info", tier: "everyone" },
   enabled: () => config.bot.inviteCommand,
-  data: new SlashCommandBuilder().setName("invite").setDescription("봇 초대 링크를 보여줘요"),
+  name: "invite",
+  data: (C) => new SlashCommandBuilder().setName("invite").setDescription(C.invite.description),
 
   async execute(interaction) {
-    await toSelf(interaction, reply(inviteView({ invite: config.bot.invite, website: config.bot.website })), LIFETIME.screen);
+    await toSelf(interaction, reply(inviteView(privateText(interaction), { invite: inviteUrl(appIdOf()), website: config.bot.website })), LIFETIME.screen);
   },
 };
 export default exported;

@@ -4,9 +4,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { LIFETIME, TOKEN_MS, noticeMs, toSelf, replaceSelf, noticeSelf, noticeInstead, toAll, selfOnly, lifetimesOf } from "../../src/ui/delivery.ts";
 import { frame } from "../../src/ui/frame.ts";
-import { notice } from "../../src/ui/text/ko/errors.ts";
 import { noticeOf } from "../../src/ui/text/notice.ts";
 import { asked } from "../helpers/interaction-calls.ts";
+import { textFor } from "../../src/ui/text/index.ts";
+const { notice } = textFor("ko").errors;
 
 const view = () => frame({ title: "결과" });
 

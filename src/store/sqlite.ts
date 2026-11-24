@@ -6,8 +6,9 @@ import path from "path";
 import fs from "fs";
 import { ownerOnly } from "../infra/owner-only.ts";
 import logger from "../infra/log/logger.ts";
-import { messageOf } from "../rules/error-kind.ts";
-import { josa } from "../rules/josa.ts";
+import { codedError, messageOf } from "../rules/error-kind.ts";
+import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
 const log = logger.child({ category: "core" });
 
 type Db = Database.Database;
@@ -20,11 +21,11 @@ const AUTO_VACUUM = { INCREMENTAL: 2 } as const;
  * lost: 삭제해도 되는 파일. 삭제하면 무엇을 잃는지(안내는 "이 파일을 삭제하고 다시 시작하라")
  * hint: 삭제하면 안 되는 파일의 안내(설정 DB)
  */
-type OnMismatch = { lost: string } | { hint: (found: number, file: string) => string };
+type OnMismatch = { lost: LogText } | { hint: (found: number, file: string) => LogText };
 
 type DbSpec = {
   /** 로그, 오류에 쓰는 이름 */
-  label: string;
+  label: LogText;
   /** 기본 파일 이름(stores가 폴더와 잇는다) */
   fileName: string;
   /** 구조를 맞지 않게 바꿀 때마다 올린다. 표를 더하기만 하면 올리지 않는다(CREATE TABLE IF NOT EXISTS) */
@@ -79,19 +80,19 @@ class DbFile {
   // 이 설정 없이 만든 파일을 VACUUM으로 바꾼다(한 번). 파일 크기만큼의 여유 공간이 더 든다. 못 바꿔도 파일은 그대로 쓴다(다음 기동에 재시도한다)
   vacuum(db: Db, file: string) {
     const bytes = fs.statSync(file).size;
-    log.info(`${this.spec.label}를 한 번 다시 씀(삭제한 공간을 돌려주는 설정, ${Math.ceil(bytes / 1024 / 1024)}MB)`);
+    log.info(L.core.dbVacuumStarted({ db: this.spec.label, sizeMb: Math.ceil(bytes / 1024 / 1024) }));
     try {
       db.exec("VACUUM");
     } catch (error) {
-      log.warn(`${this.spec.label} 다시 쓰기 실패(그대로 열고 다음 기동 시 다시 시도): ${messageOf(error)}. 그때까지 기록을 삭제해도 파일이 줄지 않음`);
+      log.warn(L.core.dbVacuumFailed({ db: this.spec.label, error: messageOf(error) }));
     }
     // VACUUM이 쓴 만큼 커진 -wal을 체크포인트해 줄인다. 실패했어도 한다(롤백된 쓰기도 -wal에 남는다).
     // 다른 연결이 읽는 중이면 예외를 던지지 않고 결과의 busy로 알린다
     try {
       const [result] = db.pragma("wal_checkpoint(TRUNCATE)") as Array<{ busy: number }>;
-      if (result?.busy) log.warn(`${this.spec.label}의 -wal 줄이기 실패(다른 프로그램이 읽는 중). 봇이 쓰는 동안 차차 줄어듦`);
+      if (result?.busy) log.warn(L.core.dbWalBusy({ db: this.spec.label }));
     } catch (error) {
-      log.warn(`${this.spec.label}의 -wal 줄이기 실패: ${messageOf(error)}`);
+      log.warn(L.core.dbWalTruncateFailed({ db: this.spec.label, error: messageOf(error) }));
     }
   }
 
@@ -101,12 +102,12 @@ class DbFile {
     const found = db.pragma("user_version", { simple: true }) as number;
     if (!tables.length || found === this.spec.version) return;
     const rule = this.spec.onMismatch;
-    const message = "hint" in rule ? rule.hint(found, file) : `${this.spec.label} 구조가 이 봇과 맞지 않음(DB v${found}, 봇 v${this.spec.version}): ${file}. 이 파일(같은 이름의 -wal, -shm 포함)을 삭제한 뒤 다시 시작하면 새로 만듦. 삭제하면 ${rule.lost}`;
-    throw Object.assign(new Error(message), { code: "SCHEMA_MISMATCH" });
+    const message = "hint" in rule ? rule.hint(found, file) : L.core.dbSchemaMismatch({ db: this.spec.label, dbVersion: found, botVersion: this.spec.version, file, lost: rule.lost });
+    throw codedError("SCHEMA_MISMATCH", message);
   }
 
   get(): Db {
-    if (!this.conn) throw Object.assign(new Error(`${this.spec.label}${josa(this.spec.label, "을")} 열기 전에 불렀다(store/stores.open을 먼저)`), { code: "DB_NOT_OPEN" });
+    if (!this.conn) throw codedError("DB_NOT_OPEN", L.core.dbNotOpen({ db: this.spec.label }));
     return this.conn;
   }
 

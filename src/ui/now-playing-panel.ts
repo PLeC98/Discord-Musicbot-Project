@@ -4,10 +4,12 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import config from "../config/index.ts";
 import { progressBar, emptyProgressBar } from "./progress-bar.ts";
-import { labelOf } from "../rules/platforms.ts";
+import { playingLengthSec } from "../player/current-playback.ts";
 
+/** 담은 안내를 그리는 함수. 문구표는 알리는 매체가 자기 자리의 독자에 맞게 넣는다(채널에 보이는 안내라 서버 언어) */
+type DrawAdded = (T: BotText) => ContainerBuilder;
 /** 곡을 추가한 결과를 알리는 매체(usecases/responders) */
-type Responder = { notifyQueued(view: ContainerBuilder): Promise<unknown>; dismissPlaceholder(): Promise<unknown> };
+type Responder = { notifyQueued(draw: DrawAdded): Promise<unknown>; dismissPlaceholder(): Promise<unknown> };
 
 // 알릴 곳이 없는 매체. 결과를 알리는 매체는 호출부(usecases/responders)가 넘긴다
 const NO_RESPONDER: Responder = {
@@ -19,7 +21,6 @@ const NO_RESPONDER: Responder = {
   },
 };
 import * as playerEvents from "../player/events.ts";
-import * as panelText from "./text/ko/panel.ts";
 import { buttonEmoji, icon, type IconKey } from "./icons.ts";
 import { addedView, type AdditionNotice } from "./added-notice.ts";
 import { frame, post } from "./frame.ts";
@@ -82,9 +83,12 @@ import { PanelLocation, type PanelStore } from "./panel-location.ts";
 import { bestEffort } from "../infra/best-effort.ts";
 import { colorOf } from "./colors.ts";
 import { isPublicUrl } from "../infra/public-address.ts";
-import { songTitle } from "./text/ko/labels.ts";
+import { publicText } from "./language.ts";
+import type { BotText } from "./text/index.ts";
 import { COMPONENTS_BYTES_MAX, componentsBytes } from "./message-size.ts";
 import { canGoBack, canGoNext } from "../rules/controls.ts";
+import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
 
 // 끝난 패널의 버튼. 플레이어가 없어도 같은 모양을 그린다.
 // 자동재생만 살아 있고, 그 버튼은 쉬는 중의 표식(idle)을 세션 필드에 달고 나간다.
@@ -109,20 +113,23 @@ const canSkip = (p: Controls) => canGoNext({ queue: p.queue.length, loop: p.loop
 const queueOff = (p: Controls, disabled: boolean) => disabled || p.queue.length === 0;
 
 // 상태 줄: 일시정지, 대기열 수, 상주 모드, 건너뛸 구간. 라이브 표식은 진행 막대의 경과 시간 자리에 있어(ui/progress-bar) 여기서 또 내지 않는다.
-function statusOf(player: Player) {
+/** 패널(채널에 남는 공개 메시지)의 문구표: 그 서버의 언어 */
+const textOfPanel = (player: { guild?: { id: string } | null }) => publicText(player.guild?.id);
+
+function statusOf(T: BotText, player: Player) {
   const parts: string[] = [];
   // 억제 사유가 있으면 그것을, 사람만 일시정지했으면 일시정지를 붙인다. 억제 중에 사람이 일시정지했으면(사유가 풀려도 멈춘 채) 그것도 붙인다
   const held = player.pause.heldBy;
-  if (held) parts.push(panelText.pausedStatus(held));
-  if (player.pause.userPaused) parts.push(held ? panelText.userPausedMark() : panelText.pausedStatus("other"));
-  if (player.queue.length > 0) parts.push(panelText.queuedStatus(player.queue.length));
-  if (player.idle?.seated()) parts.push(panelText.stayStatus());
-  if (player.sponsor?.skipSegments?.length) parts.push(panelText.segmentsStatus(player.sponsor.skipSegments.length));
+  if (held) parts.push(T.panel.pausedStatus(held));
+  if (player.pause.userPaused) parts.push(held ? T.panel.userPausedMark() : T.panel.pausedStatus("other"));
+  if (player.queue.length > 0) parts.push(T.panel.queuedStatus(player.queue.length));
+  if (player.idle?.seated()) parts.push(T.panel.stayStatus());
+  if (player.sponsor?.skipSegments?.length) parts.push(T.panel.segmentsStatus(player.sponsor.skipSegments.length));
   return parts;
 }
 
 // 패널 아래의 대시보드 링크. DASHBOARD_URL이 공개 주소일 때만(기본값 localhost나 사설 주소는 다른 사람이 열 수 없다). Server Members Intent가 꺼져 서버 화면을 쓸 수 없으면 달지 않는다
-const dashboardLink = () => (isPublicUrl(config.dashboard.url) && tracksMembers() ? panelText.dashboardLink(config.dashboard.url) : null);
+const dashboardLink = (T: BotText) => (isPublicUrl(config.dashboard.url) && tracksMembers() ? T.panel.dashboardLink(config.dashboard.url) : null);
 
 // 진행 막대를 고치는 간격. 앞 갱신이 끝난 뒤부터 잰다
 const PROGRESS_MS = 5000;
@@ -146,8 +153,8 @@ const LINK_MAX = 2047;
 
 // 지금 곡 제목. 보여 줄 링크(pageUrl)를 건다. 음원을 직접 트는 곡도 음원 파일이 아니라 출처 페이지다.
 // 링크 라벨은 escapeMd가 아니라 linkLabel(mentions.ts), byWebhook은 linkLabel의 emojiLinks
-function titleOf(track: Pick<QueuedTrack, "title" | "pageUrl">, byWebhook: boolean) {
-  const title = clipWidth(songTitle(track.title), TITLE_WIDTH);
+function titleOf(T: BotText, track: Pick<QueuedTrack, "title" | "pageUrl">, byWebhook: boolean) {
+  const title = clipWidth(T.labels.songTitle(track.title), TITLE_WIDTH);
   return track.pageUrl && track.pageUrl.length <= LINK_MAX ? `[${linkLabel(title, { emojiLinks: byWebhook })}](${track.pageUrl})` : escapeMd(title);
 }
 
@@ -202,14 +209,14 @@ class NowPlayingPanel {
       return client;
     } catch (error) {
       // 채널이 삭제됐다. 그 채널로 보내는 쪽이 같은 오류를 받아 패널을 놓는다
-      if (codeOf(error) !== UNKNOWN_CHANNEL) log.error("웹훅 조회/생성 실패:", messageOf(error));
+      if (codeOf(error) !== UNKNOWN_CHANNEL) log.error(L.player.webhookFetchFailed({ error: messageOf(error) }));
       return null;
     }
   }
 
   /** 여러 곡을 넣어 첫 곡이 시작된 뒤 남은 곡을 대기열에 추가했다고 알린다. 잠깐 보이고 삭제한다 */
   async postAddedNotice(player: Player, queued: QueuedTrack[], collection: string | null, insertFirst = false, notice: AdditionNotice = {}) {
-    const view = addedView({ tracks: queued, collection, insertFirst, notice });
+    const view = addedView(textOfPanel(player), { tracks: queued, collection, insertFirst, notice });
 
     // 진입점의 응답이 아니라 항상 텍스트 채널로. 채널이 없는 경로(대시보드)는 생략
     if (!player.textChannel || typeof player.textChannel.send !== "function") return;
@@ -217,7 +224,7 @@ class NowPlayingPanel {
     try {
       scheduleDelete(await player.textChannel.send(post(view)), LIFETIME.glance);
     } catch (error) {
-      log.error("재생목록 추가 안내 전송 실패:", error);
+      log.error(L.player.playlistAddNoticeFailed(), error);
     }
   }
 
@@ -289,7 +296,7 @@ class NowPlayingPanel {
   async _playingPayload(player: Player, track: QueuedTrack, fresh = false, byWebhook?: boolean): Promise<Payload> {
     const art = await discordArt.artFor(track);
     const container = await this.createNowPlayingContainer(player, track, false, art, byWebhook);
-    const jumpToRow = await this.createJumpToRow(player, COMPONENTS_BYTES_MAX - componentsBytes(container));
+    const jumpToRow = await this.createJumpToRow(textOfPanel(player), player, COMPONENTS_BYTES_MAX - componentsBytes(container));
     const payload: Payload = { components: jumpToRow ? [container, jumpToRow] : [container], flags: MessageFlags.IsComponentsV2 };
     const guildId = player.guild?.id ?? "";
     const attached = fresh ? undefined : this.attachedArt.get(guildId);
@@ -335,7 +342,7 @@ class NowPlayingPanel {
       if (webhook) await webhook.deleteMessage(messageId);
       else await channel.messages.delete(messageId);
     } catch (error) {
-      unlessGone(log, "현재 재생 메시지 삭제")(error);
+      unlessGone(log, L.player.nowPlayingDelete())(error);
     }
   }
 
@@ -346,7 +353,7 @@ class NowPlayingPanel {
    * 서버당 한 번만 돈다. 5초 갱신과 명령, 버튼 경로가 동시에 들어온다.
    * 보내는 사이에 재생이 끝나거나 다른 경로가 새 메시지를 올렸으면 방금 보낸 것을 도로 삭제한다.
    */
-  async _repostNowPlaying(player: Player, reason: string) {
+  async _repostNowPlaying(player: Player, reason: LogText) {
     const guildId = player.guild?.id;
     if (!guildId || this.reposting.has(guildId) || !player.currentTrack) return;
 
@@ -365,15 +372,15 @@ class NowPlayingPanel {
       player.nowPlayingMessage = message;
       player.nowPlayingWebhook = webhook;
       await this.location.commit(player.guild, channel, message, webhook);
-      log.info({ tags: ["recovered"] }, `재생 패널 다시 올림: ${reason}`);
+      log.info({ tags: ["recovered"] }, L.player.panelReposted({ reason }));
     } catch (error) {
       // 다시 올리지 못하면 참조를 버린다. 5초마다 같은 실패를 반복하면 그게 도배다
       if (codeOf(error) === UNKNOWN_CHANNEL) this._dropPanel(player);
       else {
         player.nowPlayingMessage = null;
         this.stopProgressUpdate(guildId);
-        if (errorKind(error) === "network-error") log.warn(`재생 패널 다시 올리기 실패: ${messageOf(error)}`);
-        else log.error("재생 패널 다시 올리기 실패:", messageOf(error));
+        if (errorKind(error) === "network-error") log.warn(L.player.panelRepostFailed({ error: messageOf(error) }));
+        else log.error(L.player.panelRepostFailed({ error: messageOf(error) }));
       }
     } finally {
       this.reposting.delete(guildId);
@@ -411,25 +418,26 @@ class NowPlayingPanel {
 
   /** 재생 중 패널의 화면(Components V2). art: 붙일 썸네일(ui/discord-art, 주지 않으면 여기서 구한다), byWebhook: 웹훅으로 보내는 패널 */
   async createNowPlayingContainer(player: Player, track: QueuedTrack, buttonsDisabled = false, art?: discordArt.DiscordArt | null, byWebhook = false) {
-    const nowPlayingTitle = panelText.playingTitle();
+    const T = textOfPanel(player);
+    const nowPlayingTitle = T.panel.playingTitle();
 
     const currentMs = player.getCurrentTime ? player.getCurrentTime() : 0;
     const currentSec = Math.floor(currentMs / 1000);
     const totalSec = track.duration || 0;
-    const bar = progressBar(currentSec, totalSec, { live: Boolean(player.isLive ?? track.isLive) });
+    const bar = progressBar(currentSec, totalSec, { live: Boolean(player.isLive ?? track.isLive), lengthSec: playingLengthSec(player, track) });
 
     const artistValue = track.artist || "-";
-    const platformValue = labelOf(track.platform);
+    const platformValue = T.labels.platform(track.platform);
 
     const artistLine = artistValue && artistValue !== "-" ? `\n-# ${icon("person")} ${escapeMd(clipWidth(artistValue, ARTIST_WIDTH))}` : "";
-    const linkText = `### ${nowPlayingTitle}\n**${titleOf(track, byWebhook)}**${artistLine}`;
+    const linkText = `### ${nowPlayingTitle}\n**${titleOf(T, track, byWebhook)}**${artistLine}`;
 
     // Section은 액세서리(썸네일/버튼)가 없으면 전송 시 검증에서 거부된다. 앨범아트가 없는 곡은 음표 썸네일(_playingPayload가 첨부한다).
     // 디스코드는 눌러서 크게 보여 주므로 큰 이미지를 붙인다(썸네일 주소의 큰 것, 직접 링크 곡은 첨부한 파일 태그 이미지)
     const shown = art === undefined ? await discordArt.artFor(track) : art;
     const titleComponent = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(linkText)).setThumbnailAccessory(new ThumbnailBuilder().setURL(shown?.url ?? noArtThumbnail.url));
 
-    const statusParts = statusOf(player);
+    const statusParts = statusOf(T, player);
 
     const container = new ContainerBuilder().setAccentColor(resolveColor(colorOf("brand")));
     container.addSectionComponents(titleComponent);
@@ -441,13 +449,13 @@ class NowPlayingPanel {
 
     // 구분선 뒤에 조작 버튼
     container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
-    const buttons = await this.controlRows(player, buttonsDisabled);
+    const buttons = await this.controlRows(T, player, buttonsDisabled);
     for (const row of buttons) {
       container.addActionRowComponents(row);
     }
 
     // 구분선 + 대시보드 링크(공개 주소일 때만), 플랫폼
-    const link = dashboardLink();
+    const link = dashboardLink(T);
     container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small)).addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# ${link ? `${link}  |  ` : ""}${icon("system")} ${platformValue}`));
 
     return container;
@@ -518,7 +526,7 @@ class NowPlayingPanel {
         player.nowPlayingWebhook = null;
       }
       const channelId = player.nowPlayingMessage ? channelIdOf(player.nowPlayingMessage) : null;
-      await this._repostNowPlaying(player, channelId && !player.guild.channels?.cache?.has(channelId) ? "패널이 있던 채널이 삭제됨" : "메시지가 삭제됨");
+      await this._repostNowPlaying(player, channelId && !player.guild.channels?.cache?.has(channelId) ? L.player.repostChannelDeleted() : L.player.repostMessageDeleted());
       return;
     }
     const where = player.guild.name ?? player.guild.id;
@@ -527,7 +535,7 @@ class NowPlayingPanel {
       return;
     }
     if (isRestTimeout(error)) {
-      log.warn(`재생 패널 갱신이 시간 안에 끝나지 않음(다음 갱신에서 다시 시도) (${where})`);
+      log.warn(L.player.panelEditTimedOut({ where }));
       return;
     }
     // 네트워크가 끊겼다. 5초마다 같은 실패를 찍지 않고 처음 한 번과 풀린 때만
@@ -535,14 +543,14 @@ class NowPlayingPanel {
       this._editFailure(player).fail(messageOf(error));
       return;
     }
-    log.error("재생 패널 갱신 실패:", error);
+    log.error(L.player.panelEditFailed(), error);
   }
 
   _editFailure(player: Player) {
     const guildId = player.guild.id;
     let failure = this.editFailures.get(guildId);
     if (!failure) {
-      failure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, `재생 패널 갱신(${player.guild.name ?? guildId})`);
+      failure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.player.panelEditLabel({ guild: player.guild.name ?? guildId }));
       this.editFailures.set(guildId, failure);
     }
     return failure;
@@ -550,7 +558,7 @@ class NowPlayingPanel {
 
   // 패널을 올린 텍스트 채널이 삭제됐다. 다시 올릴 곳이 없어 패널을 놓는다
   _dropPanel(player: Player) {
-    log.info(`재생 패널이 있던 텍스트 채널이 삭제되어 패널 추적 해제 (${player.guild.name ?? player.guild.id}). 재생은 계속`);
+    log.info(L.player.panelChannelDeleted({ guild: player.guild.name ?? player.guild.id }));
     this.stopProgressUpdate(player.guild.id);
     player.nowPlayingMessage = null;
     player.nowPlayingWebhook = null;
@@ -562,18 +570,18 @@ class NowPlayingPanel {
    * 곡 정보는 쓰지 않는다. 부르는 곳이 현재 곡을 먼저 비운다.
    * reason: queue-end(음성에 잠시 남음) | stop, disconnected(나감) | leave(세션 저장됨) | restore-skipped(세션 저장됨, 기동이 이어 틀지 않음) | joined(/join만 함)
    */
-  async createIdleContainer({ reason = "stop", dedicated = false, leavesAt = null, staying = false }: IdleView & { dedicated?: boolean } = { reason: "stop" }) {
+  async createIdleContainer(T: BotText, { reason = "stop", dedicated = false, leavesAt = null, staying = false }: IdleView & { dedicated?: boolean } = { reason: "stop" }) {
     // 메시지 내용을 읽지 못하면(Message Content Intent 꺼짐) 전용 채널에서도 곡 이름만 적어서는 곡을 요청할 수 없다
     const typed = dedicated && readsMessageContent();
-    const heading = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(panelText.idle({ reason, leavesAt, staying, dedicated: typed }))).setThumbnailAccessory(new ThumbnailBuilder().setURL(blankThumbnail.url));
+    const heading = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(T.panel.idle({ reason, leavesAt, staying, dedicated: typed }))).setThumbnailAccessory(new ThumbnailBuilder().setURL(blankThumbnail.url));
 
     const container = new ContainerBuilder()
       .setAccentColor(resolveColor(colorOf("brand")))
       .addSectionComponents(heading)
       .addTextDisplayComponents(new TextDisplayBuilder().setContent(emptyProgressBar()))
       .addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
-    for (const row of await this.controlRows(IDLE_CONTROLS, true, { keepAutoplay: true })) container.addActionRowComponents(row);
-    const link = dashboardLink();
+    for (const row of await this.controlRows(T, IDLE_CONTROLS, true, { keepAutoplay: true })) container.addActionRowComponents(row);
+    const link = dashboardLink(T);
     if (link) container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small)).addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# ${link}`));
 
     // 붙어 있던 첨부(앨범아트 없는 곡의 음표 썸네일)는 떼고 투명 썸네일만
@@ -600,8 +608,9 @@ class NowPlayingPanel {
 
     // 전용 채널 밖의 패널은 대화에 밀려 어디까지 올라갔을지 모른다. 다 틀었거나 끊겼으면 따로 알린다.
     // 사람이 멈추거나 내보낸 것(/stop, /leave)은 명령 응답이, 연달아 실패는 채널 알림이 이미 말한다
-    const ended = reason === "queue-end" ? panelText.ended() : cause ? panelText.cutOff(cause) : null;
-    if (ended && live && !dedicated && canSend(textChannel)) await bestEffort(log, textChannel.send(post(frame({ icon: ended.icon, title: ended.title, body: ended.body }))), "끝 안내 보내기", "warn");
+    const T = textOfPanel(player);
+    const ended = reason === "queue-end" ? T.panel.ended() : cause ? T.panel.cutOff(cause) : null;
+    if (ended && live && !dedicated && canSend(textChannel)) await bestEffort(log, textChannel.send(post(frame({ icon: ended.icon, title: ended.title, body: ended.body }))), L.player.endNoticeSend(), "warn");
 
     this._releaseEnded(player, before, live);
   }
@@ -630,14 +639,14 @@ class NowPlayingPanel {
   // 패널을 종료 모양으로 바꾼다. 살아 있는 패널이 없으면 기록된 패널을 고친다
   async _showIdle(player: Player, live: PanelMessage | null, look: IdleView & { dedicated: boolean }) {
     try {
-      const payload: Payload = { ...(await this.createIdleContainer(look)), flags: MessageFlags.IsComponentsV2 };
+      const payload: Payload = { ...(await this.createIdleContainer(textOfPanel(player), look)), flags: MessageFlags.IsComponentsV2 };
       if (live && player.nowPlayingWebhook) await player.nowPlayingWebhook.editMessage(live.id, payload);
       else if (live && "edit" in live) await live.edit(payload);
       else if (player.guild?.id) await this.location.edit(player.guild, payload);
     } catch (error) {
       // 이미 삭제된 패널을 못 바꿨다는 것은 알릴 일이 아니다
-      if (errorKind(error) === "network-error") log.warn(`재생 패널을 종료 상태로 갱신하지 못함: ${messageOf(error)}`);
-      else if (!isGone(error)) log.error("재생 패널을 종료 상태로 갱신 실패:", error);
+      if (errorKind(error) === "network-error") log.warn(L.player.endPanelEditNetworkFailed({ error: messageOf(error) }));
+      else if (!isGone(error)) log.error(L.player.endPanelEditFailed(), error);
     }
   }
 
@@ -661,7 +670,7 @@ class NowPlayingPanel {
     clearTimeout(this.repinTimers.get(guild.id));
     const timer = setTimeout(() => {
       this.repinTimers.delete(guild.id);
-      this.repinIdlePanel(guild, channelId).catch((error) => log.warn(`종료된 재생 패널을 채널 하단으로 재전송하지 못함: ${messageOf(error)}`));
+      this.repinIdlePanel(guild, channelId).catch((error) => log.warn(L.player.endedPanelRepostFailed({ error: messageOf(error) })));
     }, PIN_SETTLE_MS + 1000);
     timer.unref?.();
     this.repinTimers.set(guild.id, timer);
@@ -670,7 +679,7 @@ class NowPlayingPanel {
   async repinIdlePanel(guild: Guild, channelId: string, now = Date.now()) {
     const player = this.players.get(guild.id);
     if (player?.currentTrack && player.nowPlayingMessage) {
-      if (this.heldProgress.has(guild.id) && (await this._isBuried(player, now))) await this._repostNowPlaying(player, "전용 채널 맨 아래로");
+      if (this.heldProgress.has(guild.id) && (await this._isBuried(player, now))) await this._repostNowPlaying(player, L.player.repostBuried());
       return;
     }
     const channel = await this._dedicatedChannel(guild);
@@ -689,7 +698,7 @@ class NowPlayingPanel {
   // 끝난 패널을 이 채널 맨 아래에 올리고 이 서버의 패널로 삼는다
   async _postIdle(guild: Guild, channel: GuildTextBasedChannel, { dedicated = true } = {}) {
     const view = this._idleView(guild);
-    const payload: Payload = { ...(await this.createIdleContainer({ ...view, dedicated })), flags: MessageFlags.IsComponentsV2 };
+    const payload: Payload = { ...(await this.createIdleContainer(publicText(guild.id), { ...view, dedicated })), flags: MessageFlags.IsComponentsV2 };
     const { message, webhook } = await this._sendPanel(channel, payload);
     await this.location.commit(guild, channel, message, webhook);
   }
@@ -699,7 +708,7 @@ class NowPlayingPanel {
     const channel = await this._dedicatedChannel(guild);
     const player = this.players.get(guild.id);
     if (player?.currentTrack && player.nowPlayingMessage) {
-      if (channel) await this._repostNowPlaying(player, "전용 채널 변경");
+      if (channel) await this._repostNowPlaying(player, L.player.repostChannelChanged());
       return; // 풀었으면 재생 중인 패널은 그 자리에 둔다. 끝나면 전용 채널 밖 규칙을 따른다
     }
     if (canSend(channel)) await this._postIdle(guild, channel);
@@ -720,14 +729,36 @@ class NowPlayingPanel {
     for (const guild of this.client.guilds?.cache?.values() ?? []) {
       try {
         if (this.players.get(guild.id)?.nowPlayingMessage) continue;
-        const record = await this.location.store.getPanel(guild.id);
-        if (!record) continue;
-        const view = this._idleView(guild);
-        const dedicated = record.channelId === (await guildSettings.getBotChannel(guild.id));
-        const payload: Payload = { ...(await this.createIdleContainer({ ...view, dedicated })), flags: MessageFlags.IsComponentsV2 };
-        await this.location.edit(guild, payload);
+        await this._redrawIdle(guild);
       } catch (error) {
-        log.warn(`종료된 재생 패널 갱신 실패 (${guild.name ?? guild.id}): ${messageOf(error)}`);
+        log.warn(L.player.endedPanelEditFailed({ guild: guild.name ?? guild.id, error: messageOf(error) }));
+      }
+    }
+  }
+
+  // 기록된 끝난 패널을 같은 모양으로 그 자리에서 고친다(새로 올리지 않는다). 기록이 없으면 그대로
+  async _redrawIdle(guild: Guild) {
+    const record = await this.location.store.getPanel(guild.id);
+    if (!record) return;
+    const dedicated = record.channelId === (await guildSettings.getBotChannel(guild.id));
+    const payload: Payload = { ...(await this.createIdleContainer(publicText(guild.id), { ...this._idleView(guild), dedicated })), flags: MessageFlags.IsComponentsV2 };
+    await this.location.edit(guild, payload);
+  }
+
+  /**
+   * 서버 언어가 바뀌었을 때(서버 언어, 봇 기본 언어, 쓸 수 있는 언어). guildIds를 주지 않으면 모든 서버.
+   * 재생 중이면 지금 곡 패널을 다시 그리고(멈춘 패널은 5초 갱신을 하지 않는다), 끝난 패널은 그 자리에서 고친다. 이미 보낸 다른 메시지는 고치지 않는다
+   */
+  async redrawLanguage(guildIds?: Iterable<string>) {
+    const wanted = guildIds ? new Set(guildIds) : null;
+    for (const guild of this.client.guilds?.cache?.values() ?? []) {
+      if (wanted && !wanted.has(guild.id)) continue;
+      try {
+        const player = this.players.get(guild.id);
+        if (player?.nowPlayingMessage) await this.updatePlaying(player);
+        else await this._redrawIdle(guild);
+      } catch (error) {
+        log.warn(L.player.panelRedrawAfterLanguageFailed({ guild: guild.name ?? guild.id, error: messageOf(error) }));
       }
     }
   }
@@ -742,7 +773,7 @@ class NowPlayingPanel {
       try {
         await this._restorePanel(guild, { skip });
       } catch (error) {
-        log.warn(`패널 확인 실패 (${guild.name ?? guild.id}): ${messageOf(error)}`);
+        log.warn(L.player.panelCheckFailed({ guild: guild.name ?? guild.id, error: messageOf(error) }));
       }
     }
   }
@@ -767,7 +798,7 @@ class NowPlayingPanel {
     const record = await this.location.store.getPanel(guild.id);
     if (!record) return false;
     if (channel && (record.channelId !== channel.id || this._buriedAt(channel, record.messageId))) return false;
-    const payload: Payload = { ...(await this.createIdleContainer({ ...this._idleView(guild), dedicated: Boolean(channel) })), flags: MessageFlags.IsComponentsV2 };
+    const payload: Payload = { ...(await this.createIdleContainer(publicText(guild.id), { ...this._idleView(guild), dedicated: Boolean(channel) })), flags: MessageFlags.IsComponentsV2 };
     return Boolean(await this.location.edit(guild, payload));
   }
 
@@ -783,13 +814,13 @@ class NowPlayingPanel {
     if (dedicated) return;
     const textChannelId = saved.session.textChannelId;
     const target = textChannelId ? guild.channels?.cache?.get(textChannelId) : null;
-    if (!canSend(target)) return void log.info(`복원을 건너뛴 안내를 보낼 글 채널 없음: ${guild.name ?? guild.id}`);
-    const notice = panelText.restoreSkipped();
-    await bestEffort(log, target.send(post(frame({ title: notice.title, body: notice.body }))), "복원 건너뜀 안내 보내기", "warn");
+    if (!canSend(target)) return void log.info(L.player.skipNoticeNoChannel({ guild: guild.name ?? guild.id }));
+    const notice = publicText(guild.id).panel.restoreSkipped();
+    await bestEffort(log, target.send(post(frame({ title: notice.title, body: notice.body }))), L.player.skipNoticeSend(), "warn");
   }
 
   // 패널의 조작 버튼 두 줄. keepAutoplay: 나머지를 죽여도 자동재생만 살린다. 끝난 패널에서 다시 틀 수 있는 유일한 길이다.
-  async controlRows(player: Controls, disabled = false, { keepAutoplay = false } = {}) {
+  async controlRows(T: BotText, player: Controls, disabled = false, { keepAutoplay = false } = {}) {
     const id = (action: string) => panelId(action, player.sessionId);
 
     // 첫째 줄: 이전 곡, 일시정지, 건너뛰기, 정지, 볼륨
@@ -823,12 +854,12 @@ class NowPlayingPanel {
     const loopLook = LOOP_LOOKS[player.loop || "off"];
     const loopButton = new ButtonBuilder()
       .setCustomId(id("loop"))
-      .setLabel(panelText.loopLabel(player.loop || "off"))
+      .setLabel(T.panel.loopLabel(player.loop || "off"))
       .setStyle(loopLook.style)
       .setEmoji(buttonEmoji(loopLook.icon))
       .setDisabled(disabled);
 
-    const labels = panelText.buttons();
+    const labels = T.panel.buttons();
     const queueButton = new ButtonBuilder().setCustomId(id("queue")).setLabel(labels.queue).setStyle(ButtonStyle.Primary).setEmoji(buttonEmoji("queue_button")).setDisabled(queueOff(player, disabled));
 
     const autoplayLook = AUTOPLAY_LOOKS[player.autoplay ? "on" : "off"];
@@ -859,12 +890,12 @@ class NowPlayingPanel {
    * 항목은 queue-display의 menuEntries(값은 대기열 ID, ID가 없거나 겹치는 곡은 뺀다). 대기열이 비었거나 세션 id가 없으면 null.
    * budget: 메뉴 줄이 쓸 수 있는 컴포넌트 바이트(ui/message-size). 넘으면 설명, 그다음 항목 수를 줄이고(ui/menu-fit), 그래도 넘으면 null(메뉴 없이 패널을 올린다)
    */
-  async createJumpToRow(player: Pick<Player, "sessionId" | "queue">, budget = COMPONENTS_BYTES_MAX) {
+  async createJumpToRow(T: BotText, player: Pick<Player, "sessionId" | "queue">, budget = COMPONENTS_BYTES_MAX) {
     const sessionId = player.sessionId;
     if (!sessionId) return null;
-    const entries = menuEntries(player.queue.slice(0, JUMP_MAX), { parts: jumpParts });
+    const entries = menuEntries(T, player.queue.slice(0, JUMP_MAX), { parts: (track) => jumpParts(T, track) });
     if (entries.length === 0) return null;
-    const placeholder = panelText.jumpPlaceholder();
+    const placeholder = T.panel.jumpPlaceholder();
     const build = (options: StringSelectMenuOptionBuilder[]) => new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(new StringSelectMenuBuilder().setCustomId(panelId("jump", sessionId)).setPlaceholder(placeholder).addOptions(options));
     return fitMenu(entries, { separator: JUMP_SEPARATOR, budget, least: 1, build });
   }
@@ -898,7 +929,7 @@ class NowPlayingPanel {
       await this._tickProgress(player);
     } catch (error) {
       // 고치기 실패는 _onEditFailed가 구분한다. 여기까지 온 것은 모르는 오류라 남기고 이 곡의 갱신을 멈춘다(5초마다 같은 줄을 찍지 않게)
-      log.error(`진행 막대 갱신 중 예외가 발생해 현재 곡의 진행 막대 갱신 중단(${player.guild.name ?? guildId}):`, error);
+      log.error(L.player.progressUpdateStopped({ guild: player.guild.name ?? guildId }), error);
       this.stopProgressUpdate(guildId);
       return;
     }
@@ -908,7 +939,7 @@ class NowPlayingPanel {
 
   // 진행 막대 한 번. 전용 채널에서 묻혔으면 맨 아래로 다시 올린다
   async _tickProgress(player: Player) {
-    if (await this._isBuried(player)) await this._repostNowPlaying(player, "전용 채널 맨 아래로");
+    if (await this._isBuried(player)) await this._repostNowPlaying(player, L.player.repostBuried());
     else await this.updatePlaying(player);
   }
 
@@ -926,4 +957,4 @@ class NowPlayingPanel {
 }
 
 export { NowPlayingPanel };
-export type { Responder };
+export type { DrawAdded, Responder };

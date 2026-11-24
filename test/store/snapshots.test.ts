@@ -86,6 +86,25 @@ test("복원: 예약하면 다음 기동이 열기 전에 교체하고, 바꾸�
   }
 });
 
+test("복원: 앱 소유자가 아닌 사람이 예약했으면 봇 운영자 범위는 지금 값을 그대로 둔다(다른 값은 복원한다)", async () => {
+  settingsDocs.write("tunables", { OPERATOR_SCOPE: "developer", QUEUE_MAX_TRACKS: "300" }, settingsDocs.read("tunables").revision);
+  const name = await snapshots.take("daily", new Date(2026, 9, 10));
+  settingsDocs.write("tunables", { QUEUE_MAX_TRACKS: "77" }, settingsDocs.read("tunables").revision);
+
+  snapshots.stage(name, { keepScope: true });
+  stores.close();
+  snapshots.applyStaged(store.dir);
+  stores.open(store.dir);
+  assert.deepEqual(read("tunables"), { QUEUE_MAX_TRACKS: "300" }, "범위는 지금 값(없음)");
+
+  settingsDocs.write("tunables", { OPERATOR_SCOPE: "admin" }, settingsDocs.read("tunables").revision);
+  snapshots.stage(name);
+  stores.close();
+  snapshots.applyStaged(store.dir);
+  stores.open(store.dir);
+  assert.deepEqual(read("tunables"), { OPERATOR_SCOPE: "developer", QUEUE_MAX_TRACKS: "300" }, "앱 소유자가 예약했으면 스냅샷의 값");
+});
+
 test("예약을 취소하면 교체하지 않는다", async () => {
   const name = await snapshots.take("daily", new Date(2026, 9, 10));
   snapshots.stage(name);

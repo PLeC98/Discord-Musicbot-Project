@@ -16,6 +16,7 @@ import { openTempStore } from "../helpers/temp-store.ts";
 import type { Client, Guild } from "discord.js";
 import type { Player } from "../../src/player/player.ts";
 import { fake } from "../helpers/fake.ts";
+import { testText } from "../helpers/log-text.ts";
 
 // 재시도 대기는 0으로 둔다. 검증 대상은 시도 횟수지 대기 시간이 아니다
 const NOW = { attempts: 3, delayMs: 0 };
@@ -421,7 +422,7 @@ test("서버를 조회하는 사이 종료가 시작되면 플레이어를 만�
 test("복원 중 종료 때문에 붙지 못하면 오류 로그 없이 세션을 남기고 플레이어를 정리한다", async () => {
   saved("r9");
   const { client, players } = clientWith([guildWith("r9")]);
-  const { FakePlayer, made } = fakePlayerClass({ restoreFails: codedError("bot-shutting-down", "종료 중") });
+  const { FakePlayer, made } = fakePlayerClass({ restoreFails: codedError("bot-shutting-down", testText("종료 중")) });
   const start = sink.buffer.at(-1)?.id ?? -1;
   await restoreSessions(client, players, FakePlayer);
   assert.deepEqual(made[0].calls, ["restore:r9", "dispose:세션 복원 실패:keep"]);

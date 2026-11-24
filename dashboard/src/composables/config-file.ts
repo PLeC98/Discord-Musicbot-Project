@@ -5,6 +5,7 @@ import { ref, computed, watch } from "vue";
 import axios from "axios";
 import { trackUnsaved } from "./unsaved.ts";
 import { problemDetails, problemText } from "../utils/problem.ts";
+import { problemCodeOf, replyOf } from "../utils/request.ts";
 import { notifyDone, notifyProblem } from "./toasts.ts";
 import type { ConfigDefault, ConfigFile, ConfigSaved } from "../../../src/dashboard/contract/admin.ts";
 import { text } from "../text/index.ts";
@@ -27,7 +28,7 @@ type Options = {
   /** 기본값 읽기(새로 설치했을 때의 값). 없으면 기본값으로 되돌릴 수 없다 */
   readDefault?: () => Promise<Data>;
   /** 저장했다는 알림의 둘째 줄(언제부터 반영되는지) */
-  savedNote: string;
+  savedNote: () => string;
 };
 
 /**
@@ -93,11 +94,11 @@ export function useConfigFile({ tab, alsoUnsaved, payload, apply, read, write, r
     serverProblems.value = [];
     try {
       load(await write(payload()));
-      notifyDone(text.editor.saved, savedNote);
+      notifyDone(text.editor.saved, savedNote());
       return true;
     } catch (error) {
-      // 서버가 필드마다 가리킨 문제는 편집기의 문제 목록에, 그 밖의 실패는 알림으로
-      const details = problemDetails(error);
+      // 설정 검사에 걸린 문제(config-invalid)는 편집기의 문제 목록에, 그 밖의 실패는 알림으로(저장 실패의 원인도 errors로 온다)
+      const details = problemCodeOf(replyOf(error)) === "config-invalid" ? problemDetails(error) : [];
       if (details.length) serverProblems.value = details;
       else notifyProblem(error, text.editor.saveFailedSentence);
       return false;

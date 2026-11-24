@@ -19,9 +19,10 @@ import * as sourceChecks from "../store/source-checks.ts";
 import { audioKeyOf } from "../rules/audio-key-of.ts";
 import { inputKind } from "../rules/input-kind.ts";
 import { messageOf } from "../rules/error-kind.ts";
-import { labelOf } from "../rules/platforms.ts";
+import { platformName } from "../rules/platforms.ts";
 import { repeatingFailure } from "../infra/repeating-failure.ts";
 import { recheck, type Recheck, type Stored } from "./source-recheck.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "cache" });
 
 type Platform = "youtube" | "soundcloud" | "direct";
@@ -51,7 +52,7 @@ let retryTimer: NodeJS.Timeout | null = null;
 const failures = new Map<Platform, ReturnType<typeof repeatingFailure>>();
 const failuresOf = (platform: Platform) => {
   let one = failures.get(platform);
-  if (!one) failures.set(platform, (one = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, `${labelOf(platform)} 캐시 원본 재확인`)));
+  if (!one) failures.set(platform, (one = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.cache.sourceRecheck({ platform: platformName(platform) }))));
   return one;
 };
 
@@ -124,14 +125,14 @@ async function step() {
       await apply(job, row, result);
     }
   } catch (error) {
-    log.warn(`원본 다시 확인 실패(${logTitle(job.title)}): ${messageOf(error)}`);
+    log.warn(L.cache.sourceRecheckFailed({ title: logTitle(job.title), error: messageOf(error) }));
   } finally {
     running = false;
     if (queue.length) schedule(0);
   }
 }
 
-const WHAT_CHANGED = (result: Extract<Recheck, { kind: "changed" }>) => (result.durationChanged === true ? "길이가 바뀜" : result.durationChanged === false ? "길이는 같음" : "음원 파일이 바뀜");
+const WHAT_CHANGED = (result: Extract<Recheck, { kind: "changed" }>) => (result.durationChanged === true ? L.cache.recheckLengthChanged() : result.durationChanged === false ? L.cache.recheckLengthSame() : L.cache.recheckFileChanged());
 
 async function apply(job: Job, row: audioCache.AudioRow, result: Recheck) {
   const at = deps.now();
@@ -139,31 +140,31 @@ async function apply(job: Job, row: audioCache.AudioRow, result: Recheck) {
   if (result.kind !== "unknown") failuresOf(job.platform).ok();
   if (result.kind === "same") {
     sourceChecks.recordCheck(job.audioKey, { ok: true, at, version: result.version });
-    log.debug(`원본 다시 확인: 같음 ${where}`);
+    log.debug(L.cache.sourceRecheckSame({ track: where }));
     return;
   }
   if (result.kind === "uncompared") {
     sourceChecks.recordCheck(job.audioKey, { ok: true, at });
-    log.debug(`원본 다시 확인: 열림, 비교 불가(${result.reason}) ${where}`);
+    log.debug(L.cache.sourceRecheckUncompared({ reason: result.reason, track: where }));
     return;
   }
   if (result.kind === "gone") {
     sourceChecks.recordCheck(job.audioKey, { ok: false, code: result.code, at });
-    log.info(`캐시된 곡의 원본을 더 이상 재생할 수 없음(${result.code}). 캐시 파일은 그대로 사용: ${where}`);
+    log.info(L.cache.cachedSourceGone({ code: result.code, track: where }));
     return;
   }
   if (result.kind === "unknown") {
     held.set(job.audioKey, at + UNKNOWN_HOLD_MS);
-    failuresOf(job.platform).fail(`${result.code ?? result.reason} (해당 곡 24시간 뒤 재시도)`);
-    log.debug(`원본 다시 확인: 모름(${result.reason}), 하루 뒤에 다시 ${where}`);
+    failuresOf(job.platform).fail(L.cache.recheckRetryLater({ reason: result.code ?? result.reason }));
+    log.debug(L.cache.sourceRecheckUnknown({ reason: result.reason, track: where }));
     return;
   }
   sourceChecks.recordCheck(job.audioKey, { ok: true, at, version: result.version });
   if (job.platform === "youtube") {
-    log.info(`캐시된 곡의 원본이 변경됨(${WHAT_CHANGED(result)}). 캐시 파일은 유지하고 캐시 DB에 표시: ${where}`);
+    log.info(L.cache.cachedSourceChangedKept({ changes: WHAT_CHANGED(result), track: where }));
     return;
   }
-  log.info(`캐시된 곡의 원본이 변경됨(${WHAT_CHANGED(result)}). 캐시 파일을 삭제하고 다음 재생 시 새로 다운로드: ${where}`);
+  log.info(L.cache.cachedSourceChangedReplaced({ changes: WHAT_CHANGED(result), track: where }));
   replacing.set(job.audioKey, { expect: row.downloaded_at, title: job.title ?? row.title });
   await replace(job.audioKey);
 }
@@ -184,7 +185,7 @@ async function replace(audioKey: string) {
     return;
   }
   replacing.delete(audioKey);
-  if (removed.ok) log.info(`변경된 원본의 캐시 파일 삭제(다음 재생 시 새로 다운로드): "${logTitle(pending.title)}"`);
+  if (removed.ok) log.info(L.cache.changedSourceCacheRemoved({ title: logTitle(pending.title) }));
 }
 
 /** 테스트: 줄, 기억을 비우고 원본에 묻는 함수, 시계를 바꾼다(없으면 원래대로) */

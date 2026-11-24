@@ -6,8 +6,10 @@
 // 참, 거짓을 구분하는 if는 두지 않는다. 값이 모두 문자열(번호, 장르, 제목, 길이)이라 "있나 없나"만 구분한다. 블록 안 공백은 그대로 둔다(한 줄 형식이라).
 // 검사는 문제마다 글자 위치(at부터 end 앞까지, 0부터)를 함께 돌려준다(화면이 그 구간을 표시한다).
 
+import { rule, type RuleProblem } from "./rule-problem.ts";
+
 /** 문제 하나. at부터 end 앞까지가 그 위치(태그 하나, 닫히지 않은 블록의 여는 태그) */
-type Problem = { at: number; end: number; message: string };
+type Problem = { at: number; end: number; rule: RuleProblem };
 
 type Node = { kind: "text"; text: string } | { kind: "mark"; name: string; arg: string | null; raw: string; at: number } | { kind: "exist"; test: Node[]; then: Node[]; otherwise: Node[]; at: number; end: number };
 
@@ -77,7 +79,7 @@ function parseAt(text: string, names: Names, offset: number, problems: Problem[]
     pushText(text.slice(i, open));
     const close = closingOf(text, open);
     if (close < 0) {
-      problems.push({ at: offset + open, end: offset + text.length, message: "{{를 닫는 }}가 없어요" });
+      problems.push({ at: offset + open, end: offset + text.length, rule: rule("format-unclosed") });
       pushText(text.slice(open));
       break;
     }
@@ -87,7 +89,7 @@ function parseAt(text: string, names: Names, offset: number, problems: Problem[]
     tag(inner, raw, at, open + 2);
     i = close + 2;
   }
-  for (const frame of stack) problems.push({ at: frame.node.at, end: frame.node.end, message: `${EXIST} 블록을 닫는 {{/}}가 없어요` });
+  for (const frame of stack) problems.push({ at: frame.node.at, end: frame.node.end, rule: rule("format-block-unclosed", { exist: EXIST }) });
   return root;
 
   // 태그 하나. 블록 여닫기, 그 밖은 이름
@@ -97,11 +99,11 @@ function parseAt(text: string, names: Names, offset: number, problems: Problem[]
     if (word === EXIST || word.startsWith(`${EXIST} `)) return openExist(inner, at, end, innerStart);
     if (word === ":else") return elseOf(at, end);
     if (word === "/" || word === `/${EXIST.slice(1)}`) {
-      if (!stack.pop()) problems.push({ at, end, message: "닫을 블록이 없는데 {{/}}가 있어요" });
+      if (!stack.pop()) problems.push({ at, end, rule: rule("format-stray-close") });
       return;
     }
     if (/^[#/:]/.test(word)) {
-      problems.push({ at, end, message: `모르는 블록이에요(${raw}). 블록은 {{${EXIST} 값}} … {{:else}} … {{/}} 하나뿐이에요` });
+      problems.push({ at, end, rule: rule("format-unknown-block", { raw, exist: EXIST }) });
       return pushText(raw);
     }
     mark(word, raw, at, end);
@@ -110,7 +112,7 @@ function parseAt(text: string, names: Names, offset: number, problems: Problem[]
   function openExist(inner: string, at: number, end: number, innerStart: number) {
     const from = inner.indexOf(EXIST) + EXIST.length;
     const testText = inner.slice(from);
-    if (!testText.trim()) problems.push({ at, end, message: `${EXIST} 뒤에 확인할 값을 입력해야 해요. 예: {{${EXIST} {{duration}}}}` });
+    if (!testText.trim()) problems.push({ at, end, rule: rule("format-block-test", { exist: EXIST }) });
     const node: Extract<Node, { kind: "exist" }> = { kind: "exist", test: parseAt(testText, names, offset + innerStart + from, problems), then: [], otherwise: [], at, end };
     here().push(node);
     stack.push({ node, inElse: false });
@@ -118,8 +120,8 @@ function parseAt(text: string, names: Names, offset: number, problems: Problem[]
 
   function elseOf(at: number, end: number) {
     const frame = stack[stack.length - 1];
-    if (!frame) problems.push({ at, end, message: `{{:else}}는 ${EXIST} 블록 안에만 쓸 수 있어요` });
-    else if (frame.inElse) problems.push({ at, end, message: "{{:else}}가 한 블록에 두 개 있어요" });
+    if (!frame) problems.push({ at, end, rule: rule("format-stray-else", { exist: EXIST }) });
+    else if (frame.inElse) problems.push({ at, end, rule: rule("format-double-else") });
     else frame.inElse = true;
   }
 
@@ -132,8 +134,8 @@ function parseAt(text: string, names: Names, offset: number, problems: Problem[]
     const known = Object.keys(names)
       .map((n) => `{{${n}}}`)
       .join(", ");
-    if (!spec) problems.push({ at, end, message: now ? `이름이 바뀌었어요: {{${name}}} → ${now}` : `모르는 이름이에요(${raw}). 쓸 수 있는 것: ${known}` });
-    else if (arg !== null && !spec.arg) problems.push({ at, end, message: `{{${name}}}에는 :: 뒤의 값을 붙일 수 없어요` });
+    if (!spec) problems.push({ at, end, rule: now ? rule("format-renamed", { name, now }) : rule("format-unknown-name", { raw, known }) });
+    else if (arg !== null && !spec.arg) problems.push({ at, end, rule: rule("format-no-arg", { name }) });
     here().push({ kind: "mark", name, arg, raw, at });
   }
 }

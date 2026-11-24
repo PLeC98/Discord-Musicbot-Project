@@ -3,6 +3,8 @@
 import type { AgePlace } from "../../rules/age-place.ts";
 import type { Code } from "../../rules/problems.ts";
 import type { SettingsKey, SettingsValues } from "../../rules/guild-settings-values.ts";
+import type { Language } from "../../rules/languages.ts";
+import type { LanguageChoice } from "./identity.ts";
 
 /** 서버 목록의 상태: 봇이 음성 채널 밖 = idle, 곡을 트는 중 = playing, 일시정지 = paused, 음성 채널에 있지만 곡이 없다 = waiting */
 type ListState = "idle" | "playing" | "paused" | "waiting";
@@ -19,7 +21,7 @@ type GuildList = { guilds: GuildRow[]; relogin?: true };
 type GuildEvent = { t: "changed"; g: string };
 
 /** 서버 설정 화면의 카드. 누가 보고 고치는지는 dashboard/settings-cards의 표 */
-type SettingsCard = "stay" | "normalize" | "channel" | "dj" | "sponsorblock" | "playlistAdd" | "agePlace" | "leave";
+type SettingsCard = "stay" | "normalize" | "channel" | "dj" | "sponsorblock" | "playlistAdd" | "agePlace" | "language" | "leave";
 
 /**
  * 상주 모드 카드. on: 켜져 있는가, channel: 머무는 음성 채널(꺼져 있거나 보는 사람이 볼 수 없는 채널이면 null),
@@ -46,6 +48,8 @@ type GuildSettings = {
   playlistAdd?: { value: number | null; effective: number; min: number; max: number; default: number };
   /** 연령 제한 콘텐츠를 틀 곳. 운영자가 연령 제한 콘텐츠를 꺼 두었으면 카드가 없다 */
   agePlace?: AgePlace;
+  /** 서버 언어. value가 null이면 봇 기본 언어(botLanguage)를 따른다. languages는 고를 수 있는 언어. 언어가 하나면 카드가 없다 */
+  language?: { value: Language | null; botLanguage: Language; languages: LanguageChoice[] };
 };
 
 /** 바로 처리하는 요청의 응답(봇 내보내기 등) */

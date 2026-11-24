@@ -11,6 +11,7 @@ import { LIFETIME, noticeMs, noticeSelf, replaceSelf, toAll } from "../../ui/del
 import { showFailureWith } from "../../ui/failure-notice.ts";
 import type { Player } from "../../player/player.ts";
 import type { Problem } from "../../rules/problems.ts";
+import { privateText, publicText } from "../../ui/language.ts";
 
 /** 서버 안의 명령, 버튼 */
 type Asked = RepliableInteraction<"cached">;
@@ -19,53 +20,53 @@ type MaybePlayer = Player | null | undefined;
 
 // 거절. "하는 중" 자리표시자로 이미 응답했으면(받아들인 뒤의 거절) 그 자리표시자를 안내로 바꾼다
 function refuse(interaction: Asked, r: Problem) {
-  const notice = controlMessage(r);
+  const notice = controlMessage(privateText(interaction), r);
   return interaction.replied ? replaceSelf(interaction, noticeFrame(notice), noticeMs(notice)) : noticeSelf(interaction, notice);
 }
 
 // 실패로 일시정지해 둔 곡의 ▶는 곡을 다시 열어 몇 초 걸린다. 받아들이면 "다시 트는 중"으로 먼저 본인에게 응답한다
 async function answerPause(interaction: Asked, player: MaybePlayer) {
-  const r = await controls.pause(player, { member: interaction.member }, { onAccepted: acceptWith(interaction, replies.reopening()) });
+  const r = await controls.pause(player, { member: interaction.member }, { onAccepted: acceptWith(interaction, replies.reopening(privateText(interaction))) });
   if (!r.ok) return refuse(interaction, r);
-  return toAll(interaction, replies.paused(r.userPaused, r.track, interaction.member, r.heldBy), LIFETIME.result);
+  return toAll(interaction, replies.paused(publicText(interaction.guildId), r.userPaused, r.track, interaction.member, r.heldBy), LIFETIME.result);
 }
 
 async function answerSkip(interaction: Asked, player: MaybePlayer) {
   const r = await controls.skip(player, { member: interaction.member });
   if (!r.ok) return refuse(interaction, r);
-  return toAll(interaction, replies.skipped(r.restarted, r.track, interaction.member), LIFETIME.result);
+  return toAll(interaction, replies.skipped(publicText(interaction.guildId), r.restarted, r.track, interaction.member), LIFETIME.result);
 }
 
 async function answerPrevious(interaction: Asked, player: MaybePlayer) {
   const r = await controls.previous(player, { member: interaction.member });
   if (!r.ok) return refuse(interaction, r);
-  return toAll(interaction, replies.previous(r.restarted, r.track), LIFETIME.result);
+  return toAll(interaction, replies.previous(publicText(interaction.guildId), r.restarted, r.track), LIFETIME.result);
 }
 
 // 결과는 정리를 시작한 뒤, 끝난 패널을 그리기 전에 응답한다(유스케이스의 onAccepted)
 async function answerStop(interaction: Asked, player: MaybePlayer) {
-  const r = await controls.stop(player, { member: interaction.member }, { onAccepted: (facts) => toAll(interaction, replies.stopped(facts.cleared, interaction.member, facts.stayed), LIFETIME.farewell) });
+  const r = await controls.stop(player, { member: interaction.member }, { onAccepted: (facts) => toAll(interaction, replies.stopped(publicText(interaction.guildId), facts.cleared, interaction.member, facts.stayed), LIFETIME.farewell) });
   if (!r.ok) return refuse(interaction, r);
 }
 
 async function answerShuffle(interaction: Asked, player: MaybePlayer) {
   const r = await controls.shuffle(player, { member: interaction.member });
   if (!r.ok) return refuse(interaction, r);
-  return toAll(interaction, replies.shuffled(r.count, interaction.member), LIFETIME.result);
+  return toAll(interaction, replies.shuffled(publicText(interaction.guildId), r.count, interaction.member), LIFETIME.result);
 }
 
 /** 볼륨. level은 명령이 받은 수이거나 입력 창에 입력한 값(맞는 값인지는 controls가 본다) */
 async function answerVolume(interaction: Asked, player: MaybePlayer, level: unknown) {
   const r = await controls.volume(player, { member: interaction.member }, level);
   if (!r.ok) return refuse(interaction, r);
-  return toAll(interaction, replies.volumeSet(r.before, r.level, interaction.member), LIFETIME.result);
+  return toAll(interaction, replies.volumeSet(publicText(interaction.guildId), r.before, r.level, interaction.member), LIFETIME.result);
 }
 
 /** 반복 모드. mode는 명령이 선택한 값이거나 버튼의 다음 모드(맞는 값인지는 controls가 본다) */
 async function answerLoop(interaction: Asked, player: MaybePlayer, mode: unknown) {
   const r = await controls.loop(player, { member: interaction.member }, mode);
   if (!r.ok) return refuse(interaction, r);
-  return toAll(interaction, replies.loopSet(r.mode, interaction.member), LIFETIME.result);
+  return toAll(interaction, replies.loopSet(publicText(interaction.guildId), r.mode, interaction.member), LIFETIME.result);
 }
 
 /**
@@ -78,18 +79,18 @@ const acceptWith = (interaction: Asked, working: ContainerBuilder) => async () =
 };
 
 async function answerReplay(interaction: Asked, player: MaybePlayer) {
-  const r = await controls.replay(player, { member: interaction.member }, { onAccepted: acceptWith(interaction, replies.replaying()) });
+  const r = await controls.replay(player, { member: interaction.member }, { onAccepted: acceptWith(interaction, replies.replaying(privateText(interaction))) });
   if (!r.ok) return refuse(interaction, r);
   // 직접 링크 곡은 파일 태그의 앨범아트를 첨부한다(ui/discord-art)
   const art = await discordArt.artFor(r.track);
-  return toAll(interaction, replies.replayed(r.track, interaction.member, art), LIFETIME.result, art?.file && [art.file]);
+  return toAll(interaction, replies.replayed(publicText(interaction.guildId), r.track, interaction.member, art), LIFETIME.result, art?.file && [art.file]);
 }
 
 /** 곡 안의 위치로. ms는 옮길 위치 */
 async function answerSeek(interaction: Asked, player: MaybePlayer, ms: number) {
-  const r = await controls.seek(player, { member: interaction.member }, ms, { reason: "seek", onAccepted: acceptWith(interaction, replies.seeking()) });
+  const r = await controls.seek(player, { member: interaction.member }, ms, { reason: "seek", onAccepted: acceptWith(interaction, replies.seeking(privateText(interaction))) });
   if (!r.ok) return refuse(interaction, r);
-  return toAll(interaction, replies.seeked(r.ms), LIFETIME.result);
+  return toAll(interaction, replies.seeked(publicText(interaction.guildId), r.ms), LIFETIME.result);
 }
 
 /**
@@ -97,10 +98,10 @@ async function answerSeek(interaction: Asked, player: MaybePlayer, ms: number) {
  * onNone: 하이라이트가 없을 때 거절 대신 할 일. 패널 버튼은 하이라이트가 없으면 꺼져 있어, 곡이 바뀌기 직전의 늦은 클릭이라 조용히 넘긴다
  */
 async function answerHighlight(interaction: Asked, player: MaybePlayer, { onNone }: { onNone?: () => unknown } = {}) {
-  const r = await controls.highlight(player, { member: interaction.member }, { onAccepted: acceptWith(interaction, replies.highlighting()) });
+  const r = await controls.highlight(player, { member: interaction.member }, { onAccepted: acceptWith(interaction, replies.highlighting(privateText(interaction))) });
   if (!r.ok && r.code === "no-highlight" && onNone) return onNone();
   if (!r.ok) return refuse(interaction, r);
-  return toAll(interaction, replies.highlighted(r.ms), LIFETIME.result);
+  return toAll(interaction, replies.highlighted(publicText(interaction.guildId), r.ms), LIFETIME.result);
 }
 
 export { answerPause, answerSkip, answerPrevious, answerStop, answerShuffle, answerLoop, answerVolume, answerReplay, answerSeek, answerHighlight, acceptWith, refuse };

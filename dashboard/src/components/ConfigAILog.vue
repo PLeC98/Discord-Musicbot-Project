@@ -115,6 +115,7 @@ import { useAiLog } from "../composables/ai-log.ts";
 import { formatBytes } from "../../../src/ui/format.ts";
 import { AI_LOG_SOURCES, type AiLogEntry } from "../../../src/dashboard/contract/ai-log.ts";
 import { text } from "../text/index.ts";
+import { ruleLine } from "../utils/rule-line.ts";
 const T = text.ai.log;
 
 /** active: 이 화면이 보이는가(보일 때만 읽고 SSE 연결을 연다) */
@@ -149,7 +150,7 @@ function factsOf(entry: AiLogEntry) {
 /** 원문 영역: URL, 오류는 목록에 있고, 헤더, 본문, 응답은 불러온 뒤에 */
 function boxesOf(entry: AiLogEntry) {
   const out: Array<{ title: string; text: string; error?: boolean }> = [{ title: T.url, text: entry.url }];
-  if (entry.error) out.push({ title: T.error, text: entry.error, error: true });
+  if (entry.error) out.push({ title: T.error, text: ruleLine(entry.error), error: true });
   const one = details.value[entry.id];
   if (!one || typeof one === "string") return out;
   return [...out, { title: T.headers, text: prettyJson(one.requestHeaders) }, { title: T.body, text: prettyJson(one.requestBody) }, { title: T.response, text: prettyJson(one.response) }];

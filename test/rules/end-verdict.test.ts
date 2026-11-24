@@ -2,7 +2,15 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { endVerdict, type EndFacts } from "../../src/rules/end-verdict.ts";
+import { endVerdict as verdictOf, type EndFacts } from "../../src/rules/end-verdict.ts";
+import { asText } from "../../src/infra/log/log-text.ts";
+import { testText } from "../helpers/log-text.ts";
+
+// 판정의 이유는 로그 문구다. 글로 비교하려고 그린다
+const endVerdict = (f: EndFacts) => {
+  const verdict = verdictOf(f);
+  return { ...verdict, why: asText(verdict.why) };
+};
 
 // 온전히 끝난 VOD가 기준. 테스트마다 한 필드씩 바꾼다
 const facts = (over: Partial<EndFacts> = {}): EndFacts => ({
@@ -26,7 +34,7 @@ test("온전히 끝났으면 길이보다 한참 일찍이어도 끝이다(길�
 test("우리가 멈춘 것은 그 원인대로: 깨진 재생을 멈춘 원인이면 끊김, 그 밖은 끝", () => {
   for (const reason of ["stream-error", "buffering-stall", "error"]) assert.equal(dropped({ reason, streamEnded: false }), true, reason);
   for (const reason of ["skip", "stop", "previous", "jump", "sponsorblock", "overflow", "stuck", "모르는-이유"]) {
-    assert.equal(dropped({ reason, streamEnded: false, broken: "입력 스트림 오류", exitCode: -1 }), false, reason);
+    assert.equal(dropped({ reason, streamEnded: false, broken: testText("입력 스트림 오류"), exitCode: -1 }), false, reason);
   }
 });
 
@@ -35,7 +43,7 @@ test("재생 스트림이 끝까지 읽히지 않고 멈췄으면(공급 부족)
 });
 
 test("입력 깨짐 표시가 있으면 스트림이 끝까지 읽혔어도 끊김. 원인은 표시 그대로", () => {
-  assert.deepEqual(endVerdict(facts({ broken: "입력 스트림 오류: 끊김" })), { dropped: true, why: "입력 스트림 오류: 끊김" });
+  assert.deepEqual(endVerdict(facts({ broken: testText("입력 스트림 오류: 끊김") })), { dropped: true, why: "입력 스트림 오류: 끊김" });
 });
 
 test("라이브: 0으로 끝나고 입력이 온전하면 방송이 끝난 것, 그 밖(아직 안 끝남, 0 아님, 깨짐)은 끊김", () => {
@@ -43,7 +51,7 @@ test("라이브: 0으로 끝나고 입력이 온전하면 방송이 끝난 것, 
   assert.deepEqual(endVerdict(facts({ ...live, exitCode: 0 })), { dropped: false, why: "방송이 끝남" });
   assert.equal(dropped({ ...live, exitCode: null }), true);
   assert.equal(dropped({ ...live, exitCode: 1 }), true);
-  assert.equal(dropped({ ...live, exitCode: 0, broken: "입력 스트림 오류" }), true);
+  assert.equal(dropped({ ...live, exitCode: 0, broken: testText("입력 스트림 오류") }), true);
   assert.equal(endVerdict(facts({ ...live, exitCode: null })).why, "ffmpeg 종료 코드 없음");
 });
 

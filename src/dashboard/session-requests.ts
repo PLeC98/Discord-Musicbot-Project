@@ -7,6 +7,7 @@
 //                        스트림(SSE)은 끝 이벤트를 쓰고 끝낸 뒤 소켓을 강제로 닫는다(읽지 않는 클라이언트는 끝내도 닫히지 않는다. 그래서 SSE는 Connection: close로 연다).
 //                        스트리밍 응답과 수신 중인 본문은 소켓을 강제로 닫는다. 상태를 바꾸는 요청은 변경 직전의 확인(assertSignedIn)이 401로 멈춘다
 //   스트림 열기 앞(admit)  저장소에서 세션이 살아 있는지 본다. 실시간 로그, AI 로그는 열자마자 놓친 줄을 보내니 연 뒤에 보면 늦다
+//   운영자 전용          운영자 확인(requireOwner)을 통과한 요청은 운영자에서 빠지면 세션은 두고 스트림을 끊고, 변경 직전의 확인이 403 으로 멈춘다
 
 import type { NextFunction, Request, Response } from "express";
 import type { Socket } from "node:net";
@@ -16,6 +17,10 @@ import { problemBody } from "./contract/problem.ts";
 import logger from "../infra/log/logger.ts";
 import { messageOf } from "../rules/error-kind.ts";
 import { repeatingFailure } from "../infra/repeating-failure.ts";
+import { L } from "../infra/log/text.ts";
+import { renderLogText, type LogText } from "../infra/log/log-text.ts";
+import { bug } from "../infra/bug.ts";
+import { isBotOwner } from "../usecases/permissions.ts";
 const log = logger.child({ category: "dashboard" });
 
 /** 알림 없이 끝난 세션을 다시 확인하는 간격 */
@@ -36,14 +41,24 @@ const SAFE = new Set(["GET", "HEAD"]);
 
 /** 상태 변경 직전의 확인(assertSignedIn)이 던진다. 경로의 catch는 sessionEnded로 먼저 받는다 */
 class SessionEndedError extends Error {
-  constructor() {
-    super("로그인 세션이 끝났다");
+  readonly logText: LogText;
+  constructor(text: LogText = L.dashboard.sessionEndedError()) {
+    super(renderLogText(text));
     this.name = "SessionEndedError";
+    this.logText = text;
   }
 }
 
-/** 묶인 요청. stream: 스트림이면 그 이름(로그), drop: 그 스트림 모듈의 정리 */
-type Entry = { req: Request; res: Response; socket: Socket; sid: string; userId: string; name: string; deadline: number; store: SqliteSessionStore; stream: string | null; drop: () => void };
+/** 운영자 전용 요청의 변경 직전 확인: 그사이 운영자에서 빠졌다. 세션은 살아 있어 403(must-owner)으로 답한다 */
+class OperatorRevokedError extends SessionEndedError {
+  constructor() {
+    super(L.dashboard.operatorRevokedError());
+    this.name = "OperatorRevokedError";
+  }
+}
+
+/** 묶인 요청. stream: 스트림이면 그 이름(로그), drop: 그 스트림 모듈의 정리, operator: 운영자 확인을 통과했다 */
+type Entry = { req: Request; res: Response; socket: Socket; sid: string; userId: string; name: string; deadline: number; store: SqliteSessionStore; stream: LogText | null; drop: () => void; operator: boolean };
 
 /** 진행 중인 묶인 요청(응답이 닫히면 빠진다) */
 const entries = new Map<Response, Entry>();
@@ -61,7 +76,7 @@ const heard = new WeakSet<SqliteSessionStore>();
 let timer: NodeJS.Timeout | null = null;
 let failures = 0;
 // 다시 보기의 저장소 읽기 실패. 같은 원인이 이어지면 한 번만, 풀리면 한 줄
-const readFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "진행 중인 요청의 로그인 세션 확인");
+const readFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.dashboard.activeRequestSessionCheck());
 
 /** 모든 요청의 맨 앞(정적 파일보다 앞): 소켓의 마지막 요청을 적는다 */
 function noteSocket(req: Request, _res: Response, next: NextFunction) {
@@ -78,7 +93,7 @@ function bind(req: Request, res: Response, next: NextFunction) {
   const user = req.session.user;
   if (user) {
     const expires = req.session.cookie?.expires ? new Date(req.session.cookie.expires).getTime() : Infinity;
-    const entry: Entry = { req, res, socket: req.socket, sid: req.sessionID, userId: user.id, name: user.username || user.id, deadline: Math.min((req.session.loginAt ?? 0) + SESSION_MAX_MS, expires), store, stream: null, drop: () => undefined };
+    const entry: Entry = { req, res, socket: req.socket, sid: req.sessionID, userId: user.id, name: user.username || user.id, deadline: Math.min((req.session.loginAt ?? 0) + SESSION_MAX_MS, expires), store, stream: null, drop: () => undefined, operator: false };
     entries.set(res, entry);
     entryOf.set(req, entry);
     useSocket(entry.sid, req.socket);
@@ -164,16 +179,33 @@ function assertSignedIn(req: Request) {
   const entry = entryOf.get(req);
   if (!entry) {
     // 저장소가 있는데 묶이지 않은 로그인 요청: 묶기 미들웨어를 빠뜨렸다
-    if (req.session?.user) throw new Error("로그인한 요청이 세션 묶기(session-requests의 bind)를 지나지 않았다");
+    if (req.session?.user) throw bug("로그인한 요청이 세션 묶기(session-requests의 bind)를 지나지 않았다");
     return;
   }
   if (ended.has(req) || entry.deadline <= Date.now()) throw new SessionEndedError();
+  if (entry.operator && !isBotOwner(entry.userId)) throw new OperatorRevokedError();
 }
 
-/** 경로의 catch 맨 앞: 세션이 끝나 멈춘 것이면 401로 응답하고(헤더 전이면) true */
+/** 운영자 확인(requireOwner)을 통과했다: 운영자에서 빠지면 끊거나 멈출 요청으로 적는다 */
+function markOperator(req: Request) {
+  const entry = entryOf.get(req);
+  if (entry) entry.operator = true;
+}
+
+/** 운영자가 바뀐 뒤: 운영자 전용 스트림 가운데 이제 운영자가 아닌 사람의 것을 끊는다(세션은 둔다. 화면에서 다시 열면 403 을 받는다) */
+function closeRevokedStreams() {
+  for (const entry of [...entries.values()]) if (entry.operator && entry.stream && !isBotOwner(entry.userId)) closeStream(entry, L.dashboard.requestStopNotOperator());
+}
+
+/** 경로의 catch 맨 앞: 세션이 끝나 멈춘 것이면 401로(운영자에서 빠져 멈춘 것이면 403으로) 응답하고(헤더 전이면) true */
 function sessionEnded(res: Response, error: unknown): boolean {
   if (!(error instanceof SessionEndedError)) return false;
-  if (!res.headersSent && !res.destroyed) res.status(401).type("application/problem+json").json(problemBody("login-required"));
+  const revoked = error instanceof OperatorRevokedError;
+  if (!res.headersSent && !res.destroyed)
+    res
+      .status(revoked ? 403 : 401)
+      .type("application/problem+json")
+      .json(problemBody(revoked ? "must-owner" : "login-required"));
   return true;
 }
 
@@ -194,11 +226,11 @@ function admit(req: Request): boolean {
  * 연 스트림을 그 요청의 항목에 스트림으로 적고 요청에서 세션을 뗀다. 헤더를 보낸 뒤에 부른다. kind: 로그에 적을 스트림 이름,
  * drop: 그 스트림 모듈의 정리(끊을 때 곧바로 부른다. 닫힘을 기다리면 그사이 하트비트가 끝낸 응답에 쓴다)
  */
-function track(req: Request, res: Response, kind: string, drop?: () => void) {
+function track(req: Request, res: Response, kind: LogText, drop?: () => void) {
   const store = tokenStoreOf(req);
   if (!store || !req.session?.user) return;
   const entry = entryOf.get(req);
-  if (!entry) throw new Error("스트림을 연 요청이 세션 묶기(session-requests의 bind)를 지나지 않았다");
+  if (!entry) throw bug("스트림을 연 요청이 세션 묶기(session-requests의 bind)를 지나지 않았다");
   entry.stream = kind;
   entry.drop = drop ?? (() => undefined);
   (req as { session: unknown }).session = null;
@@ -215,7 +247,7 @@ function onEnded(sid: string) {
   for (const entry of [...entries.values()]) {
     if (entry.sid !== sid || released.has(entry.req)) continue;
     live.add(entry.req);
-    stop(entry, "세션이 끝남");
+    stop(entry, L.dashboard.requestStopSessionEnded());
   }
   sweepSockets(sid, live);
 }
@@ -232,7 +264,7 @@ function sweepSockets(sid: string, live: Set<Request>) {
 
 // 끝난 요청을 멈춘다. 스트림은 끝 이벤트와 함께 끊고, 헤더를 보냈는데 다 나가지 않은 응답(end를 불렀어도 버퍼에 남은 것 포함)과 받는 중인 본문은 소켓을 강제로 닫는다.
 // 나머지는 표시만 한다(감싸기와 확인이 멈춘다)
-function stop(entry: Entry, why: string) {
+function stop(entry: Entry, why: LogText) {
   const { req, res } = entry;
   ended.add(req);
   if (entry.stream) return closeStream(entry, why);
@@ -242,7 +274,7 @@ function stop(entry: Entry, why: string) {
   if (entries.get(res) === entry) entries.delete(res);
   if (!entries.size) disarm();
   entry.socket.destroy();
-  log.debug(`세션이 끝나 진행 중인 요청을 끊음(${why}): ${req.method} ${req.baseUrl}${req.path} | ${entry.name}`);
+  log.debug(L.dashboard.requestCut({ why, method: req.method, baseUrl: req.baseUrl, path: req.path, name: entry.name }));
 }
 
 // 본문을 아직 받는 중인가(큰 업로드). 본문 없는 요청은 핸들러가 동기로 도는 동안 complete가 아직 거짓이라 본문이 있는지부터 본다
@@ -252,7 +284,7 @@ function receiving(req: Request) {
 }
 
 // 스트림을 끊는다. 목록에서 곧바로 빼고 모듈 정리를 부른다
-function closeStream(entry: Entry, why: string) {
+function closeStream(entry: Entry, why: LogText) {
   if (entries.get(entry.res) !== entry) return;
   entries.delete(entry.res);
   if (!entries.size) disarm();
@@ -263,7 +295,7 @@ function closeStream(entry: Entry, why: string) {
   try {
     entry.drop();
   } catch (error) {
-    log.warn(`스트림 정리 실패(${kind}): ${messageOf(error)}`);
+    log.warn(L.dashboard.streamCleanupFailed({ kind, error: messageOf(error) }));
   }
   if (large || res.writableEnded || res.destroyed) {
     socket.destroy();
@@ -274,7 +306,7 @@ function closeStream(entry: Entry, why: string) {
     setTimeout(() => socket.destroy(), CLOSE_GRACE_MS).unref();
   }
   // 로그아웃, 다시 로그인마다 탭 수만큼 나온다. 끊은 일 자체(다른 기기 로그아웃 등)는 그 경로가 남긴다
-  log.debug(`스트림을 끊음(${why}): ${kind} | ${entry.name}`);
+  log.debug(L.dashboard.streamCut({ why, kind, name: entry.name }));
 }
 
 /** 묶인 요청의 세션을 다시 본다(RECHECK_MS마다). 세션마다 저장소를 한 번 읽는다. 절대 기한은 저장소를 읽지 못해도 본다 */
@@ -286,7 +318,7 @@ function recheck(now = Date.now()) {
     const keep = liveOf(sid);
     const alive = list.filter((entry) => {
       if (entry.deadline > now) return true;
-      stop(entry, "로그인 기한이 지남");
+      stop(entry, L.dashboard.requestStopLoginExpired());
       return false;
     });
     if (alive.length < list.length) sweepSockets(sid, keep);
@@ -300,7 +332,7 @@ function recheck(now = Date.now()) {
       continue;
     }
     const gone = alive.filter((entry) => session?.user?.id !== entry.userId);
-    for (const entry of gone) stop(entry, "세션이 끝남");
+    for (const entry of gone) stop(entry, L.dashboard.requestStopSessionEnded());
     if (gone.length) sweepSockets(sid, keep);
   }
   if (!firstError) {
@@ -311,7 +343,7 @@ function recheck(now = Date.now()) {
   failures++;
   readFailure.fail(messageOf(firstError));
   if (failures < FAILURES_TO_CLOSE) return;
-  for (const entry of unchecked) stop(entry, "세션을 확인하지 못함");
+  for (const entry of unchecked) stop(entry, L.dashboard.requestStopSessionUnchecked());
   failures = 0;
 }
 
@@ -346,4 +378,4 @@ function _reset() {
   disarm();
 }
 
-export { noteSocket, bind, release, assertSignedIn, sessionEnded, isEnded, admit, track, recheck, _reset, SessionEndedError, RECHECK_MS, ENDED_FRAME };
+export { noteSocket, bind, release, assertSignedIn, markOperator, closeRevokedStreams, sessionEnded, isEnded, admit, track, recheck, _reset, SessionEndedError, OperatorRevokedError, RECHECK_MS, ENDED_FRAME };

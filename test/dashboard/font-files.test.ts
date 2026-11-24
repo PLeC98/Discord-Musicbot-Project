@@ -7,6 +7,8 @@ import fs from "node:fs";
 import path from "node:path";
 import * as fontkit from "fontkit";
 import { setNames, toSfnt, OFL_NAMES } from "../../scripts/font-names.ts";
+import { useTestLogLanguage } from "../../src/infra/log/language.ts";
+import type { LogText } from "../../src/infra/log/log-text.ts";
 
 const ASSETS = path.join(import.meta.dirname, "..", "..", "dashboard", "src", "assets");
 const open = (data: Buffer) => fontkit.create(data) as fontkit.Font;
@@ -39,6 +41,19 @@ test("setNames: 고른 번호만 바꾸고 지우며, 나머지 이름, 글자, 
 
 test("setNames: 글꼴 하나(sfnt)가 아니면 거절한다", () => {
   assert.throws(() => setNames(fs.readFileSync(path.join(ASSETS, "material-symbols.woff2")), {}), /sfnt/);
+});
+
+test("setNames: 거절 글은 로그 언어로 그린다(로그 테스트 언어에서는 바꾼 글, 문구 코드는 같다)", () => {
+  const woff2 = fs.readFileSync(path.join(ASSETS, "material-symbols.woff2"));
+  useTestLogLanguage(true);
+  try {
+    assert.throws(
+      () => setNames(woff2, {}),
+      (error: Error & { logText?: LogText }) => !/[가-힣]/.test(error.message) && error.message.includes("wOF2") && error.logText?.event === "build.fontNotSfnt",
+    );
+  } finally {
+    useTestLogLanguage(false);
+  }
 });
 
 /** 화면이 내주는 글꼴 파일 전부 */

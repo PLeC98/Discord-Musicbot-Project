@@ -8,6 +8,7 @@ import type { SettingsCard } from "./contract/guilds.ts";
 import type { SettingsPatch } from "./request-schemas.ts";
 import type { Code } from "../rules/problems.ts";
 import { ageContentOn } from "../config/age-content.ts";
+import { availableLanguages } from "../rules/languages.ts";
 import { canKickBot } from "../usecases/permissions.ts";
 import { getViewAs, tierOf } from "./view-as.ts";
 
@@ -32,6 +33,8 @@ const CARDS: CardTable = {
   sponsorblock: { gate: "server-manager", fields: ["sponsorblock"] },
   playlistAdd: { gate: "server-manager", fields: ["playlistAddMax"] },
   agePlace: { gate: "server-manager", fields: ["agePlace"], shown: ageContentOn },
+  // 서버 언어는 디스코드 /language의 서버 언어와 같은 값. 언어가 하나면 카드가 없다(/language와 같다)
+  language: { gate: "server-manager", fields: ["language"], shown: () => availableLanguages().length > 1 },
   // 봇 내보내기는 디스코드에서 봇을 추방할 수 있는 사람만. POST .../settings/leave(usecases/leave-guild)
   leave: { gate: "kick-bot", fields: [] },
 };

@@ -1,10 +1,10 @@
 import { ChannelType, PermissionFlagsBits } from "discord.js";
-import config from "../config/index.ts";
 import * as guildSettings from "../store/guild-settings.ts";
 import type { Code } from "../rules/problems.ts";
 import type { Guild, GuildMember, VoiceBasedChannel } from "discord.js";
 import type { QueuedTrack } from "../player/track.ts";
 import { ownTrackDenied } from "../rules/controls.ts";
+import { operators } from "./app-owners.ts";
 
 /** 권한 판정이 막은 이유 */
 type PermissionDenied = Extract<Code, "must-be-in-voice" | "must-be-in-same-voice" | "must-dj" | VoiceEntryDenied>;
@@ -14,16 +14,15 @@ type VoiceEntryDenied = Extract<Code, "permission-voice" | "bot-timed-out" | "vo
 /**
  * 서버 관리자(상위 계층)인가: 서버 관리 권한. 설정 화면 버튼, 대시보드 서버 설정, 재생 조작의 면제(늘 DJ, 동일 음성 채널 규칙 면제)가 이 판정을 본다.
  * 설정 명령은 같은 권한을 디스코드 기본 권한(default_member_permissions)으로 걸고, 서버 관리자가 연동 탭에서 다른 역할에 열어 줄 수 있으므로 명령 실행 진입점(events/interaction-create)에서 다시 확인한다.
- * 서버 소유자와 Administrator는 discord.js 권한 검사가 통과시킨다. 봇 운영자(OWNER_ID, 아래 isBotOwner)와는 다르다.
+ * 서버 소유자와 Administrator는 discord.js 권한 검사가 통과시킨다. 봇 운영자(아래 isBotOwner)와는 다르다.
  */
 function isServerManager(member: GuildMember) {
   return member.permissions.has(PermissionFlagsBits.ManageGuild);
 }
 
-/** 봇 운영자(OWNER_ID)인지 확인한다. 디스코드 권한으로는 나타낼 수 없다. OWNER_ID가 비어 있으면 아무도 아니다 */
+/** 봇 운영자인지 확인한다. 디스코드 권한으로는 나타낼 수 없다. 운영자는 앱 소유자로 정하고 OWNER_ID 가 있으면 그것이 대신한다(usecases/app-owners) */
 function isBotOwner(userId: string) {
-  const ownerId = config.dashboard.ownerId;
-  return !!ownerId && userId === ownerId;
+  return operators().includes(userId);
 }
 
 /**

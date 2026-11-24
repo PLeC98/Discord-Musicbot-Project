@@ -9,6 +9,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { withLock } from "./folder-lock.ts";
 import { pathHolder, treeSize } from "./folder-guard.ts";
+import type { LogText } from "./log/log-text.ts";
 
 const STAGING = /^\.staging-(\d+)-\d+$/;
 const TRASH = /^\.trash-/;
@@ -21,7 +22,7 @@ const BUSY_CODES = new Set(["EPERM", "EBUSY", "EACCES"]);
 type Build = { folder: string };
 /** 기록: 지금 빌드와 이전 빌드 */
 type Versioned = { active: Build | null; previous: Build | null };
-type StateRead<S> = { kind: "ok"; state: S } | { kind: "none" } | { kind: "broken"; error: string };
+type StateRead<S> = { kind: "ok"; state: S } | { kind: "none" } | { kind: "broken"; error: string | LogText };
 /** 도구마다 다른 것: 기록 읽기와 쓰기, 버전 폴더 이름의 모양, 폴더 이름에서 버전(릴리스, 태그)을 떼는 법 */
 type VersionStore<S extends Versioned> = { read(dir: string): StateRead<S>; write(dir: string, state: S): void; versionFolder: RegExp; release(name: string): string };
 

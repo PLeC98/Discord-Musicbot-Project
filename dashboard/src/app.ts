@@ -12,6 +12,13 @@ import { session, loginWindow, useLoginCheck, waitForReauth } from "./composable
 import { useUserStore } from "./stores/user.ts";
 import { noteBoot } from "./composables/bot-boot.ts";
 
+// 운영자 전용(must-owner)으로 거절됐다: 사용자 정보를 다시 받아 이제 운영자가 아니면 운영자 화면에서 서버 목록으로 옮긴다
+async function leaveIfNotOwner() {
+  const user = useUserStore();
+  await user.fetchMe();
+  if (!user.isRealOwner && router.currentRoute.value.meta.requiresOwner) await router.replace("/servers");
+}
+
 /** extraRoutes: 더할 라우트. 라우터를 앱에 거는 순간 첫 주소를 정하므로 그 전에 더한다 */
 function createDashboard({ extraRoutes = [] }: { extraRoutes?: RouteRecordRaw[] } = {}) {
   // 다시 로그인하면 세션이 새로 만들어져 토큰도 바뀐다. 옛 토큰은 거절되고 가로채기가 새 토큰으로 다시 보낸다
@@ -20,6 +27,8 @@ function createDashboard({ extraRoutes = [] }: { extraRoutes?: RouteRecordRaw[] 
     onReauth: waitForReauth,
     onReach: (ok) => (session.offline = !ok),
     onBoot: (id) => noteBoot(id),
+    // 운영자에서 빠졌으면 처음 받아 둔 권한을 다시 받고 운영자 화면에서 나간다
+    onNotOwner: () => void leaveIfNotOwner(),
     user: () => useUserStore().data?.id ?? null,
     onAccountChanged: () => (session.switched = true),
     switched: () => session.switched,

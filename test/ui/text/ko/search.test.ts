@@ -1,8 +1,8 @@
-// src/ui/text/ko/search.ts: 검색 화면의 글자를 모두 적어 둔다. 문장을 고치면 여기도 같이 고친다
+// locales/ko/bot/search.ts: 검색 화면의 글자를 모두 적어 둔다. 문장을 고치면 여기도 같이 고친다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import * as search from "../../../../src/ui/text/ko/search.ts";
+import * as search from "../../../../locales/ko/bot/search.ts";
 
 test("결과 화면의 문장", () => {
   assert.deepEqual(
@@ -29,7 +29,8 @@ test("결과 줄의 제목: 링크 라벨 안이라 역슬래시를 넣지 않�
   assert.equal(line("x](https://evil.example) [y"), "**1.** [x]\u200b(https://evil.example) [y](https://y/1)\n-# 🔴 3:00");
 });
 
-test("자동완성의 문장: 맨 위 줄, 곡 후보, 고친 이름에서 검색어 꺼내기", () => {
+test("자동완성의 문장: 맨 위 줄, 곡 후보, 고친 이름에서 검색어 꺼내기. 메뉴 항목 이름에서 제목 꺼내기", () => {
   assert.deepEqual([search.resultsChoice("노래"), search.songChoice({ title: "곡", artist: "가수", length: "3:00" }), search.songChoice({ title: null, length: "🔴LIVE" }), search.songChoice({ title: "곡", artist: "가수", length: "3:00", spotify: true })], ['🔍 "노래" 검색 결과 보기', "곡 - 가수 (3:00)", "알 수 없는 곡 (🔴LIVE)", "곡 - 가수 (3:00) (Spotify)"]);
-  assert.deepEqual(['🔍 "노래" 검색 결과 보기', '🔍 "노', "곡 - 가수 (3:00)", "곡 - 가수 (1:02:03) (Spotify)", "그냥 검색어"].map(search.queryOfTyped), ["노래", "노", "곡 - 가수", "곡 - 가수", "그냥 검색어"]);
+  assert.deepEqual(['🔍 "노래" 검색 결과 보기', '🔍 "노', "곡 - 가수 (3:00)", "곡 - 가수 (1:02:03) (Spotify)", "그냥 검색어"].map(search.queryOfChoice), ["노래", "노", "곡 - 가수", "곡 - 가수", null]);
+  assert.deepEqual([search.pickOption(3, { title: "곡. 제목", length: "3:00" }).label, "그냥 이름"].map(search.titleOfPick), ["곡. 제목", null]);
 });

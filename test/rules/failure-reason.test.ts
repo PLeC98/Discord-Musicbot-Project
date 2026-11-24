@@ -2,11 +2,15 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { failureReason } from "../../src/rules/failure-reason.ts";
+import { failureReason as reasonText } from "../../src/rules/failure-reason.ts";
+import { isLogText, renderLogText } from "../../src/infra/log/log-text.ts";
 import { errorMessage } from "../../src/ui/error-messages.ts";
 import { ytDlpError } from "../helpers/errors.ts";
 import { codedError } from "../../src/rules/error-kind.ts";
 import { plainText } from "../helpers/notice.ts";
+import { textFor } from "../../src/ui/text/index.ts";
+import { testText } from "../helpers/log-text.ts";
+const KO = textFor("ko");
 
 const HINT = " Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ  for how to manually pass cookies.";
 const AGE = `ERROR: [youtube] hc0ZDaAZQT0: Sign in to confirm your age.${HINT}`;
@@ -15,6 +19,9 @@ const COOKIE_WARN = "WARNING: [youtube] The provided YouTube account cookies are
 // yt-dlp를 실행하는 곳이 붙이는 모양(message = stderr, code = 이름)
 const ytdlpError = ytDlpError;
 
+// 실패 이유는 로그 문구다. 글로 비교하려고 그린다
+const failureReason = (error: unknown, cookiesConfigured: boolean) => renderLogText(reasonText(error, cookiesConfigured));
+
 test("연령 제한은 쿠키가 없어서인지, 쿠키가 무효인지, 쿠키로도 안 되는지 구분한다. 영상 id를 붙인다", () => {
   assert.equal(failureReason(ytdlpError(AGE), false), "연령 제한, 쿠키 없음 (hc0ZDaAZQT0)");
   assert.equal(failureReason(ytdlpError(AGE), true), "연령 제한, 쿠키로도 재생 불가 (hc0ZDaAZQT0)");
@@ -22,8 +29,8 @@ test("연령 제한은 쿠키가 없어서인지, 쿠키가 무효인지, 쿠키
 });
 
 test("쿠키가 무효이면 사용자에게는 일시적이라고 알린다", () => {
-  assert.equal(plainText(errorMessage(ytdlpError(`${COOKIE_WARN}\n${AGE}`))), "일시적으로 연령 제한 영상을 틀 수 없어요!\n오류가 계속되면 봇 운영자에게 알려주세요.");
-  assert.equal(plainText(errorMessage(ytdlpError(AGE))), "연령 제한 영상은 틀 수 없어요!\n제한되지 않은 곡을 틀어주세요.");
+  assert.equal(plainText(errorMessage(KO, ytdlpError(`${COOKIE_WARN}\n${AGE}`))), "일시적으로 연령 제한 영상을 틀 수 없어요!\n오류가 계속되면 봇 운영자에게 알려주세요.");
+  assert.equal(plainText(errorMessage(KO, ytdlpError(AGE))), "연령 제한 영상은 틀 수 없어요!\n제한되지 않은 곡을 틀어주세요.");
 });
 
 test("무엇이 막았는지 분명한 종류는 이름만 남긴다", () => {
@@ -44,7 +51,7 @@ test("봇 감지, 요청 제한: 운영자 안내는 로그 줄에만 붙고 사
   assert.match(failureReason(limited, false), /^요청 제한 \(운영자: .*시간당.*\) \(abcdefghijk\)$/);
   for (const line of [failureReason(bot, false), failureReason(limited, false)]) assert.doesNotMatch(line, /쿠키/, line);
   for (const error of [bot, limited]) {
-    const told = plainText(errorMessage(error));
+    const told = plainText(errorMessage(KO, error));
     assert.doesNotMatch(told, /\.env|쿠키 출처|bgutil/, told);
     assert.match(told, /봇 운영자에게 알려주세요/);
   }
@@ -52,15 +59,22 @@ test("봇 감지, 요청 제한: 운영자 안내는 로그 줄에만 붙고 사
 
 // 사용자 문장을 일반화하려 감싼 오류(직접 링크)는 사유가 원인에만 있다. 로그 한 줄에 붙인다
 test("감싼 오류는 원인의 첫 줄을 붙인다", () => {
-  const wrapped = codedError("direct-unavailable", "재생할 수 없는 링크입니다", { cause: new Error("요청 실패: HTTP 404\n자세한 것") });
+  const wrapped = codedError("direct-unavailable", testText("재생할 수 없는 링크입니다"), { cause: new Error("요청 실패: HTTP 404\n자세한 것") });
   assert.equal(failureReason(wrapped, false), "재생할 수 없는 링크입니다 (요청 실패: HTTP 404)");
 });
 
 // 원인의 ERROR 줄을 그대로 글로 삼은 오류(사운드클라우드)는 같은 줄이 두 번 찍힐 수 있다
 test("원인의 첫 줄이 오류와 같으면 다시 붙이지 않는다. 이름이 있는 종류는 이름으로", () => {
   const line = "ERROR: [soundcloud] a/weird: Unable to download JSON metadata: HTTP Error 500";
-  const same = codedError("stream-failed", line, { cause: new Error(`${line}\nmore`) });
+  const same = codedError("stream-failed", testText(line), { cause: new Error(`${line}\nmore`) });
   assert.equal(failureReason(same, false), line);
-  const gone = codedError("unavailable-playlist", "ERROR: [soundcloud:set] discover/sets/x: HTTP Error 404", { cause: new Error("ERROR: [soundcloud:set] discover/sets/x: HTTP Error 404") });
+  const gone = codedError("unavailable-playlist", testText("ERROR: [soundcloud:set] discover/sets/x: HTTP Error 404"), { cause: new Error("ERROR: [soundcloud:set] discover/sets/x: HTTP Error 404") });
   assert.equal(failureReason(gone, false), "없거나 비공개인 재생목록");
+});
+
+test("실패 이유는 로그 문구 reason.line이고, 종류 이름과 운영자 안내는 값 안의 서술자다", () => {
+  const text = reasonText(Object.assign(new Error("Sign in to confirm you're not a bot"), { code: "yt-bot-check" }), false);
+  assert.equal(text.event, "reason.line");
+  const { why, hint } = text.args;
+  assert.deepEqual([isLogText(why) && why.event, isLogText(hint) && hint.event], ["reason.ytBotCheck", "reason.hintBotCheck"]);
 });

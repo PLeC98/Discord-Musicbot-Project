@@ -6,9 +6,13 @@
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import { messageOf } from "../../rules/error-kind.ts";
+import { plain, rule, type RuleProblem } from "../../rules/rule-problem.ts";
 import { readsAnimatedWebp, tryEncoder, tryFilter } from "../../media/ffmpeg/trial.ts";
 import { HDR_TO_SDR } from "./ladder.ts";
 import { LOGIN_BG_CODECS, type LoginBackgroundCodec, type LoginBackgroundEncoder } from "../contract/login-background.ts";
+import { L } from "../../infra/log/text.ts";
+import { asText } from "../../infra/log/log-text.ts";
+import { ruleLogText } from "../../rules/text/index.ts";
 
 /** 후보 하나. options는 테스트에 거는 옵션(실제 인코딩의 핵심만: 10비트, 비트레이트 방식 등, 거기서 실패하면 인코딩도 실패한다) */
 type Candidate = { encoder: string; hardware: boolean; options: string[] };
@@ -32,15 +36,15 @@ let hdrToSdr: boolean | null = null;
 const HDR_TRIAL_SOURCE = "testsrc2=size=64x36:rate=30,format=yuv420p10le,setparams=color_trc=smpte2084:color_primaries=bt2020:colorspace=bt2020nc";
 let running: Promise<void> | null = null;
 
-/** 코덱 하나: 후보를 순서대로 테스트해 처음 되는 것. 앞 후보가 장치가 있는데 실패했으면 그 원인을 남긴다 */
+/** 코덱 하나의 선택 결과. 후보를 순서대로 테스트해 처음 성공한 인코더를 쓴다. 앞 후보가 장치는 있는데 실패했으면 그 원인을 남긴다(장치가 없어 건너뛴 것뿐이면 null, 화면은 인코더 칸에 없음을 표시한다) */
 async function pick(codec: LoginBackgroundCodec): Promise<LoginBackgroundEncoder> {
-  let why: string | null = null;
+  let why: RuleProblem | null = null;
   for (const candidate of CANDIDATES[codec]) {
     const result = await tryEncoder(candidate.encoder, candidate.options);
     if (result.ok) return { codec, encoder: candidate.encoder, hardware: candidate.hardware, why };
-    if (!ABSENT.test(result.reason)) why ??= `${candidate.encoder}: ${result.reason}`;
+    if (!ABSENT.test(result.output)) why ??= rule("encoder-failed", { encoder: candidate.encoder }, result.output ? plain(result.output) : rule("encoder-exit", result.code === null ? undefined : { code: result.code }));
   }
-  return { codec, encoder: null, hardware: false, why: why ?? "쓸 수 있는 인코더가 없음" };
+  return { codec, encoder: null, hardware: false, why };
 }
 
 async function check() {
@@ -49,15 +53,18 @@ async function check() {
   encoders = picked;
   animatedWebp = await readsAnimatedWebp();
   hdrToSdr = await tryFilter(HDR_TO_SDR, HDR_TRIAL_SOURCE);
-  log.info(`로그인 배경 인코더: ${picked.map((one) => `${one.codec} ${one.encoder ?? "없음"}`).join(", ")}${animatedWebp ? "" : ". 움직이는 WebP를 읽지 못함(ffmpeg 9.0 이상 필요)"}`);
-  for (const one of picked) if (one.why) log.warn(`로그인 배경 ${one.codec}: ${one.why}`);
-  if (!hdrToSdr) log.warn("로그인 배경: ffmpeg에 HDR을 SDR로 바꾸는 필터(zscale)가 없어 HDR 영상은 쓸 수 없음(libzimg를 넣어 빌드한 ffmpeg 필요)");
+  log.info(L.dashboard.backgroundEncodersPicked({ picked: picked.map((one) => asText(L.dashboard.backgroundEncoderPicked({ codec: one.codec, encoder: one.encoder }))).join(", "), animatedWebp }));
+  for (const one of picked) {
+    const why = one.why ?? (one.encoder ? null : rule("encoder-none"));
+    if (why) log.warn(L.dashboard.backgroundEncoderUnavailable({ codec: one.codec, why: ruleLogText(why) }));
+  }
+  if (!hdrToSdr) log.warn(L.dashboard.backgroundNoZscale());
 }
 
 /** 테스트한다(이미 하는 중이면 그것을 기다린다) */
 function run(): Promise<void> {
   running ??= check()
-    .catch((error: unknown) => log.error(`로그인 배경 인코더 테스트 실패: ${messageOf(error)}`))
+    .catch((error: unknown) => log.error(L.dashboard.backgroundEncoderTestFailed({ error: messageOf(error) })))
     .finally(() => (running = null));
   return running;
 }

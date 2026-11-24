@@ -20,12 +20,14 @@ import { resolveFallbackTextChannel } from "../usecases/add-tracks.ts";
 import { noticeFrame, post } from "../ui/frame.ts";
 import { noticeMs } from "../ui/delivery.ts";
 import { scheduleDelete } from "../ui/transient-messages.ts";
-import * as noticeText from "../ui/text/ko/notices.ts";
 import type { Notice } from "../ui/text/notice.ts";
-import { DISCORD_LOOK } from "../ui/mentions.ts";
+import { channelMention } from "../ui/mentions.ts";
+import { publicText } from "../ui/language.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { repeatingFailure } from "../infra/repeating-failure.ts";
 import { bestEffort } from "../infra/best-effort.ts";
+import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
 
 const BACKOFF_MS = [60_000, 120_000, 300_000, 600_000, 1_800_000];
 const BOOT_GAP_MS = 1000; // 기동 때 서버 사이. 게이트웨이 보내기 한도(60초 120번)에 넉넉하다
@@ -35,27 +37,27 @@ const DROP: Partial<Record<PlayerEnd, "kicked" | "gone">> = { kicked: "kicked", 
 const RETRY = new Set<PlayerEnd>(["voice-lost", "connect-failed", "restore-failed", "adopt-failed", "fault-cleared", "queue-drained", "alone-timeout"]);
 
 type Why = "kicked" | "gone" | "permission";
-const NOTICE: Record<Why, (channel: string) => Notice> = { kicked: noticeText.stayKicked, gone: noticeText.stayChannelGone, permission: noticeText.stayNoPermission };
-const WHY_LOG: Record<Why, string> = { kicked: "강제 퇴장", gone: "채널 삭제", permission: "채널 권한 없음" };
+const NOTICE = { kicked: "stayKicked", gone: "stayChannelGone", permission: "stayNoPermission" } as const satisfies Record<Why, string>;
+const WHY_LOG: Record<Why, LogText> = { kicked: L.voice.stayWhyKicked(), gone: L.voice.stayWhyChannelGone(), permission: L.voice.stayWhyNoPermission() };
 
 // 자리를 끈 알림을 서버의 전용 채널에(없으면 알리지 않는다. 로그는 남는다). 다른 경고, 오류 안내처럼 수준에 맞는 수명 뒤 지운다
 async function announce(guild: Guild, notice: Notice) {
   const channel = await resolveFallbackTextChannel(guild).catch((error: unknown) => {
     const code = codeOf(error);
     // 설정 DB가 이미 닫혔으면(종료 중) 알릴 채널을 찾을 수 없다. 그 밖의 실패는 남긴다
-    if (code !== "DB_NOT_OPEN") log.warn(`봇 채널 찾기 실패(상주 모드 해제 알림 전송 건너뜀): 서버=${guild.name} | ${messageOf(error)}${code === undefined ? "" : ` (${code})`}`);
+    if (code !== "DB_NOT_OPEN") log.warn(L.voice.stayNoticeChannelFailed({ guild: guild.name, error: messageOf(error), codeSuffix: code === undefined ? "" : ` (${code})` }));
     return null;
   });
   if (!channel) return;
   const sending = channel.send(post(noticeFrame(notice))).then((sent) => scheduleDelete(sent, noticeMs(notice)));
-  await bestEffort(log, sending, "상주 모드 해제 알림 전송", "warn");
+  await bestEffort(log, sending, L.voice.stayNoticeSend(), "warn");
 }
 
 /** join, announce, sleep은 테스트가 바꾼다 */
 type Deps = { client: Client; players: Pick<PlayerSeats, "get" | "set">; join?: typeof joinChannel; announce?: typeof announce; sleep?: (ms: number) => Promise<void> };
 
 // 상주 채널을 디스코드에서 조회한 결과: 붙을 채널, 상주 설정을 끌 원인, 조회 실패(그 원인)
-type Found = { channel: VoiceBasedChannel } | { why: Why } | { failed: string };
+type Found = { channel: VoiceBasedChannel } | { why: Why } | { failed: LogText };
 
 /** 붙는 동안 상주 설정이 바뀌었거나 상주 모드가 멈췄다(go가 예외를 던진다). 실패가 아니다 */
 class SeatChanged extends Error {}
@@ -85,7 +87,7 @@ class StayKeeper {
   _failure(guildId: string) {
     let f = this.failures.get(guildId);
     if (!f) {
-      f = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, `상주 채널 재접속(서버 ${guildId})`);
+      f = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.voice.stayRejoinAttempt({ guildId }));
       this.failures.set(guildId, f);
     }
     return f;
@@ -117,9 +119,9 @@ class StayKeeper {
     this._cancel(guild.id);
     const channelId = staySeats.seatOf(guild.id)?.channelId;
     if (!channelId || !staySeats.clear(guild.id)) return;
-    log.info(`상주 모드 자동 해제: ${guild.name} | 원인=${WHY_LOG[why]}`);
+    log.info(L.voice.stayReleased({ guild: guild.name, why: WHY_LOG[why] }));
     playerEvents.touched(guild.id);
-    await this.tell(guild, NOTICE[why](DISCORD_LOOK.channel(channelId)));
+    await this.tell(guild, publicText(guild.id).notices[NOTICE[why]](channelMention(channelId)));
   }
 
   // 자리 채널을 디스코드에 묻는다(캐시는 기동, 재연결 때 비어 있을 수 있다)
@@ -133,7 +135,7 @@ class StayKeeper {
     } catch (error) {
       if (codeOf(error) === RESTJSONErrorCodes.UnknownChannel) return { why: "gone" };
       if (codeOf(error) === RESTJSONErrorCodes.MissingAccess) return { why: "permission" };
-      return { failed: `채널 조회 실패: ${messageOf(error)}` };
+      return { failed: L.voice.stayChannelFetchFailed({ error: messageOf(error) }) };
     }
   }
 
@@ -196,13 +198,13 @@ class StayKeeper {
       return true;
     }
     if (result.kind === "refused" || result.kind === "restore-error") {
-      this._failure(guild.id).fail(result.kind === "refused" ? result.code : "세션 복원 오류");
+      this._failure(guild.id).fail(result.kind === "refused" ? result.code : L.voice.stayRestoreError());
       this._later(guild.id);
       return false;
     }
     this.tries.delete(guild.id);
     this._failure(guild.id).ok();
-    log.info(`상주 채널 재접속: "${channel.name}" (${guild.name})`);
+    log.info(L.voice.stayRejoined({ channel: channel.name, guild: guild.name }));
     result.player.idle.reconsider();
     return true;
   }
@@ -210,7 +212,7 @@ class StayKeeper {
   /** 기동: 자리가 있고 붙어 있지 않은 서버를 하나씩. skip이면(짧은 간격의 비정상 종료가 되풀이됨) 붙지 않는다(자리는 남긴다) */
   async boot({ skip = false }: { skip?: boolean } = {}) {
     const seats = staySeats.all();
-    if (skip && seats.length) log.warn(`단시간 내 비정상 종료가 반복되어 상주 채널 ${seats.length}곳의 자동 재접속을 건너뜀(상주 설정은 유지)`);
+    if (skip && seats.length) log.warn(L.voice.stayRejoinSkippedCrashes({ count: seats.length }));
     if (!skip) {
       let first = true;
       for (const [guildId] of seats) {
@@ -232,7 +234,7 @@ class StayKeeper {
     if (end === "fault") {
       this.blocked.add(guildId);
       this._cancel(guildId);
-      log.warn(`동일 오류 반복으로 차단된 서버라 상주 채널 재접속을 건너뜀(봇 재시작 또는 곡 재생 시 해제): ${player.guild.name}`);
+      log.warn(L.voice.stayRejoinSkippedBlocked({ guild: player.guild.name }));
       return;
     }
     const why = DROP[end];

@@ -6,6 +6,7 @@ import path from "node:path";
 import { inGuild } from "../../src/infra/guild-context.ts";
 import * as registry from "../../src/infra/process-registry.ts";
 import { parsePs, parseProcStatus, parseTasklist, processMemory, _internals as memoryInternals } from "../../src/infra/process-memory.ts";
+import { asText } from "../../src/infra/log/log-text.ts";
 
 let releases: Array<() => void> = [];
 afterEach(() => {
@@ -61,10 +62,12 @@ test("메모리: tasklist CSV(자릿점은 로캘마다), ps의 RSS를 MB로, �
 
 test("메모리를 못 읽은 원인: 상한을 넘겨 끊었는지, 종료 코드와 stderr, 실행조차 못 했는지", () => {
   const failed = (fields: object) => Object.assign(new Error("Command failed: tasklist /FO CSV /NH"), fields);
-  assert.equal(memoryInternals.failure(failed({ killed: true, signal: "SIGTERM", code: null }), Buffer.alloc(0)), "30초 초과로 강제 종료(SIGTERM)");
-  assert.equal(memoryInternals.failure(failed({ killed: false, code: 1 }), Buffer.from("ERROR: Invalid argument.\r\n")), "종료 코드 1 · ERROR: Invalid argument.");
-  assert.equal(memoryInternals.failure(failed({ killed: false, code: 1 }), Buffer.alloc(0)), "종료 코드 1");
-  assert.equal(memoryInternals.failure(Object.assign(new Error("spawn tasklist ENOENT"), { code: "ENOENT" }), Buffer.alloc(0)), "spawn tasklist ENOENT");
+  // 원인은 로그 문구다(실행조차 못 했으면 오류 메시지 그대로). 글로 비교하려고 그린다
+  const failure = (...args: Parameters<typeof memoryInternals.failure>) => asText(memoryInternals.failure(...args));
+  assert.equal(failure(failed({ killed: true, signal: "SIGTERM", code: null }), Buffer.alloc(0)), "30초 초과로 강제 종료(SIGTERM)");
+  assert.equal(failure(failed({ killed: false, code: 1 }), Buffer.from("ERROR: Invalid argument.\r\n")), "종료 코드 1 · ERROR: Invalid argument.");
+  assert.equal(failure(failed({ killed: false, code: 1 }), Buffer.alloc(0)), "종료 코드 1");
+  assert.equal(failure(Object.assign(new Error("spawn tasklist ENOENT"), { code: "ENOENT" }), Buffer.alloc(0)), "spawn tasklist ENOENT");
 });
 
 test("메모리: 이 프로세스를 실제로 잰다", { timeout: 60_000 }, async (t) => {
