@@ -34,6 +34,11 @@ const GATE_LUFS = -70;
 const PROBE_SEC = 2;
 const PROBE_DB = -20;
 
+/** 100ms 줄 수가 길이와 이만큼(길이의 비율, 최소 LINES_SLACK_MIN줄) 어긋나는 것까지는 받아들인다. 잘린 파일은 이보다 크게 어긋난다 */
+const LINES_SLACK = 0.005;
+const LINES_SLACK_MIN = 2;
+const linesSlack = (durationSec: number) => Math.max(LINES_SLACK_MIN, durationSec * 10 * LINES_SLACK);
+
 const LINE = /TARGET.*?M:\s*(\S+).*?FTPK:\s*(\S+)\s+(\S+)/;
 const SUMMARY_I = /^\s*I:\s+(\S+)\s+LUFS/;
 const SUMMARY_PEAK = /^\s*Peak:\s+(\S+)\s+dBFS/;
@@ -83,14 +88,15 @@ const measureArgs = (input: string[]) => [...PROGRESS_ARGS, ...input, "-af", FIL
 
 /**
  * 측정 결과를 분류한다. ok: 쓸 값, file: 파일 탓(기록한다), env: 환경 탓(기록하지 않는다).
- * 줄 수는 내림(길이 x 10)이고, 컨테이너가 알리는 길이와 디코딩한 길이가 다를 수 있어 한 줄 차이까지는 허용한다
+ * 줄 수를 내림(길이 x 10)과 대조해 잘린 파일을 잡는다. 저장된 길이는 반올림이라 정상 파일도 한 줄 어긋나고, 잴 때 줄이 하나 더 빠지기도 한다.
+ * 파일 탓으로 본 실패는 다시 재지 않으므로 LINES_SLACK만큼 어긋나는 것은 받아들인다
  */
 function verdictOf(result: Pick<FfmpegResult, "code" | "timedOut">, reading: Reading, durationSec: number | null): Verdict {
   if (result.timedOut) return { kind: "env", why: L.ffmpeg.loudnessStalled({ seconds: STALL_MS / 1000 }) };
   if (result.code !== 0) return { kind: "env", why: L.ffmpeg.measureExited({ code: result.code }) };
   // 줄 형식이 다른 빌드에서는 모든 파일이 이렇게 나온다. 파일 탓으로 기록하면 모든 캐시 파일이 file-failed로 남아 다시 재지 못한다
   if (reading.lines === 0 || reading.integrated === null || reading.truePeak === null) return { kind: "env", why: L.ffmpeg.loudnessUnreadable() };
-  if (durationSec && Math.abs(reading.lines - Math.floor(durationSec * 10)) > 1) return { kind: "file", why: L.ffmpeg.loudnessLinesMismatch({ lines: reading.lines, durationSec }) };
+  if (durationSec && Math.abs(reading.lines - Math.floor(durationSec * 10)) > linesSlack(durationSec)) return { kind: "file", why: L.ffmpeg.loudnessLinesMismatch({ lines: reading.lines, durationSec }) };
   if (reading.peakP99 === null) return { kind: "file", why: L.ffmpeg.loudnessNoGatedFrames() };
   if (reading.integrated < QUIET_LUFS) return { kind: "file", why: L.ffmpeg.loudnessTooQuiet({ lufs: reading.integrated }) };
   return { kind: "ok", value: { integrated: reading.integrated, truePeak: reading.truePeak, peakP99: reading.peakP99 } };
