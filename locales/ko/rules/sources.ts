@@ -47,7 +47,7 @@ const sources = {
     hint: "애니 주제가 DB. 유튜브에 풀버전이 있으면 그쪽을, 없으면 TV 사이즈 음원을 재생해요.",
     fields: {
       themeType: { label: "주제가 종류", emptyLabel: "OP/ED" },
-      sort: { label: "고르는 방식", emptyLabel: "무작위", hint: "인기순은 사용자 재생목록에 많이 담긴 상위 500개 판본에서 골라요. 다른 조건은 그 안에서 걸러요" },
+      sort: { label: "고르는 방식", emptyLabel: "무작위", hint: "인기순은 상위 500곡 중에서" },
       mediaFormat: { label: "매체", hint: "비우면 전부" },
       yearFrom: { label: "방영 연도", hint: "양 끝까지 벌리면 전체" },
       seasonFrom: { label: "시작 분기", emptyLabel: "그 해 처음부터" },
