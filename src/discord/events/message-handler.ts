@@ -110,7 +110,7 @@ const exported: ClientEvent<Events.MessageCreate> = {
         textChannel: message.channel,
         voiceChannel: member.voice.channel ?? null,
         responder,
-        source: L.events.sourceBotChannel(),
+        source: "bot-channel",
       });
 
       // 곡 찾기, 재생 시작 실패를 알린다. 알리지 않으면 왜 안 되는지 알 수 없다

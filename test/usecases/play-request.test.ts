@@ -27,6 +27,7 @@ import { plainText } from "../helpers/notice.ts";
 import { frame } from "../../src/ui/frame.ts";
 import { textFor } from "../../src/ui/text/index.ts";
 import { testText } from "../helpers/log-text.ts";
+import { useTestLogLanguage } from "../../src/infra/log/language.ts";
 const KO = textFor("ko");
 const errors = textFor("ko").errors;
 
@@ -229,6 +230,24 @@ test("방송 중인 라이브는 통과시킨다", async () => {
   assert.deepEqual(sent, ["24/7 라디오"]);
   // 로그의 하위 이름에 슬래시 명령의 "/"가 들어가면 track//play가 된다
   assert.equal(resolverCalls.at(-1)?.context, "play.resolveQuery");
+});
+
+test("곡 찾기 로그의 하위 이름은 입구 코드라 로그 언어를 바꿔도 같다", async (t) => {
+  t.after(() => useTestLogLanguage(false));
+  mockResolve = () => ok("곡");
+  const contexts = async () => {
+    const got: Array<string | null | undefined> = [];
+    for (const source of ["bot-channel", "dashboard", "search-autocomplete", "search-results"] as const) {
+      const bot = makeBot();
+      await requestPlayback(bot, baseArgs(bot, makeGuild(), { query: "q", source }));
+      got.push(resolverCalls.at(-1)?.context);
+    }
+    return got;
+  };
+  const base = await contexts();
+  assert.deepEqual(base, ["bot-channel.resolveQuery", "dashboard.resolveQuery", "search-autocomplete.resolveQuery", "search-results.resolveQuery"]);
+  useTestLogLanguage(true);
+  assert.deepEqual(await contexts(), base);
 });
 
 test("ffmpeg가 라이브 분기를 열 수 없으면 방송 중인 라이브도 거절한다", async () => {
@@ -516,7 +535,7 @@ test("로그: 검색어와 선택한 곡을 틀거나 넣기 전에 info 한 줄
 });
 
 test("로그: 이미 찾은 곡(더 넣기)은 검색어 없이 선택한 곡과 주소를 싣는다", async () => {
-  const { lines } = await requestLines({ source: "더 넣기", tracks: [track("곡B")] });
+  const { lines } = await requestLines({ source: "more", tracks: [track("곡B")] });
   assert.deepEqual(lines, ['info 곡 요청: 더 넣기 | carl → "곡B" (https://x/곡B)']);
 });
 

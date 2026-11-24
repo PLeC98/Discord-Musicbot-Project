@@ -3,7 +3,7 @@ import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "commands" });
 import { showFailureWith } from "../../ui/failure-notice.ts";
 import { addFailureMessage } from "../../ui/error-messages.ts";
-import { requestPlayback } from "../../usecases/add-tracks.ts";
+import { requestPlayback, type Entrance } from "../../usecases/add-tracks.ts";
 import { interactionResponder } from "../../usecases/responders.ts";
 import { offerOnInteraction } from "../interactions/playlist-more-handler.ts";
 import { checkAdd, checkSummon } from "../../usecases/permissions.ts";
@@ -16,7 +16,6 @@ import type { BotContext } from "../../app/bot-context.ts";
 import { noticeMs, noticeSelf, replaceSelf, unlessGone } from "../../ui/delivery.ts";
 import { privateText } from "../../ui/language.ts";
 import { L } from "../../infra/log/text.ts";
-import type { LogText } from "../../infra/log/log-text.ts";
 
 /** 곡을 찾아 넣는 명령. /play와 /playfirst는 이름(문구도 이름으로 찾는다), 권한, 넣을 위치만 다르다 */
 type PlayOptions = {
@@ -29,9 +28,9 @@ type PlayOptions = {
 
 /**
  * 찾을 것(검색어, 링크)으로 곡을 넣고 이 상호작용의 답 메시지로 알린다. 권한은 호출부가 이미 보았다.
- * placeholder: 찾는 동안 본인에게 보일 줄, source: 로그 라벨, show: 자리표시자를 보이는 법(기본은 새 답. 검색 결과 메뉴는 그 메시지를 고친다)
+ * placeholder: 찾는 동안 본인에게 보일 줄, source: 요청이 들어온 입구, show: 자리표시자를 보이는 법(기본은 새 답. 검색 결과 메뉴는 그 메시지를 고친다)
  */
-async function playOnReply(interaction: ChatInputCommandInteraction<"cached"> | StringSelectMenuInteraction<"cached">, bot: BotContext, { query, placeholder, source, insertFirst = false, show = (view) => interaction.reply(reply(view)) }: { query: string; placeholder: string; source: string | LogText; insertFirst?: boolean; show?: (view: ContainerBuilder) => Promise<unknown> }) {
+async function playOnReply(interaction: ChatInputCommandInteraction<"cached"> | StringSelectMenuInteraction<"cached">, bot: BotContext, { query, placeholder, source, insertFirst = false, show = (view) => interaction.reply(reply(view)) }: { query: string; placeholder: string; source: Entrance; insertFirst?: boolean; show?: (view: ContainerBuilder) => Promise<unknown> }) {
   const { member, guild, channel } = interaction;
   // 자리표시자는 본인에게만. Components V2여야 이 자리표시자를 안내, 메뉴로 고칠 수 있다
   await show(frame({ body: placeholder }));

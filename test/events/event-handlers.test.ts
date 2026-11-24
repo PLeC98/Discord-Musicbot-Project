@@ -289,7 +289,7 @@ test("전용 채널: 곡을 넣는다. 사용자 메시지를 1.5초 뒤 삭제�
     assert.equal(msg.deleted, true);
     assert.deepEqual(msg.sent[0].payload, post(frame({ body: "🔄 **노래 제목** 검색 중..." })));
     assert.equal(resolved[0].query, "노래 제목");
-    assert.equal(resolved[0].context, "전용채널.resolveQuery");
+    assert.equal(resolved[0].context, "bot-channel.resolveQuery");
     assert.equal(w.handled[0].who?.username, "사용자");
   } finally {
     mock.timers.reset();

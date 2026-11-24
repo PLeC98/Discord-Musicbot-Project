@@ -407,7 +407,7 @@ test("/search: 자동완성에서 선택한 곡(yt:<영상 id>)은 그 영상을
   assert.deepEqual(log[0], ["reply", reply(frame({ body: "🔄 곡을 추가하는 중..." }))], "기억해 둔 검색 결과에 없으면 제목 없이");
   assert.deepEqual(
     resolved.map((r) => [r.query, r.context]),
-    [["https://www.youtube.com/watch?v=abcdefghijk", "search 자동완성.resolveQuery"]],
+    [["https://www.youtube.com/watch?v=abcdefghijk", "search-autocomplete.resolveQuery"]],
   );
 
   // 스포티파이 곡(sp:<곡 id>)은 그 곡 링크로. 곡 넣기가 유튜브 영상을 맞춘다
@@ -498,7 +498,7 @@ test("/search 결과 선택: 예약한 삭제를 멈추고 메시지를 추가�
   assert.deepEqual(log[0], ["update", post(frame({ body: "🔄 **閃光** 추가하는 중..." }))]);
   assert.deepEqual(
     resolved.map((r) => [r.query, r.context]),
-    [[`https://open.spotify.com/track/${SP_ID}`, "search 결과.resolveQuery"]],
+    [[`https://open.spotify.com/track/${SP_ID}`, "search-results.resolveQuery"]],
   );
   assert.deepEqual(log.at(-1), ["deleteReply"]);
 });

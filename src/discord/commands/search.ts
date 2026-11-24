@@ -217,7 +217,7 @@ const exported: GuildCommand & {
 
     // 자동완성에서 선택한 곡(값이 곡을 가리킨다)과 링크는 /play처럼 바로 넣는다
     const pick = readPick(query);
-    if (pick) return await playOnReply(interaction, bot, { query: pickUrl(pick), placeholder: privateText(interaction).search.addingTrack((pick.platform === "spotify" ? spotifySource.rememberedTrack(pick.id) : youtubeSource.rememberedVideo(pick.id))?.title ?? null), source: L.player.sourceSearchAutocomplete() });
+    if (pick) return await playOnReply(interaction, bot, { query: pickUrl(pick), placeholder: privateText(interaction).search.addingTrack((pick.platform === "spotify" ? spotifySource.rememberedTrack(pick.id) : youtubeSource.rememberedVideo(pick.id))?.title ?? null), source: "search-autocomplete" });
     if (isLink(query)) return await playOnReply(interaction, bot, { query, placeholder: privateText(interaction).search.searching(query), source: "/search" });
 
     await showResults(interaction, query, all);

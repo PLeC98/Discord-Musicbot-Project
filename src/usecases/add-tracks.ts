@@ -28,13 +28,28 @@ import type { PlayerSeats } from "../player/registry.ts";
 import type { QueuedTrack, Requester, TrackInfo } from "../player/track.ts";
 import type { NowPlayingPanel, Responder } from "../ui/now-playing-panel.ts";
 import { L } from "../infra/log/text.ts";
-import { asText, type LogText } from "../infra/log/log-text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
 import { bug } from "../infra/bug.ts";
 
 /** 곡 찾기에서 부르는 것 */
 type Lookup = Pick<typeof songLookup, "resolveQuery" | "getCollection">;
 /** 요청자로 받는 것: 디스코드 멤버, 사용자, 대시보드 세션 사용자, 세션 복구 스텁(이름 문자열) */
 type RequesterSource = string | { id?: string | null; displayName?: string | null; username?: string | null; tag?: string | null; user?: { displayName?: string | null; username?: string | null; tag?: string | null } } | null | undefined;
+
+/** 이름이 문구인 곡 요청 입구. 코드는 언어와 상관없어 로그의 sub에 쓰고, 요청 줄의 글에는 그 문구를 쓴다 */
+const NAMED_ENTRANCES = {
+  "bot-channel": () => L.events.sourceBotChannel(),
+  dashboard: () => L.player.sourceDashboard(),
+  "dashboard-more": () => L.player.sourceDashboardMore(),
+  "search-autocomplete": () => L.player.sourceSearchAutocomplete(),
+  "search-results": () => L.player.sourceSearchResults(),
+  more: () => L.player.sourceMore(),
+} satisfies Record<string, () => LogText>;
+/** 곡 요청 입구: 슬래시 명령은 "/<명령 이름>", 나머지는 NAMED_ENTRANCES의 코드 */
+type Entrance = `/${string}` | keyof typeof NAMED_ENTRANCES;
+const isCommand = (entrance: Entrance): entrance is `/${string}` => entrance.startsWith("/");
+/** 요청 줄에 쓰는 입구 이름. 슬래시 명령은 그 이름 그대로 */
+const entranceLabel = (entrance: Entrance): string | LogText => (isCommand(entrance) ? entrance : NAMED_ENTRANCES[entrance]());
 
 // 곡 찾기. 진입점(명령, 이벤트, 대시보드)을 거쳐 부르는 테스트는 useLookup으로 가짜를 넘긴다(플레이어의 useBoundary와 같다)
 let defaultLookup: Lookup = songLookup;
@@ -118,7 +133,7 @@ async function resolveFallbackTextChannel(guild: Guild) {
 /**
  * 곡 추가/재생 요청. 검색어(query)나 이미 찾은 곡(tracks) 가운데 하나는 있어야 한다.
  * textChannel은 안내, 패널을 보낼 채널, voiceChannel은 붙을 음성 채널, single은 재생목록이어도 첫 곡만,
- * responder는 결과를 알리는 매체(기본: 무동작), source는 로그 라벨
+ * responder는 결과를 알리는 매체(기본: 무동작), source는 요청이 들어온 입구
  */
 type PlaybackRequest = {
   guild: Guild;
@@ -130,7 +145,7 @@ type PlaybackRequest = {
   insertAfterId?: string | null;
   single?: boolean;
   responder?: Responder;
-  source?: string | LogText;
+  source?: Entrance;
   lookup?: Lookup;
   ffmpegReady?: () => boolean;
   /** 곡 검색과 대기가 끝난 뒤, 플레이어를 생성하기(첫 상태 변경) 전에 하는 확인이다. 예외를 던지면 아무것도 바꾸지 않는다(대시보드: 세션 종료) */
@@ -225,14 +240,14 @@ async function tracksFor(player: Player | null, request: PlaybackRequest, batch:
   return withoutBlocked(found, request.ffmpegReady);
 }
 
-async function search(player: Player | null, query: string, { single = false, source = "play", lookup = defaultLookup }: PlaybackRequest, batch: number): Promise<Found | Refused> {
+async function search(player: Player | null, query: string, { single = false, source = "/play", lookup = defaultLookup }: PlaybackRequest, batch: number): Promise<Found | Refused> {
   // 불러올 곡 수. 한 번에 넣는 배치와 남은 자리 중 작은 쪽. 비어 있으면 첫 곡은 지금 곡이 되니 한 자리 더.
   // 추산값이다: 최종 판정은 서버별로 줄 선 추가 구간(enqueue)이 한다. 자리가 없으면 곡을 찾기 전에 거절한다(찾는 사이 자리가 나도 기다리지 않는다)
   const room = roomFor(player ?? { queue: [], currentTrack: null }, config.bot.maxQueueSize);
   if (room <= 0) return { code: "queue-full" };
   const limit = single ? 1 : Math.max(1, Math.min(batch, room));
-  // 로그의 하위 이름. 진입점 이름의 "/"(슬래시 명령)는 뺀다. 카테고리와 "/"로 이어 붙으므로 그대로 두면 track//play가 된다
-  const found = await lookup.resolveQuery(query, `${asText(source).replace(/^\//, "")}.resolveQuery`, { limit });
+  // 로그의 하위 이름. 슬래시 명령의 "/"는 뺀다. 카테고리와 "/"로 이어 붙으므로 그대로 두면 track//play가 된다
+  const found = await lookup.resolveQuery(query, `${source.replace(/^\//, "")}.resolveQuery`, { limit });
   // 곡 찾기 중 예외(lookup-failed)는 곡 찾기가 오류 원문과 함께 이미 로그로 남김. 여기서는 원인 코드(code)와 오류 종류(kind)만 반환
   if (!found.success) return { code: found.code, ...kindOf(found.error), ...(found.skipped ? { skipped: found.skipped } : {}) };
 
@@ -274,9 +289,9 @@ function placement({ insertFirst = false, insertAfterId = null }: PlaybackReques
 }
 
 // 조작 하나에 info 한 줄: 누가 무엇을 찾아 무엇이 선택됐나. 틀거나 넣기 전에 남겨, 곧바로 튼 곡의 "재생" 줄보다 앞선다
-function logRequest({ source = "play", query, insertFirst = false }: PlaybackRequest, who: Requester | null, found: Found | Refused) {
+function logRequest({ source = "/play", query, insertFirst = false }: PlaybackRequest, who: Requester | null, found: Found | Refused) {
   const asked = query ?? null;
-  const head = { source, who: nameOf(who), query: asked };
+  const head = { source: entranceLabel(source), who: nameOf(who), query: asked };
   if (isRefused(found)) {
     log.info({ sub: "play" }, L.player.requestRefused({ ...head, cause: causeOf(found) }));
     return;
@@ -315,7 +330,7 @@ type CollectionRequest = {
   count: number;
   textChannel?: GuildTextBasedChannel | null;
   voiceChannel?: VoiceBasedChannel | null;
-  source?: string | LogText;
+  source?: Entrance;
   onProgress?: (done: number, want: number) => void;
   lookup?: Lookup;
   /** 곡을 불러온 뒤, 추가하기 전에 하는 확인이다(requestPlayback의 go) */
@@ -355,7 +370,7 @@ async function continueCollection(bot: Bot, request: CollectionRequest): Promise
     textChannel: request.textChannel,
     voiceChannel: request.voiceChannel,
     insertAfterId: state.insertFirst ? state.anchorId : null,
-    source: request.source ?? L.player.sourceMore(),
+    source: request.source ?? "more",
     go: request.go,
   });
   const remaining = total != null ? Math.max(0, total - nextOffset) : 0;
@@ -633,4 +648,4 @@ async function queueOnly(panel: Panel, player: Player, responder: Responder, { q
 
 export { requestPlayback, continueCollection, queueTracks, toRequester, requesterName, ensurePlayer, resolveFallbackTextChannel, useLookup, useAdder };
 export const _internals = { resolveFallbackTextChannel };
-export type { PlaybackRequest, RequesterSource, Lookup, CollectionResult, TrackData, AddResult, Placed };
+export type { PlaybackRequest, RequesterSource, Entrance, Lookup, CollectionResult, TrackData, AddResult, Placed };

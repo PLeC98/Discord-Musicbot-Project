@@ -423,7 +423,7 @@ function addRoutes(router: Router) {
         query,
         single,
         insertFirst: first,
-        source: L.player.sourceDashboard(),
+        source: "dashboard",
         responder: dashboardResponder(bot, guildId),
         lookup: req.app.locals.lookup, // 테스트가 조회를 가짜로 넘기는 슬롯. 없으면 진짜
         go: () => assertSignedIn(req),
@@ -464,7 +464,7 @@ function addRoutes(router: Router) {
         requester: requesterOf(req),
         state,
         count: count.value,
-        source: L.player.sourceDashboardMore(),
+        source: "dashboard-more",
         lookup: req.app.locals.lookup,
         go: () => assertSignedIn(req),
       });

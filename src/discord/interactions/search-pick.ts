@@ -15,7 +15,6 @@ import * as spotifySource from "../../sources/spotify.ts";
 import { playOnReply } from "../commands/play.ts";
 import { route, type Route } from "./route.ts";
 import type { BotContext } from "../../app/bot-context.ts";
-import { L } from "../../infra/log/text.ts";
 
 // 결과 메시지를 고친다. 그 사이 삭제됐으면(삭제 예약이 막 돌았다. 디스코드 화면에는 잠깐 남는다) 새 본인 메시지로. 선택한 곡은 그대로 넣는다
 async function showOn(interaction: StringSelectMenuInteraction<"cached">, view: ContainerBuilder) {
@@ -46,7 +45,7 @@ async function handleSearchPick(interaction: StringSelectMenuInteraction<"cached
         .map((T) => T.search.titleOfPick(label))
         .find((one) => one !== null) ?? label)
     : ((pick.platform === "spotify" ? spotifySource.rememberedTrack(pick.id) : youtubeSource.rememberedVideo(pick.id))?.title ?? null);
-  await playOnReply(interaction, bot, { query: pickUrl(pick), placeholder: privateText(interaction).search.addingTrack(title), source: L.player.sourceSearchResults(), show: (view) => showOn(interaction, view) });
+  await playOnReply(interaction, bot, { query: pickUrl(pick), placeholder: privateText(interaction).search.addingTrack(title), source: "search-results", show: (view) => showOn(interaction, view) });
 }
 
 const routes: Route[] = [route("select", customId(SEARCH, "pick", ""), handleSearchPick)];
