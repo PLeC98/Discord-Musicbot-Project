@@ -78,8 +78,8 @@ const fields: Record<string, { label: string; help: string; short?: string }> = 
   SSE_COALESCE_MS: { label: "알림 합치기 간격(ms)", help: "같은 서버의 변경 알림을 이 시간 안에서 하나로 합쳐요." },
   AI_LOG_ENABLED: { label: "리퀘스트 로그 기록", help: "끄면 새 요청을 기록하지 않아요. 사용량 통계도 함께 멈춰요." },
   AI_LOG_MAX_MB: { label: "로그 저장 용량(MB)", help: "넘으면 오래된 로그부터 지워요. 사용량 통계는 지우지 않아요." },
-  LOG_LEVEL: { label: "기록 수준", help: "로그 파일과 대시보드에 남길 가장 낮은 레벨이에요." },
-  LOG_CONSOLE_LEVEL: { label: "터미널 수준", help: "봇을 띄운 터미널에 출력할 가장 낮은 레벨이에요. 기록 수준보다 낮게 골라도 기록 수준까지만 보여요." },
+  LOG_LEVEL: { label: "로그 기록 수준", help: "로그 파일과 대시보드에 남길 가장 낮은 레벨이에요." },
+  LOG_CONSOLE_LEVEL: { label: "로그 터미널 수준", help: "봇을 띄운 터미널에 출력할 가장 낮은 레벨이에요. 기록 수준보다 낮게 골라도 기록 수준까지만 보여요." },
   BOT_LANGUAGE: { label: "봇 기본 언어", help: "서버 언어를 정하지 않은 서버와, 디스코드 앱 언어가 지원 언어에 없는 사용자에게 보이는 언어예요." },
 };
 

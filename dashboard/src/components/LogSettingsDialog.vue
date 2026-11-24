@@ -34,6 +34,7 @@ import { LEVEL_CHIPS } from "../utils/log-style.ts";
 import type { Option } from "../utils/options.ts";
 import { attach, draft, loaded, namesOf, saveKeys, saved } from "../composables/tunables.ts";
 import { notifyDone, notifyProblem } from "../composables/toasts.ts";
+import { trackUnsaved } from "../composables/unsaved.ts";
 import { text } from "../text/index.ts";
 
 defineProps<{ open: boolean }>();
@@ -62,6 +63,8 @@ onUnmounted(detach);
 
 const saving = ref(false);
 const dirty = computed(() => KEYS.some((key) => (draft.value[key] ?? "") !== (saved.value[key] ?? "")));
+// 실시간 로그 탭 아이콘의 저장하지 않은 표시(다른 탭의 운영 설정값 카드와 같다), 떠날 때 묻기
+trackUnsaved("logs:tunables", dirty);
 
 // 창 안의 저장: 이 둘만 저장하고 닫는다
 async function save() {
