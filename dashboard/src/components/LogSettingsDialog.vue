@@ -66,9 +66,11 @@ const dirty = computed(() => KEYS.some((key) => (draft.value[key] ?? "") !== (sa
 // 창 안의 저장: 이 둘만 저장하고 닫는다
 async function save() {
   saving.value = true;
+  // 알림에는 바꾼 것만 적는다(저장하면 고치는 중인 값과 저장된 값이 같아지므로 먼저 센다)
+  const changed = KEYS.filter((key) => (draft.value[key] ?? "") !== (saved.value[key] ?? ""));
   try {
     await saveKeys(KEYS);
-    notifyDone(text.tunables.savedDone, namesOf([...KEYS]));
+    notifyDone(text.tunables.savedDone, namesOf(changed));
     emit("close");
   } catch (e) {
     notifyProblem(e, text.tunables.saveFailed);
