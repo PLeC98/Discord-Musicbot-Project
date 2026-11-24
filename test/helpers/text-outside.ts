@@ -148,7 +148,7 @@ function isData(node: ts.Node, rel: string): boolean {
 /** 한글이 든 문자열 자리 하나. kind: 로그 계열(log), 일어날 수 없는 일의 예외(bug), 데이터(data), 그 밖(outside). start: 소스 안의 시작 위치 */
 type KoreanSite = { line: number; start: number; text: string; kind: "log" | "bug" | "data" | "outside" };
 
-/** 소스 파일 하나의 모든 한글 문자열 자리(로그 계열, 데이터 포함). 로그 문구를 옮기는 도구(test/tools/log-text-move)도 이 분류를 쓴다 */
+/** 소스 파일 하나의 모든 한글 문자열 자리(로그 계열, bug, 데이터 포함) */
 function koreanSites(rel: string, text: string): KoreanSite[] {
   const source = ts.createSourceFile(rel, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
   const scope: Scope = { rel, loggers: new Set(["log", "logger", "console", ...namesMadeBy(source, /\.child\(/)]), failures: namesMadeBy(source, /\brepeatingFailure\(|\bfailuresOf\(/), lines: namesMadeBy(source, /\bscriptLine\(/) };
