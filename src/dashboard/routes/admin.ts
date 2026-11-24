@@ -7,6 +7,7 @@ import express from "express";
 import * as sessionRequests from "../session-requests.ts";
 import { toDiscordText } from "../../rules/app-emoji-token.ts";
 import { emojiBook } from "../../store/app-emoji-book.ts";
+import config from "../../config/index.ts";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import { requireOwner } from "../middleware/require-owner.ts";
@@ -625,7 +626,7 @@ adminRouter.get("/logs/stream", (req, res) => {
   const after = String(req.get("Last-Event-ID") ?? req.query?.after ?? "");
   // 열자마자 쌓아 둔 줄을 보내므로 열기 바로 앞에서 세션을 본다. 연 뒤 세션에 묶는다(끝나면 끊긴다)
   if (!sessionRequests.admit(req)) return sendProblem(res, "login-required");
-  if (!logSink.addClient(res, signedIn(req).id, after)) return sendProblem(res, "too-many-streams");
+  if (!logSink.addClient(res, signedIn(req).id, config.dashboard.sse, after)) return sendProblem(res, "too-many-streams");
   sessionRequests.track(req, res, L.dashboard.liveLogStream(), () => logSink.drop(res));
 });
 

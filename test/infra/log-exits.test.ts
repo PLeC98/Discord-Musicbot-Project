@@ -42,7 +42,7 @@ async function throughExits(write: (log: ReturnType<typeof createLogger>, record
   const dest = createFileDestination({ file, maxBytes: 0, keep: 0 });
   lm.destinations.push(dest.write);
   const stream = fakeStream();
-  lm.addClient(stream.res, "operator");
+  lm.addClient(stream.res, "operator", { maxPerUser: 1, heartbeatMs: 60_000 });
   write(
     createLogger({ category: "config" }, null, (rec) => lm.record(rec)),
     (rec) => lm.record(rec),

@@ -5,7 +5,6 @@
 // 들어오는 길은 둘: (1) logger.ts facade  (2) 아래 console 브리지(서드파티 console.* 를 받는다)
 
 import util from "util";
-import config from "../../config/index.ts";
 import { styleText } from "node:util";
 import { LEVELS, KEPT_LINES, levelNameOf, wireFields, type LevelName, type LogGap, type WireEntry } from "./levels.ts";
 import { repeatingFailure } from "../repeating-failure.ts";
@@ -35,6 +34,8 @@ type SseClient = {
   writeHead(code: number, headers: Record<string, string>): unknown;
   flushHeaders(): void;
 };
+/** 로그 스트림의 연결 상한(사용자마다)과 하트비트 간격(ms). 대시보드 SSE와 같은 설정이고 부르는 쪽(대시보드, 조립)이 넘긴다 */
+export type StreamLimits = { maxPerUser: number; heartbeatMs: number };
 
 // 브리지: console 메서드 → pino 레벨(숫자). log는 debug로 내린다. 여기 걸리는 건 전부 서드파티라
 // info 레벨을 채우면 우리 로그가 묻힌다. 대시보드도 DEBUG 알약에서 본다.
@@ -306,15 +307,15 @@ class LogSink {
   }
 
   /**
-   * 관리자 로그 스트림 구독. 연결 상한, 하트비트는 대시보드 SSE와 같은 설정을 쓴다
-   * (`SSE_MAX_CONNECTIONS`, `SSE_HEARTBEAT_SEC`). 상한은 대시보드 SSE처럼 사용자마다 센다(userKey: 디스코드 사용자 id).
+   * 관리자 로그 스트림 구독. limits는 대시보드 SSE와 같은 설정(`SSE_MAX_CONNECTIONS`, `SSE_HEARTBEAT_SEC`)이고,
+   * 상한은 대시보드 SSE처럼 사용자마다 센다(userKey: 디스코드 사용자 id).
    * after: 화면이 마지막으로 받은 줄의 SSE id("기동시각.번호"). 이 실행의 것이면 그 뒤 줄만 보낸다. 다른 실행의 것이면(봇을 다시 시작함)
    * reset을 먼저 보내고 전부. 없으면(처음 연결) 전부. 이어 받을 줄이 쌓아 둔 줄 밖으로 이미 밀려났으면 gap(받지 못한 줄 수)을 줄보다 먼저 보낸다.
    *
    * 상한을 넘으면 아무것도 쓰지 않고 false(부른 경로가 문제 응답을 보낸다). 느린 소비자는 record가 정리한다(쌓인 양을 본다).
    */
-  addClient(res: SseClient, userKey: string, after = "") {
-    const { maxPerUser } = config.dashboard.sse;
+  addClient(res: SseClient, userKey: string, limits: StreamLimits, after = "") {
+    const { maxPerUser } = limits;
     if ([...this._owners.values()].filter((key) => key === userKey).length >= maxPerUser) return false;
 
     res.writeHead(200, {
@@ -349,7 +350,7 @@ class LogSink {
     this.clients.add(res);
     this._owners.set(res, userKey);
     this._cleanups.set(res, cleanup);
-    this.syncHeartbeat();
+    this.syncHeartbeat(limits.heartbeatMs);
     res.on("close", cleanup);
     // 관리자 화면 연결이 끊겼다(ECONNRESET, EPIPE). 정리만 한다
     res.on("error", cleanup);
@@ -365,8 +366,7 @@ class LogSink {
    * 유휴 연결이 프록시 타임아웃에 끊기지 않게 주석 프레임을 보낸다(대시보드 SSE와 같은 방식).
    * 간격이 바뀌었으면 다시 건다(운영 설정값을 저장하면 조립이 부른다). 아직 연결이 없었으면 걸지 않는다
    */
-  syncHeartbeat() {
-    const ms = config.dashboard.sse.heartbeatMs;
+  syncHeartbeat(ms: number) {
     if (!this.clients.size && !this._heartbeat) return;
     if (this._heartbeat && ms === this._heartbeatMs) return;
     if (this._heartbeat) clearInterval(this._heartbeat);

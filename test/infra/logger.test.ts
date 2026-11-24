@@ -406,7 +406,7 @@ function fakeRes({ writeResult = true, writableLength = 0 } = {}) {
 test("관리자 SSE: Connection: close로 연다(끊을 때 그 소켓을 강제로 닫으므로 다시 쓰지 않게)", () => {
   const lm = new LogSink({ intercept: false, terminal: quiet });
   const res = fakeRes();
-  assert.equal(lm.addClient(res, "owner"), true);
+  assert.equal(lm.addClient(res, "owner", config.dashboard.sse), true);
   assert.equal(res.head?.Connection, "close");
 });
 
@@ -414,16 +414,16 @@ test("관리자 SSE: 연결 상한은 사용자마다 센다(설정 이름대로
   const lm = new LogSink({ intercept: false, terminal: quiet });
   const { maxPerUser } = config.dashboard.sse;
 
-  for (let i = 0; i < maxPerUser; i++) lm.addClient(fakeRes(), "owner");
+  for (let i = 0; i < maxPerUser; i++) lm.addClient(fakeRes(), "owner", config.dashboard.sse);
   assert.equal(lm.clients.size, maxPerUser);
 
   const over = fakeRes();
-  assert.equal(lm.addClient(over, "owner"), false);
+  assert.equal(lm.addClient(over, "owner", config.dashboard.sse), false);
   assert.equal(over.statusCode, null, "부른 경로가 문제 응답(too-many-streams)을 쓴다");
   assert.equal(lm.clients.size, maxPerUser, "상한을 넘는 연결은 등록하지 않는다");
 
   const other = fakeRes();
-  assert.equal(lm.addClient(other, "someone-else"), true, "다른 사용자는 따로 센다");
+  assert.equal(lm.addClient(other, "someone-else", config.dashboard.sse), true, "다른 사용자는 따로 센다");
   assert.equal(lm.clients.size, maxPerUser + 1);
 });
 
@@ -432,13 +432,13 @@ test("관리자 SSE: 쓰기가 잠깐 밀린 것으로는 끊지 않고, 밀린 
 
   // 붙을 때 쌓인 줄을 한꺼번에 보내면 write가 false를 돌려준다. 그것만으로 끊으면 붙는 순간 로그가 나면 끊긴다
   const busy = fakeRes({ writeResult: false, writableLength: 100_000 });
-  lm.addClient(busy, "owner");
+  lm.addClient(busy, "owner", config.dashboard.sse);
   lm.record({ level: 30, time: 1, msg: "한 줄" });
   assert.equal(busy.ended, false);
   assert.equal(lm.clients.size, 1);
 
   const stuck = fakeRes({ writeResult: false, writableLength: 2 * 1024 * 1024 });
-  lm.addClient(stuck, "owner");
+  lm.addClient(stuck, "owner", config.dashboard.sse);
   lm.record({ level: 30, time: 2, msg: "한 줄" });
   assert.equal(stuck.destroyed, true, "end로는 읽지 않는 소켓과 쌓인 바이트가 남으므로 강제로 닫는다(destroy)");
   assert.equal(lm.clients.size, 1, "정리까지 되어야 다음 기록에서 다시 만나지 않는다");
@@ -448,7 +448,7 @@ test("관리자 SSE: 붙는 중에 로그가 나도 끊기지 않는다(쌓아 �
   const http = await import("node:http");
   const lm = new LogSink({ intercept: false, terminal: quiet });
   for (let i = 0; i < KEPT_LINES; i++) lm.record({ level: 30, time: i, msg: `줄 ${i} ` + "x".repeat(120) });
-  const server = http.createServer((_req, res) => lm.addClient(res, "owner"));
+  const server = http.createServer((_req, res) => lm.addClient(res, "owner", config.dashboard.sse));
   await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
   const { port } = server.address() as { port: number };
   let ended = false;
@@ -473,15 +473,15 @@ test("관리자 SSE: 줄마다 기동표.번호를 싣고, 재연결하면 마�
   const ids = (res: ReturnType<typeof fakeRes>) => res.writes.flatMap((w) => [...w.matchAll(/^id: \d+\.(\d+)$/gm)].map((m) => Number(m[1])));
 
   const first = fakeRes();
-  lm.addClient(first, "owner");
+  lm.addClient(first, "owner", config.dashboard.sse);
   assert.deepEqual(ids(first), [1, 2, 3]);
 
   const resumed = fakeRes();
-  lm.addClient(resumed, "owner", `${lm.boot}.2`);
+  lm.addClient(resumed, "owner", config.dashboard.sse, `${lm.boot}.2`);
   assert.deepEqual(ids(resumed), [3], "이미 받은 줄은 다시 보내지 않는다");
 
   const restarted = fakeRes();
-  lm.addClient(restarted, "owner", `${lm.boot - 1}.2`);
+  lm.addClient(restarted, "owner", config.dashboard.sse, `${lm.boot - 1}.2`);
   assert.match(restarted.writes[0], /^event: reset\n/);
   assert.deepEqual(ids(restarted), [1, 2, 3]);
 });
@@ -493,21 +493,21 @@ test("관리자 SSE: 이어 받을 줄이 쌓아 둔 줄 밖으로 밀려났으�
   const ids = (res: ReturnType<typeof fakeRes>) => res.writes.flatMap((w) => [...w.matchAll(/^id: \d+\.(\d+)$/gm)].map((m) => Number(m[1])));
 
   const resumed = fakeRes();
-  lm.addClient(resumed, "owner", `${lm.boot}.4`);
+  lm.addClient(resumed, "owner", config.dashboard.sse, `${lm.boot}.4`);
   assert.deepEqual(gapOf(resumed), [{ missed: 3 }], "5, 6, 7번이 밀려났다");
   assert.ok(resumed.writes.findIndex((w) => w.startsWith("event: gap")) < resumed.writes.findIndex((w) => w.startsWith("id:")), "줄보다 먼저");
   assert.deepEqual(ids(resumed), [8, 9, 10]);
 
   const caughtUp = fakeRes();
-  lm.addClient(caughtUp, "owner", `${lm.boot}.7`);
+  lm.addClient(caughtUp, "owner", config.dashboard.sse, `${lm.boot}.7`);
   assert.deepEqual(gapOf(caughtUp), [], "바로 다음 줄부터 남아 있으면 빠진 것이 없다");
 
   const restarted = fakeRes();
-  lm.addClient(restarted, "owner", `${lm.boot - 1}.99`);
+  lm.addClient(restarted, "owner", config.dashboard.sse, `${lm.boot - 1}.99`);
   assert.deepEqual(gapOf(restarted), [{ missed: 7 }], "다시 시작했으면 이 실행의 1번부터 센다");
 
   const fresh = fakeRes();
-  lm.addClient(fresh, "owner");
+  lm.addClient(fresh, "owner", config.dashboard.sse);
   assert.deepEqual(gapOf(fresh), [], "처음 연결");
 });
 
@@ -515,7 +515,7 @@ test("관리자 SSE: 연결이 닫히면 하트비트도 함께 제거한다", (
   const lm = new LogSink({ intercept: false, terminal: quiet });
 
   const res = fakeRes();
-  lm.addClient(res, "owner");
+  lm.addClient(res, "owner", config.dashboard.sse);
   assert.equal(typeof res.handlers.close, "function");
   assert.equal(typeof res.handlers.error, "function");
 
@@ -561,13 +561,13 @@ test("관리자 SSE: 하트비트는 바뀐 간격으로 다시 건다", () => {
   try {
     sse.heartbeatMs = 20_000;
     const res = fakeRes();
-    lm.addClient(res, "owner");
+    lm.addClient(res, "owner", config.dashboard.sse);
     const pings = () => res.writes.filter((w) => w.startsWith(": ping")).length;
     mock.timers.tick(20_000);
     assert.equal(pings(), 1);
 
     sse.heartbeatMs = 5_000;
-    lm.syncHeartbeat();
+    lm.syncHeartbeat(sse.heartbeatMs);
     mock.timers.tick(5_000);
     assert.equal(pings(), 2, "새 간격");
   } finally {
