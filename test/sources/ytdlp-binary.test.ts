@@ -296,6 +296,19 @@ test("다른 프로세스(update:ytdlp)가 버전을 바꾸면 다음 실행부�
   assert.equal(rel(), "bin/yt-dlp/2026.09.27.232849/yt-dlp.exe");
 });
 
+test("다른 프로세스가 기록을 바꿨는데 수정 시각이 같아도 다음 실행부터 바뀐 버전을 쓴다", async () => {
+  config.ytdlp.update = "manual";
+  const state = path.join(dirOf(), "state.json");
+  const tick = new Date("2026-01-01T00:00:00Z");
+  const { rel } = world();
+  fs.utimesSync(state, tick, tick);
+  assert.equal(rel(), "bin/yt-dlp/2026.08.19/yt-dlp.exe");
+  const other = world({ installed: null, pid: 5151 });
+  assert.equal((await other.bin.check({ force: true }))?.kind, "installed");
+  fs.utimesSync(state, tick, tick);
+  assert.equal(rel(), "bin/yt-dlp/2026.09.27.232849/yt-dlp.exe");
+});
+
 test("고정: 하루 한 번과 상관없이 그 버전으로 맞추고 최신은 묻지 않는다. 낮은 버전으로도 내려간다", async () => {
   const { w, bin, rel } = world({ installed: "2026.09.20" });
   config.ytdlp.channel = "stable";

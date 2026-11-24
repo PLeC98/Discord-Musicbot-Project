@@ -253,8 +253,8 @@ class YtdlpBinary {
   failure: Failure | null = null;
   // 마지막으로 잠금을 쥐지 못했을 때 쥐고 있던 다른 프로세스의 PID(모르면 null)
   holder: number | null = null;
-  // 마지막으로 읽었을 때의 기록 파일 수정 시각. 달라졌으면 다른 프로세스(update:ytdlp)가 바꾼 것이라 다시 읽는다
-  stamp: number | null = null;
+  // 마지막으로 읽었을 때의 기록 파일 스탬프(_stampNow의 값). 달라졌으면 다른 프로세스(update:ytdlp)가 바꾼 것이라 다시 읽는다
+  stamp: string | null = null;
   // 진행 중인 맞추기(converge)와 그사이 들어온 요청
   converging: Promise<void> | null = null;
   want: { human: boolean; fresh: boolean } | null = null;
@@ -314,9 +314,11 @@ class YtdlpBinary {
     this.stamp = this._stampNow();
   }
 
-  _stampNow(): number | null {
+  // 파일 고유 번호(ino), 수정 시각, 크기. 쓸 때마다 새 임시 파일을 rename하므로 고유 번호가 바뀐다. 수정 시각만으로는 그 해상도(Windows는 약 15ms) 안의 두 쓰기를 구분하지 못한다
+  _stampNow(): string | null {
     try {
-      return fs.statSync(this.stateFile).mtimeMs;
+      const stat = fs.statSync(this.stateFile, { bigint: true });
+      return `${stat.ino}:${stat.mtimeNs}:${stat.size}`;
     } catch {
       // 기록이 아직 없다
       return null;
