@@ -6,6 +6,8 @@ import type { Request, Response } from "express";
 import { issueCsrfToken, requireCsrfToken } from "../../src/dashboard/middleware/csrf.ts";
 import { fake, fakeWith } from "../helpers/fake.ts";
 import { sessionCookieName } from "../../src/dashboard/cookies.ts";
+import { useAppId } from "../../src/infra/app-id.ts";
+useAppId("123456789012345678"); // 기동은 봇 토큰으로 앱 ID를 읽어 넣는다(app/app-info). 세션 쿠키 이름, 로그인, 초대 링크, 명령 배포가 쓴다
 
 type Body = { csrfToken?: string; code?: string };
 

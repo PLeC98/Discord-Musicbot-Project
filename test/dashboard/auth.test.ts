@@ -23,6 +23,8 @@ import * as listen from "../helpers/listen.ts";
 import { cookieJar } from "../helpers/cookie-jar.ts";
 import { sessionCookieName } from "../../src/dashboard/cookies.ts";
 import * as sessionRequests from "../../src/dashboard/session-requests.ts";
+import { useAppId } from "../../src/infra/app-id.ts";
+useAppId("123456789012345678"); // 기동은 봇 토큰으로 앱 ID를 읽어 넣는다(app/app-info). 세션 쿠키 이름, 로그인, 초대 링크, 명령 배포가 쓴다
 const { listenForFetch } = listen;
 
 const servers: Server[] = [];

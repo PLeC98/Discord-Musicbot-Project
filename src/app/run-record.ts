@@ -11,25 +11,27 @@ import { PROJECT } from "../infra/project-paths.ts";
 import logger from "../infra/log/logger.ts";
 import { repeatingFailure } from "../infra/repeating-failure.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
+import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
 const log = logger.child({ category: "core" });
 
 type Ending = "shutdown" | "restart" | "startup-failed" | "global-flood";
 type Run = { startedAt: number; aliveAt: number; ended: { how: Ending; at: number } | null; shortStreak: number };
 /** 기동이 알게 되는 것 */
-type Previous = { line: string; skipRestore: boolean; shortStreak: number };
+type Previous = { line: LogText; skipRestore: boolean; shortStreak: number };
 
 const FILE = path.join(PROJECT.database, "run-state.json");
 const ALIVE_MS = 30_000; // 살아 있던 시각을 갱신하는 간격(ms)
 const SHORT_RUN_MS = 10 * 60_000; // 이보다 짧게 끊긴 실행을 센다(ms)
 const SKIP_RESTORE_STREAK = 2;
 
-const ENDINGS: Record<Ending, string> = { shutdown: "정상 종료", restart: "다시 시작", "startup-failed": "기동 실패", "global-flood": "전역 폭주로 종료" };
+const ENDINGS: Record<Ending, LogText> = { shutdown: L.core.runEndedShutdown(), restart: L.core.runEndedRestart(), "startup-failed": L.core.runEndedStartupFailed(), "global-flood": L.core.runEndedGlobalFlood() };
 
 function span(ms: number) {
   const min = Math.floor(ms / 60_000);
-  if (min < 1) return `${Math.max(0, Math.round(ms / 1000))}초`;
-  if (min < 60) return `${min}분`;
-  return `${Math.floor(min / 60)}시간 ${min % 60}분`;
+  if (min < 1) return L.core.uptimeSeconds({ seconds: Math.max(0, Math.round(ms / 1000)) });
+  if (min < 60) return L.core.uptimeMinutes({ minutes: min });
+  return L.core.uptimeHoursMinutes({ hours: Math.floor(min / 60), minutes: min % 60 });
 }
 
 class RunRecord {
@@ -37,7 +39,7 @@ class RunRecord {
   now: () => number;
   run: Run | null = null;
   timer: NodeJS.Timeout | null = null;
-  aliveFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "실행 기록 갱신");
+  aliveFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.core.runRecordUpdate());
 
   constructor(file = FILE, now = () => Date.now()) {
     this.file = file;
@@ -50,7 +52,7 @@ class RunRecord {
       return typeof run.startedAt === "number" && typeof run.aliveAt === "number" ? run : null;
     } catch (error) {
       // 파일이 없는 것은 첫 기동이다
-      if (codeOf(error) !== "ENOENT") log.warn(`실행 기록 읽기 실패: ${messageOf(error)}`);
+      if (codeOf(error) !== "ENOENT") log.warn(L.core.runRecordReadFailed({ error: messageOf(error) }));
       return null;
     }
   }
@@ -69,16 +71,15 @@ class RunRecord {
     const previous = this._read();
     const at = this.now();
     let shortStreak = 0;
-    let line = "이전 실행 기록 없음";
+    let line = L.core.previousRunNone();
     if (previous) {
       const end = previous.ended?.at ?? previous.aliveAt;
       const uptime = end - previous.startedAt;
       const cut = !previous.ended || previous.ended.how === "global-flood";
       if (cut && uptime < SHORT_RUN_MS) shortStreak = previous.shortStreak + 1;
-      const how = previous.ended ? ENDINGS[previous.ended.how] : "기록 없이 끊김";
-      line = `이전 실행: ${how} | 가동 ${span(uptime)}${previous.ended ? "" : "(마지막으로 살아 있던 때까지)"}`;
+      const how = previous.ended ? ENDINGS[previous.ended.how] : L.core.runEndedUnrecorded();
       // 한 번은 앞 칸(끝난 방식, 가동)이 이미 말한다
-      if (shortStreak >= 2) line += ` | 연속 크래시 ${shortStreak}회`;
+      line = L.core.previousRun({ how, uptime: span(uptime), ended: Boolean(previous.ended), crashStreak: shortStreak >= 2 ? shortStreak : null });
     }
     this.run = { startedAt: at, aliveAt: at, ended: null, shortStreak };
     this._write();
@@ -110,7 +111,7 @@ class RunRecord {
       this._write();
     } catch (error) {
       // 끝나는 중이다. 못 적으면 다음 기동이 "기록 없이 끊김"으로 본다
-      log.warn(`실행 기록에 종료 사유 기록 실패: ${messageOf(error)}`);
+      log.warn(L.core.exitReasonWriteFailed({ error: messageOf(error) }));
     }
   }
 }

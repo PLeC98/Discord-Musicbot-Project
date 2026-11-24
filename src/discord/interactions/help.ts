@@ -8,14 +8,15 @@ import { helpAccess } from "../../usecases/help-access.ts";
 import { homeView, sectionView } from "../commands/help.ts";
 import { route, type Route } from "./route.ts";
 import type { BotContext } from "../../app/bot-context.ts";
+import { privateText } from "../../ui/language.ts";
 
 async function handleHelpSection(interaction: StringSelectMenuInteraction<"cached">, bot: BotContext) {
-  const view = sectionView(bot.commands, interaction.values[0] ?? "", interaction.guildId, await helpAccess(interaction.member));
+  const view = sectionView(privateText(interaction), bot.commands, interaction.values[0] ?? "", interaction.guildId, await helpAccess(interaction.member));
   await updateSelf(interaction, post(view), LIFETIME.screen);
 }
 
 async function handleHelpHome(interaction: ButtonInteraction<"cached">, bot: BotContext) {
-  await updateSelf(interaction, post(homeView(bot.commands, interaction.guildId)), LIFETIME.screen);
+  await updateSelf(interaction, post(homeView(privateText(interaction), bot.commands, interaction.guildId)), LIFETIME.screen);
 }
 
 const routes: Route[] = [route("select", customId(HELP, "section"), handleHelpSection), route("button", customId(HELP, "home"), handleHelpHome)];

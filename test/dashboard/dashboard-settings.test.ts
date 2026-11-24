@@ -6,6 +6,7 @@
 process.env.OWNER_ID = "owner";
 
 const { listenForFetch, baseUrl } = await import("../helpers/listen.ts");
+import { useTestLanguage } from "../../src/rules/languages.ts";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import type { Server } from "node:http";
@@ -25,6 +26,7 @@ type Reply = ProblemReply & {
   current?: Record<string, unknown>;
   playlistAdd?: unknown;
   agePlace?: string;
+  language?: { value: string | null; botLanguage: string; languages: { tag: string; name: string }[] };
   stay?: { on: boolean; channel: { id: string; name: string } | null; refusal: string | null };
   normalize?: { on: boolean; refusal: string | null };
   hasSettings?: boolean;
@@ -435,6 +437,34 @@ test("연령 제한 콘텐츠를 틀 곳: 운영자가 꺼 두었으면 카드�
   assert.equal((await save({ agePlace: "channel" })).status, 200);
   assert.equal(settings.table.getAgePlace(GUILD_ID), "channel");
   documents._use("age-content");
+});
+
+test("서버 언어: 언어가 하나면 카드가 없다, 둘 이상이면 봇 기본 언어를 따름(null)과 고를 언어, 저장과 되돌리기, 지금 쓸 수 없는 언어는 400", async () => {
+  currentMember = modMember();
+  const read = async () => (await req("GET", `/api/guilds/${GUILD_ID}/settings`)).json;
+  const off = await read();
+  assert.deepEqual([off.language, off.cards?.includes("language")], [undefined, false]);
+  assert.equal((await save({ language: "qps-ploc" })).status, 400, "테스트 언어를 끈 동안에는 쓸 수 없는 언어");
+
+  useTestLanguage(true);
+  try {
+    assert.deepEqual((await read()).language, {
+      value: null,
+      botLanguage: "ko",
+      languages: [
+        { tag: "ko", name: "한국어" },
+        { tag: "qps-ploc", name: "Pseudo" },
+      ],
+    });
+    assert.equal((await save({ language: "qps-ploc" })).status, 200);
+    assert.equal(settings.table.getLanguage(GUILD_ID), "qps-ploc");
+    assert.equal((await read()).language?.value, "qps-ploc");
+    assert.equal((await save({ language: "en" })).status, 400, "모르는 언어");
+    assert.equal((await save({ language: null })).status, 200);
+    assert.equal(settings.table.getLanguage(GUILD_ID), null);
+  } finally {
+    useTestLanguage(false);
+  }
 });
 
 // ── GET /player의 음성 채널 접속 플래그 ───────────────────────────

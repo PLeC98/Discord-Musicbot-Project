@@ -5,6 +5,7 @@
  * 실행 위치(`database/ai-models.json`)에 둔다. 저장소에는 싣지 않는다. 받은 것이 없으면 빈 프로필로 돈다(필드를 모르는 모델과 같다).
  * 받는 때는 config/ai-model-info가 정한다.
  */
+import { nameFor, type Language } from "../rules/languages.ts";
 import fs from "fs";
 import path from "path";
 import { PROJECT } from "../infra/project-paths.ts";
@@ -12,6 +13,8 @@ import { httpFor } from "../infra/http.ts";
 import logger from "../infra/log/logger.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import type { ModelField, ModelGroup, ModelSummary, RefreshResult, ShowIf } from "./ai-model-types.ts";
+import { L } from "../infra/log/text.ts";
+import { asText, logTextError } from "../infra/log/log-text.ts";
 const log = logger.child({ category: "config" });
 
 const RAW = "https://raw.githubusercontent.com/PocketRisu/pocketrisu-model-registry/main";
@@ -28,7 +31,7 @@ const ours = (bodyPath: string) => OURS.has(bodyPath.split(".")[0] ?? "");
 // 레지스트리의 모양. 여기서 읽는 필드만
 type SchemaField = { key: string; type?: string; label?: string; mapsTo?: { target?: string; path?: string }; enum?: unknown[]; min?: number; max?: number; step?: number; default?: unknown };
 type UiField = { key: string; widget?: string; group?: string; visibility?: string; showIf?: ShowIf; order?: number };
-type UiGroup = { id: string; label?: string; labelI18n?: { ko?: string }; order?: number };
+type UiGroup = { id: string; label?: string; labelI18n?: Partial<Record<string, string>>; order?: number };
 type UiSchema = { fields?: UiField[]; groups?: UiGroup[] };
 type BaseProvider = { requestSchema?: SchemaField[]; uiSchema?: UiSchema; defaultBody?: Record<string, unknown> };
 type Profile = {
@@ -73,7 +76,7 @@ function readSnapshot(): Snapshot | null {
   try {
     return JSON.parse(fs.readFileSync(file, "utf8")) as Snapshot;
   } catch (error) {
-    if (codeOf(error) !== "ENOENT") log.warn(`AI 모델 정보 읽기 실패(${path.basename(file)}): ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(L.config.aiModelInfoReadFailed({ file: path.basename(file), error: messageOf(error) }));
     return null;
   }
 }
@@ -155,14 +158,14 @@ function fieldsOf(registry: string, modelId: string, snapshot: Snapshot = load()
     .sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
 }
 
-/** 필드를 담는 그룹. 이름과 순서를 프로필이 정한다. 필드 이름은 영어뿐이고 그룹에만 한국어가 있다. */
-function groupsOf(registry: string, modelId: string, snapshot: Snapshot = load()): ModelGroup[] {
+/** 필드를 담는 그룹. 이름과 순서를 프로필이 정한다. 필드 이름은 영어뿐이고 그룹에만 언어별 이름(labelI18n)이 있다. 해당 언어 이름이 없으면 label */
+function groupsOf(registry: string, modelId: string, language: Language, snapshot: Snapshot = load()): ModelGroup[] {
   const found = profileOf(registry, modelId, snapshot);
   if (!found) return [];
   const base = baseOf(snapshot, found.profile);
   const by = new Map<string, ModelGroup>();
   for (const g of [...(base?.uiSchema?.groups || []), ...(found.profile.uiSchema?.groups || [])]) {
-    by.set(g.id, { id: g.id, label: g.labelI18n?.ko || g.label || g.id, order: g.order ?? 99 });
+    by.set(g.id, { id: g.id, label: nameFor(g.labelI18n, language) || g.label || g.id, order: g.order ?? 99 });
   }
   return [...by.values()].sort((a, b) => a.order - b.order);
 }
@@ -179,8 +182,8 @@ function defaultsOf(registry: string, modelId: string, snapshot: Snapshot = load
 function touchingOurs(snapshot: Snapshot): string[] {
   const out: string[] = [];
   const scan = (id: string, defaults: Record<string, unknown> | undefined, fields: SchemaField[] | undefined) => {
-    for (const key of Object.keys(defaults || {})) if (OURS.has(key)) out.push(`${id} 기본값 ${key}`);
-    for (const f of fields || []) if (f?.mapsTo?.target === "body" && f.mapsTo.path && ours(f.mapsTo.path) && f.key !== "modelId") out.push(`${id} 필드 ${f.key}`);
+    for (const key of Object.keys(defaults || {})) if (OURS.has(key)) out.push(asText(L.config.modelDefaultTouched({ id, key })));
+    for (const f of fields || []) if (f?.mapsTo?.target === "body" && f.mapsTo.path && ours(f.mapsTo.path) && f.key !== "modelId") out.push(asText(L.config.modelFieldTouched({ id, key: f.key })));
   };
   for (const [id, base] of Object.entries(snapshot.baseProviders || {})) scan(id, base.defaultBody, base.requestSchema);
   for (const [id, profile] of Object.entries(snapshot.profiles || {})) scan(id, profile.defaults, profile.schema);
@@ -191,7 +194,7 @@ function touchingOurs(snapshot: Snapshot): string[] {
 function warnTouchingOurs(snapshot: Snapshot) {
   const touched = touchingOurs(snapshot);
   if (!touched.length) return;
-  log.warn(`AI 모델 정보가 모델, 프롬프트 칸을 바꾸려 해 그 값은 쓰지 않음(${touched.length}곳): ${touched.slice(0, 5).join(", ")}${touched.length > 5 ? " 등" : ""}`);
+  log.warn(L.config.aiModelInfoTouchingOurs({ count: touched.length, items: touched.slice(0, 5).join(", "), more: touched.length > 5 }));
 }
 
 const github = httpFor("github");
@@ -236,25 +239,25 @@ function lostShape(registries: string[], held: Snapshot, got: Snapshot): string[
 async function refresh({ registries, force = false, timeoutMs = 30000, fetchImpl = github.fetch }: { registries: string[]; force?: boolean; timeoutMs?: number; fetchImpl?: typeof fetch }): Promise<RefreshResult> {
   const get = async <T>(at: string): Promise<T> => {
     const res = await fetchImpl(`${RAW}/${at}`, { signal: AbortSignal.timeout(timeoutMs) });
-    if (!res.ok) throw new Error(`레지스트리 ${res.status}: ${at}`);
+    if (!res.ok) throw logTextError(L.config.registryHttpFailed({ status: res.status, at }));
     return (await res.json()) as T;
   };
   const held = load();
   const count = (one: Snapshot) => Object.keys(one.profiles || {}).length;
   const index = await get<RegistryIndex>("index.json");
-  if (typeof index.hash !== "string") throw new Error("레지스트리 인덱스에 해시가 없음");
+  if (typeof index.hash !== "string") throw logTextError(L.config.registryNoHash());
   const sameRegistries = JSON.stringify(held.registries ?? []) === JSON.stringify([...registries].sort());
   if (!force && count(held) && sameRegistries && index.hash === held.hash) return { changed: false, count: count(held), fetchedAt: held.fetchedAt };
 
   // raw.githubusercontent.com은 5분 동안 캐시한다. 해시를 붙여 바뀐 카탈로그를 받고, 인덱스와 해시가 같은 짝만 쓴다
   const catalog = await get<Catalog>(`catalog.json?h=${encodeURIComponent(index.hash)}`);
-  if (catalog.schemaVersion !== CATALOG_SCHEMA) throw new Error(`지원하지 않는 레지스트리 카탈로그 형식: ${String(catalog.schemaVersion)}(${CATALOG_SCHEMA}만 지원)`);
-  if (catalog.hash !== index.hash) throw new Error("레지스트리 인덱스와 카탈로그의 해시가 다름(원격에서 갱신 중, 다음에 다시 불러옴)");
+  if (catalog.schemaVersion !== CATALOG_SCHEMA) throw logTextError(L.config.registryFormatUnsupported({ version: String(catalog.schemaVersion), supported: CATALOG_SCHEMA }));
+  if (catalog.hash !== index.hash) throw logTextError(L.config.registryHashMismatch());
   const { snapshot: got, skipped } = pick(catalog, registries);
-  if (skipped.length) log.warn(`AI 모델 정보에서 형식이 맞지 않는 프로필 ${skipped.length}개를 빼고 저장: ${skipped.slice(0, 5).join(", ")}${skipped.length > 5 ? " 등" : ""}`);
+  if (skipped.length) log.warn(L.config.aiModelInfoProfilesSkipped({ count: skipped.length, items: skipped.slice(0, 5).join(", "), more: skipped.length > 5 }));
   warnTouchingOurs(got);
   const lost = lostShape(registries, held, got);
-  if (lost.length) throw new Error(`${lost.join(", ")}의 모델 필드가 통째로 비어 있음. 원격 형식이 바뀐 것으로 보여 쓰지 않음`);
+  if (lost.length) throw logTextError(L.config.registryFieldsLost({ registries: lost.join(", ") }));
 
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, JSON.stringify(got, null, 2) + String.fromCharCode(10));

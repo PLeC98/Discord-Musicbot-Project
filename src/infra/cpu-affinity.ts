@@ -7,6 +7,7 @@ import fs from "node:fs";
 import os from "node:os";
 import logger from "./log/logger.ts";
 import { consoleText } from "./console-text.ts";
+import { L } from "./log/text.ts";
 const log = logger.child({ category: "proc" });
 
 /** 쓸 코어 수와 첫 코어(위쪽부터 쓴다) */
@@ -42,7 +43,7 @@ function bindProcess(pid: number | undefined) {
   const mask = ((2n ** BigInt(count) - 1n) << BigInt(first)).toString();
   execFile("powershell", ["-NoProfile", "-NonInteractive", "-Command", `(Get-Process -Id ${pid}).ProcessorAffinity = [IntPtr]${mask}`], { encoding: "buffer", windowsHide: true, timeout: 15_000 }, (error, _stdout, stderr) => {
     // PowerShell이 붙기 전에 끝난 짧은 작업은 CPU 선호도를 설정할 프로세스가 없어 debug로 남긴다
-    if (error) log[alive(pid) ? "warn" : "debug"](`CPU 선호도 설정 실패(pid ${pid}): ${consoleText(stderr).trim() || error.message}`);
+    if (error) log[alive(pid) ? "warn" : "debug"](L.proc.cpuAffinityFailed({ pid, reason: consoleText(stderr).trim() || error.message }));
   });
 }
 

@@ -4,10 +4,12 @@
 import type { Request } from "express";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
-import { repeatingFailure } from "../infra/repeating-failure.ts";
+import { repeatingFailure, type FailureLog } from "../infra/repeating-failure.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { DISCORD_API, discordHttp, type DiscordHttp } from "./discord-api.ts";
 import { tokenStoreOf } from "./session-store.ts";
+import { L } from "../infra/log/text.ts";
+import { logTextError } from "../infra/log/log-text.ts";
 
 /** 디스코드가 주는 서버 목록에서 읽는 필드. permissions는 서버 단위 권한 비트 */
 type UserGuild = { id: string; name: string; icon: string | null; owner: boolean; permissions: string };
@@ -35,8 +37,8 @@ const failures = new Map<string, { refresh: ReturnType<typeof repeatingFailure>;
 const failuresOf = (key: string) => {
   let one = failures.get(key);
   if (!one) {
-    const to = { error: (line: string) => log.warn(line), info: (line: string) => log.info(line) };
-    failures.set(key, (one = { refresh: repeatingFailure(to, "사용자 서버 목록 백그라운드 갱신"), list: repeatingFailure(to, "사용자 서버 목록 조회") }));
+    const to: FailureLog = { error: (line) => log.warn(line), info: (line) => log.info(line) };
+    failures.set(key, (one = { refresh: repeatingFailure(to, L.dashboard.userGuildsRefresh()), list: repeatingFailure(to, L.dashboard.userGuildsList()) }));
   }
   return one;
 };
@@ -73,7 +75,7 @@ type ListOptions = { fresh?: boolean; stale?: boolean; http?: DiscordHttp; now?:
 function keptList(hit: Kept | undefined, now: number, fresh: boolean) {
   if (!hit) return null;
   hit.usedAt = now;
-  if (!hit.guilds) throw Object.assign(new Error("HTTP 401"), { response: { status: 401 } });
+  if (!hit.guilds) throw Object.assign(logTextError(L.net.httpStatus({ status: 401 })), { response: { status: 401 } });
   return now - hit.at < (fresh ? FRESH_GAP_MS : KEEP_MS) ? hit.guilds : null;
 }
 
@@ -93,7 +95,7 @@ async function userGuilds(key: string, token: string, options: ListOptions = {})
   next.catch((error: unknown) => {
     // 뒤에서 받다 실패하면 다음 요청이 다시 받는다
     const status = statusOf(error);
-    if (status !== 401 && status !== 429) failuresOf(key).refresh.fail(`${failureOf(error)} (stale 목록 유지)`);
+    if (status !== 401 && status !== 429) failuresOf(key).refresh.fail(L.dashboard.userGuildsRefreshFailure({ error: failureOf(error) }));
   });
   return hit.guilds;
 }
@@ -110,7 +112,7 @@ async function memberGuildIds(req: Pick<Request, "sessionID" | "sessionStore">, 
     return { ids: new Set(guilds.map((g) => g.id)), relogin: false };
   } catch (error) {
     const status = statusOf(error);
-    if (status !== 401 && status !== 429) failuresOf(req.sessionID).list.fail(`${failureOf(error)} (멤버 캐시로 대체)`);
+    if (status !== 401 && status !== 429) failuresOf(req.sessionID).list.fail(L.dashboard.userGuildsListFailure({ error: failureOf(error) }));
     return { ids: null, relogin: status === 401 };
   }
 }

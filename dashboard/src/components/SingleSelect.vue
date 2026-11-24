@@ -1,5 +1,6 @@
 <template>
-  <SelectPanel v-model:open="open" v-model:term="term" :summary="summary" :summary-color="pickedColor" :muted="!picked" :count="options.length" :searchable="searchable" :empty="!shown.length" :disabled="disabled" :small="small">
+  <SelectPanel v-model:open="open" v-model:term="term" :summary="summary" :summary-color="pickedColor" :muted="!picked" :count="options.length" :searchable="searchable" :empty="!shown.length" :disabled="disabled" :small="small" :trigger-class="triggerClass" :label="label" :panel-width="panelWidth">
+    <template v-if="$slots.trigger" #trigger><slot name="trigger" /></template>
     <button v-if="emptyLabel" type="button" :class="[rowCls, picked ? '' : rowOn]" @click="choose('')">
       <span class="truncate" :class="picked && 'text-on-surface-variant'">{{ emptyLabel }}</span>
     </button>
@@ -30,8 +31,12 @@ const props = withDefaults(
     disabled?: boolean;
     /** 작은 버튼(도구 줄) */
     small?: boolean;
+    /** 버튼 모양을 넣을 때(trigger 슬롯) 그 버튼의 클래스, 이름, 패널 폭(SelectPanel) */
+    triggerClass?: string;
+    label?: string;
+    panelWidth?: number;
   }>(),
-  { modelValue: "", options: () => [], placeholder: text.fields.pick, emptyLabel: "", searchFrom: 12, disabled: false, small: false },
+  { modelValue: "", options: () => [], emptyLabel: "", searchFrom: 12, disabled: false, small: false },
 );
 const emit = defineEmits<{ "update:modelValue": [value: OptionValue] }>();
 
@@ -47,7 +52,7 @@ const shown = computed(() => filterOptions(props.options, term.value));
 
 const pickedColor = computed(() => (picked.value ? props.options.find((one) => one.value === props.modelValue)?.color : undefined));
 const summary = computed(() => {
-  if (!picked.value) return props.emptyLabel || props.placeholder;
+  if (!picked.value) return props.emptyLabel || (props.placeholder ?? text.fields.pick);
   return props.options.find((one) => one.value === props.modelValue)?.label || String(props.modelValue);
 });
 

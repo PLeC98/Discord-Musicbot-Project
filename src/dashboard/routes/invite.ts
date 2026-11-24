@@ -10,9 +10,10 @@ import { canInvite, managedGuilds } from "../invite.ts";
 import { guildIconUrl } from "../images.ts";
 import { inviteUrl } from "../../rules/invite-url.ts";
 import { messageOf } from "../../rules/error-kind.ts";
-import config from "../../config/index.ts";
+import { appIdOf } from "../../infra/app-id.ts";
 import { discordHttp, type DiscordHttp } from "../discord-api.ts";
 import type { InviteList } from "../contract/invite.ts";
+import { L } from "../../infra/log/text.ts";
 
 const statusOf = (error: unknown) => (error as { response?: { status?: number } } | null)?.response?.status;
 
@@ -25,7 +26,7 @@ function createInviteRouter({ http = discordHttp }: { http?: DiscordHttp } = {})
     const { client } = req.app.locals.bot;
     if (!client.isReady()) return sendProblem(res, "bot-not-ready");
     const user = signedIn(req);
-    if (!canInvite(client, user.id)) return sendProblem(res, "invite-unavailable");
+    if (!canInvite(user.id)) return sendProblem(res, "invite-unavailable");
 
     const relogin: InviteList = { state: "relogin" };
     // 토큰이 없다: 토큰을 두기 전의 세션이거나 SECRETS_KEY를 바꿨다
@@ -35,14 +36,14 @@ function createInviteRouter({ http = discordHttp }: { http?: DiscordHttp } = {})
     try {
       const managed = await managedGuilds(req.sessionID, token, { fresh: req.query.fresh === "1", http });
       // 봇이 든 서버는 지금 값으로 뺀다(초대해 봇이 들면 바로 빠진다)
-      const guilds = managed.filter((g) => !client.guilds.cache.has(g.id)).map((g) => ({ id: g.id, name: g.name, icon: guildIconUrl(g.id, g.icon), inviteUrl: inviteUrl(config.discord.clientId, g.id) }));
+      const guilds = managed.filter((g) => !client.guilds.cache.has(g.id)).map((g) => ({ id: g.id, name: g.name, icon: guildIconUrl(g.id, g.icon), inviteUrl: inviteUrl(appIdOf(), g.id) }));
       res.json({ state: "ready", guilds } satisfies InviteList);
     } catch (error) {
       const status = statusOf(error);
       // 토큰이 만료됐거나 사용자가 디스코드에서 승인을 취소했다
       if (status === 401) return res.json(relogin);
       if (status === 429) return sendProblem(res, "rate-limited");
-      log.warn(`디스코드에서 초대 화면의 서버 목록 불러오기 실패: ${status ? `상태 코드 ${status}` : messageOf(error)}`);
+      log.warn(L.dashboard.inviteGuildsFailed({ status: status ?? null, error: messageOf(error) }));
       sendProblem(res, "unknown-error");
     }
   });

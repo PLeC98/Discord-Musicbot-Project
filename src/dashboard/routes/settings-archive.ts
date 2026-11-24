@@ -1,6 +1,7 @@
 // 설정 내보내기, 불러오기(운영자 패널 백업 탭). /api/admin/settings-archive
 // 내보내기, 불러오기는 최근 로그인만(훔친 로그인 쿠키로 설정을 빼가거나 교체하지 못하게). 미리 보기는 아무것도 바꾸지 않아 운영자면 된다
 
+import type { RuleProblem } from "../../rules/rule-problem.ts";
 import crypto from "node:crypto";
 import express from "express";
 import logger from "../../infra/log/logger.ts";
@@ -9,7 +10,7 @@ import { requireOwner } from "../middleware/require-owner.ts";
 import { requireRecentLogin } from "../middleware/recent-login.ts";
 import { sendProblem } from "../problem.ts";
 import { ranBy } from "../ran-by.ts";
-import { codeOf, messageOf } from "../../rules/error-kind.ts";
+import { codeOf, errorProblem, messageOf } from "../../rules/error-kind.ts";
 import { sinkOf, writeZip } from "../../infra/zip.ts";
 import * as archive from "../settings-archive.ts";
 import * as archiveUploads from "../archive-uploads.ts";
@@ -19,17 +20,21 @@ import * as snapshots from "../../store/snapshots.ts";
 import { isArchiveItem, isArchiveKind, type ArchiveDownload, type ArchiveImported, type ArchiveItem, type ArchiveKind, type ArchivePreview } from "../contract/settings-archive.ts";
 import type { Response } from "express";
 import { assertSignedIn, sessionEnded } from "../session-requests.ts";
+import { L } from "../../infra/log/text.ts";
+import type { LogText } from "../../infra/log/log-text.ts";
+import { signedIn } from "../middleware/require-auth.ts";
+import { isAppOwner } from "../../usecases/app-owners.ts";
 
 const settingsArchiveRouter = express.Router();
 settingsArchiveRouter.use(requireOwner);
 
-const KIND_LABEL: Record<ArchiveKind, string> = { settings: "봇 설정만", favicon: "파비콘", "login-background": "로그인 배경", "audio-cache": "오디오 캐시" };
+const KIND_LABEL: Record<ArchiveKind, LogText> = { settings: L.dashboard.archiveKindSettings(), favicon: L.dashboard.archiveKindFavicon(), "login-background": L.dashboard.archiveKindLoginBackground(), "audio-cache": L.dashboard.archiveKindAudioCache() };
 const CLIENT_CLOSED = new Set<unknown>(["ERR_STREAM_PREMATURE_CLOSE", "EPIPE", "ECONNRESET"]);
 
 // 읽지 못한 파일(ZIP이 깨졌거나 이 봇의 내보내기가 아님)은 그 원인과 함께 400
 function unreadable(res: Response, error: unknown) {
   if (codeOf(error) === "BAD_ZIP" || codeOf(error) === "BAD_ARCHIVE") {
-    sendProblem(res, "bad-archive", {}, { detail: messageOf(error) });
+    sendProblem(res, "bad-archive", {}, { errors: [{ code: "bad-archive", rule: errorProblem(error) }] });
     return true;
   }
   return false;
@@ -67,7 +72,7 @@ settingsArchiveRouter.get("/download/:ticket", async (req, res) => {
   const { inputs, release } = archive.build(kind, { withFiles });
   // 다 보냈거나 받던 쪽이 끊었을 때 담을 파일의 지킴을 푼다
   res.once("close", release);
-  log.warn({ sub: "admin" }, `대시보드에서 설정 내보내기(${KIND_LABEL[kind]}${kind === "audio-cache" && !withFiles ? ", 캐시 파일 제외" : ""}). 실행 ${ticket.by}`);
+  log.warn({ sub: "admin" }, L.dashboard.settingsExported({ kind: KIND_LABEL[kind], noFiles: kind === "audio-cache" && !withFiles, by: ticket.by }));
   res.setHeader("Content-Type", "application/zip");
   res.setHeader("Content-Disposition", `attachment; filename="${archive.fileName(kind)}"`);
   try {
@@ -75,8 +80,8 @@ settingsArchiveRouter.get("/download/:ticket", async (req, res) => {
     res.end();
   } catch (error) {
     // 받던 쪽이 끊었거나 쓰는 동안 파일이 삭제됐다(헤더를 이미 보냈으니 응답을 끊는다)
-    if (res.destroyed || CLIENT_CLOSED.has(codeOf(error))) log.debug({ sub: "admin" }, `설정 내보내기 전송 중단: ${messageOf(error)}`);
-    else log.error({ sub: "admin" }, `ZIP 스트리밍 전송 실패(다운로드된 파일 불완전): 종류=${KIND_LABEL[kind]} | ${messageOf(error)}`);
+    if (res.destroyed || CLIENT_CLOSED.has(codeOf(error))) log.debug({ sub: "admin" }, L.dashboard.exportAborted({ error: messageOf(error) }));
+    else log.error({ sub: "admin" }, L.dashboard.exportStreamFailed({ kind: KIND_LABEL[kind], error: messageOf(error) }));
     res.destroy();
   } finally {
     release();
@@ -100,7 +105,7 @@ settingsArchiveRouter.post("/preview", async (req, res) => {
     throw error;
   }
   try {
-    res.json({ ...(await archive.preview(file)), token } satisfies ArchivePreview);
+    res.json({ ...(await archive.preview(file, { keepScope: !isAppOwner(signedIn(req).id) })), token } satisfies ArchivePreview);
   } catch (error) {
     archiveUploads.drop(token);
     if (!unreadable(res, error)) throw error;
@@ -126,17 +131,18 @@ settingsArchiveRouter.post("/import", requireRecentLogin, async (req, res) => {
         snapshot = true;
       },
       go: () => assertSignedIn(req),
+      keepScope: !isAppOwner(signedIn(req).id),
     });
     if (snapshot) snapshots.tidy();
     archiveUploads.drop(token);
-    log.warn({ sub: "admin" }, `대시보드에서 설정 불러오기: ${imported.imported.join(", ")}${imported.restart ? ". 다시 시작해야 적용되는 값이 있음" : ""}. 실행 ${ranBy(req)}`);
+    log.warn({ sub: "admin" }, L.dashboard.settingsImported({ items: imported.imported.join(", "), restart: imported.restart, by: ranBy(req) }));
     res.json(imported satisfies ArchiveImported);
   } catch (error) {
     if (sessionEnded(res, error)) return;
     if (unreadable(res, error)) return;
-    if (codeOf(error) === "CONFIG_INVALID") return sendProblem(res, "config-invalid", {}, { errors: ((error as { problems?: string[] }).problems ?? []).map((detail) => ({ code: "config-invalid", detail })) });
-    log.error({ sub: "admin" }, `설정 불러오기 실패: ${messageOf(error)}`);
-    sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
+    if (codeOf(error) === "CONFIG_INVALID") return sendProblem(res, "config-invalid", {}, { errors: ((error as { problems?: RuleProblem[] }).problems ?? []).map((rule) => ({ code: "config-invalid", rule })) });
+    log.error({ sub: "admin" }, L.dashboard.importFailed({ error: messageOf(error) }));
+    sendProblem(res, "config-save-failed", {}, { errors: [{ code: "config-save-failed", rule: errorProblem(error) }] });
   }
 });
 

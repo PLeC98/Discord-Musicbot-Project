@@ -22,7 +22,7 @@ const props = withDefaults(
     /** 이보다 많으면 검색창을 표시한다. 몇 개뿐인 드롭다운에 검색창이 붙으면 거추장스럽다 */
     searchFrom?: number;
   }>(),
-  { modelValue: () => [], options: () => [], placeholder: text.common.all, searchFrom: 12 },
+  { modelValue: () => [], options: () => [], searchFrom: 12 },
 );
 const emit = defineEmits<{ "update:modelValue": [value: OptionValue[]] }>();
 
@@ -40,7 +40,7 @@ const shown = computed(() => filterOptions(props.options, term.value, (value) =>
 
 const labelOf = (value: OptionValue) => props.options.find((one) => one.value === value)?.label || String(value);
 const summary = computed(() => {
-  if (!picked.value.length) return props.placeholder;
+  if (!picked.value.length) return props.placeholder ?? text.common.all;
   return picked.value.length === 1 ? labelOf(picked.value[0]) : text.fields.pickedSummary(labelOf(picked.value[0]), picked.value.length - 1);
 });
 

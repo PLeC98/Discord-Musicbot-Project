@@ -30,6 +30,8 @@
           <SingleSelect :model-value="cookieChoice(one)" :options="COOKIE_OPTIONS" :empty-label="T.cookies.none" @update:model-value="pickCookie(one, String($event))" />
           <input v-if="cookieChoice(one) === COOKIE_OTHER" :value="draft[one.key]" spellcheck="false" :placeholder="T.cookies.otherPlaceholder" :aria-label="T.cookies.other" :class="[FIELD, 'w-full min-w-0 font-mono placeholder:font-sans']" @input="draft[one.key] = valueOf($event)" />
         </span>
+        <!-- 언어: 쓸 수 있는 언어 중에서 고른다(그 언어로 쓴 이름) -->
+        <SingleSelect v-else-if="one.kind === 'language'" :model-value="draft[one.key] || one.def" :options="languageOptions" @update:model-value="pickLanguage(one, String($event))" />
         <!-- 글(음성 상태 문구)은 디스코드에 그대로 보여 이모지 버튼을 단다 -->
         <EmojiTextInput v-else-if="one.kind === 'text'" v-model="draft[one.key]" :placeholder="T.defaultWith(one.def)" :spellcheck="false" :app-emoji="one.key.startsWith('VOICE_')" />
         <!-- 색은 동그라미를 누르면 색 선택이 열린다. 글 입력란이 앞이라야 라벨을 누를 때 색 선택 대신 글 입력란으로 간다(보이는 순서는 동그라미가 앞) -->
@@ -82,6 +84,7 @@ import { attach, draft, labelOf, namesOf, pending, saved } from "../composables/
 import { showAdvanced } from "../composables/advanced-settings.ts";
 import { OWN_CARD_GROUPS, TUNABLES, tunable, tunableValue, type Tunable, type TunableBox, type TunableGroup } from "../../../src/rules/tunables.ts";
 import { NO_CATEGORIES, SKIP_CATEGORIES } from "../../../src/rules/sponsor-categories.ts";
+import { availableLanguages } from "../../../src/rules/languages.ts";
 import { COOKIE_BROWSERS, COOKIE_BROWSER_NAMES } from "../../../src/rules/cookie-browsers.ts";
 import type { Option } from "../utils/options.ts";
 import { text } from "../text/index.ts";
@@ -95,13 +98,17 @@ const props = defineProps<{ groups: readonly TunableGroup[]; tab: string; canRes
 
 const loadError = ref("");
 // 카드 헤더의 설명서 버튼(저장소의 설명서)
-const GROUP_DOCS: Partial<Record<TunableGroup, { file: string; label: string }>> = { youtube: { file: "docs/youtube.md", label: T.youtubeDoc } };
+const GROUP_DOCS = computed<Partial<Record<TunableGroup, { file: string; label: string }>>>(() => ({ youtube: { file: "docs/youtube.md", label: T.youtubeDoc } }));
 
 // 도구 카드가 버튼으로 고치는 값, 자기 카드가 그리는 그룹은 여기서 그리지 않는다
 const mine = computed(() => TUNABLES.filter((one) => !one.card && !OWN_CARD_GROUPS.has(one.group) && props.groups.includes(one.group)));
 const keys = computed(() => mine.value.map((one) => one.key));
 // 고급 항목은 "고급 설정 보기"를 켰을 때만. 꺼 두었어도 수정 중이거나 다시 시작을 기다리는 항목은 보인다(저장 바, 다시 시작 안내가 가리키는 칸이 숨지 않게)
-const shown = (one: Tunable) => !one.advanced || showAdvanced.value || changed(one) || pending.value.includes(one.key);
+// 쓸 수 있는 언어(저장한 테스트 언어 스위치를 따른다). 하나뿐이면 고를 것이 없어 언어 필드를 표시하지 않는다
+const languageOptions = computed(() => availableLanguages().map((one) => ({ value: one.tag, label: one.name })));
+const pickLanguage = (one: Tunable, tag: string) => (draft.value[one.key] = tag === one.def ? "" : tag);
+const hidden = (one: Tunable) => one.kind === "language" && languageOptions.value.length <= 1 && !changed(one);
+const shown = (one: Tunable) => !hidden(one) && (!one.advanced || showAdvanced.value || changed(one) || pending.value.includes(one.key));
 const byGroup = (group: TunableGroup) => mine.value.filter((one) => one.group === group && shown(one));
 // 박스 밖의 항목, 이 카드에 보이는 박스, 박스 안의 항목
 const looseOf = (group: TunableGroup) => byGroup(group).filter((one) => !one.box);
@@ -115,7 +122,7 @@ const dirty = computed(() => mine.value.some(changed));
 // 쿠키 출처 선택. 선택 목록에 없는 값(chrome:Profile 1 같은 형식)이 들어 있거나 "기타"를 선택한 동안은 "기타"와 입력란
 // 선택 목록 안에서만 쓰는 표식(값으로 저장하지 않는다. 브라우저 이름은 괄호로 시작하지 않는다)
 const COOKIE_OTHER = "(other)";
-const COOKIE_OPTIONS: Option[] = [{ value: "file", label: T.cookies.file }, ...COOKIE_BROWSERS.map((id) => ({ value: id, label: COOKIE_BROWSER_NAMES[id], group: T.cookies.browsers })), { value: COOKIE_OTHER, label: T.cookies.other, group: T.cookies.otherGroup }];
+const COOKIE_OPTIONS = computed<Option[]>(() => [{ value: "file", label: T.cookies.file }, ...COOKIE_BROWSERS.map((id) => ({ value: id, label: COOKIE_BROWSER_NAMES[id], group: T.cookies.browsers })), { value: COOKIE_OTHER, label: T.cookies.other, group: T.cookies.otherGroup }]);
 const cookieOther = ref(false);
 // 저장하거나 되돌려 저장된 값으로 돌아오면 선택 목록으로 돌아간다
 watch(
@@ -126,7 +133,7 @@ function cookieChoice(one: Tunable) {
   const value = (draft.value[one.key] ?? "").trim();
   if (cookieOther.value) return COOKIE_OTHER;
   if (!value) return "";
-  return COOKIE_OPTIONS.some((option) => option.value === value.toLowerCase()) ? value.toLowerCase() : COOKIE_OTHER;
+  return COOKIE_OPTIONS.value.some((option) => option.value === value.toLowerCase()) ? value.toLowerCase() : COOKIE_OTHER;
 }
 // "기타"로 바꿀 때는 지금 값을 그대로 둔다(chrome을 chrome:Profile 1로 고쳐 입력하기 쉽게)
 function pickCookie(one: Tunable, value: string) {

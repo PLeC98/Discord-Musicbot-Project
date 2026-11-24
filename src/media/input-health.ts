@@ -2,22 +2,26 @@
 // 소스마다 하나다. 캐시로 갈아타면 재생이 가리키는 것이 새 소스의 것으로 바뀌고, 버린 소스에 늦게 온 종료, 깨짐은 새 소스에 섞이지 않는다.
 
 import { exitText } from "./ffmpeg/exit.ts";
+import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
 
 type Exiting = { once(event: "exit", listener: (code: number | null, signal: NodeJS.Signals | null) => void): unknown };
 
 class InputHealth {
-  kind: string; // 입력 구분(로그용). 파일, HLS, 청크, 직접 링크 등
-  broken: string | null = null; // 처음 깨진 원인. 온전하면 null
+  kind: string | LogText; // 입력 구분(로그용). 파일, HLS, 청크, 직접 링크 등
+  cacheSwitch: boolean; // 끊긴 스트림에서 캐시 파일로 갈아탄 입력이다
+  broken: LogText | null = null; // 처음 깨진 원인. 온전하면 null
   exitCode: number | null = null; // ffmpeg 종료 코드. 신호로 죽었으면 -1, 아직 살아 있으면 null
-  detail: () => string | null = () => null; // 끊겼을 때 남길 입력 상태(청크 스트림이 이어받는 중이었나 등)
+  detail: () => LogText | null = () => null; // 끊겼을 때 남길 입력 상태(청크 스트림이 이어받는 중이었나 등)
   refused: number | null = null; // 입력이 끊길 때 받은 4xx(주소가 막힘). 같은 주소는 다시 열어도 똑같이 막힌다
 
-  constructor(kind: string) {
+  constructor(kind: string | LogText, { cacheSwitch = false } = {}) {
     this.kind = kind;
+    this.cacheSwitch = cacheSwitch;
   }
 
   /** 깨졌다. 먼저 들어온 원인을 덮어쓰지 않는다 */
-  mark(why: string) {
+  mark(why: LogText) {
     this.broken ??= why;
   }
 
@@ -25,7 +29,7 @@ class InputHealth {
   watch(child: Exiting) {
     child.once("exit", (code, signal) => {
       this.exitCode = code === null && signal ? -1 : code;
-      if (this.exitCode !== 0) this.mark(`ffmpeg 종료 코드 ${exitText(code, signal)}`);
+      if (this.exitCode !== 0) this.mark(L.player.inputFfmpegExited({ exit: exitText(code, signal) }));
     });
     return this;
   }

@@ -13,6 +13,8 @@ import type { Player } from "./player.ts";
 import { messageOf } from "../rules/error-kind.ts";
 import { listenersIn } from "../rules/holds.ts";
 import * as staySeats from "../store/stay-seats.ts";
+import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
 
 /** 24/7 자리에 있나: 서버의 자리가 그 채널이다. 자리에서는 나가는 타이머를 걸지 않고 정지도 채널에 남는다 */
 function seatedIn(guildId: string, channelId: string | null | undefined) {
@@ -55,7 +57,7 @@ class IdleLeave {
     } else {
       const player = this.player;
       if (player.pause.holds.has("alone")) this._startAlone();
-      if (!player.currentTrack && player.queue.length === 0 && !this.emptyTimer) this.scheduleEmpty("곡 없이 대기");
+      if (!player.currentTrack && player.queue.length === 0 && !this.emptyTimer) this.scheduleEmpty(L.player.idleWithoutTrack());
     }
     this.announce();
   }
@@ -75,11 +77,11 @@ class IdleLeave {
   _startAlone() {
     const player = this.player;
     if (this.aloneTimer || this.seated()) return;
-    log.info(`서버 ${player.guild?.name ?? player.guild?.id}의 채널 ${player.voiceChannel?.name ?? player.voiceChannel?.id ?? "없음"}에 사람이 없음. ${Math.round(this.aloneMs / 1000)}초 뒤 정리`);
+    log.info(L.player.aloneDetected({ guild: player.guild?.name ?? player.guild?.id, channel: player.voiceChannel?.name ?? player.voiceChannel?.id ?? null, seconds: Math.round(this.aloneMs / 1000) }));
     this.aloneAt = Date.now() + Math.max(this.aloneMs, 0);
     this.aloneTimer = setTimeout(
       () => {
-        this._aloneExpired().catch((error: unknown) => log.error("빈 음성 채널 자동 퇴장 정리 실패:", error));
+        this._aloneExpired().catch((error: unknown) => log.error(L.player.aloneLeaveFailed(), error));
       },
       Math.max(this.aloneMs, 0),
     );
@@ -90,7 +92,7 @@ class IdleLeave {
   _endAlone() {
     const player = this.player;
     if (!this._clearAlone()) return;
-    log.info(`서버 ${player.guild?.name ?? player.guild?.id}의 채널 ${player.voiceChannel?.name ?? player.voiceChannel?.id ?? "없음"}에 사람이 돌아와 정리 취소`);
+    log.info(L.player.aloneCancelled({ guild: player.guild?.name ?? player.guild?.id, channel: player.voiceChannel?.name ?? player.voiceChannel?.id ?? null }));
     this.announce();
   }
 
@@ -119,12 +121,12 @@ class IdleLeave {
     // 이미 버려진(교체된) 플레이어면 dispose가 아무것도 하지 않는다. 대기열은 /join으로 이어 들을 수 있게 남긴다(기동 복원, 24/7 자리 지킴이는 이어 틀지 않는다).
     // 패널 모양은 dispose가 곡을 비우기 전에 정한다
     const resumable = Boolean(player.currentTrack) || player.queue.length > 0;
-    await player.dispose({ reason: "듣는 사람 없이 기다린 시간이 지남", session: "save-for-join", panel: resumable ? "leave" : "disconnected", end: "alone-timeout" });
+    await player.dispose({ reason: L.player.aloneTimeout(), session: "save-for-join", panel: resumable ? "leave" : "disconnected", end: "alone-timeout" });
   }
 
   // ── 틀 게 없음 ──
 
-  scheduleEmpty(reason = "대기열 소진") {
+  scheduleEmpty(reason: LogText = L.player.queueDrained()) {
     const player = this.player;
     this.cancelEmpty();
     if (this.seated()) return;
@@ -135,7 +137,7 @@ class IdleLeave {
       if (player.queue.length !== 0 || player.currentTrack || this.seated()) return;
       const channel = player.voiceChannel?.id ?? "?";
       // 끝난 패널의 "쉬러 갈게요"를 음성 밖 문구로
-      player.dispose({ reason, session: "remove", panel: "disconnected", end: "queue-drained" }).catch((error: unknown) => log.error(`대기열 소진 자동 퇴장 중 플레이어 정리 실패(세션 및 음성 연결 잔류 가능): ${player.guild?.name ?? player.guild?.id} | 채널=${channel} | ${messageOf(error)}`));
+      player.dispose({ reason, session: "remove", panel: "disconnected", end: "queue-drained" }).catch((error: unknown) => log.error(L.player.queueDrainedLeaveFailed({ guild: player.guild?.name ?? player.guild?.id, channel, error: messageOf(error) })));
     }, config.bot.leaveDelayQueueEmptyMs);
   }
 
@@ -165,7 +167,7 @@ class IdleLeave {
     if (this.player.currentTrack) return;
     const player = this.player;
     const leavesAt = this.leavesAt();
-    playerEvents.leaving(player, leavesAt).catch((error: unknown) => log.warn(`종료 패널 퇴장 예정 시각 갱신 실패: ${player.guild?.name ?? player.guild?.id} | 퇴장 예정=${leavesAt === null ? "없음" : new Date(leavesAt).toISOString()} | ${messageOf(error)}`));
+    playerEvents.leaving(player, leavesAt).catch((error: unknown) => log.warn(L.player.leaveTimeUpdateFailed({ guild: player.guild?.name ?? player.guild?.id, leavesAt: leavesAt === null ? null : new Date(leavesAt).toISOString(), error: messageOf(error) })));
   }
 
   /** 두 타이머를 모두 지운다(플레이어를 버릴 때). 알리지 않는다 */

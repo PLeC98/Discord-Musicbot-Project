@@ -8,6 +8,7 @@ import logger from "../../infra/log/logger.ts";
 import { PROJECT } from "../../infra/project-paths.ts";
 import { readState, VERSION_FOLDER } from "./state.ts";
 import { ENTRY } from "./launch.ts";
+import { L } from "../../infra/log/text.ts";
 const log = logger.child({ category: "core", sub: "bgutil" });
 
 /** root: 버전 폴더(저장소 체크아웃. yt-dlp의 --plugin-dirs가 받는 곳), serverDir: 그 안의 server, entry: 서버 실행 파일, version: 서버 버전 */
@@ -17,7 +18,7 @@ type BgutilBundle = { folder: string; root: string; serverDir: string; entry: st
 function readBundle(dir: string): BgutilBundle | null {
   const read = readState(dir);
   if (read.kind === "broken") {
-    log.warn(`bgutil 기록(${path.join(dir, "state.json")}) 읽기 실패(${read.error}): 설치되지 않은 것으로 봄. pnpm run install:bgutil로 다시 설치하세요`);
+    log.warn(L.core.bgutilStateReadFailed({ file: path.join(dir, "state.json"), error: read.error }));
     return null;
   }
   const active = read.kind === "ok" ? read.state.active : null;
@@ -26,7 +27,7 @@ function readBundle(dir: string): BgutilBundle | null {
   const serverDir = path.join(root, "server");
   const entry = path.join(serverDir, ENTRY);
   if (!fs.existsSync(entry)) {
-    log.warn(`bgutil 기록이 가리키는 빌드(${active.folder})에 서버 실행 파일이 없음: 설치되지 않은 것으로 봄. pnpm run install:bgutil로 다시 설치하세요`);
+    log.warn(L.core.bgutilBuildEntryMissing({ folder: active.folder }));
     return null;
   }
   return { folder: active.folder, root, serverDir, entry, tag: active.tag, commit: active.commit, version: active.version };

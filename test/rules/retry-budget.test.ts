@@ -2,7 +2,14 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { countDrop, FRESH } from "../../src/rules/retry-budget.ts";
+import { countDrop as stepOf, FRESH } from "../../src/rules/retry-budget.ts";
+import { asText } from "../../src/infra/log/log-text.ts";
+
+// 넘기는 이유는 로그 문구다. 글로 비교하려고 그린다
+const countDrop = (...args: Parameters<typeof stepOf>) => {
+  const step = stepOf(...args);
+  return { ...step, why: asText(step.why) };
+};
 
 const GOING = 30_000; // 5초는 넘고 60초는 못 간 재생
 

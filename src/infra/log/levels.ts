@@ -9,18 +9,32 @@ const isLevel = (v: unknown): v is LevelName => typeof v === "string" && Object.
 /** 숫자 → 레벨 이름. 모르는 숫자면 undefined */
 const levelNameOf = (value: number): LevelName | undefined => LEVEL_NAMES.find((name) => LEVELS[name] === value);
 
-/** 대시보드(SSE)로 보내는 한 줄. id는 이 프로세스 안에서 오르는 줄 번호(재연결할 때 이어 받기), level은 레벨 이름 */
-type WireEntry = { id: number; ts: number; level: LevelName; text: string; category?: string; sub?: string; tags?: string[] };
+/**
+ * 대시보드(SSE)로 보내는 한 줄. id는 이 프로세스 안에서 오르는 줄 번호(재연결할 때 이어 받기), level은 레벨 이름.
+ * events: 문구 코드. 줄 자체 코드가 먼저, 값 안의 서술자(라벨, 규칙 문제) 코드는 뒤에 온다. 문구로 찍은 줄에만 있다
+ */
+type WireEntry = { id: number; ts: number; level: LevelName; text: string; category?: string; sub?: string; tags?: string[]; events?: string[] };
 /** 줄 번호를 뺀 한 줄. 실시간 로그와 로그 파일 보기가 같은 필드를 쓴다 */
 type WireFields = Omit<WireEntry, "id">;
 
 const ANSI_RE = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
 
+/** 레코드의 문구 코드: event 먼저, 값(args) 안의 { event, args }를 차례로(파일에서 읽은 레코드도 받아 형식을 확인한다) */
+function eventsOf(event: unknown, args: unknown): string[] {
+  const out = typeof event === "string" && event ? [event] : [];
+  if (args && typeof args === "object") {
+    for (const value of Object.values(args)) {
+      if (value && typeof value === "object" && "event" in value) out.push(...eventsOf(value.event, "args" in value ? value.args : null));
+    }
+  }
+  return out;
+}
+
 /**
  * 로그 레코드(pino JSON 부분집합: level 숫자, time, msg, 바인딩)를 대시보드의 한 줄로. 가리기는 레코드를 남기기 전에 이미 했다.
- * 파일에서 읽은 레코드도 받으므로 바인딩의 모양을 확인한다
+ * 파일에서 읽은 레코드도 받으므로 바인딩의 형식을 확인한다
  */
-function wireFields(rec: { level: number; time: number; msg?: unknown; category?: unknown; sub?: unknown; tags?: unknown }): WireFields {
+function wireFields(rec: { level: number; time: number; msg?: unknown; category?: unknown; sub?: unknown; tags?: unknown; event?: unknown; args?: unknown }): WireFields {
   const entry: WireFields = {
     ts: rec.time,
     // 실제 레벨 이름 그대로. 몇 가지로 접으면 debug와 trace가, fatal과 error가 합쳐져 대시보드가 구분하지 못한다
@@ -30,6 +44,8 @@ function wireFields(rec: { level: number; time: number; msg?: unknown; category?
   if (typeof rec.category === "string" && rec.category) entry.category = rec.category;
   if (typeof rec.sub === "string" && rec.sub) entry.sub = rec.sub; // 하위 카테고리(pino child 바인딩)
   if (Array.isArray(rec.tags) && rec.tags.length) entry.tags = rec.tags.map(String); // 교차 태그
+  const events = eventsOf(rec.event, rec.args);
+  if (events.length) entry.events = events;
   return entry;
 }
 

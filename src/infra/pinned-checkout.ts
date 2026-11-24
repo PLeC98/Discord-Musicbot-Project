@@ -5,6 +5,8 @@
 import fs from "fs";
 import path from "path";
 import { runTool } from "./tool-run.ts";
+import { L } from "./log/text.ts";
+import { logTextError } from "./log/log-text.ts";
 
 /** git 하위 명령(args[0])을 실행해 stdout을 반환한다. 실패하면 거부된다 */
 type Git = (args: string[], cwd: string) => string | Promise<string>;
@@ -39,7 +41,7 @@ function gitWith(env: NodeJS.ProcessEnv): Git {
  */
 async function checkoutPinned({ dir, repo, tag, commit, git, log }: { dir: string; repo: string; tag: string; commit: string; git: Git; log?: (line: string) => void }) {
   // 폴더는 있는데 .git이 없으면 git이 위로 올라가 바깥 저장소(봇 저장소)를 집는다
-  if (fs.existsSync(dir) && !fs.existsSync(path.join(dir, ".git"))) throw new Error(`경로(${dir})가 git 체크아웃이 아닙니다. 지우고 다시 설치하세요`);
+  if (fs.existsSync(dir) && !fs.existsSync(path.join(dir, ".git"))) throw logTextError(L.bgutil.checkoutNotGit({ dir }));
   if (!fs.existsSync(dir)) {
     log?.(`git clone --no-checkout ${repo}`);
     fs.mkdirSync(path.dirname(dir), { recursive: true });
@@ -50,7 +52,7 @@ async function checkoutPinned({ dir, repo, tag, commit, git, log }: { dir: strin
   // 원격 저장소에 태그가 없거나 접속하지 못하면 여기서 거부된다
   await git(["fetch", "--no-tags", "origin", `+${ref}:${ref}`], dir);
   const tagged = (await git(["rev-parse", "--verify", `${ref}^{commit}`], dir)).trim();
-  if (tagged !== commit) throw new Error(`태그(${tag})가 고정된 커밋(${commit})이 아닌 다른 커밋(${tagged})을 가리킵니다. 태그가 옮겨졌을 수 있어 설치하지 않습니다`);
+  if (tagged !== commit) throw logTextError(L.bgutil.tagMoved({ tag, commit, tagged }));
 
   log?.(`git checkout --force --detach ${commit}`);
   await git(["checkout", "--force", "--detach", commit], dir);
@@ -58,7 +60,7 @@ async function checkoutPinned({ dir, repo, tag, commit, git, log }: { dir: strin
   await git(["clean", "-ffdx"], dir);
   const head = (await git(["rev-parse", "HEAD"], dir)).trim();
   const dirty = (await git(["status", "--porcelain", "--ignored"], dir)).trim();
-  if (head !== commit || dirty) throw new Error(`체크아웃 상태가 고정된 커밋(${commit}) 그대로가 아닙니다(HEAD ${head}${dirty ? `, 바뀐 파일 ${dirty.split("\n").length}개` : ""})`);
+  if (head !== commit || dirty) throw logTextError(L.bgutil.checkoutNotPinned({ commit, head, changed: dirty ? dirty.split("\n").length : 0 }));
 }
 
 export { checkoutPinned, gitWith };

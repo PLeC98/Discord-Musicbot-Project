@@ -3,6 +3,8 @@
 // 생김새는 길이 관문 뒤의 안전망이다(상한 안의 믹스는 거의 길이와 제외 키워드가 잡는다).
 
 import { GENRE_DEFAULTS } from "../config/schema/genres.ts";
+import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
 
 const GRAPHEMES = new Intl.Segmenter("en", { granularity: "grapheme" });
 const FLAG = /^\p{Regional_Indicator}{2}$/u;
@@ -35,12 +37,12 @@ const yearCount = (t: string) => (t.replace(DATE, " ").match(/\b(19|20)\d\d\b/g)
 const commaCount = (t: string) => (t.replace(/\d\s*,(?=\s*\d)/g, " ").match(/,/g) || []).length;
 
 // 제목이 "여러 곡을 이어 붙인 것"임을 알리는 생김새.
-const MIX_SHAPES: Array<[string, (title: string) => boolean]> = [
-  ["연도 둘 이상", (t) => yearCount(t) >= 2],
-  ["쉼표 셋 이상", (t) => commaCount(t) >= 3], // 아티스트를 나열한 컴필레이션
+const MIX_SHAPES: Array<[LogText, (title: string) => boolean]> = [
+  [L.autoplay.mixYears(), (t) => yearCount(t) >= 2],
+  [L.autoplay.mixCommas(), (t) => commaCount(t) >= 3], // 아티스트를 나열한 컴필레이션
   // 셋으로 올리면 900초 넘는 모음 대부분을 놓친다
-  ["이모지 둘 이상", (t) => emojiCount(t) >= 2],
-  ["시간 표기", (t) => /\b\d+\s*hours?\b|\d+\s*시간/i.test(t)],
+  [L.autoplay.mixEmojis(), (t) => emojiCount(t) >= 2],
+  [L.autoplay.mixHours(), (t) => /\b\d+\s*hours?\b|\d+\s*시간/i.test(t)],
 ];
 
 // 곡 표식이 제목에 있으면 위 생김새 규칙을 면제한다. 거의 늘 한 곡이다(공식 뮤직비디오, 가사 영상 제목에는 이모지, 언어 목록이 흔하다).
@@ -56,7 +58,7 @@ const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 /** 판정에 쓰는 설정. 수 필드는 글자일 수 있다. blockedKeywords는 이 출처에 거는 제외 키워드(키워드 출처만, autoplay/route가 선택한다) */
 type FilterConfig = { blockedKeywords?: unknown[]; minDurationSec?: unknown; maxDurationSec?: unknown };
 type Limits = { minSec: number; maxSec: number; blocked: Array<{ word: string; test: RegExp | null }> };
-type Verdict = { ok: boolean; reason?: string; detail?: string };
+type Verdict = { ok: boolean; reason?: LogText; detail?: string | LogText };
 
 // 설정에서 판정에 필요한 것만 미리 꺼내 둔다. 후보마다 다시 만들 이유가 없다.
 function prepare(cfg: FilterConfig | null | undefined): Limits {
@@ -78,20 +80,20 @@ function prepare(cfg: FilterConfig | null | undefined): Limits {
 
 function judge(track: { duration?: number | null; title?: string | null } | null | undefined, limits: Limits): Verdict {
   // 길이를 모르는 것은 대개 라이브다
-  if (!track?.duration) return { ok: false, reason: "길이 없음" };
-  if (track.duration < limits.minSec) return { ok: false, reason: "너무 짧음" };
-  if (track.duration > limits.maxSec) return { ok: false, reason: "너무 긺" };
+  if (!track?.duration) return { ok: false, reason: L.autoplay.filterNoDuration() };
+  if (track.duration < limits.minSec) return { ok: false, reason: L.autoplay.filterTooShort() };
+  if (track.duration > limits.maxSec) return { ok: false, reason: L.autoplay.filterTooLong() };
 
   const title = (track.title || "").toLowerCase();
 
   // 제외 키워드는 곡 표식이 있어도 면제하지 않는다. "공식 믹스"도 믹스다
   const blocked = limits.blocked.find((b) => (b.test ? b.test.test(title) : title.includes(b.word)));
-  if (blocked) return { ok: false, reason: "제외 키워드", detail: blocked.word };
+  if (blocked) return { ok: false, reason: L.autoplay.filterBlockedKeyword(), detail: blocked.word };
 
   if (SONG_MARKS.test(title)) return { ok: true };
 
   const shape = MIX_SHAPES.find(([, test]) => test(title));
-  if (shape) return { ok: false, reason: "믹스 생김새", detail: shape[0] };
+  if (shape) return { ok: false, reason: L.autoplay.filterMixShape(), detail: shape[0] };
 
   return { ok: true };
 }

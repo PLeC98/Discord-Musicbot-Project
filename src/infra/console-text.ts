@@ -4,6 +4,7 @@
 import { execFileSync } from "node:child_process";
 import logger from "./log/logger.ts";
 import { messageOf } from "./error-text.ts";
+import { L } from "./log/text.ts";
 const log = logger.child({ category: "proc" });
 
 const IS_WIN = process.platform === "win32";
@@ -23,9 +24,9 @@ function oemCodePage(): number | null {
     const out = execFileSync("reg", ["query", "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Nls\\CodePage", "/v", "OEMCP"], { encoding: "latin1", windowsHide: true, timeout: 5000 });
     const found = /OEMCP\s+REG_SZ\s+(\d+)/.exec(out);
     oem = found ? Number(found[1]) : null;
-    if (oem === null) log.warn("콘솔 코드 페이지 확인 실패: OEMCP 값 없음. 외부 프로세스의 오류 메시지가 깨질 수 있음");
+    if (oem === null) log.warn(L.proc.codePageMissing());
   } catch (error) {
-    log.warn(`콘솔 코드 페이지 확인 실패(외부 프로세스의 오류 메시지가 깨질 수 있음): ${messageOf(error)}`);
+    log.warn(L.proc.codePageCheckFailed({ error: messageOf(error) }));
   }
   return oem;
 }

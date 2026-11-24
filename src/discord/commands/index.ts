@@ -8,6 +8,7 @@ import dashboard from "./dashboard.ts";
 import help from "./help.ts";
 import highlight from "./highlight.ts";
 import invite from "./invite.ts";
+import language from "./language.ts";
 import join from "./join.ts";
 import leave from "./leave.ts";
 import license from "./license.ts";
@@ -35,6 +36,6 @@ import volume from "./volume.ts";
 import type { SlashCommand } from "../../app/command-loader.ts";
 
 // 순서가 곧 /help의 순서다(그룹 안에서 위에서 아래로)
-const COMMANDS: readonly SlashCommand[] = [play, playfirst, pause, stop, skip, previous, replay, seek, highlight, queue, clear, remove, move, shuffle, loop, autoplay, volume, normalize, search, nowplaying, join, leave, stay, setchannel, setting, setplaylistlimit, dashboard, ping, system, license, invite, help];
+const COMMANDS: readonly SlashCommand[] = [play, playfirst, pause, stop, skip, previous, replay, seek, highlight, queue, clear, remove, move, shuffle, loop, autoplay, volume, normalize, search, nowplaying, join, leave, stay, language, setchannel, setting, setplaylistlimit, dashboard, ping, system, license, invite, help];
 
 export { COMMANDS };

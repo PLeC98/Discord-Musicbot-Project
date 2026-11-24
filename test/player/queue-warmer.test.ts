@@ -15,6 +15,7 @@ import * as route from "../../src/autoplay/route.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import type { Loop } from "../../src/rules/loop-cycle.ts";
 import { codedError } from "../../src/rules/error-kind.ts";
+import { testText } from "../helpers/log-text.ts";
 
 // 캐시 키는 음원 주소 필드에 둔다. 주입한 keyOf가 그대로 돌려준다. 키가 아직 없는 곡(스포티파이)은 음원 주소가 없다
 const track = (id: string, extra: Partial<QueuedTrack> = {}): QueuedTrack => ({ title: id, requestKey: `https://y/${id}`, pageUrl: "", platform: "youtube", duration: 0, audioUrl: `yt:${id}`, ...extra });
@@ -275,7 +276,7 @@ test("곡 자체의 문제로 실패한 곡은 대기열이 움직여도 다시 
     queue,
     warm: async (t) => {
       tried.push(t.audioUrl);
-      throw codedError("sp-no-youtube-match", "유튜브에서 같은 곡을 찾지 못함");
+      throw codedError("sp-no-youtube-match", testText("유튜브에서 같은 곡을 찾지 못함"));
     },
   });
   warmer.tick();

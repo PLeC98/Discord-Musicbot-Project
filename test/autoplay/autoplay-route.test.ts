@@ -124,6 +124,16 @@ test("유튜브에서 아무것도 못 찾아도 음원이 있으면 튼다", as
   assert.equal(track.platform, "direct");
 });
 
+// AnimeThemes 의 대사가 겹친 판본뿐인 곡: 쓸 음원이 없다. 음원 후보와 같은 기준(제목, 150초)을 넘는 풀버전만 틀고 아니면 버린다
+test("쓸 음원이 없는 strict 후보는 음원 후보와 같은 기준을 넘는 풀버전만 튼다. 못 넘으면 null", async () => {
+  ytResults = [{ id: "v1", audioUrl: "https://www.youtube.com/watch?v=v1", title: "Song / Artist", artist: "아무 채널", duration: 260 }];
+  assert.equal((await resolved({ artist: "Artist", title: "Song", strict: true, sourceKey: "at:21" }, LIMITS)).platform, "youtube", "제목이 들어 있는 풀버전");
+  ytResults = [{ id: "v2", audioUrl: "https://www.youtube.com/watch?v=v2", title: "다른 곡입니다", artist: "아무 채널", duration: 260 }];
+  assert.equal(await resolve({ artist: "Artist", title: "Song", strict: true, sourceKey: "at:22" }, LIMITS), null, "제목이 없는 medium 은 버린다");
+  ytResults = [{ id: "v3", audioUrl: "https://www.youtube.com/watch?v=v3", title: "Artist - Song", artist: "Artist", duration: 91 }];
+  assert.equal(await resolve({ artist: "Artist", title: "Song", strict: true, sourceKey: "at:23" }, LIMITS), null, "TV 사이즈 립도 버린다");
+});
+
 test("이름뿐인데 못 찾으면 null", async () => {
   ytResults = [];
   assert.equal(await resolve({ artist: "Artist", title: "Song", sourceKey: "lf:1" }, LIMITS), null);

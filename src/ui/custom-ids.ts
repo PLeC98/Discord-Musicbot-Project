@@ -9,6 +9,7 @@ const SYSTEM = "system";
 const PING = "ping"; // /ping 의 다시 재기 버튼 ping:again
 const SEARCH = "search"; // 검색 결과 화면의 선택 메뉴 search:pick:검색한 사람
 const HELP = "help"; // /help의 분류 메뉴 help:section, 첫 화면으로 돌아가는 버튼 help:home
+const LANGUAGE = "language"; // /language의 내 언어 메뉴 language:me, 서버 언어 메뉴 language:guild
 
 /** 끝난 패널의 세션 필드 마커. 세션이 없다는 뜻이라 어느 플레이어에도 통한다 */
 const IDLE_SESSION = "idle";
@@ -33,4 +34,4 @@ function entryOfJump(value: string | undefined) {
   return found ? Number(found[1]) : null;
 }
 
-export { PANEL, AUTOPLAY, QUEUE, SYSTEM, PING, SEARCH, HELP, IDLE_SESSION, customId, partsOf, panelId, jumpValue, entryOfJump };
+export { PANEL, AUTOPLAY, QUEUE, SYSTEM, PING, SEARCH, HELP, LANGUAGE, IDLE_SESSION, customId, partsOf, panelId, jumpValue, entryOfJump };

@@ -1,6 +1,9 @@
 // Node 지원 범위(package.json의 engines.node). 범위는 LTS 줄마다의 보안 하한이라, 보안 릴리스가 나오면 이 값만 올린다.
 // 읽는 꼴은 "^a.b.c"(같은 메이저에서 그 판 이상)와 ">=a.b.c"(그 판 이상)를 "||"로 이은 것뿐이다. 그 밖의 꼴이면 판단하지 않는다
 
+import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
+
 type Version = [number, number, number];
 
 function parse(text: string): Version | null {
@@ -25,9 +28,9 @@ function satisfiesNode(version: string, range: string): boolean | null {
 }
 
 /** 지원 범위 밖이면 기동 경고 문장. 안이거나 판단하지 못하면 null */
-function nodeSupportWarning(version: string, range: string): string | null {
+function nodeSupportWarning(version: string, range: string): LogText | null {
   if (satisfiesNode(version, range) !== false) return null;
-  return `지원 범위 밖의 Node(지금 ${version}, 지원 ${range}). 알려진 보안 취약점이 고쳐진 버전으로 업데이트 필요`;
+  return L.config.nodeUnsupported({ version, range });
 }
 
 export { satisfiesNode, nodeSupportWarning };

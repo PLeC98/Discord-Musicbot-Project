@@ -24,8 +24,9 @@ import { alignFfmpeg, type AlignOutcome, type InstallIo, type Probe } from "../s
 import { parseInstallArgs } from "../src/media/ffmpeg/cli-args.ts";
 import { download } from "./download.ts";
 import { scriptLine } from "../src/infra/script-line.ts";
-import { josa } from "../src/rules/josa.ts";
+import { logTextError } from "../src/infra/log/log-text.ts";
 import path from "node:path";
+import { L } from "../src/infra/log/text.ts";
 
 const say = scriptLine("ffmpeg");
 
@@ -62,18 +63,18 @@ async function extractBinary(archiveName: string, binName: string, cwd: string) 
       continue;
     }
     const member = listed.split(/\r?\n/).find((entry) => entry.endsWith(`/bin/${binName}`));
-    if (!member) throw new Error(`아카이브에서 bin/${binName}을 찾지 못했습니다`);
+    if (!member) throw logTextError(L.ffmpeg.archiveBinMissing({ binName }));
     await run(["-xf", archiveName, member]);
     return path.join(cwd, member);
   }
-  throw new Error(`아카이브를 열 수 있는 tar가 없습니다 (.tar.xz는 xz-utils 필요)\n  ${errors.join("\n  ")}`);
+  throw logTextError(L.ffmpeg.tarMissing({ errors: errors.join("\n  ") }));
 }
 
 async function probe(file: string): Promise<Probe> {
   try {
     const out = await runTool(file, ["-version"], { env, label: "ffmpeg -version", timeoutMs: PROBE_MS, capture: true });
     const version = /ffmpeg version (\S+)/i.exec(out)?.[1];
-    return version ? { ok: true, version } : { ok: false, reason: "버전을 읽지 못함" };
+    return version ? { ok: true, version } : { ok: false, reason: L.ffmpeg.versionUnread() };
   } catch (error) {
     return { ok: false, reason: messageOf(error).split("\n")[0] ?? "" };
   }
@@ -112,27 +113,27 @@ async function botNow(): Promise<"none" | "parent" | "other"> {
 function report(outcome: AlignOutcome, bot: "none" | "parent" | "other"): number {
   for (const note of outcome.notes) say("warn", note);
   // 따로 켜져 있는 봇은 기동 때 정한 ffmpeg를 계속 쓴다
-  const restart = () => bot === "other" && say("warn", "켜져 있는 봇을 다시 시작하세요(다시 시작해야 새 버전 적용)");
+  const restart = () => bot === "other" && say("warn", L.ffmpeg.restartBot());
   switch (outcome.kind) {
     case "unchanged":
-      say("info", `이미 ${outcome.release}(${outcome.version}) 사용 중`);
+      say("info", L.ffmpeg.alreadyInUse({ release: outcome.release, version: outcome.version }));
       return 0;
     case "switched":
-      say("info", `받아 둔 ${outcome.release}(${outcome.version})${josa(outcome.version, "으로")} 교체`);
+      say("info", L.ffmpeg.switched({ release: outcome.release, version: outcome.version }));
       restart();
       return 0;
     case "installed":
-      say("info", `${outcome.release}(${outcome.version}) 설치 완료${outcome.from ? `(이전 ${outcome.from})` : ""}`);
+      say("info", L.ffmpeg.installed({ release: outcome.release, version: outcome.version, from: outcome.from }));
       restart();
       return 0;
     case "skipped":
-      say("warn", `${outcome.release}: 이 환경에서 실행되지 않았던 릴리스라 받지 않음. 다시 받으려면 pnpm run install:ffmpeg --force로 실행하세요`);
+      say("warn", L.ffmpeg.releaseSkipped({ release: outcome.release }));
       return 1;
     case "failed":
-      say("error", `${outcome.release} 설치 실패(지금 쓰는 ffmpeg 그대로): ${outcome.reason}`);
+      say("error", L.ffmpeg.installFailed({ release: outcome.release, reason: outcome.reason }));
       return 1;
     case "busy":
-      say("error", `설치 건너뜀: 다른 프로세스(${outcome.holder ? `PID ${outcome.holder}` : "PID 모름"})가 vendor/ffmpeg 사용 중`);
+      say("error", L.ffmpeg.busy({ holder: outcome.holder }));
       return 1;
   }
 }
@@ -146,21 +147,21 @@ async function main(): Promise<number> {
   const bot = await botNow();
   // 고정은 다음 기동부터 쓰인다. 켜진 봇은 기동 때 정한 ffmpeg를 그대로 써서 고정을 바꿔도 알 수 없다
   if (args.pin !== undefined && bot !== "none") {
-    say("error", "봇이 실행 중이라 버전 고정 안 함. 봇을 끄고 다시 실행하세요");
+    say("error", L.ffmpeg.pinBotRunning());
     return 1;
   }
   // 봇은 FFMPEG_PATH가 있으면 그것만 쓰므로 받아도 쓰이지 않는다. 비우면 다음 기동이 받는다
   if (config.ffmpeg.path) {
-    say("info", `.env의 FFMPEG_PATH(${config.ffmpeg.path}) 사용 중이라 받지 않음. 받은 ffmpeg를 쓰려면 .env의 FFMPEG_PATH를 비우세요`);
+    say("info", L.ffmpeg.ffmpegPathInUse({ path: config.ffmpeg.path }));
     return 0;
   }
   if (!TARGETS[io.key]) {
-    say("info", `${io.key}용 빌드 없음. ffmpeg를 직접 설치해 PATH에 두거나 .env의 FFMPEG_PATH로 지정하세요${process.platform === "darwin" ? "(brew install ffmpeg)" : ""}`);
+    say("info", L.ffmpeg.noBuild({ key: io.key, hint: process.platform === "darwin" ? "(brew install ffmpeg)" : "" }));
     return 0;
   }
   const outcome = await alignFfmpeg({ dir: PROJECT.ffmpeg, defaultRelease: FFMPEG_RELEASE, pin: args.pin, force: args.force, io });
   const code = report(outcome, bot);
-  if (code === 0 && args.pin !== undefined) say("info", args.pin ? `${args.pin} 릴리스로 고정(기본값 ${FFMPEG_RELEASE}). 풀려면 --unpin` : `고정 해제(기본값 ${FFMPEG_RELEASE})`);
+  if (code === 0 && args.pin !== undefined) say("info", args.pin ? L.ffmpeg.pinned({ pin: args.pin, defaultRelease: FFMPEG_RELEASE }) : L.ffmpeg.unpinned({ defaultRelease: FFMPEG_RELEASE }));
   return code;
 }
 
@@ -169,7 +170,7 @@ main().then(
   (error: unknown) => {
     // fetch는 네트워크 오류를 "fetch failed" 하나로 내고 원인을 cause에 싣는다
     const cause = (error as { cause?: unknown }).cause;
-    say("error", `설치 실패(지금 쓰는 ffmpeg 그대로): ${messageOf(error)}${cause ? `(${messageOf(cause)})` : ""}`);
+    say("error", L.ffmpeg.failed({ error: messageOf(error), cause: cause ? `(${messageOf(cause)})` : "" }));
     process.exit(1);
   },
 );

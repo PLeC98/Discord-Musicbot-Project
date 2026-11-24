@@ -14,6 +14,7 @@ import { probeSource } from "../sources/source-probe.ts";
 import { recheckNow } from "../media/recheck-queue.ts";
 import { bestEffort } from "../infra/best-effort.ts";
 import logger from "../infra/log/logger.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "dashboard" });
 
 const queue: Array<{ key: string; url: string }> = [];
@@ -30,10 +31,10 @@ async function drain() {
       const rechecked = await recheckNow(next.key, next.url);
       if (rechecked && rechecked.kind !== "unknown") continue;
       const result = await probe(next.url);
-      log.debug({ sub: "track-cache" }, `재생 테스트: ${next.url} | ${result.ok ? "됨" : result.code}`);
+      log.debug({ sub: "track-cache" }, L.dashboard.cacheProbeResult({ url: next.url, code: result.ok ? null : result.code }));
       sourceChecks.recordCheck(next.key, result.ok ? { ok: true, at: Date.now() } : { ok: false, code: result.code, at: Date.now() });
     } catch (error) {
-      log.error({ sub: "track-cache" }, `재생 테스트 실패(${next.url}): ${messageOf(error)}`);
+      log.error({ sub: "track-cache" }, L.dashboard.cacheProbeFailed({ url: next.url, error: messageOf(error) }));
     }
   }
   running = null;
@@ -63,8 +64,8 @@ function enqueue(audioUrls: string[], by: string): { ok: true; queued: TrackCach
       queued++;
     }
   }
-  if (queued) log.info({ sub: "admin" }, `대시보드에서 재생 테스트 ${queued}개. 실행 ${by}`);
-  bestEffort(log, drain(), "재생 테스트");
+  if (queued) log.info({ sub: "admin" }, L.dashboard.cacheProbeQueued({ queued, by }));
+  bestEffort(log, drain(), L.dashboard.cacheProbeRun());
   return { ok: true, queued: { queued, already, keys: targets.map((target) => target.key) } };
 }
 

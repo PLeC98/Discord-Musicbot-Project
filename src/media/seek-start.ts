@@ -6,6 +6,9 @@ import { readIndex, headerOf, startPoint, worthIndexing, FIRST_BYTES } from "../
 import { messageOf } from "../rules/error-kind.ts";
 import { refusedStatus } from "./input-health.ts";
 import type { RangeFetch } from "./chunked-stream.ts";
+import type { LogText } from "../infra/log/log-text.ts";
+import { L } from "../infra/log/text.ts";
+import { logTextError } from "../infra/log/log-text.ts";
 
 type SeekRequest = { url: string; headers: Record<string, string>; totalBytes: number; startMs: number; durationMs: number; chunkBytes: number };
 type SeekStart = { header: Buffer; startByte: number; startedAtMs: number; expectStart: { bytes: number; check(head: Buffer): boolean } };
@@ -13,7 +16,7 @@ type SeekStart = { header: Buffer; startByte: number; startedAtMs: number; expec
  * near: 가까운 위치라 묻지 않았다(남길 일이 아니다). slow: 헤더 요청이 한도를 넘었다(그만큼 늦어졌다). failed: 헤더를 받지 못했다(시간 초과와 다르다. 재생 입력이 warn으로 알린다).
  * refused: 주소가 4xx로 막혔다(그 상태 코드). 처음부터 받는 요청도 같은 주소, 같은 헤더라 똑같이 막힌다
  */
-type SeekAnswer = { ok: true; start: SeekStart } | { ok: false; why: string; near?: boolean; slow?: boolean; failed?: boolean; refused?: number };
+type SeekAnswer = { ok: true; start: SeekStart } | { ok: false; why: string | LogText; near?: boolean; slow?: boolean; failed?: boolean; refused?: number };
 type SeekOptions = { fetchImpl?: RangeFetch; timeoutMs?: number; headBytes?: number };
 
 /** 헤더, 색인을 처음 받는 양. 아주 긴 곡도 대개 이 안에 든다(넘으면 아래 횟수만큼 더 받는다) */
@@ -26,7 +29,7 @@ const HEAD_TIMEOUT_MS = 3000;
 /** 앞부분 [0, bytes)를 받는다. 206이 아니면 그 상태를 던진다 */
 async function headOf(url: string, headers: Record<string, string>, bytes: number, fetchImpl: RangeFetch, signal: AbortSignal): Promise<Buffer> {
   const res = await fetchImpl(url, { headers: { ...headers, Range: `bytes=0-${bytes - 1}` }, signal });
-  if (res.status !== 206 || !res.body) throw Object.assign(new Error(`헤더 요청이 HTTP ${res.status}`), { status: res.status });
+  if (res.status !== 206 || !res.body) throw Object.assign(logTextError(L.player.headerHttpFailed({ status: res.status })), { status: res.status });
   const reader = res.body.getReader();
   const chunks: Buffer[] = [];
   let length = 0;
@@ -42,9 +45,9 @@ async function headOf(url: string, headers: Record<string, string>, bytes: numbe
 
 async function seekStart(request: SeekRequest, { fetchImpl = fetch as unknown as RangeFetch, timeoutMs = HEAD_TIMEOUT_MS, headBytes = HEAD_BYTES }: SeekOptions = {}): Promise<SeekAnswer> {
   const { url, headers, totalBytes, startMs, durationMs, chunkBytes } = request;
-  if (!worthIndexing({ startMs, durationMs, totalBytes, chunkBytes })) return { ok: false, why: "가까운 위치", near: true };
+  if (!worthIndexing({ startMs, durationMs, totalBytes, chunkBytes })) return { ok: false, why: L.player.seekNear(), near: true };
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(new Error(`헤더 요청이 ${timeoutMs / 1000}초를 넘김`)), timeoutMs);
+  const timer = setTimeout(() => controller.abort(logTextError(L.player.headerRequestTimedOut({ seconds: timeoutMs / 1000 }))), timeoutMs);
   try {
     let head = await headOf(url, headers, Math.min(headBytes, totalBytes), fetchImpl, controller.signal);
     let read = readIndex(head, totalBytes);
@@ -53,15 +56,15 @@ async function seekStart(request: SeekRequest, { fetchImpl = fetch as unknown as
       head = await headOf(url, headers, Math.min(read.need, totalBytes), fetchImpl, controller.signal);
       read = readIndex(head, totalBytes);
     }
-    if (!read.ok) return { ok: false, why: "need" in read ? "색인이 받은 앞부분보다 길다" : read.why };
+    if (!read.ok) return { ok: false, why: "need" in read ? L.player.seekIndexBeyondHead() : read.why };
     const point = startPoint(read.index, { targetMs: startMs, durationMs, chunkBytes });
     if ("why" in point) return { ok: false, why: point.why };
     return { ok: true, start: { header: headerOf(head, read.index), startByte: point.byte, startedAtMs: point.startedAtMs, expectStart: { bytes: FIRST_BYTES[read.index.kind], check: point.expectStart } } };
   } catch (error) {
-    if (controller.signal.aborted) return { ok: false, why: `헤더 요청이 ${timeoutMs / 1000}초를 넘김`, slow: true };
+    if (controller.signal.aborted) return { ok: false, why: L.player.headerRequestTimedOut({ seconds: timeoutMs / 1000 }), slow: true };
     const refused = refusedStatus(error);
     if (refused) return { ok: false, why: messageOf(error), refused };
-    return { ok: false, why: `헤더를 받지 못함: ${messageOf(error)}`, failed: true };
+    return { ok: false, why: L.player.headerFetchFailed({ error: messageOf(error) }), failed: true };
   } finally {
     clearTimeout(timer);
     controller.abort();

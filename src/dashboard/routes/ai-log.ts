@@ -15,6 +15,7 @@ import * as aiLogStream from "../ai-log-stream.ts";
 import * as sessionRequests from "../session-requests.ts";
 import { dayKey, firstDay, usageReport } from "../../rules/ai-usage.ts";
 import { AI_LOG_PAGE, AI_USAGE_PERIODS, isAiLogSource, type AiLogEntry, type AiLogPage, type AiLogQuery, type AiLogStorage, type AiUsagePeriod, type AiUsageReport } from "../contract/ai-log.ts";
+import { L } from "../../infra/log/text.ts";
 
 const aiLogRouter = express.Router();
 // 운영자 전용이다. 경로마다 따로 달지 않고 여기서 한 번에 건다(라우터를 어디에 붙이든 보호된다)
@@ -56,7 +57,7 @@ aiLogRouter.get("/logs/stream", (req, res) => {
   // 열자마자 놓친 줄을 보내므로 열기 바로 앞에서 세션을 본다. 연 뒤 세션에 묶는다(끝나면 끊긴다)
   if (!sessionRequests.admit(req)) return sendProblem(res, "login-required");
   if (!aiLogStream.addClient(res, signedIn(req).id, after)) return sendProblem(res, "too-many-streams");
-  sessionRequests.track(req, res, "AI 리퀘스트 로그", () => aiLogStream.drop(res));
+  sessionRequests.track(req, res, L.dashboard.aiLogStream(), () => aiLogStream.drop(res));
 });
 
 aiLogRouter.get("/logs", (req, res) => {
@@ -75,7 +76,7 @@ aiLogRouter.get("/logs/:id", (req, res) => {
 aiLogRouter.delete("/logs", (req, res) => {
   const { count } = requests.size();
   requests.clearRequests();
-  log.warn({ sub: "admin" }, `대시보드에서 AI 리퀘스트 로그 전체 삭제(${count}줄, 사용량 통계 유지). 실행 ${ranBy(req)}`);
+  log.warn({ sub: "admin" }, L.dashboard.aiLogCleared({ count, by: ranBy(req) }));
   res.json({ success: true });
 });
 
@@ -90,7 +91,7 @@ aiLogRouter.get("/usage", (req, res) => {
 
 aiLogRouter.delete("/usage", (req, res) => {
   requests.clearUsage();
-  log.warn({ sub: "admin" }, `대시보드에서 AI 사용량 통계 전체 삭제(리퀘스트 로그 유지). 실행 ${ranBy(req)}`);
+  log.warn({ sub: "admin" }, L.dashboard.aiUsageCleared({ by: ranBy(req) }));
   res.json({ success: true });
 });
 

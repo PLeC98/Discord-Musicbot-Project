@@ -7,6 +7,7 @@ import { fake } from "../helpers/fake.ts";
 import { openTempStore } from "../helpers/temp-store.ts";
 import * as staySeats from "../../src/store/stay-seats.ts";
 import type { PlayerSeats } from "../../src/player/registry.ts";
+import { testText } from "../helpers/log-text.ts";
 
 const store = openTempStore("leave-guild-");
 after(() => store.close());
@@ -23,7 +24,7 @@ function setup() {
 test("상주 자리를 지우고, 플레이어를 정리하고(세션도 지운다) 나간다", async () => {
   const { order, guild, players } = setup();
   staySeats.set("g1", "v1", "u1");
-  await leaveGuild(players, guild, { reason: "시험", end: "dashboard-leave" });
+  await leaveGuild(players, guild, { reason: testText("시험"), end: "dashboard-leave" });
   assert.deepEqual(order, ["dispose:dashboard-leave:remove", "leave"]);
   assert.equal(staySeats.seatOf("g1"), null);
 });
@@ -35,6 +36,6 @@ test("정리하는 사이 확인(go, 로그인 세션)이 예외를 던지면 �
   const go = () => {
     if (++calls > 1) throw ended;
   };
-  await assert.rejects(leaveGuild(players, guild, { reason: "시험", end: "dashboard-leave", go }), ended);
+  await assert.rejects(leaveGuild(players, guild, { reason: testText("시험"), end: "dashboard-leave", go }), ended);
   assert.deepEqual(order, ["dispose:dashboard-leave:remove"], "정리는 했지만 나가지 않았다");
 });

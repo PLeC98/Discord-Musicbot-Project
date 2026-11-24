@@ -1,6 +1,6 @@
 <!--
   SponsorBlock에서 건너뛸 구간 선택: 라벨(정보 버튼을 누르면 구간마다 설명 창) + 체크박스 목록.
-  서버 설정의 SponsorBlock 카드와 운영 설정값의 "기본으로 건너뛸 구간"이 같이 쓴다. 설명은 rules/sponsor-categories.
+  서버 설정의 SponsorBlock 카드와 운영 설정값의 "기본으로 건너뛸 구간"이 같이 쓴다. 이름과 설명은 봇 문구표(sponsor).
   목록은 카드가 넓으면(32rem 이상) 2열.
 -->
 <template>
@@ -30,11 +30,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import Icon from "./BaseIcon.vue";
 import InfoDialog from "./InfoDialog.vue";
 import { ICON_BTN } from "../utils/icon-button.ts";
-import { SKIP_CATEGORIES, categoryDescription, categoryLabel } from "../../../src/rules/sponsor-categories.ts";
+import { SKIP_CATEGORIES } from "../../../src/rules/sponsor-categories.ts";
 import { text } from "../text/index.ts";
 const T = text.serverSettings.sponsor;
 
@@ -42,7 +42,7 @@ const T = text.serverSettings.sponsor;
 withDefaults(defineProps<{ label: string; selected: readonly string[]; editable?: boolean; dimmed?: boolean }>(), { editable: true, dimmed: false });
 const emit = defineEmits<{ toggle: [id: string] }>();
 
-const CATEGORIES = SKIP_CATEGORIES.map((id) => ({ id, label: categoryLabel(id), description: categoryDescription(id) }));
+const CATEGORIES = computed(() => SKIP_CATEGORIES.map((id) => ({ id, label: text.bot.sponsor.category(id), description: text.bot.sponsor.description(id) })));
 
 const helpOpen = ref(false);
 </script>

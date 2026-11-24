@@ -1,6 +1,7 @@
 // src/app/welcome.ts: 봇이 새 서버에 들어왔을 때의 안내 메시지. 올릴 채널 고르기, 끄기, 들어온 지 오래된 서버는 올리지 않기, 화면(수정본 저장소, 대시보드, 서버 이름).
 // 서버 설정(전용 채널)은 진짜를 임시 DB로 쓴다
 
+import { withTestLanguage } from "../helpers/test-language.ts";
 import { useLoggedIn, _resetIntents } from "../../src/infra/gateway-intents.ts";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -107,4 +108,10 @@ test("화면: 서버 이름의 마크다운(링크 포함)은 글자 그대로, 
   const view = welcomeView(guild({ channels: [], name: "**@everyone** _방_ [링크](https://x.y)" }));
   assert.ok(textOf(view).includes("**\\*\\*@everyone\\*\\* \\_방\\_ \\[링크](https://x.y)** 서버에 초대해"), textOf(view));
   assert.deepEqual(view.allowedMentions, { parse: [] });
+});
+
+test("화면: 쓸 수 있는 언어가 둘 이상이면 /language 줄을 넣는다", () => {
+  const text = (on: boolean) => withTestLanguage(on, () => textOf(welcomeView(guild({ channels: [], name: "음악방" }))));
+  assert.ok(!text(false).includes("/language"), "언어가 하나뿐이면 없다");
+  assert.ok(text(true).includes("`/language`로 봇이 쓰는 언어를 바꿀 수 있어요."), text(true));
 });

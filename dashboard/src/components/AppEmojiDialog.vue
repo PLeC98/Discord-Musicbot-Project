@@ -69,7 +69,7 @@ const emit = defineEmits<{ added: [emoji: AppEmojiItem] }>();
  * 미리보기 크기(px). 디스코드는 웹 클라이언트 CSS의 값: 메시지 글 속 1.375em(16px 글), 이모지만 있는 메시지 3rem, 임베드 본문 18px, 음성 채널 상태 12px 글의 1.375em.
  * 대시보드는 선택기 칸과 장르 24px, 공지 미리보기 14px 글의 1.375em, 입력란 14px 글
  */
-const PREVIEWS = [
+const PREVIEWS = computed(() => [
   { px: 48, where: T.where.jumbo },
   { px: 24, where: T.where.picker },
   { px: 22, where: T.where.message },
@@ -77,7 +77,7 @@ const PREVIEWS = [
   { px: 18, where: T.where.announce },
   { px: 16.5, where: T.where.voiceStatus },
   { px: 14, where: T.where.input },
-];
+]);
 
 const cropper = ref<InstanceType<typeof ImageCropper> | null>(null);
 const name = ref("");

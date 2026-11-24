@@ -8,7 +8,7 @@ import * as genreConfig from "../config/genres.ts";
 import { AUTOPLAY, customId } from "./custom-ids.ts";
 import { frame, reply } from "./frame.ts";
 import type { IconKey } from "./icons.ts";
-import * as autoplayText from "./text/ko/autoplay.ts";
+import type { BotText } from "./text/index.ts";
 
 /**
  * 본인에게만 보이는 장르 선택 메시지. 그대로 reply에 넘긴다.
@@ -42,17 +42,17 @@ function withMenu(t: { icon: IconKey; title: string; description: string; placeh
 }
 
 /** 켤 때. 장르를 선택하면 그 장르로 켜진다 */
-const buildGenreMenu = () => withMenu(autoplayText.pickGenre());
+const buildGenreMenu = (T: BotText) => withMenu(T.autoplay.pickGenre());
 
 /**
  * 끌 때. 이미 꺼진 상태를 알리면서, 메뉴가 열려 있는 동안 장르를 다시 선택할 기회를 준다.
  * 선택하면 그 장르로 다시 켜지고(장르 변경), 그냥 두거나 닫으면 꺼진 채로 끝난다.
  */
-const buildAutoplayOffMenu = () => withMenu(autoplayText.turnedOff());
+const buildAutoplayOffMenu = (T: BotText) => withMenu(T.autoplay.turnedOff());
 
 /** 장르를 선택해 켰다(모두에게 보내는 결과). genre는 식별자, 보이는 것은 라벨. by는 선택한 사람 */
-function autoplayOn(genre: string, by: { toString(): string }) {
-  const t = autoplayText.turnedOn(genreConfig.labelOf(genre));
+function autoplayOn(T: BotText, genre: string, by: { toString(): string }) {
+  const t = T.autoplay.turnedOn(genreConfig.labelOf(genre));
   return frame({ icon: t.icon, title: t.title, body: t.description, footer: [`${t.by} ${String(by)}`], divider: true });
 }
 

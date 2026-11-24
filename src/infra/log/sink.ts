@@ -5,11 +5,12 @@
 // 들어오는 길은 둘: (1) logger.ts facade  (2) 아래 console 브리지(서드파티 console.* 를 받는다)
 
 import util from "util";
-import config from "../../config/index.ts";
 import { styleText } from "node:util";
 import { LEVELS, KEPT_LINES, levelNameOf, wireFields, type LevelName, type LogGap, type WireEntry } from "./levels.ts";
 import { repeatingFailure } from "../repeating-failure.ts";
+import { asText, renderLogText } from "./log-text.ts";
 import { messageOf } from "../error-text.ts";
+import { L } from "./text.ts";
 
 // 터미널 출력은 늘 가로채기 전의 console로 한다. 가로챈 console로 찍으면 다시 여기로 들어온다.
 const REAL = { log: console.log.bind(console), error: console.error.bind(console) };
@@ -33,6 +34,8 @@ type SseClient = {
   writeHead(code: number, headers: Record<string, string>): unknown;
   flushHeaders(): void;
 };
+/** 로그 스트림의 연결 상한(사용자마다)과 하트비트 간격(ms). 대시보드 SSE와 같은 설정이고 부르는 쪽(대시보드, 조립)이 넘긴다 */
+export type StreamLimits = { maxPerUser: number; heartbeatMs: number };
 
 // 브리지: console 메서드 → pino 레벨(숫자). log는 debug로 내린다. 여기 걸리는 건 전부 서드파티라
 // info 레벨을 채우면 우리 로그가 묻힌다. 대시보드도 DEBUG 알약에서 본다.
@@ -74,7 +77,7 @@ function catColor(name: string) {
 }
 
 // 가리기(redact). 레코드가 터미널, 버퍼, SSE, 파일로 나가기 전 한 곳에서 한다.
-// 맨 위 키 이름과 맨 위 글 값의 메시지 패턴만 본다(중첩된 필드는 보지 않는다).
+// 최상위 키 이름과 최상위 글 값의 메시지 패턴을 본다. 문구 값(args)만 모든 깊이에서 본다(safeArgs).
 const REDACT_KEYS = new Set(["authorization", "cookie", "password", "secret", "client_secret", "clientsecret", "access_token", "accesstoken", "refresh_token", "refreshtoken", "token", "totp", "totpserver", "apikey", "api_key"]);
 const MSG_PATTERNS = [
   { re: /(Bearer\s+)[A-Za-z0-9._~+/=-]{6,}/gi, repl: "$1[REDACTED]" },
@@ -102,7 +105,15 @@ function clipText(text: string): string {
   // 서로게이트 짝을 쪼개지 않는다
   if (/[\ud800-\udbff]/.test(text[head - 1]!)) head--;
   if (/[\udc00-\udfff]/.test(text[tail]!)) tail++;
-  return `${text.slice(0, head)}…(가운데 ${tail - head}자 생략)…${text.slice(tail)}`;
+  return `${text.slice(0, head)}…${asText(L.log.clipped({ count: tail - head }))}…${text.slice(tail)}`;
+}
+
+/** 문구 값(args): 모든 깊이에서 키 이름과 글 값을 가리고 자른 새 객체. 원본(freeze된 서술자의 값)은 그대로 둔다 */
+function safeArgs(value: unknown): unknown {
+  if (typeof value === "string") return clipText(redactText(value));
+  if (Array.isArray(value)) return value.map(safeArgs);
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([key, inner]) => [key, REDACT_KEYS.has(key.toLowerCase()) ? "[REDACTED]" : safeArgs(inner)]));
+  return value;
 }
 
 /** 지난 1시간 경고, 오류. fatal은 오류로 */
@@ -134,7 +145,7 @@ class LogSink {
   constructor({ maxLines = KEPT_LINES, intercept = true, terminal, notice = (line: string) => process.stderr.write(line) }: { maxLines?: number; intercept?: boolean; terminal?: (rec: LogRecord) => void; notice?: (line: string) => unknown } = {}) {
     this.maxLines = maxLines;
     this.notice = notice;
-    this._destFailures = repeatingFailure({ error: (line) => notice(`[log] ${line}\n`), info: (line) => notice(`[log] ${line}\n`) }, "로그 출력 대상 기록");
+    this._destFailures = repeatingFailure({ error: (line) => notice(`[log] ${renderLogText(line)}\n`), info: (line) => notice(`[log] ${renderLogText(line)}\n`) }, L.log.destinationWrite());
     this.terminal = terminal ?? ((rec) => this._renderTerminal(rec));
     // 터미널에만 적용하는 하한. 파일, 대시보드는 레코드가 오는 대로 다 받는다.
     // 조사 중 debug를 켜도 터미널은 조용하게 둘 수 있어야 한다.
@@ -215,7 +226,7 @@ class LogSink {
           failed ??= error;
         }
       }
-      if (failed) this._destFailures.fail(`${messageOf(failed).split("\n")[0]} (해당 로그 유실)`);
+      if (failed) this._destFailures.fail(L.log.destinationLost({ error: messageOf(failed).split("\n")[0] }));
       else this._destFailures.ok();
     }
   }
@@ -238,7 +249,7 @@ class LogSink {
         firstError ??= error;
       }
     }
-    if (failedCount) this.notice(`[log] 기동 초기 버퍼 로그 기록 실패(실패 건 파일에서 누락): ${failedCount}/${replay.length}건 | ${messageOf(firstError).split("\n")[0]}\n`);
+    if (failedCount) this.notice(`[log] ${asText(L.log.replayFailed({ failed: failedCount, total: replay.length, error: messageOf(firstError).split("\n")[0] }))}\n`);
   }
 
   // 가리기 뒤에 자른다. 먼저 자르면 잘린 자리에 걸린 토큰이 패턴에 맞지 않아 앞부분이 남는다
@@ -250,7 +261,7 @@ class LogSink {
         continue;
       }
       // 메시지 패턴은 글 값 모두에 건다. Error는 stack이 msg와 err 둘에 실린다(logger.ts)
-      out[k] = typeof v === "string" ? clipText(redactText(v)) : v;
+      out[k] = k === "args" ? safeArgs(v) : typeof v === "string" ? clipText(redactText(v)) : v;
     }
     return out as LogRecord;
   }
@@ -296,15 +307,15 @@ class LogSink {
   }
 
   /**
-   * 관리자 로그 스트림 구독. 연결 상한, 하트비트는 대시보드 SSE와 같은 설정을 쓴다
-   * (`SSE_MAX_CONNECTIONS`, `SSE_HEARTBEAT_SEC`). 상한은 대시보드 SSE처럼 사용자마다 센다(userKey: 디스코드 사용자 id).
+   * 관리자 로그 스트림 구독. limits는 대시보드 SSE와 같은 설정(`SSE_MAX_CONNECTIONS`, `SSE_HEARTBEAT_SEC`)이고,
+   * 상한은 대시보드 SSE처럼 사용자마다 센다(userKey: 디스코드 사용자 id).
    * after: 화면이 마지막으로 받은 줄의 SSE id("기동시각.번호"). 이 실행의 것이면 그 뒤 줄만 보낸다. 다른 실행의 것이면(봇을 다시 시작함)
    * reset을 먼저 보내고 전부. 없으면(처음 연결) 전부. 이어 받을 줄이 쌓아 둔 줄 밖으로 이미 밀려났으면 gap(받지 못한 줄 수)을 줄보다 먼저 보낸다.
    *
    * 상한을 넘으면 아무것도 쓰지 않고 false(부른 경로가 문제 응답을 보낸다). 느린 소비자는 record가 정리한다(쌓인 양을 본다).
    */
-  addClient(res: SseClient, userKey: string, after = "") {
-    const { maxPerUser } = config.dashboard.sse;
+  addClient(res: SseClient, userKey: string, limits: StreamLimits, after = "") {
+    const { maxPerUser } = limits;
     if ([...this._owners.values()].filter((key) => key === userKey).length >= maxPerUser) return false;
 
     res.writeHead(200, {
@@ -339,7 +350,7 @@ class LogSink {
     this.clients.add(res);
     this._owners.set(res, userKey);
     this._cleanups.set(res, cleanup);
-    this.syncHeartbeat();
+    this.syncHeartbeat(limits.heartbeatMs);
     res.on("close", cleanup);
     // 관리자 화면 연결이 끊겼다(ECONNRESET, EPIPE). 정리만 한다
     res.on("error", cleanup);
@@ -355,8 +366,7 @@ class LogSink {
    * 유휴 연결이 프록시 타임아웃에 끊기지 않게 주석 프레임을 보낸다(대시보드 SSE와 같은 방식).
    * 간격이 바뀌었으면 다시 건다(운영 설정값을 저장하면 조립이 부른다). 아직 연결이 없었으면 걸지 않는다
    */
-  syncHeartbeat() {
-    const ms = config.dashboard.sse.heartbeatMs;
+  syncHeartbeat(ms: number) {
     if (!this.clients.size && !this._heartbeat) return;
     if (this._heartbeat && ms === this._heartbeatMs) return;
     if (this._heartbeat) clearInterval(this._heartbeat);

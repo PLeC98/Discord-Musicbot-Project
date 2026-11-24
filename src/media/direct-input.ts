@@ -18,6 +18,8 @@ import { createChunkedStream, readerOf, type RangeFetch } from "./chunked-stream
 import { createResumingBody, type Resumed } from "./resuming-body.ts";
 import { segmentStart } from "../rules/hls-segment-start.ts";
 import logger from "../infra/log/logger.ts";
+import { L } from "../infra/log/text.ts";
+import { logTextError, type LogText } from "../infra/log/log-text.ts";
 const log = logger.child({ category: "link" });
 
 /** 이어받을 재료: 전체 크기, 처음 응답의 검증값(If-Range), 가드를 지나는 Range 요청 */
@@ -29,7 +31,7 @@ type DirectInput = Readable & {
   resumable?: Resumable;
   /** 내보내기 시작하는 곡 안의 위치(ms). HLS VOD는 그 위치를 포함한 세그먼트부터 */
   startedAtMs?: number;
-  describe?(): string;
+  describe?(): LogText;
 };
 /**
  * startMs: 곡 안의 시작 위치(HLS VOD만 세그먼트 단위로 맞춘다. 나머지는 ffmpeg의 -ss)
@@ -87,14 +89,14 @@ async function openDirectInput(url: string, { startMs = 0, liveOnly = false, bod
     return Object.assign(body, { live: radio, bounded, ...(resumable ? { resumable } : {}) });
   }
   const { hls } = opened;
-  if (liveOnly && !hls.live) throw codedError("live-ended", `라이브 HLS의 목록이 끝남: ${url}`);
+  if (liveOnly && !hls.live) throw codedError("live-ended", L.link.liveHlsPlaylistEnded({ url }));
   return Object.assign(streamFragments(pouringSource(hls.fragments(startMs), onResumed), { stallMs: hls.idleMs }), { live: hls.live, bounded: !hls.live });
 }
 
 const ignore = () => {
   /* 파이프라인의 끝(세그먼트 스트림)이 오류를 받는다 */
 };
-const permanent = (message: string) => Object.assign(new Error(message), { permanent: true });
+const permanent = (message: LogText) => Object.assign(logTextError(message), { permanent: true });
 
 /** HLS의 세그먼트 출처를 세그먼트 스트림의 출처로 바꾼다. 모은 세그먼트는 그대로 두고, 넘긴 세그먼트는 스트림으로 바꾼다 */
 function pouringSource(fragments: HlsFragments, onResumed?: (info: Resumed) => void): FragmentSource<HlsPart> {
@@ -118,7 +120,7 @@ async function pourOf(pour: HlsPour, signal: AbortSignal, progress: () => void, 
   const { totalBytes, key, iv } = pour;
   try {
     if (key && totalBytes !== null) {
-      if (totalBytes % 16 !== 0) throw permanent(`AES-128 세그먼트의 크기가 16의 배수가 아님(${totalBytes})`);
+      if (totalBytes % 16 !== 0) throw permanent(L.link.aesSegmentSizeInvalid({ bytes: totalBytes }));
       await checkLastBlock(pour, totalBytes, key, signal);
       progress();
     }
@@ -197,7 +199,7 @@ function decrypting(key: Buffer, iv: Buffer): Transform {
       front = Buffer.concat([front, out]);
       const verdict = segmentStart(front);
       if (verdict === "more") return done();
-      if (verdict === "bad") return done(wrongKey("복호화한 앞부분이 TS, ID3, fMP4로 시작하지 않음"));
+      if (verdict === "bad") return done(wrongKey(L.link.decryptedHeadInvalid()));
       const checked = front;
       front = null;
       done(null, checked);
@@ -208,12 +210,12 @@ function decrypting(key: Buffer, iv: Buffer): Transform {
         return segment instanceof Error ? done(segment) : done(null, segment);
       }
       if (rest.length) {
-        log.warn(`HLS 세그먼트의 끝이 블록이 되지 않아 마지막 ${rest.length}바이트를 버림(암호문이 잘림)`);
+        log.warn(L.link.hlsSegmentTailNotBlock({ bytes: rest.length }));
         return done(null, held ?? undefined);
       }
       const pad = held ? paddingOf(held) : null;
       if (!held || pad === null) {
-        log.warn(`HLS 세그먼트의 끝을 복호화하지 못해 마지막 ${held?.length ?? 0}바이트를 버림(패딩이 맞지 않음)`);
+        log.warn(L.link.hlsSegmentTailDecryptFailed({ bytes: held?.length ?? 0 }));
         return done();
       }
       done(null, held.subarray(0, 16 - pad));
@@ -221,15 +223,15 @@ function decrypting(key: Buffer, iv: Buffer): Transform {
   });
 }
 
-const wrongKey = (why: string) => permanent(`HLS 세그먼트의 키가 맞지 않음(${why})`);
+const wrongKey = (why: LogText) => permanent(L.link.hlsKeyMismatch({ detail: why }));
 
 // 판정할 만큼 모이기 전에 끝난 짧은 세그먼트. 암호문이 블록 단위로 다 왔고, 끝 패딩이 맞고, 세그먼트 전체가 컨테이너 형식에 맞아야 내보낼 평문을 돌려준다. 아니면 키 불일치 오류
 function shortSegment(front: Buffer, rest: Buffer, held: Buffer | null): Buffer | Error {
-  if (rest.length || !held) return wrongKey("짧은 세그먼트의 암호문이 블록 단위가 아님");
+  if (rest.length || !held) return wrongKey(L.link.shortSegmentNotBlocks());
   const pad = paddingOf(held);
-  if (pad === null) return wrongKey("짧은 세그먼트의 끝 패딩이 깨짐");
+  if (pad === null) return wrongKey(L.link.shortSegmentPadBroken());
   const segment = Buffer.concat([front, held.subarray(0, 16 - pad)]);
-  return segmentStart(segment, true) === "ok" ? segment : wrongKey("짧은 세그먼트가 TS, ID3, fMP4가 아님");
+  return segmentStart(segment, true) === "ok" ? segment : wrongKey(L.link.shortSegmentNotContainer());
 }
 
 /**
@@ -243,7 +245,7 @@ async function checkLastBlock(pour: HlsPour, totalBytes: number, key: Buffer, si
     body = await pour.get(pour.url, undefined, { accept: OPEN_ACCEPT, from, to: totalBytes - 1, signal, bodyIdleMs: pour.idleMs });
   } catch (error) {
     if (signal.aborted) throw signal.reason;
-    log.debug(`HLS 세그먼트의 키 확인 건너뜀(끝 블록을 받지 못함): ${messageOf(error)}`);
+    log.debug(L.link.hlsKeyCheckSkippedFetch({ error: messageOf(error) }));
     return;
   }
   let tail: Buffer | null = null;
@@ -252,14 +254,14 @@ async function checkLastBlock(pour: HlsPour, totalBytes: number, key: Buffer, si
     if (body.status === 206 && range && Number(range[1]) === from && Number(range[2]) === totalBytes - 1 && Number(range[3]) === totalBytes) tail = await firstBytes(body, 33, signal);
   } catch (error) {
     if (signal.aborted) throw signal.reason;
-    log.debug(`HLS 세그먼트의 키 확인 건너뜀(끝 블록을 읽지 못함): ${messageOf(error)}`);
+    log.debug(L.link.hlsKeyCheckSkippedRead({ error: messageOf(error) }));
     return;
   } finally {
     body.destroy();
   }
-  if (tail?.length !== 32) return void log.debug(`HLS 세그먼트의 키 확인 건너뜀(구간 응답이 아님)`);
+  if (tail?.length !== 32) return void log.debug(L.link.hlsKeyCheckSkippedNotRange());
   const last = crypto.createDecipheriv("aes-128-cbc", key, tail.subarray(0, 16)).setAutoPadding(false).update(tail.subarray(16));
-  if (paddingOf(last) === null) throw permanent("HLS 세그먼트의 키가 맞지 않음(마지막 블록의 패딩이 깨짐)");
+  if (paddingOf(last) === null) throw permanent(L.link.hlsKeyMismatchLastBlock());
 }
 
 /** 앞에서부터 최대 limit 바이트를 읽는다. signal이 취소되면 그 사유로 예외를 던진다 */

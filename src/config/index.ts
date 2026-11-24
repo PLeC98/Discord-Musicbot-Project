@@ -8,13 +8,18 @@ import { SKIP_CATEGORIES } from "../rules/sponsor-categories.ts";
 import { PROJECT } from "../infra/project-paths.ts";
 import { LEVEL_NAMES } from "../infra/log/levels.ts";
 import { SECRETS_KEY_COMMAND, isSecretsKey } from "../rules/secrets-key.ts";
-import { GROUP_TAB, TUNABLE_KEYS, tunable, tuneProblemLine } from "../rules/tunables.ts";
+import { GROUP_TAB, TUNABLE_KEYS, tunable } from "../rules/tunables.ts";
+import { rule, tuneProblem, type RuleProblem } from "../rules/rule-problem.ts";
 import { COOKIE_BROWSERS, cookieBrowserOf } from "../rules/cookie-browsers.ts";
-import { inviteUrl } from "../rules/invite-url.ts";
 import { isYtdlpTag, YTDLP_CHANNELS } from "../rules/ytdlp-tag.ts";
-import { josa } from "../rules/josa.ts";
+import { KNOWN_TAGS } from "../rules/languages.ts";
 import { BGUTIL_COMMIT, BGUTIL_VERSION } from "./vendor-versions.ts";
 import { bgutilTarget } from "../rules/bgutil-install.ts";
+import { isSnowflake } from "../rules/snowflake.ts";
+import { OPERATOR_SCOPES, overrideIds } from "../rules/app-owners.ts";
+import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
+import { ruleLogText } from "../rules/text/index.ts";
 
 // 이 파일은 사용자가 직접 수정하기 위한 설정 파일이 아닙니다. `.env` 파일과 대시보드(운영자 패널)에서 고치십시오.
 //
@@ -81,8 +86,16 @@ type EnvSource = Record<string, string | undefined>;
 type HexColor = `#${string}`;
 const isHexColor = (v: string): v is HexColor => /^#[0-9a-fA-F]{6}$/.test(v);
 
+// 운영자 덮어쓰기(OWNER_ID, 쉼표로 여럿)는 형식이 틀린 값이 있어도 경고만 한다(값은 적힌 그대로 두며 어느 사용자와도 맞지 않는다). 비어 있으면 앱 소유자로 정한다(usecases/app-owners)
+function ownerIdWarning(ownerId: string | null): LogText | null {
+  const ids = overrideIds(ownerId);
+  const bad = ids?.filter((id) => !isSnowflake(id)) ?? [];
+  if (!ids || !bad.length) return null;
+  return L.config.ownerIdInvalid({ ownerId: bad.join(", "), all: bad.length === ids.length });
+}
+
 // .env, 설정값 읽는 도구. 잘못 적은 값은 문제 목록에 적고 기본값을 돌려준다(설정값은 tuneProblems에. 기동을 멈추지 않는다)
-function envReaders(source: EnvSource, problems: string[], tuneProblems: string[] = []) {
+function envReaders(source: EnvSource, problems: LogText[], tuneProblems: RuleProblem[] = []) {
   // 읽어 본 이름. .env 파일에 이것 밖의 이름이 있으면 경고한다(loadConfig)
   const asked = new Set<string>();
   // .env의 값. 키가 없거나 공백뿐이면 def
@@ -100,10 +113,17 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
    * 조용히 기본값으로 돌면 운영자는 설정이 왜 적용되지 않는지 모르고, 경고만 남기면 로그를 보지 않는
    * 사이 의도하지 않은 값으로 계속 돈다. 비워 두는 것은 "기본값을 쓰겠다"는 뜻이라 통과시킨다.
    */
-  function invalid<T>(key: string, value: unknown, reason: string, def: T): T {
-    if (TUNABLE_KEYS.has(key)) tuneProblems.push(tuneProblemLine(key, String(value), reason));
-    else problems.push(`.env의 ${key} 값이 잘못됨(${String(value)}): ${reason}. 고친 뒤 다시 실행하세요`);
+  function invalid<T>(key: string, value: unknown, reason: RuleProblem, def: T): T {
+    if (TUNABLE_KEYS.has(key)) tuneProblems.push(tuneProblem(key, String(value), reason));
+    else problems.push(L.config.envValueInvalid({ key, value: String(value), reason: ruleLogText(reason) }));
     return def;
+  }
+
+  // 디스코드 서버 ID. 형식이 틀리면 문제다. 서버 ID를 빈 값으로 돌리면 테스트 서버에만 올리려던 명령이 전역으로 올라간다
+  function envGuildId<T extends string | null>(key: string, def: T): string | T {
+    const v = env(key);
+    if (v === null) return def;
+    return isSnowflake(v) ? v : invalid(key, v, rule("guild-id"), def);
   }
 
   // 참, 거짓. true, false만 받는다
@@ -111,7 +131,7 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     const v = env(key);
     if (v === null) return def;
     const lower = v.trim().toLowerCase();
-    return lower === "true" ? true : lower === "false" ? false : invalid(key, v, "true, false 중 하나여야 함", def);
+    return lower === "true" ? true : lower === "false" ? false : invalid(key, v, rule("bool"), def);
   }
 
   // 설정값(rules/tunables)을 그 형식, 범위, 기본값으로 읽는다
@@ -128,7 +148,7 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     const v = env(key);
     if (v === null) return def;
     const lower = String(v).trim().toLowerCase();
-    return allowed.find((one) => one === lower) ?? invalid(key, v, `${allowed.join(", ")} 중 하나여야 함`, def);
+    return allowed.find((one) => one.toLowerCase() === lower) ?? invalid(key, v, rule("one-of", { allowed: allowed.join(", ") }), def);
   }
 
   // parseInt는 "120junk"를 120으로 삼킨다. 숫자만 있는지 먼저 보고, 범위와 안전 정수까지 확인한다.
@@ -137,12 +157,12 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     if (v === null) return def;
 
     const raw = String(v).trim();
-    if (!/^-?\d+$/.test(raw)) return invalid(key, v, "정수만 쓸 수 있음", def);
+    if (!/^-?\d+$/.test(raw)) return invalid(key, v, rule("integer"), def);
 
     const n = Number(raw);
-    if (!Number.isSafeInteger(n)) return invalid(key, v, "다룰 수 있는 범위를 넘는 수", def);
-    if (min !== undefined && n < min) return invalid(key, v, `${min} 이상이어야 함`, def);
-    if (max !== undefined && n > max) return invalid(key, v, `${max} 이하여야 함`, def);
+    if (!Number.isSafeInteger(n)) return invalid(key, v, rule("safe-integer"), def);
+    if (min !== undefined && n < min) return invalid(key, v, rule("at-least", { min }), def);
+    if (max !== undefined && n > max) return invalid(key, v, rule("at-most", { max }), def);
     return n;
   }
 
@@ -157,9 +177,9 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     try {
       parsed = new URL(v);
     } catch {
-      return invalid(key, v, "주소 형식이 아님(예: https://example.com)", def);
+      return invalid(key, v, rule("url"), def);
     }
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return invalid(key, v, "http, https 주소만 쓸 수 있음", def);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return invalid(key, v, rule("url-scheme"), def);
     return v;
   }
 
@@ -167,7 +187,7 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
   function envOrigin(key: string, def: string) {
     const v = envUrl(key, def);
     const parsed = new URL(v);
-    if (parsed.username || parsed.password || parsed.pathname !== "/" || /[?#]/.test(v)) return invalid(key, v, "경로, 사용자 정보, ?, # 없이 주소만 적으세요 (예: https://example.com, http://bot.example.com:33333)", def);
+    if (parsed.username || parsed.password || parsed.pathname !== "/" || /[?#]/.test(v)) return invalid(key, v, rule("origin-only"), def);
     return v;
   }
 
@@ -177,7 +197,7 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     if (v === null) return null;
     const text = v.trim();
     if (text === "localhost" || isIP(text)) return text;
-    return invalid(key, v, "IP 주소(0.0.0.0, :: 포함)나 localhost만 쓸 수 있음", null);
+    return invalid(key, v, rule("address"), null);
   }
 
   // 임베드 색. 틀린 값을 그대로 두면 임베드를 보낼 때마다 예외를 던진다
@@ -185,12 +205,12 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     const v = env(key);
     if (v === null) return def;
     const color = v.trim();
-    return isHexColor(color) ? color : invalid(key, v, "#RRGGBB 형식의 색이어야 함(예: #2743D2)", def);
+    return isHexColor(color) ? color : invalid(key, v, rule("color"), def);
   }
 
   function envQueueMax(key: string, def: number) {
     const n = envInt(key, def, { min: 0 });
-    if (n !== 0 && n < QUEUE_MAX_FLOOR) return invalid(key, n, `0(끔)이거나 ${QUEUE_MAX_FLOOR} 이상이어야 함`, def);
+    if (n !== 0 && n < QUEUE_MAX_FLOOR) return invalid(key, n, rule("queue-max", { floor: QUEUE_MAX_FLOOR }), def);
     return n;
   }
 
@@ -198,7 +218,7 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
   function envYtdlpVersion(key: string) {
     const v = env(key);
     if (v === null || !v.trim()) return null;
-    return isYtdlpTag(v.trim()) ? v.trim() : invalid(key, v, "yt-dlp 릴리스 태그(예: 2026.08.19)여야 함", null);
+    return isYtdlpTag(v.trim()) ? v.trim() : invalid(key, v, rule("ytdlp-tag"), null);
   }
 
   // bgutil의 태그와 커밋(rules/bgutil-install). 짝이 틀리면 둘 다 기본 짝으로 돈다. pinned: 카드에서 고정했다
@@ -216,16 +236,16 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
   function envCookies(key: string) {
     const v = String(env(key) || "").trim();
     if (!v || v.toLowerCase() === "file" || COOKIE_BROWSERS.some((one) => one === cookieBrowserOf(v))) return v;
-    return invalid(key, v, `file 또는 브라우저 이름(${COOKIE_BROWSERS.join(", ")})이어야 함`, "");
+    return invalid(key, v, rule("cookies", { browsers: COOKIE_BROWSERS.join(", ") }), "");
   }
 
   function envClients(key: string) {
     const list = parseClients(env(key));
     const bad = list.filter((name) => !CLIENT_NAME.test(name));
-    return bad.length ? invalid(key, bad.join(","), "클라이언트 이름은 영문 소문자, 숫자, _만 쓸 수 있음", []) : list;
+    return bad.length ? invalid(key, bad.join(","), rule("client-names"), []) : list;
   }
 
-  return { asked, env, envEnum, envInt, envUrl, envOrigin, envAddress, envColor, envQueueMax, envCookies, envYtdlpVersion, envBgutilTarget, envBool, envClients, tuneInt, tuneBool, tuneText, tuneEnum };
+  return { asked, env, envGuildId, envEnum, envInt, envUrl, envOrigin, envAddress, envColor, envQueueMax, envCookies, envYtdlpVersion, envBgutilTarget, envBool, envClients, tuneInt, tuneBool, tuneText, tuneEnum };
 }
 
 function resolveFromRoot(p: string): string;
@@ -236,14 +256,14 @@ function resolveFromRoot(p: string | null) {
 }
 
 /** 비면 기동을 멈추는 자격증명. 봇 로그인, 명령 배포, 대시보드 로그인(OAuth) */
-const REQUIRED_CREDENTIALS = ["DISCORD_TOKEN", "CLIENT_ID", "CLIENT_SECRET"] as const;
+const REQUIRED_CREDENTIALS = ["DISCORD_TOKEN", "CLIENT_SECRET"] as const;
 // 운영자 패널 탭 이름(운영 설정값의 그룹이 놓인 탭, rules/tunables의 GROUP_TAB). 연령 제한 탭은 연령 제한 콘텐츠를 켜야 생긴다
-const TAB_NAMES = { settings: "일반", appearance: "디스플레이", youtube: "유튜브", update: "업데이트", age: "연령 제한(일반 탭에서 연령 제한 콘텐츠를 켜면 생긴다)", ai: "AI 보조" } as const;
+const TAB_NAMES = { settings: L.config.tabSettings(), appearance: L.config.tabAppearance(), youtube: L.config.tabYoutube(), update: L.config.tabUpdate(), age: L.config.tabAge(), ai: L.config.tabAi(), logs: L.config.tabLogs(), dev: L.config.tabDev() } as const;
 
 /** 운영 설정값을 입력할 운영자 패널 탭별로(그 그룹의 탭) */
-function groupByTab(names: string[]): Map<string, string[]> {
+function groupByTab(names: string[]): Map<LogText, string[]> {
   const tabOf = (name: string) => TAB_NAMES[GROUP_TAB[tunable(name).group]];
-  const byTab = new Map<string, string[]>();
+  const byTab = new Map<LogText, string[]>();
   for (const name of names) byTab.set(tabOf(name), [...(byTab.get(tabOf(name)) ?? []), name]);
   return byTab;
 }
@@ -252,12 +272,12 @@ function groupByTab(names: string[]): Map<string, string[]> {
  * .env에 적힌 이름 중 쓰지 않는 것의 경고. 운영 설정값의 이름은 입력할 탭마다(셸이 준 값도),
  * 그 밖에 .env 파일에 있는데 설정이 읽지 않은 이름(asked 밖. 오타, 예전 설정)은 한 줄로
  */
-function envNameWarnings(source: EnvSource, envFileNames: string[], asked: Set<string>): string[] {
-  const lines: string[] = [];
+function envNameWarnings(source: EnvSource, envFileNames: string[], asked: Set<string>): LogText[] {
+  const lines: LogText[] = [];
   const moved = [...TUNABLE_KEYS].filter((name) => String(source[name] ?? "").trim() || envFileNames.includes(name));
-  for (const [tab, names] of groupByTab(moved)) lines.push(`.env의 ${names.join(", ")}${josa(names.at(-1)!, "은")} 이제 쓰지 않음. 운영자 패널의 ${tab} 탭에서 입력하고 .env에서 삭제하세요`);
+  for (const [tab, names] of groupByTab(moved)) lines.push(L.config.envNamesMoved({ names: names.join(", "), last: names.at(-1)!, tab }));
   const unknown = envFileNames.filter((name) => !TUNABLE_KEYS.has(name) && !asked.has(name));
-  if (unknown.length) lines.push(`.env의 ${unknown.join(", ")}${josa(unknown.at(-1)!, "은")} 봇이 읽지 않는 이름. 오타이거나 예전 설정이면 .env에서 삭제하세요(쓰는 이름은 .env.example 참고)`);
+  if (unknown.length) lines.push(L.config.envNamesUnknown({ names: unknown.join(", "), last: unknown.at(-1)! }));
   return lines;
 }
 
@@ -268,14 +288,16 @@ function envNameWarnings(source: EnvSource, envFileNames: string[], asked: Set<s
  * 옮기거나 없앤 이름을 하나씩 적어 두면 끝이 없다). 셸이 준 환경 변수는 보지 않는다
  */
 function loadConfig(source: EnvSource, { envFileFound = true, tunables = {}, envFileNames = [] }: { envFileFound?: boolean; tunables?: Record<string, string>; envFileNames?: string[] } = {}) {
-  const problems: string[] = [];
-  const warnings: string[] = [];
-  const tuneProblems: string[] = [];
-  if (!envFileFound) problems.push(".env 파일이 없음. 봇을 실행하면 .env.example로 만들고 비밀 키를 채움. 그 뒤 파일 안의 주석을 참고해 [필수] 값을 채우세요");
+  const problems: LogText[] = [];
+  const warnings: LogText[] = [];
+  const tuneProblems: RuleProblem[] = [];
+  if (!envFileFound) problems.push(L.config.envFileMissing());
 
   const fromEnv = Object.fromEntries(Object.entries(source).filter(([key]) => !TUNABLE_KEYS.has(key)));
   const readers = envReaders({ ...fromEnv, ...tunables }, problems, tuneProblems);
-  const { env, envInt, envUrl, envColor, envQueueMax, envYtdlpVersion, envBgutilTarget, envClients, tuneInt, tuneBool, tuneEnum } = readers;
+  // 설정보다 먼저 진입 파일이 읽는 환경 변수 이름(infra/log/choose-language). .env에 적어도 읽지 않는 이름 경고에 걸리지 않게
+  readers.asked.add("LOG_LANGUAGE");
+  const { env, envGuildId, envInt, envUrl, envColor, envQueueMax, envYtdlpVersion, envBgutilTarget, envClients, tuneInt, tuneBool, tuneEnum } = readers;
 
   // ── 자격증명 ──
   // 필수 자격증명이 없으면 기동을 멈춘다.
@@ -283,16 +305,15 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {}, env
   // .env가 없으면 그 문제 하나만 알린다(나머지는 거기서 따라 나온다).
   const missing = REQUIRED_CREDENTIALS.filter((name) => !env(name));
   if (envFileFound && missing.length) {
-    problems.push(`비어 있는 필수 값: ${missing.join(", ")}. README의 "설정" 절과 .env.example의 주석을 참고해 .env에 채운 뒤 다시 실행하세요.`);
+    problems.push(L.config.credentialsMissing({ names: missing.join(", ") }));
   }
   // 비밀값 암호화 키. 대시보드에 저장하는 비밀값(바깥 서비스 키, 쿠키)을 이것으로 암호화한다(store/secrets). 바꾸면 저장한 비밀값을 복호화하지 못한다
   const secretsKey = env("SECRETS_KEY");
-  const remake = `만들기: ${SECRETS_KEY_COMMAND}의 출력을 .env의 SECRETS_KEY= 뒤에 넣고 다시 실행하세요. 새 키로는 대시보드에 저장해 둔 비밀값을 복호화하지 못해 다시 입력해야 함`;
-  if (envFileFound && !secretsKey) problems.push(`SECRETS_KEY가 비어 있음(비밀값 암호화 키). ${remake}`);
-  else if (secretsKey && !isSecretsKey(secretsKey)) problems.push(`.env의 SECRETS_KEY가 base64로 인코딩한 32바이트가 아님. ${remake}`);
-  if (!env("OWNER_ID")) {
-    warnings.push("OWNER_ID 미설정. 대시보드 운영자 패널과 /system에 아무도 들어갈 수 없음");
-  }
+  const remake = L.config.secretsKeyRemake({ command: SECRETS_KEY_COMMAND });
+  if (envFileFound && !secretsKey) problems.push(L.config.secretsKeyEmpty({ remake }));
+  else if (secretsKey && !isSecretsKey(secretsKey)) problems.push(L.config.secretsKeyInvalid({ remake }));
+  const ownerWarning = ownerIdWarning(env("OWNER_ID"));
+  if (ownerWarning) warnings.push(ownerWarning);
 
   // 쿠키 출처(file이거나 브라우저). 모양은 envCookies가 본다
   const COOKIES_SOURCE = readers.envCookies("COOKIES_SOURCE");
@@ -306,9 +327,8 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {}, env
     // 토큰, 클라이언트 id는 필수다. 비었으면 문제로 적혀 기동이 멈춘다
     discord: {
       token: env("DISCORD_TOKEN", ""),
-      clientId: env("CLIENT_ID", ""),
       clientSecret: env("CLIENT_SECRET"),
-      guildId: env("GUILD_ID"),
+      guildId: envGuildId("GUILD_ID", null),
     },
 
     // 비밀값 암호화 키(base64 32바이트). 응답, 로그에 내보내지 않는다
@@ -335,7 +355,6 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {}, env
       welcomeMessage: tuneBool("WELCOME_MESSAGE_ENABLED"),
       projectRepo: PROJECT_REPO,
       sourceRepo: envUrl("SOURCE_REPO_URL", PROJECT_REPO),
-      invite: inviteUrl(env("CLIENT_ID", "")),
       leaveDelayQueueEmptyMs: tuneInt("LEAVE_DELAY_QUEUE_EMPTY_SECONDS") * 1000,
       leaveDelayAloneMs: tuneInt("LEAVE_DELAY_ALONE_SECONDS") * 1000,
     },
@@ -396,7 +415,7 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {}, env
 }
 
 // 대시보드, 캐시, SponsorBlock, 음성 상태, 스트림, 로그
-function serviceConfig({ env, envInt, envEnum, envUrl, envOrigin, envAddress, envBool, tuneInt, tuneBool, tuneText }: ReturnType<typeof envReaders>, dashboardPort: number) {
+function serviceConfig({ env, envInt, envUrl, envOrigin, envAddress, envBool, tuneInt, tuneBool, tuneText, tuneEnum }: ReturnType<typeof envReaders>, dashboardPort: number) {
   return {
     dashboard: {
       port: dashboardPort,
@@ -410,11 +429,13 @@ function serviceConfig({ env, envInt, envEnum, envUrl, envOrigin, envAddress, en
       // 인증서 파일 경로(.env가 있는 폴더 기준). 둘 다 비우면 certs/cert.pem, certs/key.pem을 본다(dashboard/tls-files)
       tlsCert: env("DASHBOARD_TLS_CERT"),
       tlsKey: env("DASHBOARD_TLS_KEY"),
+      // 운영자 덮어쓰기. 있으면 앱 소유자 대신 적힌 그대로(usecases/app-owners)
       ownerId: env("OWNER_ID"),
+      // 팀 앱에서 운영자를 넓히는 범위. 기본은 팀 소유자만(usecases/app-owners)
+      operators: { scope: tuneEnum("OPERATOR_SCOPE", OPERATOR_SCOPES) },
       // Vite 개발 서버(5173)를 CORS 허용 목록에 넣을지. `pnpm run dev`가 켠다. 평상시 실행은 닫힌다.
       devOrigin: env("DASHBOARD_DEV_ORIGIN") === "true",
       // 세션 쿠키 서명 비밀. 비우면 기동마다 무작위로 만든다(다시 시작하면 대시보드 로그인이 풀린다). 기동 로그에 경고
-      sessionSecret: env("SESSION_SECRET"),
       // API 요청 제한. 정상 사용(5초 폴링 = 분당 12번, 재생목록 추가도 요청 한 번)을 넉넉히 넘는 값으로 도배만 막는다
       rateLimit: {
         windowMs: tuneInt("RATE_LIMIT_WINDOW_SEC") * 1000,
@@ -464,6 +485,10 @@ function serviceConfig({ env, envInt, envEnum, envUrl, envOrigin, envAddress, en
       enabled: tuneBool("AI_LOG_ENABLED"),
       maxBytes: tuneInt("AI_LOG_MAX_MB") * 1024 * 1024,
     },
+    // 언어. botLanguage: 봇 기본 언어(쓸 수 있는 언어가 아니면 ui/language가 기준 언어를 쓴다)
+    i18n: {
+      botLanguage: tuneEnum("BOT_LANGUAGE", KNOWN_TAGS),
+    },
     // IP 위치 DB(dashboard/geoip). 로그인한 기기의 위치. 끄면 받지도 쓰지도 않는다(받은 파일은 둔다)
     geoip: {
       enabled: tuneBool("GEOIP_ENABLED"),
@@ -483,12 +508,12 @@ function serviceConfig({ env, envInt, envEnum, envUrl, envOrigin, envAddress, en
 
     // 로그. 파일(NDJSON)은 터미널, 대시보드와 따로 디스크에 남긴다(사후 분석용).
     logging: {
-      // 기록할 가장 낮은 레벨(터미널, 파일, 대시보드 모두).
+      // 기록할 가장 낮은 레벨(터미널, 파일, 대시보드 모두). 실시간 로그 탭의 설정 창에서 고치고 바로 적용한다(app/log-levels).
       // 조사용 로그는 debug로 남겨 두고 필요할 때만 이 값을 낮춰 본다.
-      level: envEnum("LOG_LEVEL", "info", LEVEL_NAMES),
-      // 그중 터미널에 찍을 것. LOG_LEVEL=debug + LOG_CONSOLE_LEVEL=info로 두면
+      level: tuneEnum("LOG_LEVEL", LEVEL_NAMES),
+      // 그중 터미널에 찍을 것(빈 값은 기록 수준과 같다). 기록 debug, 터미널 info로 두면
       // 파일, 대시보드는 debug를 받고 터미널만 조용하다.
-      consoleLevel: envEnum("LOG_CONSOLE_LEVEL", "", ["", ...LEVEL_NAMES]),
+      consoleLevel: tuneEnum("LOG_CONSOLE_LEVEL", ["", ...LEVEL_NAMES]),
       // 기본은 켬. 원하지 않으면 false
       fileEnabled: env("LOG_FILE_ENABLED", "true") === "true",
       file: resolveFromRoot(env("LOG_FILE", "logs/bot.log")),

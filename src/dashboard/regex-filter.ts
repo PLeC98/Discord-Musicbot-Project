@@ -4,6 +4,8 @@
 // 제한 시간을 넘기면 스레드를 종료하고(실행 중이던 정규식이 멈춘다) 그 작업만 시간 초과로 처리한다. 대기 중이던 작업은 새 스레드에서 이어서 실행한다
 
 import { Worker } from "worker_threads";
+import { L } from "../infra/log/text.ts";
+import { logTextError } from "../infra/log/log-text.ts";
 
 /** 정규식 검사 한 번의 제한 시간이다 */
 const MATCH_TIMEOUT_MS = 1000;
@@ -26,11 +28,11 @@ function spawn() {
     const { job } = finish();
     if (hits) job.resolve({ kind: "hits", hits });
     else if (tooLarge) job.resolve({ kind: "timeout" });
-    else job.reject(new Error(error || "정규식 검사 실패"));
+    else job.reject(error ? new Error(error) : logTextError(L.dashboard.regexCheckFailed()));
     next();
   });
   one.on("error", (error) => stop(one, error));
-  one.on("exit", () => stop(one, new Error("정규식 스레드가 종료됨")));
+  one.on("exit", () => stop(one, logTextError(L.dashboard.regexThreadExited())));
   one.unref(); // 봇이 끝날 때 붙잡지 않는다
   return one;
 }

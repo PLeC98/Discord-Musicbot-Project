@@ -4,7 +4,14 @@ import express from "express";
 import config from "../../config/index.ts";
 import { isRealOwner } from "../owner.ts";
 import { getViewAs, isOwner } from "../view-as.ts";
-import type { BotInfo, Me } from "../contract/identity.ts";
+import type { BotInfo, LanguageChoice, Me, MyLanguageBody as MyLanguageReply } from "../contract/identity.ts";
+import * as userSettings from "../../store/user-settings.ts";
+import { botLanguage, languagesNow } from "../../ui/language.ts";
+import { isAvailable, type Language } from "../../rules/languages.ts";
+import { parse, MyLanguageBody } from "../request-schemas.ts";
+import logger from "../../infra/log/logger.ts";
+
+const log = logger.child({ category: "dashboard" });
 import { avatarUrl } from "../images.ts";
 import { faviconVersion } from "../appearance.ts";
 import { canInvite } from "../invite.ts";
@@ -12,6 +19,7 @@ import { loggedInIntents } from "../../infra/gateway-intents.ts";
 import { sendProblem } from "../problem.ts";
 import { requireAuth } from "../middleware/require-auth.ts";
 import { recentLogin, RECENT_LOGIN_MS } from "../middleware/recent-login.ts";
+import { L } from "../../infra/log/text.ts";
 
 const identityRouter = express.Router();
 
@@ -22,8 +30,24 @@ identityRouter.get("/me", (req, res) => {
   if (!req.session.user) return sendProblem(res, "login-required");
   // 세션 사용자를 펼치지 않고 필드를 골라 보낸다(세션에 무엇이 더 붙어도 화면으로 새지 않게)
   const { id, username, globalName, avatar } = req.session.user;
-  const me: Me = { id, username, globalName, avatar, avatarUrl: avatarUrl(id, avatar), isOwner: isOwner(req), isRealOwner: isRealOwner(req), viewAs: getViewAs(req), canInvite: canInvite(req.app.locals.bot.client, id), intents: { ...loggedInIntents() } };
+  const me: Me = { id, username, globalName, avatar, avatarUrl: avatarUrl(id, avatar), isOwner: isOwner(req), isRealOwner: isRealOwner(req), viewAs: getViewAs(req), canInvite: canInvite(id), intents: { ...loggedInIntents() }, language: userSettings.languageOf(id) };
   res.json(me);
+});
+
+// 개인 언어를 정한다(디스코드의 /language와 같은 값). 지금 쓸 수 없는 언어는 받지 않는다
+identityRouter.put("/me/language", requireAuth, (req, res) => {
+  const body = parse(MyLanguageBody, req.body);
+  if (!body.ok) return sendProblem(res, body.code, {}, { errors: body.errors });
+  const { language } = body.value;
+  if (language !== "auto" && !isAvailable(language, languagesNow())) return sendProblem(res, "bad-request");
+  const userId = req.session.user!.id;
+  try {
+    userSettings.setLanguage(userId, language as Language | "auto");
+  } catch (error) {
+    log.error(L.dashboard.languageSaveFailed({ userId }), error);
+    return sendProblem(res, "settings-save-failed");
+  }
+  res.json({ language } satisfies MyLanguageReply);
 });
 
 // 최근 로그인인지 확인한다(204). 화면이 위험한 작업의 확인 창을 열기 전에 확인하며, 오래됐으면 reauth-required로 응답해 로그인 창을 먼저 열게 하고 확인 창은 재로그인 뒤에 연다.
@@ -45,6 +69,8 @@ identityRouter.get("/bot", (req, res) => {
     projectRepo: config.bot.projectRepo, // 원본 프로젝트 저장소
     brandColor: config.bot.embedColor,
     faviconVersion: faviconVersion(),
+    languages: languagesNow().map((one): LanguageChoice => ({ tag: one.tag as Language, name: one.name })),
+    botLanguage: botLanguage(),
   } satisfies BotInfo);
 });
 

@@ -1,6 +1,7 @@
 // AI 판정 프롬프트("ai-prompt" 문서)의 섹션과 검사. 저장 경로(dashboard)와 화면이 같이 쓴다. 자리표시자는 rules/line-format
 
 import { PROMPT_NAMES, parseFormat, usesName } from "../../rules/line-format.ts";
+import { rule, type RuleProblem } from "../../rules/rule-problem.ts";
 
 /** 프롬프트 섹션 하나. 역할(system, user, assistant)과 내용 */
 type PromptSection = { role: string; text: string };
@@ -16,25 +17,25 @@ const textOf = (section: unknown) => String((section as { text?: unknown } | nul
 const hasListMark = (sections: readonly unknown[]) => sections.some((section) => usesName(parseFormat(textOf(section), PROMPT_NAMES).nodes, "list"));
 
 /** 프롬프트의 문제 목록. 비우면 기본 구성을 쓰므로 적었을 때만 따진다. on: AI 보조가 켜져 있다(후보 목록 위치가 있어야 한다) */
-function promptProblems(prompt: unknown, on: boolean): string[] {
+function promptProblems(prompt: unknown, on: boolean): RuleProblem[] {
   if (prompt == null) return [];
-  if (!Array.isArray(prompt)) return ["프롬프트는 섹션 목록이어야 해요(역할과 내용이 있는 항목)"];
+  if (!Array.isArray(prompt)) return [rule("prompt-shape")];
   if (!prompt.length) return [];
 
-  const problems: string[] = [];
+  const problems: RuleProblem[] = [];
   prompt.forEach((item: unknown, i) => {
-    const where = `${i + 1}번째 섹션`;
-    if (!item || typeof item !== "object") return problems.push(`${where}: 역할과 내용을 적어야 해요`);
-    const section = item as { role?: unknown; text?: unknown };
-    if (!AI_ROLES.includes(section.role as string)) problems.push(`${where}: 역할은 ${AI_ROLES.join(", ")} 중 하나여야 해요`);
-    if (section.text != null && typeof section.text !== "string") problems.push(`${where}: 내용은 글자로 적어야 해요`);
-    else for (const one of parseFormat(textOf(section), PROMPT_NAMES).problems) problems.push(`${where} ${one.at + 1}번째 글자: ${one.message}`);
+    const section = i + 1;
+    if (!item || typeof item !== "object") return problems.push(rule("prompt-section-shape", { section }));
+    const one = item as { role?: unknown; text?: unknown };
+    if (!AI_ROLES.includes(one.role as string)) problems.push(rule("prompt-role", { section, roles: AI_ROLES.join(", ") }));
+    if (one.text != null && typeof one.text !== "string") problems.push(rule("prompt-text", { section }));
+    else for (const found of parseFormat(textOf(one), PROMPT_NAMES).problems) problems.push(rule("prompt-format", { section, at: found.at + 1 }, found.rule));
     // 역할 표시 문자열은 넣지 못하게 한다. ChatML 템플릿으로 프롬프트를 짜는 모델에 섹션 경계로 섞여 들어가지 않게
-    if (/<\|im_(start|end)\|>/.test(String(section?.text ?? ""))) problems.push(`${where}: 내용에 <|im_start|>, <|im_end|>를 적을 수 없어요`);
+    if (/<\|im_(start|end)\|>/.test(String(one?.text ?? ""))) problems.push(rule("prompt-chatml", { section }));
   });
 
   // 켜 둔 채 후보 목록 위치가 없으면 요청마다 헛돈다
-  if (on && !hasListMark(prompt)) problems.push(`어딘가에 ${LIST_MARK}가 있어야 해요. 그 위치에 판정할 후보가 들어가요`);
+  if (on && !hasListMark(prompt)) problems.push(rule("prompt-needs-list", { mark: LIST_MARK }));
   return problems;
 }
 

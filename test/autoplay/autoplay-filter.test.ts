@@ -6,14 +6,17 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import * as filter from "../../src/autoplay/filter.ts";
+import { asText } from "../../src/infra/log/log-text.ts";
 
 const limits = (over = {}) => filter.prepare({ minDurationSec: 60, maxDurationSec: 3600, blockedKeywords: ["mix", "playlist", "메들리"], ...over });
-const judge = (title: string, duration = 240, over?: filter.FilterConfig) => filter.judge({ title, duration }, limits(over));
+// 이유와 내용은 로그 문구라 그린 글로 비교한다
+const drawn = ({ ok, reason, detail }: filter.Verdict) => ({ ok, ...(reason === undefined ? {} : { reason: asText(reason) }), ...(detail === undefined ? {} : { detail: asText(detail) }) });
+const judge = (title: string, duration = 240, over?: filter.FilterConfig) => drawn(filter.judge({ title, duration }, limits(over)));
 
 // ── 길이 ──────────────────────────────────────────────────────────────────
 
 test("길이를 모르면 떨어진다. 대개 라이브다", () => {
-  assert.equal(filter.judge({ title: "노래", duration: null }, limits()).reason, "길이 없음");
+  assert.equal(drawn(filter.judge({ title: "노래", duration: null }, limits())).reason, "길이 없음");
 });
 
 test("길이 범위 밖은 떨어진다", () => {

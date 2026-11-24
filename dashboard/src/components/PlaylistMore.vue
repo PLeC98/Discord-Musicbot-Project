@@ -47,9 +47,9 @@ import TimerClose from "./TimerClose.vue";
 import type { MoreView } from "../../../src/dashboard/contract/player.ts";
 import { MAX_COUNT, moreChoices } from "../../../src/rules/more-choices.ts";
 import { roomWith } from "../../../src/rules/queue-room.ts";
-import { collection } from "../../../src/ui/text/ko/labels.ts";
-import * as moreText from "../../../src/ui/text/ko/more.ts";
 import { text } from "../text/index.ts";
+const moreText = text.bot.more;
+const collection = (kind: string | null | undefined) => text.bot.labels.collection(kind);
 const T = text.more;
 
 // 재생목록 이어 넣기. 디스코드 메뉴와 기능은 같지만 모양은 웹에 맞춘다:
@@ -72,7 +72,7 @@ const props = withDefaults(
 );
 defineEmits<{ add: [count: number]; close: [] }>();
 
-// 선택지, 남은 공간, 라벨은 디스코드 더 넣기 메뉴와 같은 규칙, 문장(rules/more-choices, rules/queue-room, ui/text/ko/more)
+// 선택지, 남은 공간, 라벨은 디스코드 더 넣기 메뉴와 같은 규칙, 문장(rules/more-choices, rules/queue-room, locales/ko/bot/more)
 const chip = "tap state-layer h-10 px-4 rounded-xl text-body font-semibold nums cursor-pointer bg-surface-highest/80 text-on-surface motion-button active:not-disabled:rounded-md active:not-disabled:scale-97 disabled:opacity-38 disabled:cursor-not-allowed";
 
 const batch = computed(() => props.more.batch);

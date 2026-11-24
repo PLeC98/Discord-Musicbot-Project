@@ -66,12 +66,12 @@ const statusIn = (file: string) => {
   }
 };
 
-test("켜져 있는 봇에서 만들고(.env, 설정 DB를 교체할 이름으로, 파비콘), 한 번에 하나만 둔다", async () => {
+test("켜져 있는 봇에서 만들고(.env, 설정 DB와 사용자 데이터 DB를 교체할 이름으로, 파비콘), 한 번에 하나만 둔다", async () => {
   settingsDocs.write("status", { messages: ["옮길 것"] }, settingsDocs.read("status").revision);
   const first = await makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir }, new Date(2026, 9, 10, 9, 0));
   assert.deepEqual(
     unzip(fs.readFileSync(first.file)).map((one) => one.name),
-    ["database/settings.restore.db", "database/settings.restore.db.json", "database/audio-cache.restore.zip", "database/dashboard/favicon/index.json", "database/dashboard/favicon/lz0abc12ff.reserve.png", ".env"],
+    ["database/settings.restore.db", "database/settings.restore.db.json", "database/users.restore.db", "database/audio-cache.restore.zip", "database/dashboard/favicon/index.json", "database/dashboard/favicon/lz0abc12ff.reserve.png", ".env"],
   );
   const second = await makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir }, new Date(2026, 9, 11, 9, 0));
   assert.deepEqual(second.replaced, [path.basename(first.file)]);
@@ -126,7 +126,7 @@ test("다른 봇 폴더에 풀어 덮어쓰면 다음 기동이 설정 DB를 교
   assert.equal(fs.readFileSync(path.join(bot, ".env"), "utf8"), "DISCORD_TOKEN=token-for-test\n");
 
   const database = path.join(bot, "database");
-  assert.match(snapshots.applyStaged(database) ?? "", /전체 백업 musicbot-full-/);
+  assert.match(snapshots.applyStaged(database) ?? "", /^musicbot-full-.+\.zip$/);
   assert.ok(!fs.existsSync(path.join(database, "settings.db-wal")), "남은 기록은 치운다(열어 보기 전에 본다. 열면 SQLite가 새로 만든다)");
   assert.deepEqual(statusIn(path.join(database, "settings.db")), { messages: ["옮길 것"] });
   const kept = snapshots.list(database).find((one) => one.kind === "before-restore");

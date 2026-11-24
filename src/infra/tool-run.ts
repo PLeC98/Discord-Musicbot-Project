@@ -8,6 +8,8 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { messageOf } from "./error-text.ts";
 import { killTrees } from "./kill-tree.ts";
 import { settleChild } from "./process-priority.ts";
+import { L } from "./log/text.ts";
+import { logTextError } from "./log/log-text.ts";
 
 const IS_WIN = process.platform === "win32";
 /** 오류 메시지에 붙이는 stderr 끝부분의 길이(글자 수) */
@@ -49,7 +51,7 @@ function runTool(file: string, args: string[], { cwd, env, label, timeoutMs, cap
     try {
       child = spawn(file, args, { cwd, env, shell, windowsHide: true, detached: !IS_WIN, stdio: ["ignore", capture ? "pipe" : "inherit", capture ? "pipe" : "inherit"] });
     } catch (error) {
-      reject(new Error(`${label} 실행 실패: ${messageOf(error)}`));
+      reject(logTextError(L.proc.toolRunFailed({ label, error: messageOf(error) })));
       return;
     }
     if (child.pid) {
@@ -94,7 +96,7 @@ function runTool(file: string, args: string[], { cwd, env, label, timeoutMs, cap
       child.stdout?.destroy();
     });
     child.stderr?.on("data", (chunk: Buffer) => (err = (err + chunk.toString("utf8")).slice(-STDERR_TAIL)));
-    child.once("error", (error) => settle(new Error(`${label} 실행 실패: ${messageOf(error)}`)));
+    child.once("error", (error) => settle(logTextError(L.proc.toolRunFailed({ label, error: messageOf(error) }))));
     // close는 출력 파이프가 모두 닫혀야 온다. 손자 프로세스가 파이프를 물고 남으면 오지 않으므로 도구가 끝난 뒤 상한이 지나면 이쪽에서 닫는다
     child.once("exit", () => {
       exited = true;
@@ -105,10 +107,10 @@ function runTool(file: string, args: string[], { cwd, env, label, timeoutMs, cap
       }, DRAIN_MS);
     });
     child.once("close", (code, signal) => {
-      if (timedOut) return settle(new Error(`${label}: 시간 상한(${Math.round(timeoutMs / 1000)}초)을 넘겨 강제 종료함`));
-      if (tooBig) return settle(new Error(`${label}: 출력이 상한(${CAPTURE_BYTES / 1024 / 1024}MB)을 넘어 강제 종료함`));
+      if (timedOut) return settle(logTextError(L.proc.toolTimedOut({ label, seconds: Math.round(timeoutMs / 1000) })));
+      if (tooBig) return settle(logTextError(L.proc.toolOutputTooBig({ label, megabytes: CAPTURE_BYTES / 1024 / 1024 })));
       if (code === 0) return settle(null, Buffer.concat(out).toString("utf8"));
-      settle(new Error(`${label} 실패(종료 코드 ${code ?? signal ?? "?"})${err.trim() ? `: ${err.trim()}` : ""}`));
+      settle(logTextError(L.proc.toolExitFailed({ label, code: code ?? signal ?? "?", detail: err.trim() ? `: ${err.trim()}` : "" })));
     });
   });
 }

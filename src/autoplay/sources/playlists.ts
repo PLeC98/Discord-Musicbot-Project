@@ -5,6 +5,8 @@ import * as spotifySource from "../../sources/spotify.ts";
 import * as youtubeSource from "../../sources/youtube/index.ts";
 import type { GenreSource } from "../../config/genres.ts";
 import type { Candidate } from "./candidate.ts";
+import { L } from "../../infra/log/text.ts";
+import { logTextError } from "../../infra/log/log-text.ts";
 
 // 통째로 불러오지 않는다. total을 알면 무작위 오프셋으로 한 구간만 집어 온다.
 const PLAYLIST_PAGE = 50;
@@ -22,10 +24,10 @@ async function youtube(source: GenreSource): Promise<Candidate[]> {
   if (!source.url) return [];
   // 목록을 불러오지 못하면 그 원인(없는, 비공개 목록, 네트워크)를 단 채로 예외를 던진다
   const head = await youtubeSource.getPlaylist(source.url, { offset: 0, limit: 1 });
-  if (!head) throw new Error("재생목록에 곡이 없음");
+  if (!head) throw logTextError(L.autoplay.playlistSourceEmpty());
   // 믹스(RD…)는 total이 null이다. 끝이 없어 무작위 오프셋을 쓸 수 없다
   const total = Number(head.total) || 0;
-  if (!total) throw new Error("재생목록의 곡 수를 알 수 없음(유튜브 믹스는 소스로 쓸 수 없음)");
+  if (!total) throw logTextError(L.autoplay.playlistSourceNoTotal());
 
   const offset = total > PLAYLIST_PAGE ? rand(total - PLAYLIST_PAGE) : 0;
   const part = await youtubeSource.getPlaylist(source.url, { offset, limit: PLAYLIST_PAGE });

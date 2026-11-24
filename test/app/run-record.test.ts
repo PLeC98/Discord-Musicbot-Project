@@ -6,6 +6,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { RunRecord, SHORT_RUN_MS } from "../../src/app/run-record.ts";
+import { asText } from "../../src/infra/log/log-text.ts";
 
 const MIN = 60_000;
 const dirs: string[] = [];
@@ -21,7 +22,9 @@ function machine() {
   const clock = { now: 1_000_000_000_000 };
   const boot = () => {
     const record = new RunRecord(file, () => clock.now);
-    const previous = record.begin();
+    const begun = record.begin();
+    // 한 줄은 서술자라 비교할 수 있게 그려 둔다
+    const previous = { ...begun, line: asText(begun.line) };
     if (record.timer) clearInterval(record.timer);
     return { record, previous };
   };

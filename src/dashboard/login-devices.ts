@@ -15,6 +15,7 @@ import { repeatingFailure } from "../infra/repeating-failure.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import type { DevicePlace, LoginDevice } from "./contract/identity.ts";
 import { clientIp } from "./client-ip.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "dashboard" });
 
 /** 기기 기록. ip는 그때 요청의 주소(믿는 프록시 뒤면 실제 주소) */
@@ -23,8 +24,8 @@ type DeviceRecord = { ua: string; ip: string; signedInAt: number; seenAt: number
 const PURPOSE = "login-device";
 /** 마지막 활동을 다시 적는 간격. 그 사이에도 IP, 브라우저가 바뀌면 바로 적는다 */
 const SEEN_EVERY_MS = 5 * 60_000;
-const sealFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "로그인 기기 기록 암호화");
-const storeFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "로그인 기기 기록 읽기 또는 쓰기");
+const sealFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.dashboard.deviceSeal());
+const storeFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.dashboard.deviceStore());
 
 // 암호화하지 못하면(SECRETS_KEY가 없는 테스트, 스크립트) 적지 않는다. 기록이 없어도 로그인, 요청은 그대로다
 function seal(sid: string, record: DeviceRecord): Buffer | undefined {

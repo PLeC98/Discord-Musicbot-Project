@@ -1,6 +1,6 @@
 // 서버 설정 화면에 보여 주는 값. GET 응답, 저장 응답, 충돌 응답, 그사이 바뀌었는지 비교할 때 모두 이 값을 쓴다.
 // 행의 값과 다르다. 지운 채널은 null로 두고, DJ 역할은 줄 수 있는 역할만 남긴다. 정하지 않았으면 SponsorBlock 켜기는 켬, 연령 제한은 "channel"이다.
-// SponsorBlock 구간의 null은 기본 구간 목록으로 바꾸지 않고 그대로 둔다(null은 운영자의 기본 구간을 따름). 운영자가 기본 구간을 바꾸는 것은 서버 설정을 바꾸는 것이 아니다.
+// SponsorBlock 구간의 null은 기본 구간 목록으로 바꾸지 않고 그대로 둔다(null은 운영자의 기본 구간을 따름). 운영자가 기본 구간을 바꾸는 것은 서버 설정을 바꾸는 것이 아니다. 서버 언어의 null(봇 기본 언어를 따름)도 같은 까닭으로 그대로 둔다.
 // SponsorBlock은 전역 스위치와 상관없이 그 서버의 설정을 보여 준다(꺼진 것은 화면의 카드가 따로 알린다).
 
 import type { Guild } from "discord.js";
@@ -16,6 +16,7 @@ function shownValues(guild: Guild, doc: GuildDoc): SettingsValues {
     sponsorblock: { enabled: doc.sponsorBlock?.enabled ?? true, categories: doc.sponsorBlock?.categories ?? null },
     playlistAddMax: doc.playlistAddMax ?? null,
     agePlace: doc.agePlace ?? "channel",
+    language: doc.language ?? null,
   };
 }
 

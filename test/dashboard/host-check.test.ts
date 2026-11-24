@@ -3,6 +3,7 @@
 process.env.OWNER_ID = "owner";
 process.env.DASHBOARD_TRUST_PROXY = "";
 
+import { useTestLanguage } from "../../src/rules/languages.ts";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import net from "node:net";
@@ -94,6 +95,35 @@ test("대시보드 앱: 허용하지 않은 Host, 요청 대상, X-Forwarded-Hos
     assert.equal(reached, before, "막은 요청은 세션까지 가지 않는다");
     assert.equal((await raw(port, "GET http://localhost/api/bot HTTP/1.1\r\nHost: localhost")).status, 200);
     assert.equal((await get("Host: 127.0.0.1\r\nX-Forwarded-Host: ")).status, 200, "빈 X-Forwarded-Host는 없는 것으로 본다");
+  } finally {
+    config.dashboard.url = saved;
+  }
+});
+
+test("차단 안내 쪽은 보낸 사람의 언어(Accept-Language, 없으면 봇 기본 언어)로 그리고 <html lang>을 적는다", async () => {
+  const saved = config.dashboard.url;
+  config.dashboard.url = "https://music.example.com";
+  try {
+    const app = createApp(fakeBot({ client: { user: null, isReady: () => false } }), { stream: createPlayerStream(), deployCommands: () => assert.fail("등록하지 않는다"), sessionMiddleware: (_r, _res, next) => next() });
+    const server = await listenForFetch(app, "127.0.0.1");
+    servers.push(server);
+    const port = (server.address() as net.AddressInfo).port;
+    const evil = (language = "") => raw(port, `GET / HTTP/1.1\r\nHost: evil.com${language && `\r\nAccept-Language: ${language}`}`);
+
+    const plain = await evil();
+    assert.match(plain.body, /<html lang="ko">/);
+    assert.match(plain.body, /[가-힣]/);
+    assert.match((await evil("qps-ploc")).body, /<html lang="ko">/, "테스트 언어를 끈 동안에는 봇 기본 언어");
+
+    useTestLanguage(true);
+    try {
+      const pseudo = await evil("qps-ploc, ko;q=0.5");
+      assert.match(pseudo.body, /<html lang="qps-ploc">/);
+      assert.doesNotMatch(pseudo.body, /[가-힣]/, "문구가 모두 그 언어로 나온다");
+      assert.match(pseudo.body, /evil\.com/);
+    } finally {
+      useTestLanguage(false);
+    }
   } finally {
     config.dashboard.url = saved;
   }

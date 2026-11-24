@@ -9,6 +9,8 @@ import assert from "node:assert/strict";
 import { openTempStore } from "../helpers/temp-store.ts";
 import { fakePlayer } from "../helpers/fake.ts";
 import * as tracks from "../helpers/tracks.ts";
+import { asText, type LogText } from "../../src/infra/log/log-text.ts";
+import { testText } from "../helpers/log-text.ts";
 const store = openTempStore("registry-guard-");
 after(() => store.close());
 
@@ -80,12 +82,13 @@ function makePlayer(current: { title: string; duration: number } | null = { titl
       async play() {},
       async updateVoiceStatus() {},
       audioPlayer: { stop() {} },
-      // 진짜 dispose처럼 버린 단계로 옮기고 알린다(레지스트리는 알림을 듣고 뺀다)
-      async dispose({ reason }: { reason: string }) {
+      // 진짜 dispose처럼 원인을 글로 그려 버린 단계로 옮기고 알린다(레지스트리는 알림을 듣고 뺀다)
+      async dispose({ reason }: { reason: string | LogText }) {
         if (this.lifecycle.disposed) return;
-        disposeCalls.push(reason);
-        this.lifecycle.to("disposed", reason);
-        playerEvents.disposed(this as unknown as InstanceType<typeof Player>, reason, "stop");
+        const text = asText(reason);
+        disposeCalls.push(text);
+        this.lifecycle.to("disposed", text);
+        playerEvents.disposed(this as unknown as InstanceType<typeof Player>, text, "stop");
       },
     },
     { disposeCalls },
@@ -125,10 +128,10 @@ test("늦게 버려진 옛 플레이어는 레지스트리의 새 플레이어�
   const fresh = makePlayer({ title: "재생 중인 곡", duration: 200 });
   players.set(GUILD, fresh);
 
-  await stale.dispose({ reason: "늦은 정리", session: "keep", end: "stop" });
+  await stale.dispose({ reason: testText("늦은 정리"), session: "keep", end: "stop" });
   assert.equal(players.get(GUILD), fresh);
 
-  await fresh.dispose({ reason: "정리", session: "remove", end: "stop" });
+  await fresh.dispose({ reason: testText("정리"), session: "remove", end: "stop" });
   assert.equal(players.has(GUILD), false);
 });
 
@@ -143,8 +146,8 @@ test("레지스트리의 해제 줄은 플레이어를 버린 원인을 남긴�
   t.after(() => (logger.level = level));
   const from = sink.buffer.length;
 
-  await stale.dispose({ reason: "늦은 정리", session: "keep", end: "stop" });
-  await fresh.dispose({ reason: "alone-timeout", session: "remove", end: "stop" });
+  await stale.dispose({ reason: testText("늦은 정리"), session: "keep", end: "stop" });
+  await fresh.dispose({ reason: testText("alone-timeout"), session: "remove", end: "stop" });
 
   const lines = sink.buffer
     .slice(from)
@@ -173,7 +176,7 @@ test("/join만 하고 틀지 않아도 같은 타이머로 나간다", async (t)
   const p = makePlayer(null);
   players.set(GUILD, p);
 
-  p.idle.scheduleEmpty("곡 없이 대기");
+  p.idle.scheduleEmpty(testText("곡 없이 대기"));
   await sleep(DELAY * 3);
 
   assert.deepEqual(p.disposeCalls, ["곡 없이 대기"]);

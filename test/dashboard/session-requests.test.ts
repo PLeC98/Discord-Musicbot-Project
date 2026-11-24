@@ -17,6 +17,7 @@ import * as sessionRequests from "../../src/dashboard/session-requests.ts";
 import * as secrets from "../../src/store/secrets.ts";
 import { newSecretsKey } from "../../src/rules/secrets-key.ts";
 import * as listen from "../helpers/listen.ts";
+import { testText } from "../helpers/log-text.ts";
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/140.0.0.0 Safari/537.36";
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-session-requests-"));
@@ -61,7 +62,7 @@ before(async () => {
     res.flushHeaders();
     res.write(": open\n\n");
     opened.push({ res, socket: req.socket });
-    sessionRequests.track(req, res, "테스트 스트림", () => dropped++);
+    sessionRequests.track(req, res, testText("테스트 스트림"), () => dropped++);
   });
   server = await listen.listenForFetch(app);
   // 응답을 끝낸 연결이 keep-alive 타임아웃으로 닫히지 않게 한다(소켓 강제 종료가 빠지면 기다리다 실패한다)

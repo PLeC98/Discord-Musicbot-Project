@@ -11,6 +11,7 @@ import { cacheDb } from "../../src/store/cache-db.ts";
 import * as stores from "../../src/store/stores.ts";
 import * as audioCache from "../../src/store/audio-cache.ts";
 import * as pins from "../../src/store/pinned-sources.ts";
+import { asText } from "../../src/infra/log/log-text.ts";
 
 const DB_DIR = path.join(os.tmpdir(), `musicbot-pins-test-${process.pid}`);
 const CACHE_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-pins-"));
@@ -60,5 +61,5 @@ test("처음 선택한 것으로 오디오 캐시를 초기화하면 직접 지�
 
 test("캐시 DB를 삭제하라는 멈춤 안내는 직접 지정한 음원도 사라진다고 말한다", () => {
   const mismatch = cacheDb.spec.onMismatch;
-  assert.ok("lost" in mismatch && mismatch.lost.includes("직접 지정한 음원"));
+  assert.ok("lost" in mismatch && asText(mismatch.lost).includes("직접 지정한 음원"));
 });

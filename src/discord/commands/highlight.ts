@@ -8,7 +8,8 @@ const exported: GuildCommand = {
   help: { section: "play", tier: "dj" },
   // 하이라이트는 SponsorBlock이 준다. 봇 전체에서 껐으면 등록하지 않는다
   enabled: () => config.sponsorblock.enabled,
-  data: new SlashCommandBuilder().setName("highlight").setDescription("현재 곡의 하이라이트로 이동해요"),
+  name: "highlight",
+  data: (C) => new SlashCommandBuilder().setName("highlight").setDescription(C.highlight.description),
 
   async execute(interaction, bot) {
     await answerHighlight(interaction, bot.players.get(interaction.guild.id));

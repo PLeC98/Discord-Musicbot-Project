@@ -4,14 +4,17 @@ import { controlMessage } from "../../ui/control-messages.ts";
 import * as replies from "../../ui/control-replies.ts";
 import type { GuildCommand } from "../../app/command-loader.ts";
 import { LIFETIME, noticeSelf, toAll } from "../../ui/delivery.ts";
+import { privateText, publicText } from "../../ui/language.ts";
 
 const exported: GuildCommand = {
   help: { section: "queue", tier: "dj-or-requester" },
-  data: new SlashCommandBuilder()
-    .setName("remove")
-    .setDescription("대기열에서 곡이나 구간을 빼요")
-    .addIntegerOption((option) => option.setName("position").setNameLocalizations({ ko: "번호" }).setDescription("대기열 순번 (1 = 다음 곡)").setRequired(true).setMinValue(1))
-    .addIntegerOption((option) => option.setName("end").setNameLocalizations({ ko: "끝번호" }).setDescription("여기까지 함께 빼요 (비우면 한 곡)").setMinValue(1)),
+  name: "remove",
+  data: (C) =>
+    new SlashCommandBuilder()
+      .setName("remove")
+      .setDescription(C.remove.description)
+      .addIntegerOption((option) => option.setName("position").setDescription(C.remove.options.position.description).setRequired(true).setMinValue(1))
+      .addIntegerOption((option) => option.setName("end").setDescription(C.remove.options.end.description).setMinValue(1)),
 
   async execute(interaction, bot) {
     const { guild, member } = interaction;
@@ -19,9 +22,9 @@ const exported: GuildCommand = {
     const position = interaction.options.getInteger("position", true) - 1;
     const end = interaction.options.getInteger("end");
     const r = await controls.remove(bot.players.get(guild.id), { member }, position, end === null ? position : end - 1);
-    if (!r.ok) return noticeSelf(interaction, controlMessage(r));
+    if (!r.ok) return noticeSelf(interaction, controlMessage(privateText(interaction), r));
 
-    await toAll(interaction, replies.removed(r.removed.length, r.left, member), LIFETIME.result);
+    await toAll(interaction, replies.removed(publicText(interaction.guildId), r.removed.length, r.left, member), LIFETIME.result);
   },
 };
 export default exported;

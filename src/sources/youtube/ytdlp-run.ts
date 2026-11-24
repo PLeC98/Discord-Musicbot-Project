@@ -22,7 +22,8 @@ import * as recentInfo from "./recent-info.ts";
 import fs from "node:fs";
 import path from "node:path";
 import { clearOutput, familyOf } from "../ytdlp-spawn.ts";
-import { josa } from "../../rules/josa.ts";
+import { L } from "../../infra/log/text.ts";
+import { logTextError } from "../../infra/log/log-text.ts";
 // 어긋난 미디어 주소를 다시 받기 전에 잠깐 쉰다. 곧바로 다시 요청하면 같은 것을 받기 쉽다.
 const STALE_RETRY_MS = 700;
 
@@ -43,7 +44,7 @@ async function runYtDlp(url: string, buildOptions: BuildOptions, exec: RunYtDlp 
   const known = markedAgeRestricted(videoId);
   if (known && videoId) {
     assertAgeAllowed(videoId);
-    if (!auth.cookiesConfigured()) throw codedError("yt-age-no-cookies", `연령 제한 영상인데 쿠키가 없음 (${videoId})`);
+    if (!auth.cookiesConfigured()) throw codedError("yt-age-no-cookies", L.youtube.ageRestrictedNoCookies({ videoId }));
   }
 
   try {
@@ -54,7 +55,7 @@ async function runYtDlp(url: string, buildOptions: BuildOptions, exec: RunYtDlp 
     // 서명된 미디어 주소가 어긋난 경우. 한 번 더 받아 새 주소를 얻는다.
     // 클라이언트 목록을 안 쓰는 설치에서는 이 재시도가 유일한 회복 수단이다.
     if (errors.isStaleMediaError(error)) {
-      log.warn({ tags: ["retry"] }, `미디어 주소가 거절돼 다시 추출(${videoId || url})`);
+      log.warn({ tags: ["retry"] }, L.youtube.staleMediaReextract({ target: videoId || url }));
       await new Promise((done) => setTimeout(done, STALE_RETRY_MS));
       // 다운로드면 받다 만 파일을 지운다(다시 받을 때 포맷이 다르면 이어 붙인 파일이 깨진다)
       const output = buildOptions(known).output;
@@ -72,11 +73,11 @@ async function _retryWithCookies(url: string, videoId: string, buildOptions: Bui
     externalCaches.markAgeRestricted(videoId);
   } catch (error) {
     if (codeOf(error) === "DB_NOT_OPEN") throw error;
-    log.warn(`연령 제한 기록 실패(${videoId}): ${messageOf(error)}`);
+    log.warn(L.youtube.ageMarkFailed({ videoId, error: messageOf(error) }));
   }
   assertAgeAllowed(videoId, error);
   if (!auth.cookiesConfigured()) throw error;
-  log.warn({ tags: ["retry", "fallback"] }, `연령 제한 감지 (${videoId})(쿠키로 재시도)`);
+  log.warn({ tags: ["retry", "fallback"] }, L.youtube.ageRestrictedRetryCookies({ videoId }));
   return await _runWithClients(url, buildOptions, true, exec, true);
 }
 
@@ -117,23 +118,23 @@ async function _runWithClients(url: string, buildOptions: BuildOptions, forceCoo
       const next = clients[i + 1];
       if (errors.isSkippedClientError(error)) {
         lastError = error;
-        log.debug(`${client}${josa(client, "은")} 쿠키를 받지 않아 yt-dlp가 건너뜀${next ? `. ${next}${josa(next, "으로")} 전환` : ""}`);
+        log.debug(L.youtube.clientSkippedNoCookies({ client, next: next ?? null }));
         continue;
       }
       if (!errors.isClientFault(error)) throw error; // 영상, 네트워크 문제. 클라이언트 바꿔봐야 소용없다
       lastError = error;
       table.record(client, false);
-      log.warn({ tags: ["fallback"] }, `${client} 실패 (${errors.faultReason(error)})${next ? `. ${next}${josa(next, "으로")} 전환` : ""}`);
+      log.warn({ tags: ["fallback"] }, L.youtube.clientFailed({ client, reason: errors.faultReason(error), next: next ?? null }));
     }
   }
 
   // 지정한 것이 다 안 됐다. yt-dlp 기본값에 한 번 맡겨 본다(yt-dlp가 유지보수하는 기본값이 더 나을 수 있다).
-  log.warn({ tags: ["fallback"] }, `지정한 클라이언트를 모두 시도함(yt-dlp 기본값으로 마지막 시도)`);
+  log.warn({ tags: ["fallback"] }, L.youtube.clientsExhaustedDefault());
   fresh();
   try {
     return await _runOnce(url, formatFor(buildOptions(forceCookies), false), null, exec, true);
   } catch (error) {
-    log.debug(`yt-dlp 기본값 시도도 실패: ${errors.briefError(error, 1)}`);
+    log.debug(L.youtube.defaultClientFailed({ error: errors.briefError(error, 1) }));
     throw lastError; // 원인 파악에는 클라이언트별 실패가 더 유용하다
   }
 }
@@ -155,7 +156,7 @@ function requireAudioOnly(result: unknown, options: Flags) {
   const info = result as { vcodec?: string | null; format_id?: string; is_live?: boolean; live_status?: string } | null;
   if (!info?.vcodec || info.vcodec === "none") return;
   if (info.is_live || info.live_status === "is_live" || info.live_status === "is_upcoming") return;
-  throw Object.assign(new Error(`오디오 전용 포맷이 없음(선택한 포맷 ${info.format_id ?? "모름"})`), { code: errors.NO_AUDIO_ONLY });
+  throw Object.assign(logTextError(L.youtube.noAudioOnlyFormat({ formatId: info.format_id ?? null })), { code: errors.NO_AUDIO_ONLY });
 }
 
 /**
@@ -192,7 +193,7 @@ function _inspectWarnings(stderr: unknown, client: string | null) {
     // 그러면 폴백 루프가 첫 항목에서 끝나 뒤 목록이 모두 쓸모없어지므로 알린다.
     const skipped = line.match(/Skipping unsupported client "?([\w-]+)"?/i);
     if (skipped) {
-      log.warn(`${skipped[1]}${josa(skipped[1], "은")} 이 yt-dlp가 모르는 클라이언트임(건너뛰고 yt-dlp 기본값으로 재생). 유튜브 탭의 "유튜브 클라이언트 순서"에서 고치세요`);
+      log.warn(L.youtube.clientUnsupported({ client: skipped[1] }));
       continue;
     }
     if (/require[sd]? a .*PO Token|PO Token which was not provided/i.test(line)) {
@@ -201,12 +202,12 @@ function _inspectWarnings(stderr: unknown, client: string | null) {
       // yt-dlp 판단으로 끼어들기 때문에, 지정값으로 찍으면 엉뚱한 이름이 남는다.
       const named = line.match(/\b([a-z][\w-]*) client\b/i);
       const asked = named ? named[1] : client;
-      const who = asked || "기본 클라이언트";
-      if (asked && NEEDS_POT.includes(asked)) log.debug(`${who}: POToken 요구(알려진 특성)`);
-      else log.warn({ tags: ["youtube-change"] }, `${who}: POToken 요구(유튜브 정책이 바뀐 것으로 보임)`);
+      const who = asked || L.youtube.defaultClient();
+      if (asked && NEEDS_POT.includes(asked)) log.debug(L.youtube.potRequiredKnown({ who }));
+      else log.warn({ tags: ["youtube-change"] }, L.youtube.potRequiredUnexpected({ who }));
       continue;
     }
-    log.debug(`yt-dlp 경고${client ? ` (${client})` : ""}: ${line.replace(/^WARNING:\s*/i, "").trim()}`);
+    log.debug(L.youtube.ytdlpWarning({ clientSuffix: client ? ` (${client})` : "", line: line.replace(/^WARNING:\s*/i, "").trim() }));
   }
 }
 
@@ -245,7 +246,7 @@ async function fromInfo(info: unknown, options: Flags, output: string, exec: Run
     return { result: await exec("", { ...flags, loadInfoJson: file }) };
   } catch (error) {
     if (!FETCH_FAILED.has(String((error as { code?: unknown } | null)?.code))) throw error;
-    const line = `캐시된 영상 정보로 다운로드 실패(정보 추출부터 다시 시도): ${errors.briefError(error, 1)}`;
+    const line = L.youtube.cachedInfoDownloadFailed({ error: errors.briefError(error, 1) });
     if (codeOf(error) === "stale-media") log.debug(line);
     else log.warn(line);
     clearOutput(output);

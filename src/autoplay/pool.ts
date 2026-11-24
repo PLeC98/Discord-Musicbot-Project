@@ -13,6 +13,7 @@ const log = logger.child({ category: "autoplay" });
 import { messageOf } from "../rules/error-kind.ts";
 import type { GenreSource } from "../config/genres.ts";
 import type { Candidate } from "./sources/candidate.ts";
+import { L } from "../infra/log/text.ts";
 
 const TTL_MS = 60 * 60 * 1000; // 며칠 켜 둔 봇이 같은 풀에 갇히지 않게
 const MAX_POOLS = 64; // 설정을 자주 고쳐도 무한히 늘지 않게
@@ -87,7 +88,7 @@ async function take(source: GenreSource, fill: (source: GenreSource) => Promise<
       tracks = (await fill(source)) || [];
     } catch (error) {
       // 소스 하나가 죽어도 자동재생 전체가 죽지 않는다. 호출부가 다음 소스로 넘어간다
-      log.warn(`자동재생 소스 실패 (${source?.type}): ${messageOf(error)}`);
+      log.warn(L.autoplay.sourceFailed({ type: source?.type, error: messageOf(error) }));
       return null;
     }
     if (!tracks.length) return null;
@@ -100,7 +101,7 @@ async function take(source: GenreSource, fill: (source: GenreSource) => Promise<
     } else {
       pool = { tracks: unique(tracks), fetchedAt: now, used: new Set() };
       pools.set(key, pool);
-      log.debug(`자동재생 풀 채움(${source?.type}): ${tracks.length}곡`);
+      log.debug(L.autoplay.poolFilled({ type: source?.type, count: tracks.length }));
     }
   }
 

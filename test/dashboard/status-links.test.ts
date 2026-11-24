@@ -11,11 +11,18 @@ useDocument("genres", { defaults: { prefetchCount: 1 }, genres: { 락: { sources
 
 const config = (await import("../../src/config/index.ts")).default;
 const { linkRows } = await import("../../src/dashboard/status/links.ts");
+const { logRuleLine } = await import("../../src/rules/text/index.ts");
+type RuleProblem = import("../../src/rules/rule-problem.ts").RuleProblem;
 const { _reset, record } = await import("../../src/infra/link-status.ts");
 const { _internals: spotify } = await import("../../src/sources/spotify.ts");
 
 const client = { isReady: () => true, ws: { ping: 48 } } as unknown as Client;
-const rowOf = (id: string) => linkRows(client).find((row) => row.id === id)!;
+// 설명, 오류, 도움말은 규칙 문제다. 로그 언어로 그려 문장으로 확인한다
+const said = (problem: RuleProblem | null | undefined) => (problem ? logRuleLine(problem) : null);
+const rowOf = (id: string) => {
+  const row = linkRows(client).find((one) => one.id === id)!;
+  return { ...row, note: said(row.note), error: said(row.error), hint: said(row.hint) };
+};
 
 beforeEach(() => {
   _reset();
@@ -34,7 +41,7 @@ test("순서와 그룹: 디스코드, 재생, 유튜브, 자동재생", () => {
 
 test("쓰지 않음: 꺼 둠, 키 없음, 그 출처를 쓰는 장르가 없음", () => {
   config.sponsorblock.enabled = false;
-  const off = Object.fromEntries(linkRows(client).flatMap((row) => (row.state === "off" ? [[row.id, row.note]] : [])));
+  const off = Object.fromEntries(linkRows(client).flatMap((row) => (row.state === "off" ? [[row.id, said(row.note)]] : [])));
   assert.deepEqual(off, { sponsorblock: "꺼 둠", potoken: "꺼 둠", ai: "꺼 둠", listenbrainz: "토큰 없음", animethemes: "이 출처를 쓰는 장르가 없음", anisongdb: "이 출처를 쓰는 장르가 없음", utaitedb: "이 출처를 쓰는 장르가 없음", touhoudb: "이 출처를 쓰는 장르가 없음" });
 });
 

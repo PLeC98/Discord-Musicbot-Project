@@ -8,6 +8,7 @@ import type { Db } from "./sqlite.ts";
 import { SessionTrackRow, checked } from "./rows.ts";
 import type { SessionTrackRow as TrackRow } from "./rows.ts";
 import { isAudioFoundBy } from "../rules/audio-found-by.ts";
+import { L } from "../infra/log/text.ts";
 
 // 끼워넣을 때 양옆의 중간값을 쓰므로 간격이 클수록 재번호 없이 오래 버틴다
 const GAP = 1_000_000_000;
@@ -415,7 +416,7 @@ type RestoredTrack = ReturnType<typeof fromRow>;
 function groupTracks(rows: RawTrackRow[], drop: (row: RawTrackRow) => void) {
   const out: { current: RestoredTrack | null; queue: RestoredTrack[]; history: RestoredTrack[] } = { current: null, queue: [], history: [] };
   for (const raw of rows) {
-    const row = checked(SessionTrackRow, raw, "세션 트랙");
+    const row = checked(SessionTrackRow, raw, L.cache.sessionTrackRow());
     if (!row) {
       drop(raw);
       continue;

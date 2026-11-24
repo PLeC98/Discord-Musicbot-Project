@@ -13,6 +13,8 @@ import type { Player } from "../../src/player/player.ts";
 import { addFailureMessage } from "../../src/ui/error-messages.ts";
 import { plainText } from "../helpers/notice.ts";
 import { textOf } from "../helpers/cv2.ts";
+import { textFor } from "../../src/ui/text/index.ts";
+const KO = textFor("ko");
 
 const realMax = config.bot.maxQueueSize;
 afterEach(() => {
@@ -46,7 +48,7 @@ function setup({ max, queued = 0, playing = true }: { max: number; queued?: numb
   const players = new Map<string, Player>([["g", player]]);
   const bot = { players, panels: new NoPanelRefresh(fake<Client>({}), players) };
   const notices: string[] = [];
-  const responder = { notifyQueued: async (view: unknown) => notices.push(textOf(view)), dismissPlaceholder: async () => {} };
+  const responder = { notifyQueued: async (draw: (T: typeof KO) => unknown) => notices.push(textOf(draw(KO))), dismissPlaceholder: async () => {} };
   const add = (tracks: QueuedTrack[], extra = {}) => queueTracks(bot, "g", { isPlaylist: tracks.length > 1, collection: "playlist", tracks, ...extra }, { id: "u1" }, responder);
   return { player, add, notices };
 }
@@ -68,7 +70,7 @@ test("대기열이 가득 차 한 곡도 못 넣으면 실패로 돌려준다", 
   const result = await add([t("x")]);
 
   assert.equal(result.success ? null : result.code, "queue-full");
-  assert.match(result.success ? "" : plainText(addFailureMessage(result)), /대기열이 가득 찼어요\.\.\. \(최대 30곡\)/);
+  assert.match(result.success ? "" : plainText(addFailureMessage(KO, result)), /대기열이 가득 찼어요\.\.\. \(최대 30곡\)/);
   assert.equal(player.queue.length, 30);
   assert.deepEqual(notices, [], "추가 안내는 보내지 않는다(진입점이 실패를 알린다)");
 });

@@ -48,7 +48,7 @@
             <span v-if="route.path.endsWith('/settings')" class="shrink-0 text-sm text-on-surface-variant font-medium">{{ T.serverSettingsSuffix }}</span>
           </div>
           <span v-else-if="route.path === '/servers'" class="text-sm font-semibold">{{ T.serverList }}</span>
-          <span v-else-if="route.meta.title" class="text-sm font-semibold">{{ route.meta.title }}</span>
+          <span v-else-if="route.meta.title" class="text-sm font-semibold">{{ route.meta.title() }}</span>
           <div v-else-if="route.path === '/admin'" class="flex items-center gap-2 min-w-0 max-w-[48%] md:max-w-none">
             <span class="size-6 rounded-[30%] bg-tertiary-container text-on-tertiary-container flex items-center justify-center"><Icon name="admin_panel_settings" :size="16" fill /></span>
             <span class="text-sm font-semibold truncate"

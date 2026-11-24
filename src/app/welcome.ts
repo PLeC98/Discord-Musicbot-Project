@@ -8,8 +8,9 @@ import * as guildSettings from "../store/guild-settings.ts";
 import { commandMention } from "../ui/command-mentions.ts";
 import { frame } from "../ui/frame.ts";
 import { dashboardButton } from "../ui/dashboard-link.ts";
-import * as welcomeText from "../ui/text/ko/welcome.ts";
+import { languagesNow, publicText } from "../ui/language.ts";
 import logger from "../infra/log/logger.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "core" });
 
 /** 들어온 지 이만큼 안이면 새로 들어온 서버로 본다 */
@@ -41,12 +42,14 @@ const divider = () => new SeparatorBuilder().setDivider(true).setSpacing(Separat
 
 /** 안내 메시지. 버튼은 컨테이너 밖 줄에 둔다. 서버 이름에 든 멘션이 울리지 않게 멘션을 모두 끈다 */
 function welcomeView(guild: Guild) {
+  // 채널에 남는 공개 메시지라 서버 언어
+  const T = publicText(guild.id);
   const mention = (name: string) => commandMention(name, guild.id);
   const { projectRepo, sourceRepo } = config.bot;
   const fork = sourceRepo !== projectRepo;
-  const labels = welcomeText.buttons(fork);
+  const labels = T.welcome.buttons(fork);
   const dashboard = dashboardButton(labels.dashboard);
-  const t = welcomeText.welcome({ server: escapeMarkdown(guild.name, { maskedLink: true }), play: mention("play"), setchannel: mention("setchannel"), help: mention("help"), dashboard: dashboard !== null, projectRepo, sourceRepo, fork, typed: readsMessageContent() });
+  const t = T.welcome.welcome({ server: escapeMarkdown(guild.name, { maskedLink: true }), play: mention("play"), setchannel: mention("setchannel"), help: mention("help"), language: languagesNow().length > 1 ? mention("language") : null, dashboard: dashboard !== null, projectRepo, sourceRepo, fork, typed: readsMessageContent() });
   const container = frame({ icon: "music", title: t.title, body: t.intro.join("\n"), thumbnail: guild.client.user.displayAvatarURL() })
     .addSeparatorComponents(divider())
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(t.usage.join("\n")))
@@ -62,12 +65,12 @@ function welcomeView(guild: Guild) {
 async function welcomeGuild(guild: Guild, now = Date.now()) {
   if (!config.bot.welcomeMessage) return;
   if (!guild.joinedTimestamp || now - guild.joinedTimestamp > RECENT_MS) {
-    log.debug(`서버 ${guild.id}: 들어온 지 오래되어 안내 메시지를 올리지 않음`);
+    log.debug(L.core.welcomeSkippedOld({ guildId: guild.id }));
     return;
   }
   const channel = await welcomeChannel(guild);
   if (!channel) {
-    log.warn(`새 서버 ${guild.name}(${guild.id})에 안내 메시지를 올릴 채널이 없음(봇이 보고 쓸 수 있는 텍스트 채널 없음)`);
+    log.warn(L.core.welcomeNoChannel({ guild: guild.name, guildId: guild.id }));
     return;
   }
   await channel.send(welcomeView(guild));

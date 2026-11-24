@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { pinnedKey, verifyDetached } from "../../src/infra/openpgp.ts";
+import type { RuleProblem } from "../../src/rules/rule-problem.ts";
+import { logRuleLine } from "../../src/rules/text/index.ts";
 import { PROJECT } from "../../src/infra/project-paths.ts";
 
 const FINGERPRINT = "AC0C BBE6 848D 6A87 3464 AF4E 57CF 6593 3B5A 7581";
@@ -12,7 +14,7 @@ const SUMS = fs.readFileSync(path.join(PROJECT.root, "test", "fixtures", "ytdlp"
 const SIG = fs.readFileSync(path.join(PROJECT.root, "test", "fixtures", "ytdlp", "SHA2-256SUMS.sig"));
 const KEY = pinnedKey(ARMORED, FINGERPRINT);
 
-const failsWith = (run: () => void, why: RegExp) => assert.throws(run, (error: { code?: string; message?: string }) => error.code === "BAD_SIGNATURE" && why.test(error.message ?? ""));
+const failsWith = (run: () => void, why: RegExp) => assert.throws(run, (error: { code?: string; problem?: RuleProblem }) => error.code === "BAD_SIGNATURE" && !!error.problem && why.test(logRuleLine(error.problem)));
 
 /** 서명 패킷 본문이 시작하는 위치(픽스처는 옛 형식 헤더, 길이 2바이트) */
 const bodyAt = (sig: Buffer) => {

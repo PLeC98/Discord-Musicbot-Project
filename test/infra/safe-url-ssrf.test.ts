@@ -35,7 +35,7 @@ const deps: RequestDeps = {
 };
 
 const safeUrl = await import("../../src/infra/safe-url.ts");
-const { SsrfError } = safeUrl;
+const { SsrfError, TOO_LARGE } = safeUrl;
 const head = (url: string) => safeUrl.head(url, deps);
 const getStream = (url: string) => safeUrl.getStream(url, deps);
 
@@ -47,6 +47,8 @@ beforeEach(() => {
 
 // 세 번째 인자는 실패했을 때 어느 입력이었는지 읽으려고 붙인 라벨이다
 const rejects = (p: Promise<unknown>, re?: RegExp | null, _label?: string) => assert.rejects(p, (e) => e instanceof SsrfError && (!re || re.test(e.message)));
+// 최대 크기를 넘었다(부르는 쪽은 메시지가 아니라 코드로 구분한다)
+const rejectsTooLarge = (p: Promise<unknown>) => assert.rejects(p, (e) => e instanceof SsrfError && (e as { code?: string }).code === TOO_LARGE);
 
 // ── 1. IP 우회 표기 ──────────────────────────────────────────────────────────
 
@@ -185,7 +187,7 @@ test("허용되지 않는 Content-Type은 거부한다 (내부 서비스 응답 
 
 test("Content-Length 상한을 넘으면 거부한다", async () => {
   responder = () => reply(200, { ...AUDIO, "content-length": String(600 * 1024 * 1024) });
-  await rejects(head("https://1.1.1.1/x.mp3"), /최대 크기/);
+  await rejectsTooLarge(head("https://1.1.1.1/x.mp3"));
 });
 
 test("getStream도 같은 검증 경로를 지난다", async () => {
@@ -238,10 +240,10 @@ test("getBuffer: 같은 방어를 지나고(내부 주소, 리다이렉트로 �
   responder = () => body(200, { "content-type": "audio/mpeg" }, [Buffer.from("x")]);
   await rejects(getBuffer("https://1.1.1.1/a.png"), /Content-Type/);
   responder = () => body(200, { "content-type": "image/png", "content-length": "9" }, [Buffer.from("x")]);
-  await rejects(getBuffer("https://1.1.1.1/a.png"), /최대 크기/);
+  await rejectsTooLarge(getBuffer("https://1.1.1.1/a.png"));
   // 길이를 숨겨도 받는 중에 센다
   responder = () => body(200, { "content-type": "image/png" }, [Buffer.from("12345"), Buffer.from("6789")]);
-  await rejects(getBuffer("https://1.1.1.1/a.png"), /최대 크기/);
+  await rejectsTooLarge(getBuffer("https://1.1.1.1/a.png"));
 });
 
 // ── 6. 오라클 방지 ───────────────────────────────────────────────────────────
@@ -435,5 +437,5 @@ test("getStream: 이미 취소된 신호면 요청하지 않고, 받는 중 크�
 
   responder = () => ({ status: 200, headers: AUDIO, body: Readable.from([Buffer.alloc(6), Buffer.alloc(6)]) });
   const capped = await safeUrl.getStream("https://files.example/a.mp3", deps, { accept: { contentType: /audio/, maxBytes: 8, timeoutMs: 1000 } });
-  await assert.rejects(drain(capped), (e: unknown) => (e as { permanent?: boolean }).permanent === true && /최대 크기/.test((e as Error).message));
+  await assert.rejects(drain(capped), (e: unknown) => (e as { permanent?: boolean }).permanent === true && (e as { code?: string }).code === TOO_LARGE);
 });

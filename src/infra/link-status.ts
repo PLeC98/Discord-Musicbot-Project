@@ -1,22 +1,27 @@
 // 외부 서비스마다 봇이 실제로 부른 결과(성공, 실패, 걸린 시간). 봇 상태 탭의 "연결"이 이것으로 매긴다(상태를 보려고 따로 부르지 않는다).
 // HTTP는 infra/http가 남기고, HTTP가 아닌 것(yt-dlp로 부르는 SoundCloud)은 부른 쪽이 record로 남긴다
 
+import type { RuleProblem } from "../rules/rule-problem.ts";
+
 /** 부르는 외부 서비스. anilist, github, modelsdev, discord, dbip는 화면에 행이 없다(다른 작업의 일부: 커버 이미지, 업데이트 확인, AI 가격표 다운로드, 앱 이모지 이미지 비교, IP 위치 DB 다운로드) */
 const SERVICES = ["youtube", "spotify", "soundcloud", "sponsorblock", "potoken", "ai", "lastfm", "listenbrainz", "animethemes", "anisongdb", "anilist", "vocadb", "utaitedb", "touhoudb", "github", "modelsdev", "discord", "dbip"] as const;
 type Service = (typeof SERVICES)[number];
 
-/** 한 번 부른 결과. error는 원인을 짧게("timeout", "HTTP 503", 연결 오류 코드) */
-type Outcome = { at: number; ok: boolean; ms: number; error: string | null };
+/** 한 번 부른 결과. error는 원인을 짧게("timeout", "HTTP 503", 연결 오류 코드는 plain, 자체 문장은 규칙 문제) */
+type Outcome = { at: number; ok: boolean; ms: number; error: RuleProblem | null };
+
+// 기반 층이라 rules의 plain()을 부르지 않고 같은 형태로 직접 만든다
+const asProblem = (error: string | RuleProblem): RuleProblem => (typeof error === "string" ? { code: "plain", params: { text: error } } : error);
 
 /** 서비스마다 최근 몇 번을 둔다(느림, 잦은 실패를 본다) */
 const RECENT = 10;
 
 const book = new Map<Service, { recent: Outcome[]; lastOkAt: number | null }>();
 
-function record(service: Service, { ok, ms, error = null }: { ok: boolean; ms: number; error?: string | null }) {
+function record(service: Service, { ok, ms, error = null }: { ok: boolean; ms: number; error?: string | RuleProblem | null }) {
   const at = Date.now();
   const entry = book.get(service) ?? { recent: [], lastOkAt: null };
-  entry.recent.push({ at, ok, ms, error: ok ? null : error });
+  entry.recent.push({ at, ok, ms, error: ok || error === null ? null : asProblem(error) });
   if (entry.recent.length > RECENT) entry.recent.shift();
   if (ok) entry.lastOkAt = at;
   book.set(service, entry);

@@ -16,10 +16,11 @@ type ConditionKey = "date" | "lunar" | "time";
 type MessageData = string | { text?: string; type?: ActivityType | "" };
 type SpecialData = Partial<Record<ConditionKey, string>> & { messages?: MessageData[] };
 
-const CONDITIONS: Array<{ key: ConditionKey; label: string }> = [
-  { key: "date", label: text.presence.conditionDate },
-  { key: "lunar", label: text.presence.conditionLunar },
-  { key: "time", label: text.presence.conditionTime },
+// 조건별 이름은 그릴 때 문구표에서 읽는다(언어를 바꾸면 바뀐다)
+const CONDITIONS: Array<{ key: ConditionKey; label: () => string }> = [
+  { key: "date", label: () => text.presence.conditionDate },
+  { key: "lunar", label: () => text.presence.conditionLunar },
+  { key: "time", label: () => text.presence.conditionTime },
 ];
 
 let serial = 0;

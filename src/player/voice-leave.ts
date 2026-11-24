@@ -7,13 +7,15 @@ import logger from "../infra/log/logger.ts";
 import { codeOf, describeError, messageOf } from "../rules/error-kind.ts";
 import { joinPayload, leavePayload } from "../infra/voice-adapter.ts";
 import type { PlayerSeats } from "./registry.ts";
+import { L } from "../infra/log/text.ts";
+import { logTextError, type LogText } from "../infra/log/log-text.ts";
 
 const log = logger.child({ category: "voice" });
 
 const GATEWAY_STEP_MS = 1500; // 게이트웨이 요청(넘겨받기, 나가기)마다 봇의 음성 상태 알림을 기다리는 시간. 넘으면 다음 단계로
 
 /** 어떻게 나갔나. 로그에 남기는 이름 */
-const LEFT_BY = { gateway: "게이트웨이", rest: "REST", already: "이미 나가 있음" } as const;
+const LEFT_BY = { gateway: L.voice.leftByGateway(), rest: "REST", already: L.voice.leftAlready() } as const;
 type Left = keyof typeof LEFT_BY;
 
 /**
@@ -23,7 +25,7 @@ type Left = keyof typeof LEFT_BY;
  */
 async function leaveLingeringVoice(guild: Guild, players: Pick<PlayerSeats, "get">, caller = "leave"): Promise<Left | "superseded" | "failed"> {
   // 묻지 못하면 캐시로 판단한다
-  const asked = await botChannelAtDiscord(guild, caller, "캐시 사용");
+  const asked = await botChannelAtDiscord(guild, caller, L.voice.fallbackCache());
   const channelId = asked === undefined ? (guild.members.me?.voice?.channelId ?? null) : asked;
   if (!channelId) return "already";
   if (players.get(guild.id)) return "superseded";
@@ -53,23 +55,23 @@ async function leaveByGateway(guild: Guild, channelId: string, players: Pick<Pla
 async function leaveByRest(guild: Guild): Promise<"rest" | "already" | "failed"> {
   try {
     const voice = guild.members.me?.voice;
-    if (!voice) throw new Error("봇의 멤버 정보가 캐시에 없음");
+    if (!voice) throw logTextError(L.voice.botMemberMissing());
     await voice.disconnect();
     return "rest";
   } catch (error) {
     if (codeOf(error) === RESTJSONErrorCodes.TargetUserIsNotConnectedToVoice) return "already";
-    log.warn(`플레이어 없이 남은 음성 채널에서 나가기 실패: ${guild.name} | ${messageOf(error)}`);
+    log.warn(L.voice.lingeringLeaveFailed({ guild: guild.name, error: messageOf(error) }));
     return "failed";
   }
 }
 
 /** 디스코드가 아는 봇의 이 서버 음성 채널. 없으면 null, 묻지 못하면 undefined */
-async function botChannelAtDiscord(guild: Guild, caller: string, fallback: string): Promise<string | null | undefined> {
+async function botChannelAtDiscord(guild: Guild, caller: string, fallback: LogText): Promise<string | null | undefined> {
   try {
     return (await guild.voiceStates.fetch("@me", { force: true, cache: false })).channelId;
   } catch (error) {
     if (codeOf(error) === RESTJSONErrorCodes.UnknownVoiceState) return null;
-    log.warn(`봇 음성 상태 REST 조회 실패(${fallback}): ${guild.name} (${guild.id}) | 호출=${caller} | ${describeError(error)}`);
+    log.warn(L.voice.botVoiceStateFetchFailed({ fallback, guild: guild.name, guildId: guild.id, caller, error: describeError(error) }));
     return undefined;
   }
 }

@@ -14,10 +14,11 @@ import { entryOfJump } from "../../ui/custom-ids.ts";
 import { LIFETIME, keepSelf, noticeInstead, noticeSelf, postNew, stopExpiry, unlessGone, updateSelf } from "../../ui/delivery.ts";
 import { post } from "../../ui/frame.ts";
 import { DO_PREFIX, EDIT_PREFIX, GOTO_PREFIX, PAGE_INPUT, PAGE_PREFIX, PICK_PREFIX, actionOf, gotoOf, pageModal, pageOf, pageOfEntry, pagesOf, pickOf, queueInfoOf, typedPage, type Mode } from "../../ui/queue-view.ts";
-import * as errors from "../../ui/text/ko/errors.ts";
 import * as controls from "../../usecases/controls.ts";
 import { queueScreen } from "../commands/queue.ts";
 import { route, type Route } from "./route.ts";
+import { privateText, publicText } from "../../ui/language.ts";
+import { L } from "../../infra/log/text.ts";
 
 const log = logger.child({ category: "events" });
 
@@ -42,11 +43,11 @@ function turnOf(messageId: string) {
 async function playerFor(interaction: Surface, { players }: BotContext): Promise<Player | null> {
   const player = players.get(interaction.guild.id);
   if (!player || player.queue.length === 0) {
-    await noticeInstead(interaction, player ? errors.notice("queue-empty") : errors.notice("no-song"));
+    await noticeInstead(interaction, player ? privateText(interaction).errors.notice("queue-empty") : privateText(interaction).errors.notice("no-song"));
     return null;
   }
   if (!interaction.message.flags.has(MessageFlags.IsComponentsV2)) {
-    await noticeSelf(interaction, errors.notice("unknown-interaction"));
+    await noticeSelf(interaction, privateText(interaction).errors.notice("unknown-interaction"));
     return null;
   }
   return player;
@@ -55,14 +56,14 @@ async function playerFor(interaction: Surface, { players }: BotContext): Promise
 /** 지난 재생의 화면이면 알리고 true(같은 대기열 ID가 다른 곡일 수 있다) */
 async function staleSession(interaction: Surface, player: Player, session: string) {
   if (!player.sessionId || session === player.sessionId) return false;
-  await noticeSelf(interaction, errors.notice("stale-session"));
+  await noticeSelf(interaction, privateText(interaction).errors.notice("stale-session"));
   return true;
 }
 
 /** 편집 화면으로 바로 고친다(붙어 있던 모자이크를 뗀다). picked는 고른 채로 둘 곡, without은 뺄 곡 */
 async function showEdit(interaction: Surface, player: Player, page: number, { picked = null, without = null }: { picked?: number | null; without?: number | null } = {}) {
   turnOf(interaction.message.id).end();
-  const { view } = await queueScreen(player, interaction.member, { mode: "edit", page, picked }, { without });
+  const { view } = await queueScreen(privateText(interaction), player, interaction.member, { mode: "edit", page, picked }, { without });
   await updateSelf(interaction, { ...post(view), attachments: [] }, LIFETIME.screen);
 }
 
@@ -70,7 +71,7 @@ async function showEdit(interaction: Surface, player: Player, page: number, { pi
 async function showBrowse(interaction: Surface, player: Player, page: number) {
   const turn = turnOf(interaction.message.id);
   await interaction.deferUpdate();
-  const { view, files } = await queueScreen(player, interaction.member, { mode: "browse", page });
+  const { view, files } = await queueScreen(privateText(interaction), player, interaction.member, { mode: "browse", page });
   if (!turn.current()) return;
   turn.end();
   await interaction.editReply({ ...post(view, files), attachments: [] });
@@ -109,11 +110,11 @@ async function act(player: Player, interaction: ButtonInteraction<"cached">, act
   const actor = { member: interaction.member };
   if (action === "play") {
     const r = await controls.jump(player, actor, entry);
-    return r.ok ? { notice: replies.jumped(r.track), keep: null, without: entry } : r;
+    return r.ok ? { notice: replies.jumped(publicText(interaction.guildId), r.track), keep: null, without: entry } : r;
   }
   if (action === "remove") {
     const r = await controls.removeEntries(player, actor, [entry]);
-    return r.ok ? { notice: replies.removed(r.removed.length, r.left, interaction.member), keep: null, without: null } : r;
+    return r.ok ? { notice: replies.removed(publicText(interaction.guildId), r.removed.length, r.left, interaction.member), keep: null, without: null } : r;
   }
   const plan = movePlan(
     player.queue.flatMap((track) => (track.entry === undefined ? [] : [track.entry])),
@@ -124,7 +125,7 @@ async function act(player: Player, interaction: ButtonInteraction<"cached">, act
   if (plan === "gone") return { ok: false as const, code: "entry-gone" as const };
   const r = await controls.moveEntry(player, actor, entry, plan.before);
   // 사람은 1부터 센다
-  return r.ok ? { notice: replies.moved(r.track, r.from + 1, r.to + 1, interaction.member), keep: entry, without: null } : r;
+  return r.ok ? { notice: replies.moved(publicText(interaction.guildId), r.track, r.from + 1, r.to + 1, interaction.member), keep: entry, without: null } : r;
 }
 
 // 곡 버튼. 끝나면 고친 곡이 있는 페이지를 그 곡을 고른 채로(지금 재생, 삭제는 고르지 않은 채로) 그리고, 결과를 모두에게 알린다.
@@ -133,19 +134,19 @@ async function handleAction(interaction: ButtonInteraction<"cached">, bot: BotCo
   const player = await playerFor(interaction, bot);
   const parsed = actionOf(interaction.customId);
   if (!player || !parsed || (await staleSession(interaction, player, parsed.session))) return;
-  if (!isEditAction(parsed.action)) return noticeSelf(interaction, errors.notice("unknown-interaction"));
+  if (!isEditAction(parsed.action)) return noticeSelf(interaction, privateText(interaction).errors.notice("unknown-interaction"));
   const pageOfNow = (entry: number) => pageOfEntry(queueInfoOf(player), entry) ?? parsed.page;
   const result = await act(player, interaction, parsed.action, parsed.entry);
   if (result === "stay") return showEdit(interaction, player, pageOfNow(parsed.entry), { picked: parsed.entry });
   if ("ok" in result) {
-    if (result.code !== "entry-gone") return noticeSelf(interaction, controlMessage(result));
+    if (result.code !== "entry-gone") return noticeSelf(interaction, controlMessage(privateText(interaction), result));
     await showEdit(interaction, player, parsed.page);
-    return noticeSelf(interaction, errors.notice("entry-gone"));
+    return noticeSelf(interaction, privateText(interaction).errors.notice("entry-gone"));
   }
   if (queueInfoOf(player, { without: result.without }).queue.length === 0) {
     stopExpiry(interaction.message.id);
     await interaction.deferUpdate();
-    await interaction.deleteReply().catch(unlessGone(log, "빈 대기열 화면 삭제"));
+    await interaction.deleteReply().catch(unlessGone(log, L.events.emptyQueueDelete()));
   } else {
     await showEdit(interaction, player, result.keep === null ? parsed.page : pageOfNow(result.keep), { picked: result.keep, without: result.without });
   }
@@ -157,8 +158,8 @@ async function handleGotoButton(interaction: ButtonInteraction<"cached">, bot: B
   const player = await playerFor(interaction, bot);
   const goto = gotoOf(interaction.customId);
   if (!player) return;
-  if (!goto) return noticeSelf(interaction, errors.notice("unknown-interaction"));
-  await interaction.showModal(pageModal(goto.mode, goto.page, pagesOf(queueInfoOf(player))));
+  if (!goto) return noticeSelf(interaction, privateText(interaction).errors.notice("unknown-interaction"));
+  await interaction.showModal(pageModal(privateText(interaction), goto.mode, goto.page, pagesOf(queueInfoOf(player))));
 }
 
 // 페이지 이동 모달. 적은 페이지는 범위 안으로 붙이고, 숫자가 아니면 보던 페이지를 다시 그린다
@@ -167,7 +168,7 @@ async function handleGotoModal(interaction: ModalSubmitInteraction<"cached">, bo
   const player = await playerFor(interaction, bot);
   const goto = gotoOf(interaction.customId);
   if (!player) return;
-  if (!goto) return noticeSelf(interaction, errors.notice("unknown-interaction"));
+  if (!goto) return noticeSelf(interaction, privateText(interaction).errors.notice("unknown-interaction"));
   const typed = typedPage(interaction.fields.getTextInputValue(PAGE_INPUT));
   await show(interaction, player, goto.mode, typed ?? goto.page);
 }

@@ -1,6 +1,7 @@
 // src/app/command-loader.ts: 커맨드 로드 + 배포(등록 요청은 가짜를 넘겨 실제로 배포하지 않는다).
 // 배포 해시는 임시 파일에 써서 운영 database/deployed-commands.json을 건드리지 않는다.
 
+import { rule } from "../../src/rules/rule-problem.ts";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -10,6 +11,7 @@ import type { RESTPostAPIApplicationCommandsJSONBody, RESTPutAPIApplicationComma
 import type { GetCommands, PutCommands } from "../../src/app/command-loader.ts";
 import { codeOf } from "../../src/rules/error-kind.ts";
 import { fake } from "../helpers/fake.ts";
+import { asText } from "../../src/infra/log/log-text.ts";
 
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-cmdhash-"));
 let hashSeq = 0;
@@ -37,19 +39,21 @@ const { tunablesChanged } = await import("../../src/config/tunables-changed.ts")
 const { COMMANDS } = await import("../../src/discord/commands/index.ts");
 const commands: RESTPostAPIApplicationCommandsJSONBody[] = definitions();
 const config = (await import("../../src/config/index.ts")).default;
+// 배포 경로의 앱 ID. 기동은 봇 토큰으로 읽어 넣는다(app/app-info)
+(await import("../../src/infra/app-id.ts")).useAppId("123456789012345678");
 
 test("봇 전체에서 SponsorBlock을 껐으면 /highlight를 등록하지도 실행 목록에 올리지도 않는다. /setting은 늘 있다(그리는 화면에서 그 부분이 빠진다)", async () => {
   const { withConfig } = await import("../helpers/config.ts");
   const names = () => definitions().map((c) => c.name);
   assert.deepEqual(
-    withConfig({ sponsorblock: { enabled: false } }, () => enabledCommands().map((c) => c.data.name)),
+    withConfig({ sponsorblock: { enabled: false } }, () => enabledCommands().map((c) => c.name)),
     withConfig({ sponsorblock: { enabled: false } }, names),
     "배포하는 것과 실행 목록이 같은 집합",
   );
   assert.ok(withConfig({ sponsorblock: { enabled: true } }, names).includes("highlight"));
   const off = withConfig({ sponsorblock: { enabled: false } }, names);
   assert.ok(!off.includes("highlight") && off.includes("setting"));
-  assert.equal(off.length, COMMANDS.length - 1, "다른 명령은 그대로");
+  assert.equal(off.length, withConfig({ sponsorblock: { enabled: true } }, names).length - 1, "다른 명령은 그대로");
 });
 
 test("운영 설정값을 저장해 켜진 명령이 바뀌면 실행 목록을 다시 만들고 등록을 맞춘다. 바뀌지 않은 저장에는 아무것도 하지 않는다", async () => {
@@ -75,6 +79,25 @@ test("운영 설정값을 저장해 켜진 명령이 바뀌면 실행 목록을 
   }
 });
 
+test("이름이 같아도 배포할 정의의 문구가 바뀌면(봇 기본 언어를 바꿨을 때) 다시 등록한다", () => {
+  const calls: string[] = [];
+  let text = "한 언어";
+  const off = followEnabledCommands(
+    () => calls.push("load"),
+    () => calls.push("deploy"),
+    () => [{ name: "play", description: text }],
+  );
+  try {
+    tunablesChanged();
+    assert.deepEqual(calls, []);
+    text = "다른 언어";
+    tunablesChanged();
+    assert.deepEqual(calls, ["load", "deploy"]);
+  } finally {
+    off();
+  }
+});
+
 test("명령 목록의 명령 전부가 유효한 정의(name/description)다", () => {
   assert.ok(commands.length > 0);
   for (const c of commands) {
@@ -84,28 +107,12 @@ test("명령 목록의 명령 전부가 유효한 정의(name/description)다", 
   }
 });
 
-// 설명, 선택지 이름은 한국어 하나만 둔다(영어 기본값을 따로 두면 고칠 때 한쪽만 고친다). 명령, 옵션 이름은 코드가 쓰는 식별자라 영어에 한국어 이름을 붙인다
-test("명령, 옵션 설명과 선택지 이름은 한국어이고(설명은 디스코드 상한 100자 안), 옵션 이름에는 한국어 이름이 있다", () => {
-  type Node = { name: string; description?: string; name_localizations?: Record<string, string> | null; options?: Node[]; choices?: Node[] };
-  const HANGUL = /[가-힣]/;
-  const missing: string[] = [];
-  const visit = (n: Node, at: string) => {
-    if (!HANGUL.test(n.description ?? "") || (n.description ?? "").length > 100) missing.push(`${at} 설명`);
-    for (const o of n.options ?? []) {
-      if (!o.name_localizations?.ko) missing.push(`${at} ${o.name} 이름`);
-      visit(o, `${at} ${o.name}`);
-    }
-    for (const c of n.choices ?? []) if (!HANGUL.test(c.name)) missing.push(`${at}=${c.name}`);
-  };
-  for (const c of commands) visit(fake<Node>(c), `/${c.name}`);
-  assert.deepEqual(missing, []);
-});
-
-test("등록용 목록과 배포용 정의가 같은 집합이다", () => {
+test("배포용 정의는 켜진 명령이다(언어가 하나뿐이면 /language는 꺼진다)", () => {
   assert.deepEqual(
     commands.map((c) => c.name),
-    COMMANDS.map((c) => c.data.name),
+    COMMANDS.filter((c) => c.enabled?.() ?? true).map((c) => c.name),
   );
+  assert.ok(!commands.some((c) => c.name === "language"));
 });
 
 test("커맨드 이름 중복 없음 (중복은 Discord 등록 시 덮어씀)", () => {
@@ -183,12 +190,78 @@ test("deployCommands: 등록한 명령의 id로 멘션을 만든다. 등록을 �
   assert.equal(commandMention("없는명령"), "`/없는명령`");
 });
 
-test("deployErrorLines: 50001은 초대 스코프 힌트 포함, 일반 오류는 1줄", () => {
-  const hinted = deployErrorLines({ scope: "guild", error: Object.assign(new Error("Missing Access"), { code: 50001 }) });
-  assert.equal(hinted.length, 3);
-  assert.ok(hinted[1].includes("applications.commands"));
+test("배포 실패의 원인 안내: 서버 배포의 50001은 GUILD_ID, 그 외(전역 50001, 50035, 앱 오류)는 붙이지 않는다", async () => {
+  const { withConfig } = await import("../helpers/config.ts");
+  const failWith = (code: number) => deployCommands({ hashPath: freshHashPath(), force: true, put: async () => Promise.reject(Object.assign(new Error(`거절 ${code}`), { code })), get });
+  const hintOf = async (code: number, guildId: string | null) => {
+    const r = await withConfig({ discord: { guildId } }, () => failWith(code));
+    assert.ok(!r.ok);
+    return r.hint;
+  };
+  assert.deepEqual(await hintOf(50001, "112233445566778899"), rule("deploy-guild-missing", { guildId: "112233445566778899" }));
+  assert.equal(await hintOf(20012, null), null, "앱 ID는 토큰에서 읽어 틀릴 수 없다");
+  assert.equal(await hintOf(50001, null), null, "전역 50001은 원인을 짐작할 근거가 없다");
+  assert.equal(await hintOf(50035, "112233445566778899"), null, "형식 검사를 지난 뒤의 50035는 명령 정의 쪽이다");
 
-  const plain = deployErrorLines({ scope: "global", error: new Error("boom") });
-  assert.equal(plain.length, 1);
-  assert.ok(plain[0].includes("boom"));
+  assert.deepEqual(deployErrorLines({ scope: "guild", error: new Error("Missing Access"), hint: rule("deploy-guild-missing", { guildId: "1" }) }).map(asText), ["명령어 배포 실패(guild): Missing Access", "GUILD_ID 서버(1)에 봇이 없음. .env의 GUILD_ID가 맞는지, 봇이 서버에서 나가지 않았는지 확인하세요"]);
+  assert.deepEqual(deployErrorLines({ scope: "global", error: new Error("boom"), hint: null }).map(asText), ["명령어 배포 실패(global): boom"]);
 });
+
+test("등록 대상이 서버에서 전역(또는 다른 서버)으로 바뀌면 옛 서버의 명령을 비운다", async () => {
+  const { withConfig } = await import("../helpers/config.ts");
+  const hashPath = freshHashPath();
+  const OLD = "112233445566778899";
+  await withConfig({ discord: { guildId: OLD } }, () => deployCommands({ hashPath, put, get }));
+  assert.equal(JSON.parse(fs.readFileSync(hashPath, "utf8")).guildId, OLD, "등록 대상을 해시와 같이 적는다");
+
+  putCalls = [];
+  const r = await withConfig({ discord: { guildId: null } }, () => deployCommands({ hashPath, put, get }));
+  assert.ok(r.ok && !r.skipped);
+  assert.deepEqual(
+    putCalls.map((one) => [one.route, one.body.length]),
+    [
+      ["/applications/123456789012345678/commands", commands.length],
+      [`/applications/123456789012345678/guilds/${OLD}/commands`, 0],
+    ],
+  );
+  assert.equal(JSON.parse(fs.readFileSync(hashPath, "utf8")).guildId, null);
+
+  putCalls = [];
+  await withConfig({ discord: { guildId: null } }, () => deployCommands({ hashPath, force: true, put, get }));
+  assert.equal(putCalls.length, 1, "대상이 같으면 비우지 않는다");
+});
+
+test("대상을 적기 전의 해시 파일은 지문이 같은 기동에서 지금 대상을 채운다", async () => {
+  const { withConfig } = await import("../helpers/config.ts");
+  const hashPath = freshHashPath();
+  await withConfig({ discord: { guildId: "112233445566778899" } }, () => deployCommands({ hashPath, put, get }));
+  const { fingerprint } = JSON.parse(fs.readFileSync(hashPath, "utf8"));
+  fs.writeFileSync(hashPath, JSON.stringify({ fingerprint }));
+
+  putCalls = [];
+  const r = await withConfig({ discord: { guildId: "112233445566778899" } }, () => deployCommands({ hashPath, put, get }));
+  assert.ok(r.ok && r.skipped);
+  assert.equal(putCalls.length, 0);
+  assert.equal(JSON.parse(fs.readFileSync(hashPath, "utf8")).guildId, "112233445566778899");
+});
+
+test("서버에 등록할 때 남은 전역 명령은 지우지 않고 알린다(다른 서버가 그것으로 돈다)", async () => {
+  const { withConfig } = await import("../helpers/config.ts");
+  const sink = (await import("../../src/infra/log/sink.ts")).default;
+  const from = sink.buffer.length;
+  putCalls = [];
+  await withConfig({ discord: { guildId: "112233445566778899" } }, () => deployCommands({ hashPath: freshHashPath(), put, get }));
+  assert.equal(putCalls.length, 1, "전역은 비우지 않는다");
+  assert.ok(sink.buffer.slice(from).some((e) => e.level === "warn" && e.text.includes("--clear-global")));
+});
+
+test("clearCommands: 빈 목록으로 등록해 비우고, 실패는 던지지 않고 돌려준다", async () => {
+  const { clearCommands } = await import("../../src/app/command-loader.ts");
+  putCalls = [];
+  assert.deepEqual(await clearCommands(null, put), { ok: true });
+  assert.deepEqual(putCalls, [{ route: "/applications/123456789012345678/commands", body: [] }]);
+  const failed = await clearCommands("112233445566778899", async () => Promise.reject(new Error("Missing Access")));
+  assert.ok(!failed.ok && messageOfError(failed.error) === "Missing Access");
+});
+
+const messageOfError = (error: unknown) => (error instanceof Error ? error.message : String(error));

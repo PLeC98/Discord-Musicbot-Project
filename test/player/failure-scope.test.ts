@@ -7,8 +7,9 @@ import path from "node:path";
 import { failureScope, servedDirectly, TRACK, ENVIRONMENT, UNKNOWN } from "../../src/player/failure-scope.ts";
 import { codedError } from "../../src/rules/error-kind.ts";
 import { SsrfError } from "../../src/infra/safe-url.ts";
+import { testText } from "../helpers/log-text.ts";
 
-const coded = (code: string, extra: object = {}) => Object.assign(codedError(code, code), extra);
+const coded = (code: string, extra: object = {}) => Object.assign(codedError(code, testText(code)), extra);
 
 test("이름: 곡의 성질, 그 곡에만 걸리는 설정은 곡 탓, 다음 곡도 막히는 것은 환경 탓, 근거 없는 것은 모름", () => {
   for (const code of ["unavailable-contents", "sc-preview-only", "geo-blocked", "age-content-off", "age-channel-only", "yt-age-no-cookies", "yt-age-cookies-invalid", "sp-no-youtube-match", "unsupported-link", "shoutcast-v1", "pinned-live"]) {
@@ -50,19 +51,19 @@ test("스트림의 HTTP 상태: 없어졌으면(404, 410) 곡 탓, 막혔으면(
 
 test("직접 링크: 없어졌으면 곡 탓, 그 밖의 상태, 연결 실패는 모름(링크마다 서버가 다르다). ffmpeg 같은 봇 쪽은 그대로 환경 탓", () => {
   const direct = { direct: true };
-  assert.equal(failureScope(coded("direct-unavailable", { cause: new Error("요청 실패: HTTP 404") }), direct), "track");
-  assert.equal(failureScope(coded("direct-unavailable", { cause: new Error("요청 실패: HTTP 403") }), direct), "unknown", "핫링크 차단, 만료된 서명 주소");
+  assert.equal(failureScope(coded("direct-unavailable", { cause: Object.assign(new Error("요청 실패: HTTP 404"), { status: 404 }) }), direct), "track");
+  assert.equal(failureScope(coded("direct-unavailable", { cause: Object.assign(new Error("요청 실패: HTTP 403"), { status: 403 }) }), direct), "unknown", "핫링크 차단, 만료된 서명 주소");
   assert.equal(failureScope(Object.assign(new Error("HTTP 403"), { status: 403 }), direct), "unknown");
   assert.equal(failureScope(coded("direct-unavailable", { cause: coded("ECONNREFUSED") }), direct), "unknown");
   assert.equal(failureScope(coded("network-error"), direct), "unknown");
   assert.equal(failureScope(coded("encoder-unavailable"), direct), "environment");
   assert.equal(failureScope(coded("stream-failed", { scope: "environment" }), direct), "environment");
-  assert.equal(failureScope(coded("direct-unavailable", { cause: new SsrfError("내부 주소") }), direct), "track", "안전하지 않은 주소");
+  assert.equal(failureScope(coded("direct-unavailable", { cause: new SsrfError(testText("내부 주소")) }), direct), "track", "안전하지 않은 주소");
 });
 
 test("죽은 음원 판정(deadSourceCode)과 어긋나지 않는다: 그것이 사라졌다고 보면 곡 탓", () => {
   assert.equal(failureScope(new Error("ERROR: [youtube] abc: Video unavailable. This video has been removed by the uploader")), "track");
-  assert.equal(failureScope(coded("direct-unavailable", { cause: new Error("요청 실패: HTTP 410") })), "track");
+  assert.equal(failureScope(coded("direct-unavailable", { cause: Object.assign(new Error("요청 실패: HTTP 410"), { status: 410 }) })), "track");
 });
 
 // 재생 쪽에서 만드는 이름이 빠짐없이 어느 표에 있는가. 새 이름을 만들면 구분을 정하게 한다(표에 없으면 모름으로 떨어진다)

@@ -4,11 +4,13 @@
 
 import config from "../config/index.ts";
 import { httpFor } from "../infra/http.ts";
+import { rule } from "../rules/rule-problem.ts";
+import { ruleError } from "../rules/text/index.ts";
 
 const TIMEOUT_MS = 15_000;
 const github = httpFor("github");
 
-/** repo: "소유자/이름". 저장소나 릴리스가 없으면(넘겨주는 주소에 태그가 없으면) 예외를 던진다 */
+/** repo: "소유자/이름". 저장소나 릴리스가 없으면(넘겨주는 주소에 태그가 없으면) 예외를 던진다. 예외는 업데이트 탭의 카드까지 가서 규칙 문제를 싣는다 */
 async function latestReleaseTag(repo: string) {
   const res = await github.fetch(`https://github.com/${repo}/releases/latest`, {
     redirect: "manual",
@@ -17,9 +19,9 @@ async function latestReleaseTag(repo: string) {
   });
   await res.body?.cancel();
   const location = res.headers.get("location") ?? "";
-  if (res.status < 300 || res.status >= 400) throw new Error(`GitHub 최신 릴리스 조회 ${res.status} (${repo})`);
+  if (res.status < 300 || res.status >= 400) throw ruleError(rule("github-release-status", { status: res.status, repo }));
   const tag = /\/releases\/tag\/([^/?#]+)$/.exec(location)?.[1];
-  if (!tag) throw new Error(`GitHub 릴리스에 태그가 없음 (${repo})`);
+  if (!tag) throw ruleError(rule("github-release-no-tag", { repo }));
   return decodeURIComponent(tag);
 }
 

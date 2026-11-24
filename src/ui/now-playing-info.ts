@@ -3,7 +3,7 @@
 
 import { ContainerBuilder, SectionBuilder, SeparatorBuilder, SeparatorSpacingSize, TextDisplayBuilder, ThumbnailBuilder, resolveColor } from "discord.js";
 import * as genreConfig from "../config/genres.ts";
-import { labelOf } from "../rules/platforms.ts";
+import { platformName } from "../rules/platforms.ts";
 import { colorOf } from "./colors.ts";
 import * as discordArt from "./discord-art.ts";
 import { formatDuration } from "./format.ts";
@@ -11,11 +11,10 @@ import { knownTotal } from "../rules/duration-shown.ts";
 import { escapeMd, linkLabel } from "./mentions.ts";
 import { playbackStatus } from "./player-status.ts";
 import { progressBar } from "./progress-bar.ts";
-import * as infoText from "./text/ko/info.ts";
-import * as panelText from "./text/ko/panel.ts";
+import { playingLengthSec } from "../player/current-playback.ts";
+import type { BotText } from "./text/index.ts";
 import type { Player } from "../player/player.ts";
 import type { QueuedTrack } from "../player/track.ts";
-import { songTitle } from "./text/ko/labels.ts";
 import type { DiscordArt } from "./discord-art.ts";
 
 const divider = () => new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small);
@@ -23,45 +22,46 @@ const divider = () => new SeparatorBuilder().setDivider(true).setSpacing(Separat
 /** 음원 주소가 어느 곳의 것인지(링크 이름). 모르면 주소의 호스트 */
 function audioHost(url: string) {
   const host = new URL(url).hostname.replace(/^www\.|^m\./, "");
-  if (/(^|\.)youtube\.com$|^youtu\.be$/.test(host)) return labelOf("youtube");
-  if (/(^|\.)soundcloud\.com$/.test(host)) return labelOf("soundcloud");
+  if (/(^|\.)youtube\.com$|^youtu\.be$/.test(host)) return platformName("youtube");
+  if (/(^|\.)soundcloud\.com$/.test(host)) return platformName("soundcloud");
   return host;
 }
 
 /** 이 곡: 상태(멈춘 원인 포함), 요청, 출처, 음원(요청 그대로가 아닐 때) */
-function aboutTrack(player: Player, track: QueuedTrack) {
-  const T = infoText.nowPlaying();
+function aboutTrack(T: BotText, player: Player, track: QueuedTrack) {
+  const N = T.info.nowPlaying();
   const held = player.pause?.heldBy;
-  const status = [infoText.nowPlayingStatus(playbackStatus(player)), held ? panelText.pausedStatus(held) : null].filter(Boolean).join(" • ");
+  const status = [T.info.nowPlayingStatus(playbackStatus(player)), held ? T.panel.pausedStatus(held) : null].filter(Boolean).join(" • ");
   const platform = String(track.platform || "").toLowerCase();
-  const requester = track.autoplay ? T.autoplayPick : track.requestedBy?.id ? `<@${track.requestedBy.id}>` : null;
+  const requester = track.autoplay ? N.autoplayPick : track.requestedBy?.id ? `<@${track.requestedBy.id}>` : null;
   const audioUrl = track.audioUrl;
-  const foundBy = audioUrl && track.audioFoundBy ? T.foundBy[track.audioFoundBy] : null;
-  return [T.line("stats", T.status, status), requester ? T.line("person", T.requester, requester) : null, T.line("web", T.source, labelOf(platform)), audioUrl && foundBy ? T.line("link", T.audio, `[${audioHost(audioUrl)}](${audioUrl}) · ${foundBy}`) : null].filter(Boolean);
+  // 요청 그대로(given)인 음원은 따로 적지 않는다
+  const foundBy = audioUrl && track.audioFoundBy && track.audioFoundBy !== "given" ? N.foundBy[track.audioFoundBy] : null;
+  return [N.line("stats", N.status, status), requester ? N.line("person", N.requester, requester) : null, N.line("web", N.source, T.labels.platform(platform)), audioUrl && foundBy ? N.line("link", N.audio, `[${audioHost(audioUrl)}](${audioUrl}) · ${foundBy}`) : null].filter(Boolean);
 }
 
 /** 다음 곡. 대기열이 비면 자동재생이 고르는지, 아니면 없음 */
-function nextValue(player: Player) {
-  const T = infoText.nowPlaying();
+function nextValue(T: BotText, player: Player) {
+  const N = T.info.nowPlaying();
   const next = player.queue?.[0];
-  if (!next) return player.autoplay ? T.nextByAutoplay : T.nextNone;
-  return `[${linkLabel(songTitle(next.title))}](${next.pageUrl})${next.artist ? ` · ${escapeMd(next.artist)}` : ""}`;
+  if (!next) return player.autoplay ? N.nextByAutoplay : N.nextNone;
+  return `[${linkLabel(T.labels.songTitle(next.title))}](${next.pageUrl})${next.artist ? ` · ${escapeMd(next.artist)}` : ""}`;
 }
 
 /** 이어질 것: 다음 곡, 대기열(곡 수, 남은 길이), 자동재생(켜져 있을 때만) */
-function whatsNext(player: Player) {
-  const T = infoText.nowPlaying();
+function whatsNext(T: BotText, player: Player) {
+  const N = T.info.nowPlaying();
   const queue = player.queue ?? [];
   const { seconds, partial } = knownTotal(queue);
-  return [T.line("next", T.next, nextValue(player)), queue.length ? T.line("queue", T.queue, T.queued(queue.length, formatDuration(seconds, "") || null, partial)) : null, player.autoplay ? T.line("autoplay", T.autoplay, T.autoplayOn(genreConfig.labelOf(player.autoplay))) : null].filter(Boolean);
+  return [N.line("next", N.next, nextValue(T, player)), queue.length ? N.line("queue", N.queue, N.queued(queue.length, formatDuration(seconds, "") || null, partial)) : null, player.autoplay ? N.line("autoplay", N.autoplay, N.autoplayOn(genreConfig.labelOf(player.autoplay))) : null].filter(Boolean);
 }
 
-/** art: 붙일 썸네일(ui/discord-art의 artFor, 첨부면 호출부가 그 파일을 함께 보낸다). 주지 않으면 곡의 썸네일 주소 */
-function nowPlayingView(player: Player, track: QueuedTrack, art?: DiscordArt | null) {
-  const T = infoText.nowPlaying();
+/** T는 보는 사람의 문구표(ui/language). art: 붙일 썸네일(ui/discord-art의 artFor, 첨부면 호출부가 그 파일을 함께 보낸다). 주지 않으면 곡의 썸네일 주소 */
+function nowPlayingView(T: BotText, player: Player, track: QueuedTrack, art?: DiscordArt | null) {
+  const N = T.info.nowPlaying();
   // 제목은 링크 라벨이라 escapeMd가 아니라 linkLabel(ui/mentions)
-  const byline = [track.artist ? `${T.artist} ${escapeMd(track.artist)}` : null, track.album ? `${T.album} ${escapeMd(track.album)}` : null].filter(Boolean).join(" · ");
-  const head = [`### ${T.title}`, `**[${linkLabel(songTitle(track.title))}](${track.pageUrl})**`, byline ? `-# ${byline}` : null].filter(Boolean).join("\n");
+  const byline = [track.artist ? `${N.artist} ${escapeMd(track.artist)}` : null, track.album ? `${N.album} ${escapeMd(track.album)}` : null].filter(Boolean).join(" · ");
+  const head = [`### ${N.title}`, `**[${linkLabel(T.labels.songTitle(track.title))}](${track.pageUrl})**`, byline ? `-# ${byline}` : null].filter(Boolean).join("\n");
 
   const container = new ContainerBuilder().setAccentColor(resolveColor(colorOf("brand")));
   const text = new TextDisplayBuilder().setContent(head);
@@ -72,10 +72,10 @@ function nowPlayingView(player: Player, track: QueuedTrack, art?: DiscordArt | n
 
   // 길이를 모르는 곡(라이브 아님)은 진행을 뺀다
   const live = Boolean(player.isLive ?? track.isLive);
-  if (live || track.duration > 0) container.addTextDisplayComponents(new TextDisplayBuilder().setContent(progressBar(Math.floor(player.getCurrentTime() / 1000), track.duration || 0, { live })));
+  if (live || track.duration > 0) container.addTextDisplayComponents(new TextDisplayBuilder().setContent(progressBar(Math.floor(player.getCurrentTime() / 1000), track.duration || 0, { live, lengthSec: playingLengthSec(player, track) })));
 
-  container.addSeparatorComponents(divider()).addTextDisplayComponents(new TextDisplayBuilder().setContent(aboutTrack(player, track).join("\n")));
-  container.addSeparatorComponents(divider()).addTextDisplayComponents(new TextDisplayBuilder().setContent(whatsNext(player).join("\n")));
+  container.addSeparatorComponents(divider()).addTextDisplayComponents(new TextDisplayBuilder().setContent(aboutTrack(T, player, track).join("\n")));
+  container.addSeparatorComponents(divider()).addTextDisplayComponents(new TextDisplayBuilder().setContent(whatsNext(T, player).join("\n")));
   return container;
 }
 

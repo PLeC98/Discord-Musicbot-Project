@@ -9,6 +9,7 @@ import path from "path";
 import { PROJECT } from "../infra/project-paths.ts";
 import { codedError, messageOf } from "../rules/error-kind.ts";
 import { settingsDb } from "./settings-db.ts";
+import { L } from "../infra/log/text.ts";
 
 const MARKER = "reset.request";
 /** DB 폴더에서 남기는 것 */
@@ -54,7 +55,7 @@ function applyRequested(dirs: Dirs = REAL, remove: Remove = removeTree): boolean
     emptyDir(dirs.database, remove, KEEP);
     emptyDir(dirs.audioCache, remove);
   } catch (error) {
-    throw codedError("RESET_FAILED", `봇 전체 초기화 실패: ${messageOf(error)}. 그 파일을 연 프로그램을 닫고 다시 시작하면 이어서 삭제함`, { cause: error });
+    throw codedError("RESET_FAILED", L.core.fullResetFailed({ error: messageOf(error) }), { cause: error });
   }
   fs.rmSync(path.join(dirs.database, MARKER), { force: true });
   return true;

@@ -13,6 +13,8 @@ import { messageOf, codeOf, errorKind } from "../../src/rules/error-kind.ts";
 import { addFailureMessage, errorMessage } from "../../src/ui/error-messages.ts";
 import { useExec, type Exec, type YtDlpFlags } from "../../src/sources/ytdlp-spawn.ts";
 import { plainText } from "../helpers/notice.ts";
+import { textFor } from "../../src/ui/text/index.ts";
+const KO = textFor("ko");
 
 // yt-dlp가 줄 것. 실패면 fail에 stderr
 type Reply = ({ fail?: string } & Record<string, unknown>) | null;
@@ -88,7 +90,7 @@ test("곡 찾기: 미리듣기만 열린 곡은 틀지 않고 원인을 알린�
   const r = await findTracks("https://soundcloud.com/artist/preview");
   assert.equal(r.success, false);
   assert.equal(errorKind(r.error), "sc-preview-only");
-  assert.equal(r.success ? "" : plainText(addFailureMessage({ code: r.code, kind: errorKind(r.error) })), "미리듣기만 가능한 곡이라 틀 수 없어요.\n다른 곡을 재생하거나, 다른 플랫폼으로 시도해 주세요.");
+  assert.equal(r.success ? "" : plainText(addFailureMessage(KO, { code: r.code, kind: errorKind(r.error) })), "미리듣기만 가능한 곡이라 틀 수 없어요.\n다른 곡을 재생하거나, 다른 플랫폼으로 시도해 주세요.");
 });
 
 test("곡 찾기: 지역 제한은 그 원인을 알린다(결과 없음이 아니다)", async () => {
@@ -143,7 +145,7 @@ test("직접 링크 정보: 직접 링크가 아니면 빈 배열, 음원이 아
   headReply = () => ({ headers: { "content-type": "text/html" } });
   await assert.rejects(directSource.getInfo("https://files.test/a.mp3", info), (e: unknown) => codeOf(e) === "unsupported-link");
   // 사용자에게 가는 문장에는 막힌 주소가 없다(내부망 탐지 도구가 되지 않게)
-  const told = errorMessage(thrown);
+  const told = errorMessage(KO, thrown);
   assert.equal(plainText(told), "재생할 수 없는 링크예요!\n해당 링크가 오디오나 영상이 맞는지, 용량이 너무 크지는 않은지, 접속이 정상적으로 가능한지 확인해주세요.");
 });
 

@@ -9,6 +9,7 @@ import * as guildSettings from "../store/guild-settings.ts";
 import { messageOf } from "../rules/error-kind.ts";
 import type { Code } from "../rules/problems.ts";
 import { checkControl, type PermissionDenied } from "./permissions.ts";
+import { L } from "../infra/log/text.ts";
 
 type NormalizeRefusal = PermissionDenied | Extract<Code, "settings-save-failed">;
 /** on: 바꾼 뒤의 상태, already: 이미 그 상태였다 */
@@ -28,11 +29,11 @@ async function setNormalize({ guild, member }: { guild: Guild; member: GuildMemb
   try {
     changed = await guildSettings.setNormalize(guild.id, on);
   } catch (error) {
-    log.error(`볼륨 정규화 설정 저장 실패: ${guild.name} (${guild.id}) | ${messageOf(error)}`);
+    log.error(L.control.normalizeSaveFailed({ name: guild.name, id: guild.id, error: messageOf(error) }));
     return { ok: false, code: "settings-save-failed" };
   }
   if (!changed.includes("normalize")) return { ok: true, on, already: true };
-  log.info(`볼륨 정규화 ${on ? "켬" : "끔"}: ${guild.name} | 실행 ${member.user.tag}`);
+  log.info(L.control.normalizeChanged({ on, guild: guild.name, tag: member.user.tag }));
   return { ok: true, on, already: false };
 }
 

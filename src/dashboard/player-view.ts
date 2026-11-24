@@ -9,8 +9,8 @@ import type { Song } from "../usecases/song-search.ts";
 import type { Player } from "../player/player.ts";
 import type { QueuedTrack } from "../player/track.ts";
 import * as trackState from "../player/track-state.ts";
+import { playingLengthSec } from "../player/current-playback.ts";
 // 라벨은 재생 패널과 같은 표에서 나온다. 화면이 따로 들지 않게 서버가 실어 보낸다
-import { labelOf } from "../rules/platforms.ts";
 import * as genreConfig from "../config/genres.ts";
 import { playbackStatus, soundAttached } from "../ui/player-status.ts";
 
@@ -37,7 +37,6 @@ function queueTrack(guildId: string | undefined, t: QueuedTrack, i: number): Que
     upcoming: t.liveStatus === "is_upcoming",
     thumbnail: trackArtUrl(guildId, t),
     platform: t.platform,
-    platformLabel: labelOf(t.platform),
     autoplay: Boolean(t.autoplay), // 자동재생이 미리 선택해 둔 곡. 화면에서 사용자 곡과 구분한다
     requestedBy: t.requestedBy ? { id: t.requestedBy.id } : null,
   };
@@ -94,10 +93,10 @@ function playingView(player: Player, track: QueuedTrack): PlayingView {
     title: track.title,
     artist: track.artist,
     duration: track.duration,
+    length: playingLengthSec(player, track),
     thumbnail: trackArtUrl(player.guild?.id, track),
     url: track.pageUrl,
     platform: track.platform,
-    platformLabel: labelOf(track.platform),
     isLive: Boolean(player.isLive),
     currentTime: Math.floor((player.getCurrentTime?.() || 0) / 1000),
     requestedBy: track.requestedBy ? { id: track.requestedBy.id } : null,

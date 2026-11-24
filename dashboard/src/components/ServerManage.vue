@@ -45,7 +45,7 @@
               <!-- eslint-disable-next-line vue/no-v-html -- 글은 이스케이프하고 만든 태그만 넣는다 -->
               <div v-if="body" class="dmd mt-1 text-sm text-on-surface wrap-break-word" @click="revealSpoiler" v-html="rendered"></div>
               <p v-else class="mt-1 text-sm text-on-surface-variant">{{ T.announce.previewEmpty }}</p>
-              <p class="mt-2 text-xs text-on-surface-variant nums">{{ T.announce.previewFooter(sentAt) }}</p>
+              <p class="mt-2 text-xs text-on-surface-variant nums">{{ T.announce.previewFooter(announceText.footer, sentAt) }}</p>
             </div>
           </div>
         </div>
@@ -135,10 +135,10 @@ import { segment } from "../utils/segment.ts";
 import { ANNOUNCE_MAX, ANNOUNCE_STYLE, Q_MAX, announceBody, type AdminGuild, type AdminGuilds, type AnnounceKind, type BroadcastReply, type GuildQuery, type GuildSort, type Span } from "../../../src/dashboard/contract/admin.ts";
 import type { IconName } from "../icons.ts";
 import { ICONS } from "../../../src/ui/icons.ts";
-import * as announceText from "../../../src/ui/text/ko/announce.ts";
 import { iconTones } from "../../../src/rules/icon-tones.ts";
 import { formatNumber, formatTime } from "../utils/locale.ts";
 import { text } from "../text/index.ts";
+const announceText = text.bot.announce;
 const F = text.fields.format;
 const T = text.manage;
 
@@ -186,13 +186,13 @@ function revealSpoiler(e: MouseEvent) {
 // 서식 도구. 단축키는 디스코드와 같다(굵게 Ctrl+B, 기울임 Ctrl+I, 밑줄 Ctrl+U, 링크 Ctrl+K)
 type Run = (text: string, start: number, end: number) => Edit;
 const tool = (icon: IconName, label: string, run: Run, key?: string) => ({ icon, label, tip: key ? `${label} (${key})` : label, run });
-const FORMAT_GROUPS = [
+const FORMAT_GROUPS = computed(() => [
   [tool("format_bold", F.bold, (t, a, b) => wrap(t, a, b, "**"), "Ctrl+B"), tool("format_italic", F.italic, (t, a, b) => wrap(t, a, b, "*"), "Ctrl+I"), tool("format_underlined", F.underline, (t, a, b) => wrap(t, a, b, "__"), "Ctrl+U"), tool("format_strikethrough", F.strike, (t, a, b) => wrap(t, a, b, "~~")), tool("visibility_off", F.spoiler, (t, a, b) => wrap(t, a, b, "||"))],
   [tool("format_h1", F.h1, (t, a, b) => linePrefix(t, a, b, "# ")), tool("format_h2", F.h2, (t, a, b) => linePrefix(t, a, b, "## ")), tool("format_h3", F.h3, (t, a, b) => linePrefix(t, a, b, "### ")), tool("text_decrease", F.small, (t, a, b) => linePrefix(t, a, b, "-# "))],
   [tool("format_quote", F.quote, (t, a, b) => linePrefix(t, a, b, "> ")), tool("format_list_bulleted", F.list, (t, a, b) => linePrefix(t, a, b, "- ")), tool("format_list_numbered", F.numbered, (t, a, b) => linePrefix(t, a, b, "", true))],
   [tool("code", F.code, (t, a, b) => wrap(t, a, b, "`")), tool("code_blocks", F.codeBlock, codeBlock), tool("link", F.link, link, "Ctrl+K"), tool("schedule", F.timestamp, timestampTag)],
-];
-const SHORTCUT: Record<string, Run> = { b: FORMAT_GROUPS[0][0].run, i: FORMAT_GROUPS[0][1].run, u: FORMAT_GROUPS[0][2].run, k: link };
+]);
+const SHORTCUT: Record<string, Run> = { b: FORMAT_GROUPS.value[0][0].run, i: FORMAT_GROUPS.value[0][1].run, u: FORMAT_GROUPS.value[0][2].run, k: link };
 function format(run: Run) {
   const el = box.value;
   if (!el) return;
@@ -272,14 +272,14 @@ function setList(patch: Partial<Omit<GuildQuery, "guilds">>) {
 const term = ref(query.value.q);
 watchDebounced(term, (q) => setList({ q: q.slice(0, Q_MAX) }), { debounce: 200 });
 // 정렬: 이름(기본), 이름 역순, 멤버 수(같으면 서버 ID)
-const SORTS: Array<{ value: GuildSort; label: string }> = [
+const SORTS = computed<Array<{ value: GuildSort; label: string }>>(() => [
   { value: "name", label: T.guilds.sorts.name },
   { value: "name-desc", label: T.guilds.sorts.nameDesc },
   { value: "members-desc", label: T.guilds.sorts.membersDesc },
   { value: "members-asc", label: T.guilds.sorts.membersAsc },
-];
+]);
 const viewOpen = ref(false);
-const viewSummary = computed(() => [SORTS.find((o) => o.value === query.value.sort)?.label, query.value.playing && T.guilds.playingOnlyShort].filter(Boolean).join(" · "));
+const viewSummary = computed(() => [SORTS.value.find((o) => o.value === query.value.sort)?.label, query.value.playing && T.guilds.playingOnlyShort].filter(Boolean).join(" · "));
 const listEl = ref<HTMLElement | null>(null);
 // 행 높이 56px(h-14)
 const ROW = 3.5 * rem(1);

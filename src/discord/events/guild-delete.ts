@@ -8,15 +8,16 @@ import { forgetGuild } from "../../store/state-db.ts";
 import * as staySeats from "../../store/stay-seats.ts";
 import * as panelRecords from "../../store/panel-records.ts";
 import type { ClientEvent } from "../../app/main.ts";
+import { L } from "../../infra/log/text.ts";
 
 const exported: ClientEvent<Events.GuildDelete> = {
   name: Events.GuildDelete,
   async execute({ players }, guild) {
     staySeats.clear(guild.id); // 버리기보다 먼저(끝 알림을 받은 자리 지킴이가 다시 붙지 않게). 다시 초대해도 저절로 들어오지 않는다
-    await players.get(guild.id)?.dispose({ reason: "서버에서 나감", session: "remove", end: "guild-gone" });
+    await players.get(guild.id)?.dispose({ reason: L.guild.disposeGuildLeft(), session: "remove", end: "guild-gone" });
     forgetGuild(guild.id, guild.channels.cache.keys());
     panelRecords.forget(guild.id);
-    log.info(`서버에서 나감: ${guild.name} (${guild.id}). 저장된 대기열, 패널 위치, 음성 채널 상태 삭제`);
+    log.info(L.guild.guildLeft({ name: guild.name, id: guild.id }));
   },
 };
 export default exported;

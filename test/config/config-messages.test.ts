@@ -1,6 +1,6 @@
 // src/config/schema: 설정 문서 검사 문구를 고정한다(zod 스키마).
 //
-// 문구는 무엇을 고쳐야 하는지까지 알려 주므로 한 글자도 바뀌면 안 된다. 입력마다 나오는 문구 목록을 순서까지 적었다.
+// 문구는 무엇을 고쳐야 하는지까지 알려 주므로 한 글자도 바뀌면 안 된다. 입력마다 나오는 문구 목록을 순서까지 적었다(검사는 규칙 문제를 내고, 여기서는 로그 언어로 그려 비교한다).
 // 여러 문제가 겹치면 필드 검사가 먼저, 교차 검사(이름, 필드끼리 비교)가 뒤에 나온다. 틀린 문서를 읽었을 때 어떻게 도는지는 아래 셋째 그룹.
 
 import { test, after } from "node:test";
@@ -13,6 +13,7 @@ import { promptProblems } from "../../src/config/schema/ai-prompt.ts";
 import { useDocument, useDefaultDocuments } from "../helpers/config-docs.ts";
 import sink from "../../src/infra/log/sink.ts";
 import { PROVIDERS } from "../../src/autoplay/assist/index.ts";
+import { logRuleLine } from "../../src/rules/text/index.ts";
 // 제공자가 늘어도 문구 표가 안 깨지게 목록에서 만든다
 
 // [이름, 입력, 지금 나오는 문구]
@@ -372,13 +373,13 @@ const PROMPTS: Array<[name: string, input: unknown, on: boolean, want: string[]]
 
 test("장르 검사: 장르가 25개를 넘는다(디스코드 선택 메뉴 한도)", () => {
   const genres = Object.fromEntries(Array.from({ length: 26 }, (_, i) => [`g${i}a`, { sources: [{ type: "keyword", keywords: ["x"] }] }]));
-  assert.deepEqual(genreConfig.validateGenres({ genres }), ["장르가 26개예요. 디스코드 선택 메뉴는 25개까지만 보여 줘요"]);
+  assert.deepEqual(genreConfig.validateGenres({ genres }).map(logRuleLine), ["장르가 26개예요. 디스코드 선택 메뉴는 25개까지만 보여 줘요"]);
 });
 
-for (const [name, input, want] of GENRES) test(`장르 검사: ${name}`, () => assert.deepEqual(genreConfig.validateGenres(input), want));
-for (const [name, input, want] of STATUSES) test(`상태 검사: ${name}`, () => assert.deepEqual(statusConfig.validateStatus(input), want));
-for (const [name, input, want] of AIS) test(`AI 검사: ${name}`, () => assert.deepEqual(aiConfig.validateAi(input), want));
-for (const [name, input, on, want] of PROMPTS) test(`프롬프트 검사: ${name}`, () => assert.deepEqual(promptProblems(input, on), want));
+for (const [name, input, want] of GENRES) test(`장르 검사: ${name}`, () => assert.deepEqual(genreConfig.validateGenres(input).map(logRuleLine), want));
+for (const [name, input, want] of STATUSES) test(`상태 검사: ${name}`, () => assert.deepEqual(statusConfig.validateStatus(input).map(logRuleLine), want));
+for (const [name, input, want] of AIS) test(`AI 검사: ${name}`, () => assert.deepEqual(aiConfig.validateAi(input).map(logRuleLine), want));
+for (const [name, input, on, want] of PROMPTS) test(`프롬프트 검사: ${name}`, () => assert.deepEqual(promptProblems(input, on).map(logRuleLine), want));
 
 // ── 틀린 문서를 읽으면: 기동을 멈추지 않고 알리고 그 기능만 끈다 ──────
 

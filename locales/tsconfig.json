@@ -1,0 +1,6 @@
+{
+  // 화면 문구(locales/<언어>/screen)의 편집기, ESLint용 설정. 화면 설정(dashboard/tsconfig.json)과 같고, 실제 타입 검사도 그쪽에서 한다.
+  // 봇 문구(bot)와 규칙 문장(rules)은 여기 포함되지 않아 루트 설정(tsconfig.json)에서 처리한다
+  "extends": "../dashboard/tsconfig.json",
+  "include": ["*/screen/**/*.ts"]
+}

@@ -17,6 +17,7 @@ import * as guildSettings from "../../src/store/guild-settings.ts";
 import * as panelRecords from "../../src/store/panel-records.ts";
 import * as voiceStatus from "../../src/store/voice-status.ts";
 import sink from "../../src/infra/log/sink.ts";
+import { testText } from "../helpers/log-text.ts";
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-schema-"));
 let serial = 0;
@@ -155,11 +156,11 @@ test("테이블 생성과 스키마 버전 기록은 한 번에 처리한다: �
   const file = path.join(dir, "half.db");
   let stop = true;
   const spec = {
-    label: "테스트 DB",
+    label: testText("테스트 DB"),
     fileName: "half.db",
     version: 3,
     synchronous: "NORMAL" as const,
-    onMismatch: { lost: "없음" },
+    onMismatch: { lost: testText("없음") },
     createTables(db: Database.Database) {
       db.exec("CREATE TABLE IF NOT EXISTS one (id INTEGER PRIMARY KEY)");
       if (stop) throw new Error("만드는 도중 멈춤");
@@ -176,7 +177,7 @@ test("테이블 생성과 스키마 버전 기록은 한 번에 처리한다: �
 
 test("빈 공간 자동 회수(auto_vacuum): 새 파일에 적용되고, 이 설정 없이 만든 파일은 열 때 전환한다", async () => {
   const { DbFile } = await import("../../src/store/sqlite.ts");
-  const spec = (autoVacuum?: "INCREMENTAL") => ({ label: "테스트 DB", fileName: "v.db", version: 1, synchronous: "NORMAL" as const, onMismatch: { lost: "없음" }, autoVacuum, createTables: (db: Database.Database) => void db.exec("CREATE TABLE IF NOT EXISTS t (id INTEGER PRIMARY KEY)") });
+  const spec = (autoVacuum?: "INCREMENTAL") => ({ label: testText("테스트 DB"), fileName: "v.db", version: 1, synchronous: "NORMAL" as const, onMismatch: { lost: testText("없음") }, autoVacuum, createTables: (db: Database.Database) => void db.exec("CREATE TABLE IF NOT EXISTS t (id INTEGER PRIMARY KEY)") });
   const modeOf = (file: string, autoVacuum?: "INCREMENTAL") => {
     const one = new DbFile(spec(autoVacuum));
     one.open(file);
@@ -192,7 +193,7 @@ test("빈 공간 자동 회수(auto_vacuum): 새 파일에 적용되고, 이 설
 
 test("빈 공간 자동 회수로 전환하는 VACUUM이 실패해도(디스크 공간 부족 등) 그대로 열고 warn을 남긴다. 다음 기동에 다시 시도한다", async () => {
   const { DbFile } = await import("../../src/store/sqlite.ts");
-  const spec = (autoVacuum?: "INCREMENTAL") => ({ label: "테스트 DB", fileName: "v.db", version: 1, synchronous: "NORMAL" as const, onMismatch: { lost: "없음" }, autoVacuum, createTables: (db: Database.Database) => void db.exec("CREATE TABLE IF NOT EXISTS t (id INTEGER PRIMARY KEY)") });
+  const spec = (autoVacuum?: "INCREMENTAL") => ({ label: testText("테스트 DB"), fileName: "v.db", version: 1, synchronous: "NORMAL" as const, onMismatch: { lost: testText("없음") }, autoVacuum, createTables: (db: Database.Database) => void db.exec("CREATE TABLE IF NOT EXISTS t (id INTEGER PRIMARY KEY)") });
   const file = path.join(dir, "full.db");
   const plain = new DbFile(spec());
   plain.open(file);
@@ -223,7 +224,7 @@ test("빈 공간 자동 회수로 전환하는 VACUUM이 실패해도(디스크 
 
 test("VACUUM이 쓰다 실패해도 그만큼 커진 -wal을 비워 줄인다(디스크 공간이 부족할 때 공간을 돌려준다)", async () => {
   const { DbFile } = await import("../../src/store/sqlite.ts");
-  const spec = (autoVacuum?: "INCREMENTAL") => ({ label: "테스트 DB", fileName: "w.db", version: 1, synchronous: "NORMAL" as const, onMismatch: { lost: "없음" }, autoVacuum, createTables: (db: Database.Database) => void db.exec("CREATE TABLE IF NOT EXISTS t (id INTEGER PRIMARY KEY, blob BLOB)") });
+  const spec = (autoVacuum?: "INCREMENTAL") => ({ label: testText("테스트 DB"), fileName: "w.db", version: 1, synchronous: "NORMAL" as const, onMismatch: { lost: testText("없음") }, autoVacuum, createTables: (db: Database.Database) => void db.exec("CREATE TABLE IF NOT EXISTS t (id INTEGER PRIMARY KEY, blob BLOB)") });
   const file = path.join(dir, "grown.db");
   const plain = new DbFile(spec());
   plain.open(file);
@@ -255,7 +256,7 @@ test("VACUUM이 쓰다 실패해도 그만큼 커진 -wal을 비워 줄인다(�
 
 test("다른 연결이 읽는 중이라 -wal을 줄이지 못하면(예외를 던지지 않고 busy로 알린다) warn을 남긴다", async () => {
   const { DbFile } = await import("../../src/store/sqlite.ts");
-  const spec = (autoVacuum?: "INCREMENTAL") => ({ label: "테스트 DB", fileName: "r.db", version: 1, synchronous: "NORMAL" as const, onMismatch: { lost: "없음" }, autoVacuum, createTables: (db: Database.Database) => void db.exec("CREATE TABLE IF NOT EXISTS t (id INTEGER PRIMARY KEY)") });
+  const spec = (autoVacuum?: "INCREMENTAL") => ({ label: testText("테스트 DB"), fileName: "r.db", version: 1, synchronous: "NORMAL" as const, onMismatch: { lost: testText("없음") }, autoVacuum, createTables: (db: Database.Database) => void db.exec("CREATE TABLE IF NOT EXISTS t (id INTEGER PRIMARY KEY)") });
   const file = path.join(dir, "read.db");
   const plain = new DbFile(spec());
   plain.open(file);

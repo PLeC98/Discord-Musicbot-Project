@@ -5,20 +5,22 @@ import fs from "node:fs";
 import path from "node:path";
 import logger from "./log/logger.ts";
 import { messageOf } from "./error-text.ts";
-import { repeatingFailure } from "./repeating-failure.ts";
+import { repeatingFailure, type FailureLog } from "./repeating-failure.ts";
+import type { LogText } from "./log/log-text.ts";
+import { L } from "./log/text.ts";
 const log = logger.child({ category: "core" });
 
-const failureLog = { error: (line: string) => log.warn(line), info: (line: string) => log.info(line) };
+const failureLog: FailureLog = { error: (line) => log.warn(line), info: (line) => log.info(line) };
 const driveFailures = new Map<string, ReturnType<typeof repeatingFailure>>();
 const freeFailures = new Map<string, ReturnType<typeof repeatingFailure>>();
 
-function failuresOf(byTarget: Map<string, ReturnType<typeof repeatingFailure>>, target: string, what: string) {
+function failuresOf(byTarget: Map<string, ReturnType<typeof repeatingFailure>>, target: string, what: LogText) {
   let failures = byTarget.get(target);
   if (!failures) byTarget.set(target, (failures = repeatingFailure(failureLog, what)));
   return failures;
 }
-const driveFailure = (target: string) => failuresOf(driveFailures, target, `${target} 디스크 용량 statfs 조회`);
-const freeFailure = (target: string) => failuresOf(freeFailures, target, `${target} 디스크 여유 공간 statfs 조회`);
+const driveFailure = (target: string) => failuresOf(driveFailures, target, L.core.diskSizeLookup({ target }));
+const freeFailure = (target: string) => failuresOf(freeFailures, target, L.core.diskFreeLookup({ target }));
 
 /** 마운트 지점: target과 dev가 같은 가장 위 폴더 */
 function mountPoint(target: string) {
@@ -45,7 +47,7 @@ function driveOf(target: string): { drive: string; usedBytes: number; totalBytes
     driveFailure(target).ok();
     return drive;
   } catch (error) {
-    driveFailure(target).fail(`${messageOf(error)} (드라이브 카드에 알 수 없음으로 표시)`);
+    driveFailure(target).fail(L.core.diskSizeUnknown({ error: messageOf(error) }));
     return null;
   }
 }
@@ -60,7 +62,7 @@ function freeBytesOf(target: string): number | null {
     freeFailure(target).ok();
     return stat.bavail * stat.bsize;
   } catch (error) {
-    freeFailure(target).fail(`${messageOf(error)} (여유 공간 0바이트로 처리)`);
+    freeFailure(target).fail(L.core.diskFreeZero({ error: messageOf(error) }));
     return null;
   }
 }

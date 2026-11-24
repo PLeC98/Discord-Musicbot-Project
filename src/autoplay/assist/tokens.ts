@@ -16,9 +16,12 @@ import { repeatingFailure } from "../../infra/repeating-failure.ts";
 import { readBody } from "./retry.ts";
 import { GEMMA_FILE, readPieces } from "./tokenizers.ts";
 import type { Counted } from "./tokenizers.ts";
+import { L } from "../../infra/log/text.ts";
+import { rule } from "../../rules/rule-problem.ts";
+import { ruleError } from "../../rules/text/index.ts";
 
 const log = logger.child({ category: "autoplay" });
-const anthropicFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "Anthropic count_tokens 조회");
+const anthropicFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.autoplay.anthropicCountTokens());
 
 /** 셀 메시지. 본문은 content나 text에 */
 type Message = { role?: string; content?: string; text?: string };
@@ -53,21 +56,22 @@ let lastId = 0;
 function spawn() {
   const one = new Worker(new URL("./tokenizer-worker.ts", import.meta.url));
   one.on("message", ({ id, counted, error, problem }: { id: number; counted?: Counted[]; error?: string; problem?: string | null }) => {
-    if (problem) log.warn(`Gemma 토크나이저 모델 읽기 실패(tik 추산으로 대체): ${problem}`);
+    if (problem) log.warn(L.autoplay.gemmaTokenizerLoadFailed({ problem }));
     const job = waiting.get(id);
     if (!job) return;
     waiting.delete(id);
     clearTimeout(job.timer);
     if (counted) job.resolve(counted);
-    else job.reject(new Error(error || "토큰 계산 실패"));
+    // 세기 실패는 대시보드의 토큰 세기 응답까지 간다. 워커가 메시지를 보내지 않았으면 규칙 문제를 싣는다
+    else job.reject(error ? new Error(error) : ruleError(rule("ai-token-count-failed")));
   });
   one.on("error", (error) => {
-    log.warn(`토큰 계산 워커 중단(${messageOf(error)}). 다음 계산 시 다시 시작`);
+    log.warn(L.autoplay.tokenWorkerFailed({ error: messageOf(error) }));
     stop(one, error);
   });
   one.on("exit", (code) => {
-    if (thread === one) log.warn(`토크나이저 워커 비정상 종료(다음 계산 시 다시 실행): 종료 코드=${code} | 대기 작업 ${waiting.size}개 실패 처리`);
-    stop(one, new Error("토큰 계산 워커가 종료됨"));
+    if (thread === one) log.warn(L.autoplay.tokenWorkerExited({ code, waiting: waiting.size }));
+    stop(one, ruleError(rule("ai-token-worker-exited")));
   });
   one.unref(); // 봇이 끝날 때 붙잡지 않는다. message를 들으면 다시 붙잡으므로 들은 뒤에 푼다
   return one;
@@ -96,8 +100,8 @@ function countAll(texts: unknown[], tokenizer = "tik", { timeoutMs = COUNT_TIMEO
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       const chars = bodies.reduce((sum, one) => sum + one.length, 0);
-      log.warn(`토큰 계산이 ${timeoutMs / 1000}초를 초과해 워커 중단(${tokenizer}, ${chars}자). 다음 계산 시 다시 시작`);
-      stop(worker, new Error(`토큰 세기가 ${timeoutMs / 1000}초를 넘김`));
+      log.warn(L.autoplay.tokenCountTimedOut({ seconds: timeoutMs / 1000, tokenizer, chars }));
+      stop(worker, ruleError(rule("ai-token-count-timeout", { sec: timeoutMs / 1000 })));
     }, timeoutMs);
     waiting.set(id, { resolve, reject, timer });
     worker.postMessage({ id, texts: bodies, tokenizer });
@@ -163,7 +167,7 @@ async function countByAnthropic(messages: Message[] | null | undefined, { model,
   if (!res.ok) {
     // 본문을 읽지 못하면 오류 유형 없이 남기고 추산으로 넘어간다
     const type = readBody(await res.text().catch(() => ""))?.type;
-    anthropicFailure.fail(`HTTP ${res.status}${typeof type === "string" && type ? ` (${type})` : ""} | 모델=${model} | tik 추산으로 대체`);
+    anthropicFailure.fail(L.autoplay.anthropicCountHttp({ status: res.status, typeSuffix: typeof type === "string" && type ? ` (${type})` : "", model }));
     return null;
   }
   anthropicFailure.ok();

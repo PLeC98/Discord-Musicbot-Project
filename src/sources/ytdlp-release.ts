@@ -10,7 +10,9 @@ import type config from "../config/index.ts";
 import { httpFor } from "../infra/http.ts";
 import { pinnedKey, verifyDetached, type PinnedKey } from "../infra/openpgp.ts";
 import { PROJECT } from "../infra/project-paths.ts";
-import { josa } from "../rules/josa.ts";
+import { errorProblem } from "../rules/error-kind.ts";
+import { plain, rule, type RuleProblem } from "../rules/rule-problem.ts";
+import { logRuleLine } from "../rules/text/index.ts";
 
 type Channel = (typeof config.ytdlp)["channel"];
 type Libc = "glibc" | "musl";
@@ -21,7 +23,8 @@ type Asset = { zip: string; exe: string };
  * network: 연결, 시간 초과, HTTP 오류. integrity: 체크섬이 맞지 않음, 크기 상한. missing: 릴리스에 이 에셋이 없음. signature: 서명이 맞지 않음(키 교체일 수 있다)
  */
 type FailureKind = "network" | "integrity" | "missing" | "signature";
-type ReleaseError = Error & { kind: FailureKind };
+/** problem: 실패 이유(화면은 사용자 언어로 그린다). message는 로그 언어 문장 */
+type ReleaseError = Error & { kind: FailureKind; problem: RuleProblem };
 
 // 에셋 이름과 실행 파일 이름은 yt-dlp의 bundle/pyinstaller.py가 정한다. Windows arm64의 실행 파일에는 _win_이 없다
 const ASSETS: Record<string, Asset> = {
@@ -48,7 +51,11 @@ const TOTAL_MS = 30 * 60_000;
 
 const github = httpFor("github");
 
-const failure = (kind: FailureKind, message: string): ReleaseError => Object.assign(new Error(message), { kind });
+const failure = (kind: FailureKind, problem: RuleProblem): ReleaseError => Object.assign(new Error(logRuleLine(problem)), { kind, problem });
+// URL의 파일 이름
+const fileOf = (url: string) => path.basename(new URL(url).pathname);
+// 다운로드 중 실패. 이유는 오류에 담긴 문제(중단 이유), 없으면 오류 메시지 그대로
+const downloadFailed = (kind: FailureKind, file: string, cause: RuleProblem) => failure(kind, rule("ytdlp-download-failed", { file }, cause));
 
 let libc: Libc | null = null;
 /** Linux의 C 라이브러리. Node의 진단 보고서에 glibc 버전이 있으면 glibc, 없으면 musl이다(한 번만 잰다) */
@@ -57,12 +64,12 @@ function libcNow(): Libc {
   return libc;
 }
 
-/** 이 환경의 onedir 에셋. 없으면 이유 */
-function assetFor({ platform, arch, libc: lib, channel }: { platform: NodeJS.Platform; arch: string; libc: Libc | null; channel: Channel }): Asset | { missing: string } {
+/** 이 환경의 onedir 에셋. 없으면 이유(규칙 문제) */
+function assetFor({ platform, arch, libc: lib, channel }: { platform: NodeJS.Platform; arch: string; libc: Libc | null; channel: Channel }): Asset | { missing: RuleProblem } {
   const where = platform === "linux" ? `${platform}-${arch}-${lib ?? "glibc"}` : `${platform}-${arch}`;
   const asset = ASSETS[where];
-  if (!asset) return { missing: `이 OS, CPU 용 yt-dlp 판이 없음(${where})` };
-  if (STABLE_ONLY.has(asset.zip) && channel !== "stable") return { missing: `${channel} 채널에는 ${arch} 판이 없음(운영자 패널 업데이트 탭의 yt-dlp 채널을 stable로 바꾸세요)` };
+  if (!asset) return { missing: rule("ytdlp-no-asset", { where }) };
+  if (STABLE_ONLY.has(asset.zip) && channel !== "stable") return { missing: rule("ytdlp-stable-only", { channel, arch }) };
   return asset;
 }
 
@@ -87,7 +94,10 @@ async function open(url: string, signal: AbortSignal | undefined): Promise<{ bod
   let timer: NodeJS.Timeout | undefined;
   const arm = () => {
     clearTimeout(timer);
-    timer = setTimeout(() => idle.abort(new Error(`${IDLE_MS / 1000}초 동안 받은 것이 없어 끊음`)), IDLE_MS);
+    timer = setTimeout(() => {
+      const problem = rule("ytdlp-idle", { sec: IDLE_MS / 1000 });
+      idle.abort(Object.assign(new Error(logRuleLine(problem)), { problem }));
+    }, IDLE_MS);
   };
   const stop = () => clearTimeout(timer);
   arm();
@@ -97,11 +107,11 @@ async function open(url: string, signal: AbortSignal | undefined): Promise<{ bod
     res = await github.fetch(url, { redirect: "follow", signal: AbortSignal.any(signals) });
   } catch (error) {
     stop();
-    throw failure("network", `${path.basename(new URL(url).pathname)} 다운로드 실패: ${(error as Error).message}`);
+    throw downloadFailed("network", fileOf(url), errorProblem(error));
   }
   if (!res.ok || !res.body) {
     stop();
-    throw failure(res.status === 404 ? "missing" : "network", `${path.basename(new URL(url).pathname)} 다운로드 실패: HTTP ${res.status}`);
+    throw downloadFailed(res.status === 404 ? "missing" : "network", fileOf(url), plain(`HTTP ${res.status}`));
   }
   return { body: Readable.fromWeb(res.body as import("node:stream/web").ReadableStream<Uint8Array>), idle: arm, stop };
 }
@@ -115,11 +125,11 @@ async function small(url: string, max: number, signal: AbortSignal | undefined):
     for await (const chunk of body) {
       idle();
       size += (chunk as Buffer).length;
-      if (size > max) throw failure("integrity", `크기가 ${max}바이트를 넘음: ${path.basename(new URL(url).pathname)}`);
+      if (size > max) throw failure("integrity", rule("ytdlp-too-big", { file: fileOf(url), bytes: max }));
       chunks.push(chunk as Buffer);
     }
   } catch (error) {
-    throw (error as Partial<ReleaseError>).kind ? error : failure("network", `${path.basename(new URL(url).pathname)} 다운로드 실패: ${(error as Error).message}`);
+    throw (error as Partial<ReleaseError>).kind ? error : downloadFailed("network", fileOf(url), errorProblem(error));
   } finally {
     stop();
   }
@@ -138,16 +148,16 @@ async function fetchRelease({ repo, tag, asset, zipFile, signal, skipSignature =
   if (!skipSignature) {
     const signature = await small(`${base}/${SUMS}.sig`, SUMS_MAX, signal).catch((error: unknown) => {
       // 2023년 3월 전의 stable 릴리스에는 서명 파일이 없다
-      throw (error as ReleaseError).kind === "missing" ? failure("missing", `${tag}${josa(tag, "은")} 서명 파일이 없는 옛 릴리스라 받지 않음(서명 없이 받으려면 터미널에서 pnpm run update:ytdlp --pin ${tag} --skip-signature)`) : error;
+      throw (error as ReleaseError).kind === "missing" ? failure("missing", rule("ytdlp-no-sig-file", { tag })) : error;
     });
     try {
       verifyDetached(list, signature, signingKey());
     } catch (error) {
-      throw failure("signature", (error as Error).message);
+      throw failure("signature", errorProblem(error));
     }
   }
   const want = sumOf(list.toString("utf8"), asset);
-  if (!want) throw failure("missing", `릴리스 ${tag}에 ${asset} 없음`);
+  if (!want) throw failure("missing", rule("ytdlp-asset-not-listed", { tag, asset }));
 
   const { body, idle, stop } = await open(`${base}/${asset}`, signal);
   const hash = crypto.createHash("sha256");
@@ -156,7 +166,7 @@ async function fetchRelease({ repo, tag, asset, zipFile, signal, skipSignature =
     transform(chunk: Buffer, _encoding, done) {
       idle();
       size += chunk.length;
-      if (size > ZIP_MAX) return done(failure("integrity", `크기가 ${ZIP_MAX / 1024 / 1024}MB를 넘음: ${asset}`));
+      if (size > ZIP_MAX) return done(failure("integrity", rule("ytdlp-too-big", { file: asset, bytes: ZIP_MAX })));
       hash.update(chunk);
       done(null, chunk);
     },
@@ -164,12 +174,12 @@ async function fetchRelease({ repo, tag, asset, zipFile, signal, skipSignature =
   try {
     await pipeline(body, count, fs.createWriteStream(zipFile, { flags: "wx" }));
   } catch (error) {
-    throw (error as Partial<ReleaseError>).kind ? error : failure("network", `${asset} 다운로드 실패: ${(error as Error).message}`);
+    throw (error as Partial<ReleaseError>).kind ? error : downloadFailed("network", asset, errorProblem(error));
   } finally {
     stop();
   }
   const got = hash.digest("hex");
-  if (got !== want) throw failure("integrity", `${asset} 체크섬 불일치(기대 ${want.slice(0, 12)}…, 실제 ${got.slice(0, 12)}…)`);
+  if (got !== want) throw failure("integrity", rule("ytdlp-sum-mismatch", { asset, want: want.slice(0, 12), got: got.slice(0, 12) }));
 }
 
 /**
@@ -183,8 +193,8 @@ async function whyNoSums(repo: string, tag: string, original: ReleaseError, sign
   } catch {
     return original;
   }
-  if (status === 404) return failure("missing", `이 채널에 ${tag} 버전이 없음(다른 채널의 버전이면 운영자 패널 업데이트 탭에서 채널을 바꾸세요)`);
-  if (status >= 200 && status < 300) return failure("missing", `${tag}${josa(tag, "은")} 체크섬 목록(${SUMS})이 없는 옛 릴리스라 확인할 수 없어 받지 않음`);
+  if (status === 404) return failure("missing", rule("ytdlp-tag-not-in-channel", { tag }));
+  if (status >= 200 && status < 300) return failure("missing", rule("ytdlp-no-sums-file", { tag, file: SUMS }));
   return original;
 }
 

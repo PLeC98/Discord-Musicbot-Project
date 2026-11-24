@@ -13,6 +13,8 @@ import { withConfig } from "../helpers/config.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
 import * as staySeats from "../../src/store/stay-seats.ts";
 import { openTempStore } from "../helpers/temp-store.ts";
+import { testText } from "../helpers/log-text.ts";
+import type { LogText } from "../../src/infra/log/log-text.ts";
 
 // 24/7 자리를 적는다
 const store = openTempStore("idle-leave-");
@@ -156,14 +158,15 @@ test("끝난 패널의 처음 나갈 시각도 idle이 정한다: 혼자 남음�
 
 test("틀 게 없음이 0이면 곡 없이 기다리는 어느 길이든 바로 나간다", async () =>
   withConfig({ bot: { leaveDelayQueueEmptyMs: 0 } }, async () => {
-    const disposed: string[] = [];
+    const disposed: LogText[] = [];
     const p = player();
-    Object.assign(p, { queue: [], dispose: async (o: { reason: string }) => void disposed.push(o.reason) });
+    Object.assign(p, { queue: [], dispose: async (o: { reason: LogText }) => void disposed.push(o.reason) });
     const idle = new IdleLeave(p);
     cleanups.push(() => idle.stop());
-    idle.scheduleEmpty("곡 없이 대기");
+    const waiting = testText("곡 없이 대기");
+    idle.scheduleEmpty(waiting);
     await new Promise((resolve) => setTimeout(resolve, 5));
-    assert.deepEqual(disposed, ["곡 없이 대기"]);
+    assert.deepEqual(disposed, [waiting]);
   }));
 
 test("24/7 자리에 있으면 두 타이머를 걸지 않고 나갈 시각도 없다. 켜고 끄면 지금 상태로 다시 걸고, 자리가 아닌 채널이면 보통대로", () =>

@@ -2,11 +2,12 @@
 // type은 /problems/<코드>(대시보드 주소로 풀린다), code는 같은 코드(한 함수가 둘을 만든다). 문장에 드는 값은 맨 위의 확장 필드에 싣는다
 
 import { PROBLEMS, type Code, type Params, type ProblemSpec } from "../../rules/problems.ts";
+import type { RuleProblem } from "../../rules/rule-problem.ts";
 
 const PROBLEM_PATH = "/problems/";
 
-/** 입력란 하나의 문제. pointer는 요청 본문의 JSON Pointer, detail은 운영자용 원문 */
-type FieldProblem = { pointer?: string; code: Code; detail?: string } & Params;
+/** 입력란 하나의 문제. pointer는 요청 본문의 JSON Pointer, rule은 설정 검사의 문제(화면이 그 언어로 그린다), detail은 운영자용 원문 */
+type FieldProblem = { pointer?: string; code: Code; rule?: RuleProblem; detail?: string } & Params;
 /** 이번 요청의 것. detail은 개발자, 운영자용 설명, errors는 입력란별 문제, 그 밖은 확장 필드(errorId, discordCode 등) */
 type Extra = { detail?: string; errors?: FieldProblem[]; [member: string]: unknown };
 /** 응답 본문 */

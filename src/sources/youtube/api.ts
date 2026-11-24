@@ -17,6 +17,8 @@ import * as recentInfo from "./recent-info.ts";
 import * as errors from "./errors.ts";
 import type { YtInfo } from "../ytdlp-info.ts";
 import type { RunYtDlp } from "../ytdlp-spawn.ts";
+import { L } from "../../infra/log/text.ts";
+import { logTextError } from "../../infra/log/log-text.ts";
 
 // yt-dlp 정보 하나(검색 항목이거나 상세 정보). 없을 수 있다
 type Item = YtInfo | null | undefined;
@@ -104,8 +106,8 @@ async function fetchInfo(url: string, exec: RunYtDlp | undefined, infoOnly = fal
   const raw = await extractInfo(url, exec, { infoOnly });
   recentInfo.remember(raw);
   const info = readInfo(raw);
-  if (!info) throw new Error(`유튜브 영상 정보: yt-dlp 출력이 JSON 객체가 아님 | ${answerShape(raw)}`);
-  if (info._type === "playlist") throw new Error(`유튜브 영상 정보: 단일 영상 요청에 yt-dlp가 재생목록을 반환함 | entries=${info.entries?.length ?? 0}`);
+  if (!info) throw logTextError(L.youtube.videoInfoNotJson({ shape: answerShape(raw) }));
+  if (info._type === "playlist") throw logTextError(L.youtube.videoInfoGotPlaylist({ entries: info.entries?.length ?? 0 }));
   return info;
 }
 
@@ -140,12 +142,12 @@ async function streamSource(url: string, exec: RunYtDlp | undefined, fresh: bool
  */
 async function getStream(url: string, { exec, fresh = false }: { exec?: RunYtDlp; fresh?: boolean } = {}) {
   // 실패는 호출부(재생)가 한 번 남긴다. 빈 주소는 부르는 코드의 잘못이다
-  if (!url) throw new Error("유튜브 재생용 스트림: 빈 URL로 호출됨");
+  if (!url) throw logTextError(L.youtube.streamUrlEmpty());
 
   const { raw, known } = await streamSource(url, exec, fresh);
   const info = readInfo(raw);
-  if (!info) throw codedError("stream-failed", `유튜브 재생용 스트림: yt-dlp 출력이 JSON 객체가 아님 | ${answerShape(raw)}`);
-  if (!info.url) throw codedError("stream-failed", `유튜브 재생용 스트림: yt-dlp 응답에 스트림 URL이 없음 | _type=${info._type ?? "없음"}`);
+  if (!info) throw codedError("stream-failed", L.youtube.streamInfoNotJson({ shape: answerShape(raw) }));
+  if (!info.url) throw codedError("stream-failed", L.youtube.streamNoUrl({ type: info._type ?? null }));
 
   // 위치는 주소에 싣지 않는다. ffmpeg의 -ss가 정한다
   return {
@@ -176,7 +178,7 @@ function fragmentsOf(info: YtInfo) {
   const list = info.fragments;
   if (!list?.length || !info.url) return null;
   const base = info.url;
-  if (!list.every((f, i) => f.url === `${base}&sq=${i}`)) throw codedError("stream-failed", "세그먼트 목록의 주소가 알던 형식(포맷 주소 뒤 &sq=번호)이 아님");
+  if (!list.every((f, i) => f.url === `${base}&sq=${i}`)) throw codedError("stream-failed", L.youtube.fragmentUrlsUnknown());
   return { base, count: list.length };
 }
 
@@ -192,14 +194,20 @@ function playlistTrack(entry: YtInfo) {
   } catch (error) {
     if (codeOf(error) === "DB_NOT_OPEN") throw error;
     // 재생목록 제목 그대로 간다
-    log.warn(`검증된 곡 제목 DB 조회 실패(재생목록 제목 사용): ${track.requestKey} | ${messageOf(error)}`);
+    log.warn(L.youtube.verifiedTitleReadFailed({ requestKey: track.requestKey, error: messageOf(error) }));
   }
   return track;
 }
 
+// 삭제, 비공개 영상. --flat-playlist가 제목, 채널, 길이가 모두 빈 항목으로 준다(옛 yt-dlp는 "[Deleted video]", "[Private video]" 제목을 붙였다).
+// 라이브는 길이가 없어도 제목과 채널이 있다
+const GONE_TITLE = /^\[(deleted|private) video\]$/i;
+const isGone = (entry: YtInfo) => !(entry.uploader || entry.channel || entry.uploader_id) && !entry.duration && (!entry.title || GONE_TITLE.test(entry.title));
+
 // offset부터 limit개만 불러온다. 유튜브는 시작점까지 순서대로 넘겨 가야 해서 비용이 끝 위치에 비례한다.
 // 총 곡 수(playlist_count)는 구간만 불러와도 오지만, 믹스(RD…)는 끝이 없어 null이다.
-// 그 구간에 곡이 없으면 null(목록 끝을 넘은 이어 불러오기 등). 목록을 불러오지 못한 것(없는, 비공개 목록, 네트워크)은 예외를 던진다
+// 그 구간에 항목이 없으면 null(목록 끝을 넘은 이어 불러오기 등). 목록을 불러오지 못한 것(없는, 비공개 목록, 네트워크)은 예외를 던진다.
+// 재생할 수 없는 항목(삭제, 비공개 영상)은 빼고 그 위치(0부터 센 목록 안 위치)를 skippedAt에 담는다
 async function getPlaylist(url: string, { offset = 0, limit = PLAYLIST_ADD_DEFAULT, exec = ytdlp }: { offset?: number; limit?: number; exec?: RunYtDlp } = {}) {
   const raw = await exec(
     url,
@@ -210,19 +218,25 @@ async function getPlaylist(url: string, { offset = 0, limit = PLAYLIST_ADD_DEFAU
     }),
   );
   const info = readInfo(raw);
-  if (!info) throw new Error(`유튜브 재생목록: yt-dlp 출력이 JSON 객체가 아님 | ${answerShape(raw)}`);
+  if (!info) throw logTextError(L.youtube.playlistInfoNotJson({ shape: answerShape(raw) }));
 
   if (!info.entries || info.entries.length === 0) return null;
 
-  const tracks = info.entries.map(readInfo).flatMap((entry) => (entry && (entry.id || entry.url) ? [playlistTrack(entry)] : []));
-
-  if (tracks.length === 0) return null;
+  const tracks: ReturnType<typeof playlistTrack>[] = [];
+  const skippedAt: number[] = [];
+  info.entries.forEach((raw, i) => {
+    const entry = readInfo(raw);
+    if (entry && (entry.id || entry.url) && !isGone(entry)) tracks.push(playlistTrack(entry));
+    else skippedAt.push(offset + i);
+  });
 
   return {
     title: info.title || null,
     tracks: tracks,
     total: info.playlist_count ?? null,
     nextOffset: offset + info.entries.length,
+    skipped: skippedAt.length,
+    skippedAt,
     url: url,
     platform: "youtube",
   };

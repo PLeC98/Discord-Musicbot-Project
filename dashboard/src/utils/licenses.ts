@@ -5,7 +5,8 @@ const T = text.licenses.items;
 
 export type LicenseItem = { name: string; license: string; url: string; note?: string };
 
-export const FONTS_AND_ART: LicenseItem[] = [
+/** 글꼴, 그림(설명은 그릴 때 문구표에서) */
+export const fontsAndArt = (): LicenseItem[] => [
   { name: "Google Sans Flex", license: "SIL OFL 1.1", url: "https://fonts.google.com/specimen/Google+Sans+Flex" },
   { name: "Pretendard", license: "SIL OFL 1.1", url: "https://github.com/orioncactus/pretendard" },
   { name: "D2Coding", license: "SIL OFL 1.1", url: "https://github.com/naver/d2-coding-font", note: T.d2codingNote },
@@ -27,7 +28,8 @@ export const LIBRARIES: LicenseItem[] = [
 export { isModifiedSource } from "../../../src/rules/project-source.ts";
 
 /** 봇이 함께 배포하거나(data/) 받아 쓰는(DB-IP, database/geoip) 서드파티 데이터. data/NOTICE와 같은 것을 적는다 */
-export const DATA_FILES: LicenseItem[] = [
+/** 함께 배포하는 데이터(설명은 그릴 때 문구표에서) */
+export const dataFiles = (): LicenseItem[] => [
   { name: T.modelRegistry, license: "CC0-1.0", url: "https://github.com/PocketRisu/pocketrisu-model-registry", note: T.modelRegistryNote },
   { name: "CMU Pronouncing Dictionary", license: "BSD-2-Clause · ISC", url: "https://github.com/cmusphinx/cmudict", note: T.cmudictNote },
   { name: T.gemmaTokenizer, license: "Apache 2.0", url: "https://huggingface.co/omote-ai/gemma-4-e2b-tokenizer", note: T.gemmaTokenizerNote },

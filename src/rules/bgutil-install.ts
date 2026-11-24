@@ -1,5 +1,7 @@
 // bgutil(POToken 공급자) 설치의 판단: 어느 태그와 커밋을 설치할지, 태그가 가리키는 커밋, 잠금 파일에서 설치 스크립트를 돌릴 의존성. 설정 모듈과 설치 스크립트(scripts/install-bgutil)가 따른다
 
+import { rule, type RuleProblem } from "./rule-problem.ts";
+
 /** GitHub 저장소(owner/name) */
 const BGUTIL_REPO = "Brainicism/bgutil-ytdlp-pot-provider";
 
@@ -13,8 +15,8 @@ function isPlainTag(text: string) {
   return /^[0-9A-Za-z][0-9A-Za-z._-]*$/.test(text) && !text.includes("..");
 }
 
-/** 틀린 짝: 어느 이름의 어떤 값이 왜 틀렸나(설정값 문제 줄의 재료) */
-type BgutilTargetProblem = { key: "BGUTIL_VERSION" | "BGUTIL_COMMIT"; value: string; reason: string };
+/** 틀린 짝: 어느 이름의 어떤 값이 왜 틀렸나(설정값 문제의 재료) */
+type BgutilTargetProblem = { key: "BGUTIL_VERSION" | "BGUTIL_COMMIT"; value: string; reason: RuleProblem };
 
 /**
  * 설치할 태그와 그 태그가 가리켜야 할 커밋. version, commit은 업데이트 탭의 bgutil 카드가 고정한 값(비면 없음).
@@ -22,11 +24,11 @@ type BgutilTargetProblem = { key: "BGUTIL_VERSION" | "BGUTIL_COMMIT"; value: str
  */
 function bgutilTarget(version: string, commit: string, defaults: { version: string; commit: string }): { tag: string; commit: string } | BgutilTargetProblem {
   if (!version && !commit) return { tag: defaults.version, commit: defaults.commit };
-  if (!version) return { key: "BGUTIL_VERSION", value: "", reason: "커밋만 있고 태그가 없음" };
-  if (!isPlainTag(version)) return { key: "BGUTIL_VERSION", value: version, reason: "태그 이름이 아님" };
-  if (commit) return isCommitSha(commit) ? { tag: version, commit } : { key: "BGUTIL_COMMIT", value: commit, reason: "커밋 해시 40자(16진수 소문자)여야 함" };
+  if (!version) return { key: "BGUTIL_VERSION", value: "", reason: rule("bgutil-commit-only") };
+  if (!isPlainTag(version)) return { key: "BGUTIL_VERSION", value: version, reason: rule("bgutil-not-tag") };
+  if (commit) return isCommitSha(commit) ? { tag: version, commit } : { key: "BGUTIL_COMMIT", value: commit, reason: rule("bgutil-commit-hash") };
   if (version === defaults.version) return { tag: version, commit: defaults.commit };
-  return { key: "BGUTIL_COMMIT", value: "", reason: `기본값(${defaults.version})과 다른 태그에는 그 태그의 커밋이 함께 있어야 함` };
+  return { key: "BGUTIL_COMMIT", value: "", reason: rule("bgutil-needs-commit", { tag: defaults.version }) };
 }
 
 /**
@@ -45,23 +47,27 @@ function taggedCommit(output: string, tag: string): string | null {
 /** package-lock.json(v2, v3)의 한 항목에서 쓰는 필드 */
 type LockEntry = { hasInstallScript?: boolean; dev?: boolean; devOptional?: boolean; link?: boolean };
 
+/** 다시 빌드할 패키지 이름. 못 정하면 그 까닭: bad-name(형식이 잘못된 이름, key: lockfile의 키), dev-overlap(이름이 같은 개발 의존성에도 설치 스크립트가 있다, names: 그 이름) */
+type RebuildTargets = { ok: true; names: string[] } | { ok: false; why: "bad-name"; key: string } | { ok: false; why: "dev-overlap"; names: string[] };
+
 /**
  * 설치 스크립트를 돌릴 실행 의존성의 이름(개발 의존성은 빼고, 이름순). npm ci --ignore-scripts 뒤 npm rebuild로 넘긴다.
- * 이름은 셸 명령줄에 들어가므로 npm 패키지 이름 형식이 아니면 예외를 던진다.
- * npm rebuild는 이름이 같은 패키지를 모두 다시 빌드하므로, 같은 이름의 개발 의존성에 설치 스크립트가 있으면 예외를 던진다(개발 의존성의 스크립트가 돌게 된다)
+ * 이름은 셸 명령줄에 들어가므로 npm 패키지 이름 형식이 아니면 못 정한다.
+ * npm rebuild는 이름이 같은 패키지를 모두 다시 빌드하므로, 같은 이름의 개발 의존성에 설치 스크립트가 있으면 못 정한다(개발 의존성의 스크립트가 돌게 된다).
+ * 던지지 않고 까닭을 돌려준다(화면 번들이 닿는 모듈이라 로그 문구를 부를 수 없다. 글은 부르는 쪽이 그린다)
  */
-function rebuildTargets(lock: { packages?: Record<string, LockEntry> }): string[] {
+function rebuildTargets(lock: { packages?: Record<string, LockEntry> }): RebuildTargets {
   const names = new Set<string>();
   const devNames = new Set<string>();
   for (const [key, entry] of Object.entries(lock.packages ?? {})) {
     if (!key || entry.link || !entry.hasInstallScript) continue;
     const name = key.slice(key.lastIndexOf("node_modules/") + "node_modules/".length);
-    if (!/^(@[a-z0-9][a-z0-9._~-]*\/)?[a-z0-9][a-z0-9._~-]*$/.test(name)) throw new Error(`lockfile에 잘못된 형식의 패키지 이름이 있습니다: ${key}`);
+    if (!/^(@[a-z0-9][a-z0-9._~-]*\/)?[a-z0-9][a-z0-9._~-]*$/.test(name)) return { ok: false, why: "bad-name", key };
     (entry.dev || entry.devOptional ? devNames : names).add(name);
   }
   const both = [...names].filter((name) => devNames.has(name));
-  if (both.length) throw new Error(`이름이 같은 개발 의존성에도 설치 스크립트가 있어 이름으로 다시 빌드할 수 없습니다: ${both.join(", ")}`);
-  return [...names].sort();
+  if (both.length) return { ok: false, why: "dev-overlap", names: both };
+  return { ok: true, names: [...names].sort() };
 }
 
 // npm ci가 루트 패키지에서 돌리는 수명 주기 스크립트

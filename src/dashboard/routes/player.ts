@@ -11,7 +11,6 @@ import * as controls from "../../usecases/controls.ts";
 import type { More } from "../../rules/more-choices.ts";
 import { loopOf, type AddReply, type AddedSummary, type AutoplayGenres, type MoreReply, type MoreView, type PlayerRead, type QueuePage, type SearchReply } from "../contract/player.ts";
 import type { Placed } from "../../usecases/add-tracks.ts";
-import { shortfallNotice } from "../../ui/text/ko/added-parts.ts";
 import { findSongs } from "../../usecases/song-search.ts";
 import { SEARCH_MAX_LEN, SEARCH_MIN_LEN } from "../../rules/limits.ts";
 import { graphemeLength } from "../../rules/clip-text.ts";
@@ -22,7 +21,7 @@ import { waitForRestore } from "../../player/session-restore.ts";
 import * as genreConfig from "../../config/genres.ts";
 import { autoplayOn } from "../../ui/genre-menu.ts";
 import { join } from "../../usecases/join.ts";
-import { validState, resultText, LIFETIME_MS, KINDS } from "../../usecases/playlist-more.ts";
+import { validState, outcomeOf, LIFETIME_MS, KINDS } from "../../usecases/playlist-more.ts";
 import config from "../../config/index.ts";
 import { openGuild, voiceFlags } from "../guild-access.ts";
 import { queueTrack, queueWindow, playerState, toInt, queuedUrls, searchTrack, trackArtUrl } from "../player-view.ts";
@@ -37,6 +36,8 @@ import * as replies from "../../ui/control-replies.ts";
 import { LIFETIME } from "../../ui/delivery.ts";
 import { announcer, dashboardActor, dashboardResponder } from "../discord-notice.ts";
 import { assertSignedIn, sessionEnded } from "../session-requests.ts";
+import { publicText } from "../../ui/language.ts";
+import { L } from "../../infra/log/text.ts";
 
 // ── 재생 조작 ──
 // 전제 조건과 권한은 usecases/controls가 본다. 경로는 입력 모양만 확정하고 거절을 HTTP로 옮긴다.
@@ -141,8 +142,8 @@ function joinRoute(router: Router) {
     if (result.kind === "refused") return sendProblem(res, result.code);
     if (result.kind === "restore-error") return sendProblem(res, "restore-failed");
     const { player } = result;
-    if (result.kind === "joined") announcer(bot, player)(replies.joined());
-    if (result.kind === "restored") announcer(bot, player)(replies.restoreResult(result.track, player.paused, result.parked));
+    if (result.kind === "joined") announcer(bot, player)(replies.joined(publicText(guild.id)));
+    if (result.kind === "restored") announcer(bot, player)(replies.restoreResult(publicText(guild.id), result.track, player.paused, result.parked));
 
     // 방금 자기 채널로 봇을 불렀으므로 동일 음성 채널 규칙은 통과. 계층(DJ 여부)만 판정에 반영됨
     const controllable = !(await checkControl(member));
@@ -166,7 +167,7 @@ function controlRoutes(router: Router) {
     const announce = announcer(ctx.bot, ctx.player);
     const r = await controls.pause(ctx.player, ctx.actor);
     if (!r.ok) return refuse(res, r);
-    announce(replies.paused(r.userPaused, r.track, dashboardActor(req), r.heldBy));
+    announce(replies.paused(publicText(req.params.guildId), r.userPaused, r.track, dashboardActor(req, publicText(req.params.guildId)), r.heldBy));
     res.json(stateAfter(req));
   });
 
@@ -181,7 +182,7 @@ function controlRoutes(router: Router) {
     if (!r.ok) return refuse(res, r);
     // 다음 곡을 재생한 뒤의 상태를 싣는다(곡 끝 처리는 멈춘 다음 차례에 돈다. 다음 곡을 오래 열면 상한까지만 기다린다)
     await ctx.player?.untilSwitched();
-    announce(replies.previous(r.restarted, r.track));
+    announce(replies.previous(publicText(req.params.guildId), r.restarted, r.track));
     res.json(stateAfter(req));
   });
 
@@ -196,7 +197,7 @@ function controlRoutes(router: Router) {
     if (!r.ok) return refuse(res, r);
     // 다음 곡을 재생한 뒤의 상태를 싣는다(곡 끝 처리는 멈춘 다음 차례에 돈다. 다음 곡을 오래 열면 상한까지만 기다린다)
     await ctx.player?.untilSwitched();
-    announce(replies.skipped(r.restarted, r.track, dashboardActor(req)));
+    announce(replies.skipped(publicText(req.params.guildId), r.restarted, r.track, dashboardActor(req, publicText(req.params.guildId))));
     res.json(stateAfter(req));
   });
 
@@ -207,7 +208,7 @@ function controlRoutes(router: Router) {
     const announce = announcer(ctx.bot, ctx.player);
     const r = await controls.stop(ctx.player, ctx.actor);
     if (!r.ok) return refuse(res, r);
-    announce(replies.stopped(r.cleared, dashboardActor(req), r.stayed), LIFETIME.farewell);
+    announce(replies.stopped(publicText(req.params.guildId), r.cleared, dashboardActor(req, publicText(req.params.guildId)), r.stayed), LIFETIME.farewell);
     res.json(stateAfter(req));
   });
 
@@ -226,7 +227,7 @@ function controlRoutes(router: Router) {
     const announce = announcer(ctx.bot, ctx.player);
     const r = await controls.seek(ctx.player, ctx.actor, Math.floor(clampedSec * 1000), { reason: "dashboard", onTrack: body.value.onTrack });
     if (!r.ok) return refuse(res, r);
-    announce(replies.seeked(r.ms));
+    announce(replies.seeked(publicText(req.params.guildId), r.ms));
     res.json(stateAfter(req));
   });
 
@@ -236,8 +237,8 @@ function controlRoutes(router: Router) {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
     // 디스코드 패널 채널에는 드래그를 멈춘 뒤 처음 값 → 마지막 값으로 한 번 알린다(채널도 그때 찾는다)
-    const by = dashboardActor(req);
-    const r = await controls.volume(ctx.player, ctx.actor, toInt(req.body?.volume), { settled: (from, to) => announcer(ctx.bot, ctx.player)(replies.volumeSet(from, to, by)) });
+    const by = dashboardActor(req, publicText(req.params.guildId));
+    const r = await controls.volume(ctx.player, ctx.actor, toInt(req.body?.volume), { settled: (from, to) => announcer(ctx.bot, ctx.player)(replies.volumeSet(publicText(req.params.guildId), from, to, by)) });
     if (!r.ok) return refuse(res, r);
     res.json(stateAfter(req));
   });
@@ -251,7 +252,7 @@ function controlRoutes(router: Router) {
     const announce = announcer(ctx.bot, ctx.player);
     const r = await controls.highlight(ctx.player, ctx.actor, body.value);
     if (!r.ok) return refuse(res, r);
-    announce(replies.highlighted(r.ms));
+    announce(replies.highlighted(publicText(req.params.guildId), r.ms));
     res.json(stateAfter(req));
   });
 
@@ -262,7 +263,7 @@ function controlRoutes(router: Router) {
     const announce = announcer(ctx.bot, ctx.player);
     const r = await controls.loop(ctx.player, ctx.actor, loopOf(req.body?.mode));
     if (!r.ok) return refuse(res, r);
-    announce(replies.loopSet(r.mode, dashboardActor(req)));
+    announce(replies.loopSet(publicText(req.params.guildId), r.mode, dashboardActor(req, publicText(req.params.guildId))));
     res.json(stateAfter(req));
   });
 
@@ -273,7 +274,7 @@ function controlRoutes(router: Router) {
     const announce = announcer(ctx.bot, ctx.player);
     const r = await controls.shuffle(ctx.player, ctx.actor);
     if (!r.ok) return refuse(res, r);
-    announce(replies.shuffled(r.count, dashboardActor(req)));
+    announce(replies.shuffled(publicText(req.params.guildId), r.count, dashboardActor(req, publicText(req.params.guildId))));
     res.json(stateAfter(req));
   });
 }
@@ -289,7 +290,7 @@ function queueEditRoutes(router: Router) {
     const announce = announcer(ctx.bot, ctx.player);
     const r = await controls.removeEntries(ctx.player, ctx.actor, body.value.entries);
     if (!r.ok) return refuse(res, r);
-    announce(replies.removed(r.removed.length, r.left, dashboardActor(req)));
+    announce(replies.removed(publicText(req.params.guildId), r.removed.length, r.left, dashboardActor(req, publicText(req.params.guildId))));
     res.json(stateAfter(req));
   });
 
@@ -303,14 +304,14 @@ function queueEditRoutes(router: Router) {
     const r = await controls.moveEntry(ctx.player, ctx.actor, body.value.entry, body.value.before);
     if (!r.ok) return refuse(res, r);
     // 사람은 1부터 센다
-    announce(replies.moved(r.track, r.from + 1, r.to + 1, dashboardActor(req)));
+    announce(replies.moved(publicText(req.params.guildId), r.track, r.from + 1, r.to + 1, dashboardActor(req, publicText(req.params.guildId))));
     res.json(stateAfter(req));
   });
 }
 
 function searchFailed(guildId: string, q: string, error: unknown) {
   const at = error instanceof Error ? error.stack?.split("\n").find((line) => line.trim().startsWith("at ")) : undefined;
-  log.error({ sub: "search" }, `검색 요청 처리 실패: 서버=${guildId} | 검색어=${q} | ${messageOf(error)}${at ? ` | ${at.trim()}` : ""}`);
+  log.error({ sub: "search" }, L.dashboard.searchFailed({ guildId, query: q, error: messageOf(error), location: at ? ` | ${at.trim()}` : "" }));
 }
 
 // 자동재생. 판정과 처리는 디스코드의 장르 메뉴와 같다(usecases/controls의 autoplay)
@@ -353,7 +354,7 @@ function searchRoute(router: Router) {
       const queued = queuedUrls(player);
       const tracks = found.songs.map((song) => searchTrack(guildId, song, queued));
       const spotify = tracks.filter((t) => t.platform === "spotify").length;
-      log.debug({ sub: "search" }, `곡 검색: 대시보드 | ${requester.username} | "${q}" → ${tracks.length ? `유튜브 ${tracks.length - spotify}, 스포티파이 ${spotify}` : "결과 없음"}${found.gated ? "(유튜브 연령 인증 안내)" : ""}`);
+      log.debug({ sub: "search" }, L.dashboard.searchResults({ who: requester.username, query: q, youtube: tracks.length - spotify, spotify, gated: found.gated }));
       res.json({ tracks, gated: found.gated } satisfies SearchReply);
     } catch (e) {
       searchFailed(guildId, q, e);
@@ -386,7 +387,7 @@ function autoplayRoutes(router: Router) {
     const create = async () => (await waitForRestore(guild.id), go(), ensurePlayer(bot, { guild, textChannel, voiceChannel: member.voice?.channel ?? null }));
     const r = await controls.autoplay(ctx.player, ctx.actor, genre ?? false, { create, go });
     if (!r.ok) return refuse(res, r);
-    if (genre) announcer(bot, bot.players.get(guild.id))(autoplayOn(genre, dashboardActor(req)));
+    if (genre) announcer(bot, bot.players.get(guild.id))(autoplayOn(publicText(guild.id), genre, dashboardActor(req, publicText(req.params.guildId))));
     res.json(stateAfter(req));
   });
 }
@@ -422,7 +423,7 @@ function addRoutes(router: Router) {
         query,
         single,
         insertFirst: first,
-        source: "대시보드",
+        source: "dashboard",
         responder: dashboardResponder(bot, guildId),
         lookup: req.app.locals.lookup, // 테스트가 조회를 가짜로 넘기는 슬롯. 없으면 진짜
         go: () => assertSignedIn(req),
@@ -432,11 +433,10 @@ function addRoutes(router: Router) {
 
       const dropped = result.dropped || 0;
       const queueLimited = Boolean(result.queueLimited);
-      const shortfall = shortfallNotice({ dropped, queueLimited, skipped: result.placed?.skipped ?? 0, max: config.bot.maxQueueSize });
-      res.json({ ...playerState(player, queueWindow(req)), dropped, queueLimited, added: addedSummary(guildId, result.placed), shortfall, more: moreView(result.more), queueMax: config.bot.maxQueueSize } satisfies AddReply);
+      res.json({ ...playerState(player, queueWindow(req)), dropped, queueLimited, skipped: result.placed?.skipped ?? 0, added: addedSummary(guildId, result.placed), more: moreView(result.more), queueMax: config.bot.maxQueueSize } satisfies AddReply);
     } catch (err) {
       if (sessionEnded(res, err)) return;
-      log.error("대시보드에서 곡 추가 실패:", err);
+      log.error(L.dashboard.trackAddFailed(), err);
       sendProblem(res, "add-failed");
     }
   });
@@ -464,17 +464,16 @@ function addRoutes(router: Router) {
         requester: requesterOf(req),
         state,
         count: count.value,
-        source: "대시보드 더 넣기",
+        source: "dashboard-more",
         lookup: req.app.locals.lookup,
         go: () => assertSignedIn(req),
       });
       if (!result.success) return refuseWith(res, addFailure(result));
 
-      const note = resultText(state.kind, { added: result.added, dropped: result.dropped, skipped: result.skipped, total: result.total, remaining: result.remaining, next: result.next });
-      res.json({ ...playerState(player, queueWindow(req)), added: result.added, dropped: result.dropped || 0, note, more: moreView(result.next), queueMax: config.bot.maxQueueSize } satisfies MoreReply);
+      res.json({ ...playerState(player, queueWindow(req)), added: result.added, dropped: result.dropped || 0, result: outcomeOf(state.kind, result), more: moreView(result.next), queueMax: config.bot.maxQueueSize } satisfies MoreReply);
     } catch (err) {
       if (sessionEnded(res, err)) return;
-      log.error("대시보드에서 재생목록 더 넣기 실패:", err);
+      log.error(L.dashboard.playlistMoreFailed(), err);
       sendProblem(res, "add-failed");
     }
   });

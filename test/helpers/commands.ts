@@ -12,7 +12,7 @@ let loading: Promise<Map<string, SlashCommand>> | null = null;
 
 /** 이름으로 명령 하나 */
 async function command(name: string) {
-  loading ??= import("../../src/discord/commands/index.ts").then(({ COMMANDS }) => new Map(COMMANDS.map((c) => [c.data.name, c])));
+  loading ??= import("../../src/discord/commands/index.ts").then(({ COMMANDS }) => new Map(COMMANDS.map((c) => [c.name, c])));
   const found = (await loading).get(name);
   assert.ok(found, `/${name} 명령이 있다`);
   return found;
@@ -30,8 +30,8 @@ function run(c: SlashCommand, interaction: object, bot: BotContext = fakeBot()) 
  */
 async function runViaEntrance(c: SlashCommand, interaction: object, bot: BotContext = fakeBot()) {
   const { default: entrance } = await import("../../src/discord/events/interaction-create.ts");
-  Object.assign(interaction, interactionKind("command"), { commandName: c.data.name });
-  await entrance.execute({ ...bot, commands: new Map([[c.data.name, c]]) }, fake<Interaction>(interaction));
+  Object.assign(interaction, interactionKind("command"), { commandName: c.name });
+  await entrance.execute({ ...bot, commands: new Map([[c.name, c]]) }, fake<Interaction>(interaction));
 }
 
 export { command, run, runViaEntrance };

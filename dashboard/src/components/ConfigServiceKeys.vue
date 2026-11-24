@@ -4,7 +4,7 @@
 
     <BaseCard v-for="id in SERVICE_IDS" :key="id" icon="key" :title="T.services[id].title">
       <template #actions>
-        <a :href="T.services[id].link" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-xs text-primary hover:underline">{{ T.linkLabel }}<Icon name="open_in_new" :size="14" /></a>
+        <a :href="KEY_PAGES[id]" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-xs text-primary hover:underline">{{ T.linkLabel }}<Icon name="open_in_new" :size="14" /></a>
       </template>
       <!-- 무엇에 쓰는지 한 줄, 없을 때의 일, 받는 법은 툴팁 -->
       <p class="mb-3 flex items-center gap-1 text-sm text-on-surface-variant">{{ T.services[id].purpose }}<Icon name="info" :size="16" class="shrink-0 cursor-help" v-tooltip="T.services[id].tip" /></p>
@@ -48,6 +48,13 @@ import type { KeyCheck, SecretView, ServiceKeysView } from "../../../src/dashboa
 import type { IconName } from "../icons.ts";
 import { text } from "../text/index.ts";
 const T = text.serviceKeys;
+
+// 서비스마다 키를 발급하는 곳
+const KEY_PAGES: Record<ServiceId, string> = {
+  spotify: "https://developer.spotify.com/dashboard",
+  lastfm: "https://www.last.fm/api/account/create",
+  listenbrainz: "https://listenbrainz.org/settings/",
+};
 
 const ICON: Record<SecretView["state"], IconName> = { none: "radio_button_unchecked", ok: "check_circle", again: "sync_problem" };
 const TONE: Record<SecretView["state"], string> = { none: "text-on-surface-variant", ok: "text-primary", again: "text-error" };

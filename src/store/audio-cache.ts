@@ -16,6 +16,7 @@ import { bestEffort } from "../infra/best-effort.ts";
 import { repeatingFailure } from "../infra/repeating-failure.ts";
 import { PROJECT } from "../infra/project-paths.ts";
 import { driveOf } from "../infra/disk.ts";
+import { L } from "../infra/log/text.ts";
 
 const CACHE_DIR = PROJECT.audioCache;
 
@@ -65,10 +66,10 @@ let removeTimeoutMs = REMOVE_TIMEOUT_MS;
 let unlink = fsUnlink;
 // 상한 안에 삭제되지 않은 파일. 그 삭제는 취소되지 않고 스레드 풀 슬롯 하나를 잡고 있으므로 이번 실행 동안 다시 부르지 않는다
 const stuckFiles = new Set<string>();
-const removeFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "오디오 캐시 파일 삭제");
+const removeFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.cache.cacheFileRemoval());
 let removals = { codes: new Set<string>(), removed: 0 };
-const evictFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "오디오 캐시 정리");
-const diskFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "오디오 캐시 디스크 여유 공간 확인");
+const evictFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.cache.cacheEviction());
+const diskFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.cache.cacheDiskCheck());
 // 정기 퇴거가 이미 돌고 있으면 그것을 돌려준다(겹쳐 부르면 한 번만)
 let evicting: Promise<void> | null = null;
 // 캐시를 삭제하는 길(퇴거, 초기화, 파일 하나 삭제)이 함께 쓰는 잠금. 한 번에 하나만 돈다(겹치면 같은 행을 두 번 세거나 남긴 행을 삭제한다).
@@ -118,11 +119,11 @@ async function removeFile(fp: string): Promise<boolean> {
     }
     if (result === "late") {
       stuckFiles.add(target);
-      log.warn(`캐시 파일 삭제가 ${removeTimeoutMs / 1000}초 안에 끝나지 않아 이번 실행에서는 건너뜀(다른 프로세스가 파일을 점유 중일 수 있음): ${path.basename(target)}`);
+      log.warn(L.cache.cacheFileRemoveTimedOut({ seconds: removeTimeoutMs / 1000, file: path.basename(target) }));
       return false;
     }
     removals.codes.add(String(codeOf(result) ?? result?.name ?? "?"));
-    log.debug(`캐시 파일 삭제 실패: ${path.basename(target)} | ${messageOf(result)}`);
+    log.debug(L.cache.cacheFileRemoveFailed({ file: path.basename(target), error: messageOf(result) }));
     return false;
   } finally {
     clearTimeout(timer);
@@ -170,7 +171,7 @@ async function tallyRemovals<T>(run: () => Promise<T>): Promise<T> {
   try {
     return await run();
   } finally {
-    if (removals.codes.size) removeFailure.fail(`${[...removals.codes].sort().join(", ")} (파일이 디스크에 남음)`);
+    if (removals.codes.size) removeFailure.fail(L.cache.cacheFilesLeftOnDisk({ codes: [...removals.codes].sort().join(", ") }));
     else if (removals.removed) removeFailure.ok();
   }
 }
@@ -345,7 +346,7 @@ function sessionKeys(audioUrls = sessions().liveAudioUrls()) {
 async function onStartup() {
   // 지난 실행이 다운로드하다 멈춘 행은 실패로 돌린다
   const resetCount = conn().prepare("UPDATE audio_cache SET status = 'error' WHERE status = 'downloading'").run().changes;
-  if (resetCount > 0) log.info(`이전 실행에서 중단된 다운로드 ${resetCount}건 정리 완료`);
+  if (resetCount > 0) log.info(L.cache.interruptedDownloadsCleared({ count: resetCount }));
 
   // 다운로드를 마친 행의 파일이 디스크에 남아 있는지 본다
   const cachedRows = conn().prepare("SELECT audio_key, file_path FROM audio_cache WHERE status = 'cached'").all() as Array<Pick<AudioRow, "audio_key" | "file_path">>;
@@ -357,13 +358,13 @@ async function onStartup() {
       orphanDbCount++;
     }
   }
-  if (orphanDbCount > 0) log.info(`오디오 캐시 파일이 누락된 항목 ${orphanDbCount}건 기록 완료`);
+  if (orphanDbCount > 0) log.info(L.cache.missingCacheFilesRecorded({ count: orphanDbCount }));
 
   // DB에서 추적하지 않는 오디오 파일 삭제. 다운로드하다 만 조각도 삭제하므로 복원이 다운로드를 시작하기 전에 끝낸다
   await tallyRemovals(cleanOrphanFiles);
 
   // 상한을 넘었으면 퇴거한다. 기다리지 않는다(복원될 곡은 저장된 세션을 보고 지킨다)
-  bestEffort(log, evictIfNeeded(), "기동 캐시 비우기", "warn");
+  bestEffort(log, evictIfNeeded(), L.cache.startupCacheEvict(), "warn");
 }
 
 // 선택한 것의 표를 비운다. survivors: 남긴 파일의 키라 audio_cache에 남길 행. 다운로드 중인 행도 남긴다(끝나면 그 행을 cached로 고친다).
@@ -388,7 +389,7 @@ function sizeOf(target: string) {
   try {
     return fs.statSync(target).size;
   } catch (error) {
-    if (codeOf(error) !== "ENOENT") log.warn(`캐시 파일 크기 읽기 실패: ${path.basename(target)} | ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(L.cache.cacheFileSizeReadFailed({ file: path.basename(target), error: messageOf(error) }));
     return 0;
   }
 }
@@ -420,7 +421,7 @@ async function resetLocked(parts: readonly AudioCachePart[]): Promise<ResetResul
     conn().exec("VACUUM");
   } catch (error) {
     // 파일 크기만 못 줄일 뿐 초기화는 끝났다
-    log.warn(`캐시 DB 파일 압축(VACUUM) 실패: ${messageOf(error)}`);
+    log.warn(L.cache.cacheDbVacuumFailed({ error: messageOf(error) }));
   }
   return { removed: files.removed, kept: files.kept, freedBytes: files.freedBytes, cleared };
 }
@@ -501,8 +502,8 @@ async function cleanOrphanFiles() {
 
     if (!dbPaths.has(full) && !allProtected.has(full) && (await removeFile(full))) cleaned++;
   }
-  if (cleaned > 0) log.info(`고아 오디오 캐시 파일 ${cleaned}개 삭제 완료`);
-  if (partials > 0) log.info(`캐시 다운로드 중단으로 생성된 조각 파일 ${partials}개 삭제 완료`);
+  if (cleaned > 0) log.info(L.cache.orphanCacheFilesRemoved({ count: cleaned }));
+  if (partials > 0) log.info(L.cache.partialCacheFilesRemoved({ count: partials }));
 }
 
 // 퇴거
@@ -514,7 +515,7 @@ function freeDiskBytes() {
     diskFailure.ok();
     return stat.bavail * stat.bsize;
   } catch (error) {
-    diskFailure.fail(`${dir} | statfs ${codeOf(error) ?? messageOf(error)} (디스크 부족 시 캐시 정리 비활성화)`);
+    diskFailure.fail(L.cache.cacheDiskCheckFailed({ dir, error: codeOf(error) ?? messageOf(error) }));
     return Infinity;
   }
 }
@@ -602,10 +603,9 @@ async function checkAndEvict() {
   if (!overSize && !overFiles && !lowDisk) return;
 
   if (lowDisk) {
-    log.warn(`디스크 여유 공간 부족 (${MB(diskFree)}MB 남음, 최소 ${MB(cfg.minFreeDiskBytes)}MB). 오디오 캐시 정리`);
+    log.warn(L.cache.diskLowEvicting({ freeMb: MB(diskFree), minMb: MB(cfg.minFreeDiskBytes) }));
   } else {
-    const over = [overSize && `용량 ${MB(totalSize)}MB / ${MB(cfg.maxSizeBytes)}MB`, overFiles && `파일 ${fileCount}개 / ${cfg.maxFiles}개`].filter(Boolean).join(", ");
-    log.info(`오디오 캐시가 상한을 넘음(${over}). 상한의 ${cfg.evictTargetPercent}%까지 정리`);
+    log.info(L.cache.cacheOverCapEvicting({ overSize, sizeMb: MB(totalSize), maxMb: MB(cfg.maxSizeBytes), overFiles, files: fileCount, maxFiles: cfg.maxFiles, targetPercent: cfg.evictTargetPercent }));
   }
 
   await evictLocked({ totalSize, fileCount, diskFree });
@@ -769,10 +769,7 @@ function removeCached(audioKey: string, expect?: number | null, go?: () => void)
 
 // 퇴거 결과 한 줄. 시작 줄("상한을 넘음")에는 늘 이 줄이 따른다
 function reportEviction({ evicted, failed, guarded, files, size, reached }: { evicted: number; failed: number; guarded: number; files: number; size: number; reached: boolean }) {
-  const why = [guarded > 0 && `재생 중이거나 대기열 앞에 있는 곡 ${guarded}개는 지키고`, failed > 0 && `${failed}개는 삭제하지 못해`].filter(Boolean).join(", ");
-  const short = reached ? "" : ` - 목표선까지 내려가지 못함${why ? `(${why})` : ""}`;
-  const unremoved = reached && failed > 0 ? ` - ${failed}개는 삭제하지 못함` : "";
-  log.info(`오디오 캐시 ${evicted}개 삭제(${files}개 남음, ${MB(size)}MB)${short}${unremoved}`);
+  log.info(L.cache.cacheEvicted({ count: evicted, remaining: files, sizeMb: MB(size), reached, guarded, failed }));
 }
 
 /** 정기 퇴거를 건다(간격은 설정) */
@@ -780,12 +777,12 @@ function startPeriodicEviction() {
   if (evictInterval) clearInterval(evictInterval);
   evictEveryMs = config.cache.evictIntervalMs;
   evictInterval = setInterval(() => {
-    evictIfNeeded().catch((err: unknown) => log.error("오디오 캐시 정기 정리 중 오류:", messageOf(err)));
+    evictIfNeeded().catch((err: unknown) => log.error(L.cache.cacheEvictionFailed({ error: messageOf(err) })));
     // 볼륨 값은 캐시 파일과 따로, 오래 쓰지 않은 것만 지운다(하루에 한 번)
     bestEffort(
       log,
       Promise.resolve().then(() => pruneLoudness()),
-      "오래된 볼륨 값 지우기",
+      L.cache.loudnessPrune(),
       "warn",
     );
   }, evictEveryMs);

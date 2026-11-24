@@ -5,6 +5,9 @@ process.env.OWNER_ID = "owner";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import express from "express";
+import fs from "node:fs";
+import path from "node:path";
+import Database from "better-sqlite3";
 
 const { listenForFetch, baseUrl } = await import("../helpers/listen.ts");
 const { fake } = await import("../helpers/fake.ts");
@@ -63,4 +66,30 @@ test("복원을 예약하는 것은 최근 로그인만", async () => {
   } finally {
     loginAt = Date.now();
   }
+});
+
+test("예약하다 실패하면 원인을 규칙 문제로 보낸다(화면이 보는 사람의 언어로 그린다)", async () => {
+  const name = await snapshots.take("daily", new Date(2026, 9, 8));
+  // 임시 파일 자리를 폴더로 막아 복사가 실패하게 한다
+  const blocked = path.join(store.dir, "settings.restore.db.tmp");
+  fs.mkdirSync(blocked);
+  try {
+    const res = await fetch(`${base}/restore`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+    const json = (await res.json()) as { code: string; detail?: string; errors: { code: string; rule: { code: string; params: { text: string } } }[] };
+    assert.deepEqual([res.status, json.code, json.detail, json.errors.length, json.errors[0].code, json.errors[0].rule.code], [409, "config-save-failed", undefined, 1, "config-save-failed", "plain"]);
+    assert.ok(json.errors[0].rule.params.text);
+  } finally {
+    fs.rmSync(blocked, { recursive: true, force: true });
+  }
+});
+
+test("구조 버전이 다른 스냅샷은 snapshot-mismatch와 그 버전을 규칙 문제로 보낸다", async () => {
+  const name = await snapshots.take("daily", new Date(2026, 9, 7));
+  const db = new Database(path.join(store.dir, "backups", name));
+  db.pragma("user_version = 99");
+  db.close();
+  const res = await fetch(`${base}/restore`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+  const json = (await res.json()) as { code: string; detail?: string; errors: { code: string; rule: { code: string; params: { version: number } } }[] };
+  assert.deepEqual([res.status, json.code, json.detail, json.errors[0].code, json.errors[0].rule.code, json.errors[0].rule.params.version], [409, "snapshot-mismatch", undefined, "snapshot-mismatch", "snapshot-version", 99]);
+  assert.equal(snapshots.staged(), null);
 });

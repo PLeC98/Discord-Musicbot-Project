@@ -10,13 +10,15 @@ import { isIP } from "node:net";
 import type { SecureContextOptions, TlsOptions } from "node:tls";
 import logger from "../infra/log/logger.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
+import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
 
 const log = logger.child({ category: "dashboard" });
 
 type TlsFiles = { cert: string; key: string; from: "certs" | "env" };
-type Found = { files: TlsFiles | null; error: string | null };
-type Note = { level: "info" | "warn"; text: string };
-type Checked = { ok: true; leaf: X509Certificate; notes: Note[] } | { ok: false; errors: string[] };
+type Found = { files: TlsFiles | null; error: LogText | null };
+type Note = { level: "info" | "warn"; text: LogText };
+type Checked = { ok: true; leaf: X509Certificate; notes: Note[] } | { ok: false; errors: LogText[] };
 
 /** 남은 기한이 이 일수 이하면 warn */
 const WARN_DAYS = 14;
@@ -28,18 +30,18 @@ const DAY_MS = 86_400_000;
  */
 function findTlsFiles({ envCert, envKey, root, certsDir, exists = fs.existsSync }: { envCert: string | null; envKey: string | null; root: string; certsDir: string; exists?: (file: string) => boolean }): Found {
   if (envCert || envKey) {
-    if (!envCert || !envKey) return { files: null, error: `.env에 DASHBOARD_TLS_CERT와 DASHBOARD_TLS_KEY를 둘 다 넣으세요(지금은 ${envCert ? "DASHBOARD_TLS_CERT" : "DASHBOARD_TLS_KEY"}만 있음).` };
+    if (!envCert || !envKey) return { files: null, error: L.dashboard.tlsEnvHalf({ has: envCert ? "DASHBOARD_TLS_CERT" : "DASHBOARD_TLS_KEY" }) };
     const cert = path.resolve(root, envCert);
     const key = path.resolve(root, envKey);
     const missing = [cert, key].filter((f) => !exists(f));
-    if (missing.length) return { files: null, error: `.env의 DASHBOARD_TLS_CERT, DASHBOARD_TLS_KEY가 가리키는 파일이 없음: ${missing.join(", ")}` };
+    if (missing.length) return { files: null, error: L.dashboard.tlsEnvMissing({ files: missing.join(", ") }) };
     return { files: { cert, key, from: "env" }, error: null };
   }
   const cert = path.join(certsDir, "cert.pem");
   const key = path.join(certsDir, "key.pem");
   const has = [exists(cert), exists(key)];
   if (has[0] && has[1]) return { files: { cert, key, from: "certs" }, error: null };
-  if (has[0] || has[1]) return { files: null, error: `certs/에 ${has[0] ? "key.pem" : "cert.pem"}이 없음. cert.pem과 key.pem을 둘 다 두거나 둘 다 빼세요` };
+  if (has[0] || has[1]) return { files: null, error: L.dashboard.tlsCertsHalf({ missing: has[0] ? "key.pem" : "cert.pem" }) };
   return { files: null, error: null };
 }
 
@@ -60,13 +62,13 @@ function validRange(leaf: Pick<X509Certificate, "validFrom" | "validTo">) {
 const daysLeft = (leaf: X509Certificate, now: number) => Math.ceil((Date.parse(leaf.validTo) - now) / DAY_MS);
 
 /** 키 PEM을 읽는다. 암호가 걸렸거나 읽지 못하면 그 원인 */
-function keyProblem(keyPem: string): string | null {
-  if (/ENCRYPTED/.test(keyPem)) return "키에 암호가 걸려 있어 쓸 수 없음. 암호를 푼 키를 쓰세요(예: openssl pkey -in 암호키.pem -out key.pem)";
+function keyProblem(keyPem: string): LogText | null {
+  if (/ENCRYPTED/.test(keyPem)) return L.dashboard.tlsKeyEncrypted();
   try {
     createPrivateKey(keyPem);
     return null;
   } catch (error) {
-    return `키 읽기 실패(PEM 형식의 개인 키인지 확인하세요): ${messageOf(error)}`;
+    return L.dashboard.tlsKeyReadFailed({ error: messageOf(error) });
   }
 }
 
@@ -76,12 +78,12 @@ function keyProblem(keyPem: string): string | null {
  */
 function checkTls({ certPem, keyPem, urlHost, now = Date.now(), keyWorldReadable = false }: { certPem: string; keyPem: string; urlHost: string; now?: number; keyWorldReadable?: boolean }): Checked {
   const blocks = certPem.match(CERT_BLOCK) ?? [];
-  if (!blocks.length) return { ok: false, errors: ["인증서 파일이 PEM 형식이 아님(-----BEGIN CERTIFICATE-----로 시작하는 파일)"] };
+  if (!blocks.length) return { ok: false, errors: [L.dashboard.tlsCertNotPem()] };
   let certs: X509Certificate[];
   try {
     certs = blocks.map((b) => new X509Certificate(b));
   } catch (error) {
-    return { ok: false, errors: [`인증서 읽기 실패: ${messageOf(error)}`] };
+    return { ok: false, errors: [L.dashboard.tlsCertReadFailed({ error: messageOf(error) })] };
   }
   const [leaf, ...rest] = certs;
   const errors = fatalProblems(leaf, keyPem, now);
@@ -90,15 +92,15 @@ function checkTls({ certPem, keyPem, urlHost, now = Date.now(), keyWorldReadable
 
 /** 열지 않는 문제: 맨 앞이 CA 인증서, 키(암호, 형식, 짝), 유효 기간 */
 function fatalProblems(leaf: X509Certificate, keyPem: string, now: number) {
-  const errors: string[] = [];
+  const errors: LogText[] = [];
   // 깨진 날짜는 OpenSSL에서 "Bad time value"가 되어 Date.parse가 NaN이 된다(그대로 두면 유효 기간 검사를 모두 통과한다)
-  if (!validRange(leaf)) return [...errors, `인증서의 유효 기간 읽기 실패(${leaf.validFrom} ~ ${leaf.validTo}). 다시 발급받은 인증서를 쓰세요`];
-  if (leaf.ca) errors.push("인증서 파일의 맨 앞이 서버 인증서가 아님(CA 인증서). 서버 인증서 다음에 중간 인증서를 이어 붙이세요");
+  if (!validRange(leaf)) return [...errors, L.dashboard.tlsValidityUnreadable({ validFrom: leaf.validFrom, validTo: leaf.validTo })];
+  if (leaf.ca) errors.push(L.dashboard.tlsLeafIsCa());
   const badKey = keyProblem(keyPem);
   if (badKey) errors.push(badKey);
-  else if (!leaf.ca && !leaf.checkPrivateKey(createPrivateKey(keyPem))) errors.push("키가 인증서와 짝이 아님. 그 인증서를 발급받을 때 쓴 키를 넣으세요");
-  if (Date.parse(leaf.validFrom) > now) errors.push(`인증서가 아직 유효하지 않음(유효 시작 ${dateText(Date.parse(leaf.validFrom))}). 기기의 시각을 확인하세요`);
-  if (Date.parse(leaf.validTo) <= now) errors.push(`인증서의 기한이 지남(${dateText(Date.parse(leaf.validTo))}). 새 인증서로 바꾸고 봇을 다시 시작하세요`);
+  else if (!leaf.ca && !leaf.checkPrivateKey(createPrivateKey(keyPem))) errors.push(L.dashboard.tlsKeyMismatch());
+  if (Date.parse(leaf.validFrom) > now) errors.push(L.dashboard.tlsNotYetValid({ date: dateText(Date.parse(leaf.validFrom)) }));
+  if (Date.parse(leaf.validTo) <= now) errors.push(L.dashboard.tlsCertExpired({ date: dateText(Date.parse(leaf.validTo)) }));
   return errors;
 }
 
@@ -106,17 +108,17 @@ function fatalProblems(leaf: X509Certificate, keyPem: string, now: number) {
 function softProblems({ leaf, rest, urlHost, now, keyWorldReadable }: { leaf: X509Certificate; rest: X509Certificate[]; urlHost: string; now: number; keyWorldReadable: boolean }) {
   const notes: Note[] = [];
   const issued = rest.some((c) => leaf.checkIssued(c));
-  if (!issued && !isCloudflareOrigin(leaf) && !isSelfSigned(leaf)) notes.push({ level: "warn", text: "인증서 파일에 중간 인증서가 없음. 브라우저는 대개 자동으로 찾지만 일부 기기는 접속하지 못할 수 있음(fullchain.pem처럼 서버 인증서 다음에 중간 인증서를 이은 파일을 쓰세요)" });
+  if (!issued && !isCloudflareOrigin(leaf) && !isSelfSigned(leaf)) notes.push({ level: "warn", text: L.dashboard.tlsNoIntermediate() });
   // 호스트 이름 검증은 현행 표준(RFC 9525)대로: 부분 와일드카드(a*.example.com), SAN이 없을 때 CN으로 대체하는 것은 허용하지 않는다
   const named = isIP(urlHost) ? leaf.checkIP(urlHost) : leaf.checkHost(urlHost, { partialWildcards: false, subject: "never" });
-  if (!named) notes.push({ level: "warn", text: `인증서의 이름에 공개 주소의 호스트(${urlHost})가 없음. 브라우저가 경고함(인증서 이름: ${leaf.subjectAltName ?? leaf.subject})` });
+  if (!named) notes.push({ level: "warn", text: L.dashboard.tlsNameMismatch({ host: urlHost, names: leaf.subjectAltName ?? leaf.subject }) });
   const left = daysLeft(leaf, now);
   if (left <= WARN_DAYS) notes.push({ level: "warn", text: expiryText(left, leaf) });
-  if (keyWorldReadable) notes.push({ level: "warn", text: "키 파일을 이 기기의 다른 사용자도 읽을 수 있음(chmod 600)" });
+  if (keyWorldReadable) notes.push({ level: "warn", text: L.dashboard.tlsKeyWorldReadable() });
   return notes;
 }
 
-const expiryText = (left: number, leaf: X509Certificate) => `대시보드 인증서의 기한이 ${left}일 남음(${dateText(Date.parse(leaf.validTo))}). 새 인증서로 바꾸고 봇을 다시 시작하세요`;
+const expiryText = (left: number, leaf: X509Certificate) => L.dashboard.tlsExpiresSoon({ days: left, date: dateText(Date.parse(leaf.validTo)) });
 
 /** Mozilla intermediate(TLS 1.2 cipher suite, TLS 1.3은 OpenSSL 기본 세 가지). Node 기본에는 CBC cipher suite가 들어 있다 */
 const CIPHERS = ["TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384", "TLS_CHACHA20_POLY1305_SHA256", "ECDHE-ECDSA-AES128-GCM-SHA256", "ECDHE-RSA-AES128-GCM-SHA256", "ECDHE-ECDSA-AES256-GCM-SHA384", "ECDHE-RSA-AES256-GCM-SHA384", "ECDHE-ECDSA-CHACHA20-POLY1305", "ECDHE-RSA-CHACHA20-POLY1305", "DHE-RSA-AES128-GCM-SHA256", "DHE-RSA-AES256-GCM-SHA384", "DHE-RSA-CHACHA20-POLY1305"].join(":");
@@ -132,7 +134,7 @@ function worldReadable(file: string, platform = process.platform) {
   try {
     return (fs.statSync(file).mode & 0o004) !== 0;
   } catch (error) {
-    log.warn(`TLS 키 파일 stat 실패(다른 사용자 읽기 권한 확인 건너뜀): ${file} | ${codeOf(error) ?? messageOf(error)}`);
+    log.warn(L.dashboard.tlsKeyStatFailed({ file, reason: codeOf(error) ?? messageOf(error) }));
     return false;
   }
 }
@@ -152,7 +154,7 @@ function watchExpiry(leaf: X509Certificate, from: TlsFiles["from"]) {
   if (timer) clearInterval(timer);
   timer = setInterval(() => {
     const left = daysLeft(leaf, Date.now());
-    if (left <= 0) log.error(`대시보드 인증서의 기한이 지남(${dateText(Date.parse(leaf.validTo))}). 브라우저가 접속을 막음. 새 인증서로 바꾸고 봇을 다시 시작하세요`);
+    if (left <= 0) log.error(L.dashboard.tlsExpired({ date: dateText(Date.parse(leaf.validTo)) }));
     else if (left <= WARN_DAYS) log.warn(expiryText(left, leaf));
   }, DAY_MS);
   timer.unref();

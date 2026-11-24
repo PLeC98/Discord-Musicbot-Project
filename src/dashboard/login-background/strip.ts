@@ -11,6 +11,7 @@ import type { StageJob, StageResult } from "./runner.ts";
 import * as store from "./store.ts";
 import { previewOf } from "./preview.ts";
 import { probeVideo, READ_ARGS } from "./source.ts";
+import { L } from "../../infra/log/text.ts";
 
 /** 장면 간격의 하한(초), 장면 수 상한, 격자 열 수, 한 셀 높이(화면 띠 64px의 두 배) */
 const EVERY_MIN = 0.5;
@@ -33,15 +34,15 @@ function layoutOf(duration: number, width: number, height: number): LoginBackgro
 /** 장면 띠 단계 */
 async function strip({ item, signal }: StageJob): Promise<StageResult> {
   const preview = previewOf(item.id);
-  if (!preview || preview.endsWith(".webp")) throw codedError("background-failed", "미리보기 영상 없음");
+  if (!preview || preview.endsWith(".webp")) throw codedError("background-failed", L.dashboard.backgroundNoPreview());
   const probed = await probeVideo(preview, signal);
   const layout = layoutOf(item.duration, probed.width, probed.height);
   const rows = Math.ceil(layout.count / COLUMNS);
   const filter = `fps=${layout.count}/${item.duration},scale=${layout.width}:${layout.height}:flags=lanczos,tile=${COLUMNS}x${rows}`;
   const run = await ffmpeg(["-v", "error", ...READ_ARGS, "-i", preview, "-vf", filter, "-frames:v", "1", "-f", "image2pipe", "-c:v", "png", "-"], { signal, timeoutMs: item.duration * 20_000 + 600_000 });
-  if (run.aborted) throw codedError("aborted", "중단됨");
+  if (run.aborted) throw codedError("aborted", L.dashboard.backgroundAborted());
   const png = run.output;
-  if (run.code !== 0 || !png.length) throw codedError("background-failed", `장면 띠 만들기 실패: ${run.stderr.split("\n").filter(Boolean).at(-1) ?? ""}`);
+  if (run.code !== 0 || !png.length) throw codedError("background-failed", L.dashboard.backgroundStripFailed({ stderr: run.stderr.split("\n").filter(Boolean).at(-1) ?? "" }));
   const file = path.join(store.folderOf(item.id), "strip.webp");
   await sharp(png).webp({ quality: 60 }).toFile(`${file}.part`);
   fs.renameSync(`${file}.part`, file);

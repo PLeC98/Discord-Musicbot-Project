@@ -11,11 +11,12 @@ import { sendProblem } from "../problem.ts";
 import { limiter } from "../rate-limits.ts";
 import { ranBy } from "../ran-by.ts";
 import { parse, TrackCacheInspectBody, TrackCacheProbeBody, TrackCacheWriteBody } from "../request-schemas.ts";
-import { messageOf } from "../../rules/error-kind.ts";
+import { errorProblem, messageOf } from "../../rules/error-kind.ts";
 import * as trackCache from "../track-cache.ts";
 import * as probes from "../track-cache-probe.ts";
 import type { TrackCacheChecks, TrackCacheInspected, TrackCachePage, TrackCacheProbeQueued, TrackCacheRevision, TrackCacheWritten } from "../contract/track-cache.ts";
 import { assertSignedIn, sessionEnded } from "../session-requests.ts";
+import { L } from "../../infra/log/text.ts";
 
 const trackCacheRouter = express.Router();
 trackCacheRouter.use(requireOwner);
@@ -46,8 +47,8 @@ trackCacheRouter.post("/", async (req, res) => {
     written = await trackCache.write(body.value.ops, ranBy(req), () => assertSignedIn(req));
   } catch (error) {
     if (sessionEnded(res, error)) return;
-    log.error({ sub: "admin" }, `캐시 DB 저장 실패: ${messageOf(error)}`);
-    return sendProblem(res, "track-cache-write-failed", {}, { detail: messageOf(error) });
+    log.error({ sub: "admin" }, L.dashboard.trackCacheSaveFailed({ error: messageOf(error) }));
+    return sendProblem(res, "track-cache-write-failed", {}, { errors: [{ code: "track-cache-write-failed", rule: errorProblem(error) }] });
   }
   if (!written.ok) return refuse(res, written);
   res.json(written.written satisfies TrackCacheWritten);

@@ -1,5 +1,8 @@
 // 디스코드 REST(사용자 토큰으로 부르는 것: OAuth 로그인, 초대 화면의 서버 목록). 봇 토큰으로 부르는 것은 discord.js가 한다
 
+import { L } from "../infra/log/text.ts";
+import { logTextError } from "../infra/log/log-text.ts";
+
 const DISCORD_API = "https://discord.com/api/v10";
 
 // 응답 없는 요청이 로그인 콜백, 초대 화면을 붙잡지 않도록 제한 시간을 둔다
@@ -22,7 +25,7 @@ async function call<T>(url: string, init: RequestInit): Promise<Reply<T>> {
   } catch {
     // JSON이 아니면 텍스트 그대로
   }
-  if (!res.ok) throw Object.assign(new Error(`HTTP ${res.status}`), { response: { status: res.status, data } });
+  if (!res.ok) throw Object.assign(logTextError(L.net.httpStatus({ status: res.status })), { response: { status: res.status, data } });
   return { data: data as T };
 }
 

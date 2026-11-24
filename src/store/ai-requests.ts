@@ -3,6 +3,7 @@
 // 로그는 저장 용량을 넘으면 오래된 것부터 삭제한다(최근 KEEP_MIN_ROWS 행은 크기와 무관하게 남긴다). 통계는 삭제하지 않는다.
 // 새 행은 듣는 쪽(대시보드의 SSE 연결)에 알린다.
 
+import { isRuleCode, plain, type RuleProblem } from "../rules/rule-problem.ts";
 import { aiLogDb } from "./ai-log-db.ts";
 import { dayKey, type UsageRow } from "../rules/ai-usage.ts";
 import type { AiLogDetail, AiLogEntry, AiLogQuery, AiLogSource } from "../dashboard/contract/ai-log.ts";
@@ -64,7 +65,18 @@ function cap(text: string): { text: string; truncated: boolean } {
   // 글자 가운데에서 끊기면 깨진 글자 하나가 남을 뿐이다(UTF-8 디코딩이 대체 글자로 둔다)
   const head = buf.subarray(0, half).toString("utf8");
   const tail = buf.subarray(size - half).toString("utf8");
-  return { text: `${head}\n\n...[${Math.round((size - half * 2) / 1024)} KB 생략]...\n\n${tail}`, truncated: true };
+  return { text: `${head}\n\n...[${Math.round((size - half * 2) / 1024)} KB]...\n\n${tail}`, truncated: true };
+}
+
+// error 열: 규칙 문제의 JSON. 해당 형식이 아니면(이전 형식의 행) 문자열 그대로
+function problemOf(text: string): RuleProblem {
+  try {
+    const found: unknown = JSON.parse(text);
+    if (found && typeof found === "object" && "code" in found && isRuleCode(found.code)) return found as RuleProblem;
+  } catch {
+    // 문자열로 저장된 행이다
+  }
+  return plain(text);
 }
 
 function toEntry(row: RequestRow): AiLogEntry {
@@ -89,7 +101,7 @@ function toEntry(row: RequestRow): AiLogEntry {
     ...(row.candidates !== null ? { candidates: row.candidates } : {}),
     tokens,
     costUsd: row.cost_usd,
-    ...(row.error ? { error: row.error } : {}),
+    ...(row.error ? { error: problemOf(row.error) } : {}),
     truncated: row.truncated === 1,
     bytes: row.size_bytes,
   };
@@ -103,7 +115,7 @@ function textColumns(one: NewRecord) {
   const body = cap(one.requestBody);
   const response = cap(one.response);
   const truncated = headers.truncated || body.truncated || response.truncated;
-  const size = [one.url, headers.text, body.text, response.text, one.error ?? ""].reduce((n, text) => n + bytesOf(text), 0);
+  const size = [one.url, headers.text, body.text, response.text, one.error ? JSON.stringify(one.error) : ""].reduce((n, text) => n + bytesOf(text), 0);
   return { truncated: truncated ? 1 : 0, size_bytes: size, request_headers: headers.text, request_body: body.text, response: response.text };
 }
 
@@ -133,7 +145,7 @@ function rowOf(one: NewRecord) {
     candidates: orNull(one.candidates),
     ...tokenColumns(one.tokens),
     cost_usd: one.costUsd,
-    error: orNull(one.error),
+    error: one.error ? JSON.stringify(one.error) : null,
     ...textColumns(one),
   };
 }

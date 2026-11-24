@@ -6,6 +6,7 @@
 // 설정 모듈, .env를 부르지 않는다(워크플로 실행기에는 .env가 없다. 비교하는 것은 저장소의 기본값이다).
 // GITHUB_TOKEN이 있으면 GitHub API에 실어 보낸다(요청 한도). 잠금 파일은 package.json과 함께 받아 npm audit --package-lock-only로 본다(설치하지 않는다)
 
+import "../src/infra/log/choose-at-start.ts"; // 다른 import보다 먼저 로그 언어를 고른다
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -17,6 +18,11 @@ import { parseCidr } from "../src/rules/net-address.ts";
 import { auditCounts, newerFfmpegRelease, newerRelease, rewriteConstant, type AuditCounts } from "../src/rules/vendor-updates.ts";
 import { pinnedKey, verifyDetached } from "../src/infra/openpgp.ts";
 import { SIGNING_FINGERPRINT, signingKey } from "../src/sources/ytdlp-release.ts";
+import { errorProblem } from "../src/rules/error-kind.ts";
+import { logRuleLine } from "../src/rules/text/index.ts";
+import { L } from "../src/infra/log/text.ts";
+import { asText, logTextError, type LogText } from "../src/infra/log/log-text.ts";
+import { ruleLogText } from "../src/rules/text/index.ts";
 
 const BGUTIL_REPO = "Brainicism/bgutil-ytdlp-pot-provider";
 const FFMPEG_REPO = "BtbN/FFmpeg-Builds";
@@ -32,14 +38,14 @@ async function github(pathname: string) {
     headers: { Accept: "application/vnd.github+json", "User-Agent": "Discord-Musicbot-Project vendor-updates", ...(token && { Authorization: `Bearer ${token}` }) },
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
-  if (!res.ok) throw new Error(`GitHub ${pathname}: ${res.status}`);
+  if (!res.ok) throw logTextError(L.vendor.githubFailed({ pathname, status: res.status }));
   return res.json();
 }
 
 // 태그가 가리키는 커밋. refs/tags/ 로 적어야 주석 태그도 커밋으로 벗기고 같은 이름의 브랜치와 헷갈리지 않는다
 async function bgutilCommitOf(tag: string) {
   const sha = String(((await github(`/repos/${BGUTIL_REPO}/commits/refs/tags/${encodeURIComponent(tag)}`)) as { sha?: unknown }).sha ?? "");
-  if (!isCommitSha(sha)) throw new Error(`bgutil ${tag}의 커밋을 읽지 못했습니다: ${sha}`);
+  if (!isCommitSha(sha)) throw logTextError(L.vendor.bgutilCommitUnread({ tag, sha }));
   return sha;
 }
 
@@ -49,7 +55,7 @@ async function auditBgutil(commit: string): Promise<AuditCounts> {
   try {
     for (const name of ["package.json", "package-lock.json"]) {
       const res = await fetch(`https://raw.githubusercontent.com/${BGUTIL_REPO}/${commit}/server/${name}`, { signal: AbortSignal.timeout(TIMEOUT_MS) });
-      if (!res.ok) throw new Error(`bgutil ${commit}의 server/${name} 조회 실패: ${res.status}`);
+      if (!res.ok) throw logTextError(L.vendor.bgutilServerFileFailed({ commit, name, status: res.status }));
       fs.writeFileSync(path.join(dir, name), await res.text());
     }
     // 취약점이 있으면 1로 끝나므로 종료 코드가 아니라 출력을 읽는다
@@ -62,7 +68,7 @@ async function auditBgutil(commit: string): Promise<AuditCounts> {
       /* 아래에서 예외를 던진다 */
     }
     const counts = auditCounts(parsed);
-    if (!counts) throw new Error(`npm audit 결과를 읽지 못했습니다(bgutil ${commit}): ${(ran.stderr || ran.error?.message || "").trim().split("\n")[0]}`);
+    if (!counts) throw logTextError(L.vendor.bgutilAuditUnread({ commit, detail: (ran.stderr || ran.error?.message || "").trim().split("\n")[0] }));
     return counts;
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
@@ -72,9 +78,9 @@ async function auditBgutil(commit: string): Promise<AuditCounts> {
 // Cloudflare가 공개하는 IP 대역 목록(한 줄에 CIDR 하나). 대역마다 프리픽스까지 검사한다
 async function cloudflareList(family: "v4" | "v6") {
   const res = await fetch(`https://www.cloudflare.com/ips-${family}`, { signal: AbortSignal.timeout(TIMEOUT_MS) });
-  if (!res.ok) throw new Error(`Cloudflare ips-${family}: ${res.status}`);
+  if (!res.ok) throw logTextError(L.vendor.cloudflareFailed({ family, status: res.status }));
   const list = (await res.text()).split(/\s+/).filter(Boolean);
-  if (!list.length || !list.every((c) => c.includes("/") && parseCidr(c)?.family === (family === "v4" ? "ipv4" : "ipv6"))) throw new Error(`Cloudflare ips-${family}: 목록 형식이 아님`);
+  if (!list.length || !list.every((c) => c.includes("/") && parseCidr(c)?.family === (family === "v4" ? "ipv4" : "ipv6"))) throw logTextError(L.vendor.cloudflareListMalformed({ family }));
   return list;
 }
 
@@ -84,12 +90,12 @@ async function cloudflareList(family: "v4" | "v6") {
  */
 async function ytdlpSigningKey() {
   const res = await fetch("https://raw.githubusercontent.com/yt-dlp/yt-dlp/master/public.key", { signal: AbortSignal.timeout(TIMEOUT_MS) });
-  if (!res.ok) throw new Error(`yt-dlp public.key: ${res.status}`);
+  if (!res.ok) throw logTextError(L.vendor.ytdlpPublicKeyFailed({ status: res.status }));
   let problem: string | null = null;
   try {
     pinnedKey(await res.text(), SIGNING_FINGERPRINT);
   } catch (error) {
-    problem = `yt-dlp 저장소의 public.key: ${(error as Error).message}`;
+    problem = asText(L.vendor.ytdlpPublicKeyProblem({ problem: ruleLogText(errorProblem(error)) }));
   }
   const releases: { repo: string; tag: string; ok: boolean; reason: string | null }[] = [];
   for (const repo of YTDLP_REPOS) {
@@ -98,7 +104,7 @@ async function ytdlpSigningKey() {
     const [list, signature] = await Promise.all(
       ["SHA2-256SUMS", "SHA2-256SUMS.sig"].map(async (name) => {
         const file = await fetch(`${base}/${name}`, { signal: AbortSignal.timeout(TIMEOUT_MS) });
-        if (!file.ok) throw new Error(`${repo} ${tag} ${name}: ${file.status}`);
+        if (!file.ok) throw logTextError(L.vendor.releaseFileFailed({ repo, tag, name, status: file.status }));
         return Buffer.from(await file.arrayBuffer());
       }),
     );
@@ -106,7 +112,7 @@ async function ytdlpSigningKey() {
       verifyDetached(list, signature, signingKey());
       releases.push({ repo, tag, ok: true, reason: null });
     } catch (error) {
-      releases.push({ repo, tag, ok: false, reason: (error as Error).message });
+      releases.push({ repo, tag, ok: false, reason: logRuleLine(errorProblem(error)) });
     }
   }
   return { same: !problem && releases.every((one) => one.ok), problem, releases };
@@ -118,17 +124,17 @@ const latestBgutil = String(((await github(`/repos/${BGUTIL_REPO}/releases/lates
 const ffmpegTags = ((await github(`/repos/${FFMPEG_REPO}/releases?per_page=100`)) as Array<{ tag_name?: unknown }>).map((r) => String(r.tag_name ?? ""));
 // 실패해도 다른 확인(특히 고정한 태그의 상태)을 이어 가는 것. 실패는 errors에 모아 결과를 찍은 뒤 종료 코드 1로 알린다
 const errors: string[] = [];
-async function attempt<T>(what: string, run: () => Promise<T>): Promise<T | null> {
+async function attempt<T>(what: LogText, run: () => Promise<T>): Promise<T | null> {
   try {
     return await run();
   } catch (error) {
-    errors.push(`${what}: ${(error as Error).message}`);
+    errors.push(`${asText(what)}: ${(error as Error).message}`);
     return null;
   }
 }
 
 const bgutilNewer = newerRelease(latestBgutil, BGUTIL_VERSION);
-const bgutilNewerCommit = bgutilNewer ? await attempt(`bgutil ${bgutilNewer}의 커밋`, () => bgutilCommitOf(bgutilNewer)) : null;
+const bgutilNewerCommit = bgutilNewer ? await attempt(L.vendor.bgutilNewerCommit({ tag: bgutilNewer }), () => bgutilCommitOf(bgutilNewer)) : null;
 const ffmpegNewer = newerFfmpegRelease(ffmpegTags, FFMPEG_RELEASE);
 const [cfV4, cfV6] = await Promise.all([cloudflareList("v4"), cloudflareList("v6")]);
 
@@ -153,7 +159,7 @@ const result = {
     latest: latestBgutil || null,
     newer: bgutilNewer,
     newerCommit: bgutilNewerCommit,
-    audit: { current: await attempt("bgutil lockfile 취약점 점검", () => auditBgutil(BGUTIL_COMMIT)), newer: bgutilNewerCommit ? await attempt(`bgutil ${String(bgutilNewer)} lockfile 취약점 점검`, () => auditBgutil(bgutilNewerCommit)) : null },
+    audit: { current: await attempt(L.vendor.bgutilAuditCurrent(), () => auditBgutil(BGUTIL_COMMIT)), newer: bgutilNewerCommit ? await attempt(L.vendor.bgutilAuditNewer({ tag: String(bgutilNewer) }), () => auditBgutil(bgutilNewerCommit)) : null },
   },
   ffmpeg: { current: FFMPEG_RELEASE, newer: ffmpegNewer },
   cloudflare: { changed: false, v4: cfV4.length, v6: cfV6.length },

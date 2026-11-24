@@ -6,6 +6,7 @@
 import { artOf, youtubeArt, youtubeIdOf } from "../rules/track-art.ts";
 import * as embeddedArt from "../sources/embedded-art.ts";
 import logger from "../infra/log/logger.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "player" });
 
 const TIMEOUT_MS = 3000;
@@ -28,7 +29,7 @@ function prepare(url: string | null | undefined): Promise<void> {
     pending = head(youtubeArt(videoId, "large"))
       .then((res) => remember(videoId, res.ok))
       .catch((error: unknown) => {
-        log.warn(`고해상도 썸네일 확인 실패(hqdefault 사용): ${videoId}`, error);
+        log.warn(L.player.hqThumbnailCheckFailed({ videoId }), error);
         remember(videoId, false);
       })
       .finally(() => asking.delete(videoId));

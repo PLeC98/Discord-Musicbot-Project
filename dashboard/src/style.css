@@ -425,7 +425,9 @@
 }
 
 :root {
-  /* 색 역할은 theme/theme.ts가 깐다. 여기 남는 것은 색 바깥의 값 */
+  /* 색 역할은 theme/theme.ts가 깐다. 여기 남는 것은 색 바깥의 값과, 화면 스크립트가 돌기 전의 바탕색(기본 색 씨앗의 surface, public/theme-boot.js가 기억한 색으로 덮는다) */
+  --md-surface: #0b0f11;
+  color-scheme: dark;
   --md-warning: color-mix(in oklab, #ffcf6b 85%, var(--md-primary));
 
   /* SponsorBlock 카테고리 색상 (공식 확장 기본값) */
@@ -441,6 +443,11 @@
   --category-highlight-color: #ff1684;
   --category-tangents-color: #7300ff;
   --category-chapter-color: #ffd983;
+}
+
+:root[data-theme="light"] {
+  --md-surface: #f8f9fd;
+  color-scheme: light;
 }
 
 html {

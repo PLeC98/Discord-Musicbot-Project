@@ -12,6 +12,8 @@ import { readStored, writeStored } from "../utils/storage.ts";
 type Mode = "dark" | "light" | "system";
 const MODES: Mode[] = ["dark", "light", "system"];
 const STORAGE_KEY = "theme:mode";
+// 모드마다 마지막으로 칠한 바탕색. 다음에 열 때 화면 스크립트보다 먼저 깐다(public/theme-boot.js)
+const SURFACE_KEY = "theme:surface";
 
 const stored = readStored(STORAGE_KEY);
 const mode = ref<Mode>(MODES.includes(stored as Mode) ? (stored as Mode) : "dark");
@@ -85,8 +87,22 @@ function paint(ms = SHIFT_MS) {
   // 화면이 바뀐 바로 그 프레임(새 화면 그리기)이 지나간 뒤에 시작한다. 색 전환의 첫 프레임이 무거운 프레임에 걸리지 않게
   else requestAnimationFrame(() => requestAnimationFrame(() => blendTo(target, ms)));
   painted = true;
-  root.dataset.theme = dark.value ? "dark" : "light";
-  root.style.colorScheme = dark.value ? "dark" : "light";
+  const theme = dark.value ? "dark" : "light";
+  root.dataset.theme = theme;
+  root.style.colorScheme = theme;
+  rememberSurface(theme, target["--md-surface"]);
+}
+
+function rememberSurface(theme: "dark" | "light", hex: string | undefined) {
+  if (!hex) return;
+  let saved: Record<string, unknown> = {};
+  try {
+    const parsed: unknown = JSON.parse(readStored(SURFACE_KEY) ?? "{}");
+    if (parsed && typeof parsed === "object") saved = parsed as Record<string, unknown>;
+  } catch {
+    // 망가진 값이면 새로 쓴다
+  }
+  if (saved[theme] !== hex) writeStored(SURFACE_KEY, JSON.stringify({ ...saved, [theme]: hex }));
 }
 
 /** 화면이 정한 색 씨앗(#RRGGBB, null이면 운영자 색)과 옮겨 가는 시간. 있으면 그림 대신 이것을 쓴다 */

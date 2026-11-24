@@ -22,6 +22,7 @@ import { headOf, textsOf, thumbnailOf } from "../helpers/cv2.ts";
 import { noticeReply } from "../../src/ui/frame.ts";
 import type { Notice } from "../../src/ui/text/notice.ts";
 import { COMMANDS } from "../../src/discord/commands/index.ts";
+import { textFor } from "../../src/ui/text/index.ts";
 
 useDefaultDocuments();
 
@@ -32,7 +33,7 @@ stores.open(TMP);
 audioCache.initialize();
 
 const config = (await import("../../src/config/index.ts")).default;
-const errors = await import("../../src/ui/text/ko/errors.ts");
+const errors = textFor("ko").errors;
 // 안내 응답의 헤더 줄
 const said = (notice: Notice) => headOf(noticeReply(notice));
 const settings = await import("../../src/store/guild-settings.ts");
@@ -73,7 +74,7 @@ function world({ botVoice = "v1", userVoice = "v1", player = true, handle = asyn
       updatePlaying: async () => seen.push("update"),
     },
     // 실행 목록. 도움말 새로고침이 이것으로 명령 줄을 만든다
-    commands: new Map(COMMANDS.map((command) => [command.data.name, command])),
+    commands: new Map(COMMANDS.map((command) => [command.name, command])),
   });
   // 곡 추가는 받은 곡의 제목만 적는다
   fakeAdder(bot, async (_bot, _guildId, trackData) => {

@@ -4,19 +4,21 @@
 // pnpm이 --를 함께 넘겨도 되게 인자 위치와 상관없이 본다
 
 import { isReleaseTag } from "./state.ts";
+import { L } from "../../infra/log/text.ts";
+import type { LogText } from "../../infra/log/log-text.ts";
 
 /** pin: undefined면 고정을 바꾸지 않음, 문자열이면 그 릴리스로 고정, null이면 고정 해제 */
-type InstallArgs = { pin: string | null | undefined; force: boolean } | { error: string };
+type InstallArgs = { pin: string | null | undefined; force: boolean } | { error: LogText };
 
 function parseInstallArgs(argv: string[]): InstallArgs {
   const force = argv.includes("--force");
   const unpin = argv.includes("--unpin");
   const at = argv.findIndex((arg) => arg === "--pin" || arg.startsWith("--pin="));
   if (at < 0) return { pin: unpin ? null : undefined, force };
-  if (unpin) return { error: "--pin과 --unpin은 함께 쓸 수 없습니다" };
+  if (unpin) return { error: L.ffmpeg.installArgsPinUnpin() };
   const tag = (argv[at].startsWith("--pin=") ? argv[at].slice("--pin=".length) : (argv[at + 1] ?? "")).trim();
-  if (!tag) return { error: "--pin 뒤에 고정할 릴리스를 넣으세요(예: --pin autobuild-2026-10-31-12-59)" };
-  if (!isReleaseTag(tag)) return { error: `BtbN 릴리스 태그 형식이 아닙니다: ${tag}(예: autobuild-2026-10-31-12-59)` };
+  if (!tag) return { error: L.ffmpeg.installArgsPinMissing() };
+  if (!isReleaseTag(tag)) return { error: L.ffmpeg.installArgsPinInvalid({ tag }) };
   return { pin: tag, force };
 }
 

@@ -11,7 +11,10 @@
 // 짝이 없는 추가된 줄(함수 헤더, 내보내기, 부르는 한 줄 같은 감싸는 줄)은 목록으로 보여 주기만 한다. 사람이 본다.
 // 삭제된 줄이 하나라도 사라졌으면 실패한다. 그것은 옮기기가 아니라 고치기다.
 
+import "../src/infra/log/choose-at-start.ts"; // 다른 import보다 먼저 로그 언어를 고른다
 import { execFileSync } from "child_process";
+import { L } from "../src/infra/log/text.ts";
+import { asText } from "../src/infra/log/log-text.ts";
 
 const arg = process.argv[2];
 const range = arg === "--staged" ? ["--staged"] : [`${arg || "HEAD"}^`, arg || "HEAD"];
@@ -76,12 +79,12 @@ for (const a of added) {
 const lost = [...removed].filter(([, n]) => n > 0);
 
 if (extra.length) {
-  console.log(`짝이 없는 추가된 줄 ${extra.length}개 (감싸는 줄인지 사람이 본다):`);
+  console.log(asText(L.move.unpairedAdded({ count: extra.length })));
   for (const e of extra) console.log(`  + ${e.file}: ${e.text}`);
 }
 if (lost.length) {
-  console.log(`\n사라진 삭제된 줄 ${lost.reduce((s, [, n]) => s + n, 0)}개. 옮기기가 아니다:`);
+  console.log(asText(L.move.lostRemoved({ count: lost.reduce((s, [, n]) => s + n, 0) })));
   for (const [key, n] of lost) console.log(`  - ${removedAt.get(key) ?? "?"}: ${key}${n > 1 ? ` (×${n})` : ""}`);
   process.exit(1);
 }
-console.log(`옮기기 확인: 삭제된 줄이 전부 다시 나타났다${extra.length ? "" : ". 추가된 줄도 전부 짝이 있다"}`);
+console.log(asText(L.move.verified({ extra: extra.length })));

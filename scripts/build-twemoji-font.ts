@@ -11,6 +11,7 @@
 // iOS, iPadOS는 기기 이모지를 쓴다(디스코드 iOS 앱과 같다). @font-face를 그 WebKit에만 있는 속성으로 가려 거기서는 글꼴이 없게 한다.
 // 결과: dashboard/src/assets/twemoji/(twemoji.woff2, NOTICE.txt, build.json), dashboard/src/twemoji.css(@font-face)
 
+import "../src/infra/log/choose-at-start.ts"; // 다른 import보다 먼저 로그 언어를 고른다
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync, type SpawnSyncOptions } from "node:child_process";
@@ -20,6 +21,8 @@ import { compress } from "wawoff2";
 import { setNames } from "./font-names.ts";
 import { rangeOf } from "./unicode-range.ts";
 import { PROJECT } from "../src/infra/project-paths.ts";
+import { L } from "../src/infra/log/text.ts";
+import { asText, logTextError } from "../src/infra/log/log-text.ts";
 
 const DASHBOARD = path.join(PROJECT.root, "dashboard");
 const TWEMOJI_DIR = path.join(DASHBOARD, "node_modules", "@discordapp", "twemoji");
@@ -59,7 +62,7 @@ const bin = (name: string) => path.join(VENV, process.platform === "win32" ? "Sc
 function run(command: string, args: string[], options: SpawnSyncOptions = {}) {
   const result = spawnSync(command, args, { stdio: "inherit", ...options });
   if (result.error) throw result.error;
-  if (result.status !== 0) throw new Error(`${path.basename(command)} 실패(종료 코드 ${String(result.status)})`);
+  if (result.status !== 0) throw logTextError(L.build.twemojiToolFailed({ command: path.basename(command), status: String(result.status) }));
   return result;
 }
 
@@ -70,13 +73,13 @@ function findPython(): string[] {
     const result = spawnSync(command, [...args, "-c", "import sys; print(sys.version_info >= (3, 10))"], { encoding: "utf8" });
     if (result.status === 0 && result.stdout.trim() === "True") return [command, ...args];
   }
-  throw new Error("파이썬 3.10 이상을 찾지 못했습니다. 설치하거나 PYTHON 환경 변수로 경로를 지정하세요");
+  throw logTextError(L.build.twemojiPythonMissing());
 }
 
 function ensureTools() {
   if (!fs.existsSync(bin("python"))) {
     const [command, ...args] = findPython();
-    console.log(`가상환경 만드는 중: ${path.relative(PROJECT.root, VENV)}`);
+    console.log(asText(L.build.twemojiVenvCreating({ dir: path.relative(PROJECT.root, VENV) })));
     run(command, [...args, "-m", "venv", VENV]);
   }
   run(bin("python"), ["-m", "pip", "install", "--quiet", "--disable-pip-version-check", ...Object.entries(TOOLS).map(([name, version]) => `${name}==${version}`)]);
@@ -86,7 +89,7 @@ function ensureTools() {
 async function emojiTest(): Promise<string> {
   const given = process.argv[2];
   const text = given ? fs.readFileSync(given, "utf8") : await (await fetch(`https://unicode.org/Public/emoji/${EMOJI}/emoji-test.txt`)).text();
-  if (!new RegExp(`^# Version: ${EMOJI.replace(".", "\\.")}$`, "m").test(text)) throw new Error(`emoji-test.txt의 버전이 다릅니다(기대 Emoji ${EMOJI}, Twemoji ${TWEMOJI})`);
+  if (!new RegExp(`^# Version: ${EMOJI.replace(".", "\\.")}$`, "m").test(text)) throw logTextError(L.build.twemojiEmojiTestVersion({ emoji: EMOJI, twemoji: TWEMOJI }));
   const file = path.join(CACHE, "emoji-test.txt");
   fs.writeFileSync(file, text);
   return file;
@@ -126,7 +129,7 @@ async function main() {
   ensureTools();
   const testFile = await emojiTest();
   const svgs = syncSvgs();
-  console.log(`Twemoji ${TWEMOJI}: SVG ${svgs}개, Emoji ${EMOJI}`);
+  console.log(asText(L.build.twemojiSources({ twemoji: TWEMOJI, svgs, emoji: EMOJI })));
   const built = buildColorFont();
 
   const patched = path.join(WORK, "twemoji-patched.ttf");
@@ -172,7 +175,7 @@ async function main() {
 `;
   const options = (await prettier.resolveConfig(OUT_CSS)) ?? {};
   fs.writeFileSync(OUT_CSS, await prettier.format(body, { ...options, filepath: OUT_CSS }));
-  console.log(`${FAMILY}: ${(woff2.length / 1024).toFixed(0)}KB, 문자 ${stats.codepoints}개, 합자 ${stats.ligatures}개(뒤처리로 ${stats.added}개 더함)`);
+  console.log(asText(L.build.twemojiFontWritten({ family: FAMILY, kb: (woff2.length / 1024).toFixed(0), codepoints: stats.codepoints, ligatures: stats.ligatures, added: stats.added })));
 }
 
 await main();

@@ -7,6 +7,7 @@
 // 쓰는 곳에 맞춘 값으로 축을 고정한 글꼴(subset-font. fontkit은 이 WOFF2의 축을 풀지 못한다)에서 윤곽을 SVG 경로로 저장한다(글꼴 단위 960, y축은 위쪽이 양수).
 // 봇은 이 파일로 그린다(ui/icon-images, ui/card-render). 글꼴 도구는 개발 의존성이라 봇 코드는 불러오지 않는다. 기호 "sponsorblock"은 글꼴이 아니라 skipIcon.svg, 로고(logo)는 이미지 파일이다
 
+import "../src/infra/log/choose-at-start.ts"; // 다른 import보다 먼저 로그 언어를 고른다
 import fs from "node:fs";
 import path from "node:path";
 import * as fontkit from "fontkit";
@@ -14,6 +15,8 @@ import subsetFont from "subset-font";
 import { PROJECT } from "../src/infra/project-paths.ts";
 import { ICONS, type IconSpec } from "../src/ui/icons.ts";
 import { CARD_ICONS, STATUS_ICONS } from "../src/ui/card-render/icons.ts";
+import { L } from "../src/infra/log/text.ts";
+import { asText } from "../src/infra/log/log-text.ts";
 
 const SOURCE = path.join(PROJECT.root, "dashboard", "node_modules", "@fontsource-variable", "material-symbols-rounded", "files", "material-symbols-rounded-latin-full-normal.woff2");
 const OUT = path.join(PROJECT.data, "discord-icons");
@@ -49,10 +52,10 @@ function write(file: string, data: object) {
 const emoji = [...new Set((Object.values(ICONS) as IconSpec[]).filter((spec) => spec.shape !== "logo").map((spec) => spec.glyph))].filter((name) => name !== "sponsorblock").sort();
 const unknown = [...emoji, ...CARD_ICONS, ...STATUS_ICONS].filter((name) => codepointOf(name) === null);
 if (unknown.length) {
-  console.error(`Material Symbols에 없는 이름: ${[...new Set(unknown)].join(", ")}`);
+  console.error(asText(L.build.iconsUnknown({ names: [...new Set(unknown)].join(", ") })));
   process.exit(1);
 }
 
-console.log(`앱 이모지 기호 ${emoji.length}개 → ${write("glyphs.json", { source: sourceName, axes: EMOJI_AXES, unitsPerEm: font.unitsPerEm, glyphs: await outlines(emoji, EMOJI_AXES) })}`);
+console.log(asText(L.build.discordEmojiWritten({ count: emoji.length, file: write("glyphs.json", { source: sourceName, axes: EMOJI_AXES, unitsPerEm: font.unitsPerEm, glyphs: await outlines(emoji, EMOJI_AXES) }) })));
 const card = { source: sourceName, axes: CARD_AXES, unitsPerEm: font.unitsPerEm, line: await outlines(CARD_ICONS, CARD_AXES.line), fill: await outlines(STATUS_ICONS, CARD_AXES.fill) };
-console.log(`그리는 이미지의 아이콘 ${CARD_ICONS.length + STATUS_ICONS.length}개 → ${write("card-icons.json", card)}`);
+console.log(asText(L.build.discordCardIconsWritten({ count: CARD_ICONS.length + STATUS_ICONS.length, file: write("card-icons.json", card) })));

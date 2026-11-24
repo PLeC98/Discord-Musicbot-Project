@@ -12,9 +12,11 @@ import { cpuQuota } from "../infra/cpu-quota.ts";
 import { Worker, MessageChannel, receiveMessageOnPort, type MessagePort } from "worker_threads";
 import logger from "../infra/log/logger.ts";
 import { codedError, messageOf } from "../rules/error-kind.ts";
+import { errorText } from "../rules/text/index.ts";
 import type { FromWorker, Reply, ToWorker } from "./encode-worker.ts";
-import { josa } from "../rules/josa.ts";
 import { sec } from "../infra/log/seconds.ts";
+import { L } from "../infra/log/text.ts";
+import { asText, logTextError, type LogText } from "../infra/log/log-text.ts";
 const log = logger.child({ category: "player" });
 
 const FRAME_MS = 20;
@@ -274,7 +276,7 @@ class EncodePool {
       entry.ids.delete(slot.id);
       control(entry, { type: "close", id: slot.id });
     }
-    log.warn("정리되지 않은 출력 스트림의 인코더를 GC가 해제함(리소스를 destroy 하지 않는 경로가 있음)");
+    log.warn(L.player.encoderFreedByGc());
   });
 
   constructor({ workerUrl, maxWorkers, stallMs, calibrateFrames }: PoolOptions = {}) {
@@ -379,16 +381,16 @@ class EncodePool {
     const entry: Entry = { n: ++this.#lastN, thread, port: port1, ids: new Set(), depth: START_DEPTH, rtt: [], wait: [], encode: [], receive: [], underrun: 0, lastP99: 0, late: 0, lastLate: 0, load: null, prevLoad: null, calm: 0, depthChanges: [], gone: false };
     return new Promise<Entry>((resolve, reject) => {
       let ready = false;
-      const fail = (why: string) => {
+      const fail = (why: string | LogText) => {
         if (ready) return this.#died(entry, why);
         ready = true;
         clearTimeout(timer);
         entry.gone = true;
         port1.close();
         void thread.terminate();
-        reject(new Error(`인코딩 워커 실행 실패: ${why}`));
+        reject(logTextError(L.player.encodeWorkerSpawnFailed({ reason: why })));
       };
-      const timer = setTimeout(() => fail(`${START_TIMEOUT_MS / 1000}초 안에 준비되지 않음`), START_TIMEOUT_MS);
+      const timer = setTimeout(() => fail(L.player.encodeWorkerStartTimedOut({ seconds: START_TIMEOUT_MS / 1000 })), START_TIMEOUT_MS);
       port1.on("message", (m: FromWorker) => {
         if (m.type !== "ready") return this.#receive(entry, m);
         ready = true;
@@ -398,7 +400,7 @@ class EncodePool {
         resolve(entry);
       });
       thread.on("error", (error) => fail(messageOf(error)));
-      thread.on("exit", (code) => fail(`스레드가 종료됨(코드 ${code})`));
+      thread.on("exit", (code) => fail(L.player.encodeWorkerThreadExited({ code })));
       // 봇이 끝날 때 붙잡지 않는다. message를 들으면 다시 붙잡으므로 들은 뒤에 푼다
       port1.unref();
       thread.unref();
@@ -412,7 +414,7 @@ class EncodePool {
     // 준비된 뒤 풀에 넣기 전에 죽었다(크래시는 이미 셌다)
     if (entry.gone) return this.#rehome();
     this.#workers.push(entry);
-    if (this.#workers.length > 1) log.info(`재생 인코딩 워커를 늘림(${this.#workers.length}개, 상한 ${this.#limit()})`);
+    if (this.#workers.length > 1) log.info(L.player.encodeWorkerAdded({ count: this.#workers.length, limit: this.#limit() }));
     if (!this.#timers.length && !this.#closing) {
       this.#timers.push(setInterval(() => this.#checkStalls(), STALL_CHECK_MS).unref(), setInterval(() => this.#tick(), TICK_MS).unref());
     }
@@ -445,7 +447,7 @@ class EncodePool {
         moved++;
       }
     }
-    if (moved) log.debug(`재생 인코딩 워커 ${fresh.n}${josa(String(fresh.n), "으로")} 스트림 ${moved}개를 옮김`);
+    if (moved) log.debug(L.player.encodeStreamsMoved({ worker: fresh.n, count: moved }));
   }
 
   #relocate(session: Session, target: Entry) {
@@ -465,7 +467,7 @@ class EncodePool {
     this.#spawn().then(
       (entry) => (this.#closing ? void entry.thread.terminate() : this.#adopt(entry)),
       (error: unknown) => {
-        log.warn(messageOf(error));
+        log.warn(L.player.encodeWorkerStartFailed({ error: errorText(error) }));
         this.#noteDeath();
         this.#rehome();
       },
@@ -566,8 +568,8 @@ class EncodePool {
     const session = found && !found.freed && found.slot.entry === entry ? found : null;
     if (item.fatal) {
       // 어느 프레임에서 났는지 안다. 그 세션은 실패시키고, 이 크래시는 연속 크래시(백오프)에 세지 않는다
-      if (session) this.#fail(session, new Error(`인코딩 중 WASM 오류: ${item.error ?? ""}`));
-      return this.#died(entry, `WASM 오류로 내림(${item.error ?? ""})`, { known: !!session });
+      if (session) this.#fail(session, logTextError(L.player.encodeWasmError({ error: item.error ?? "" })));
+      return this.#died(entry, L.player.encodeWorkerWasmDown({ error: item.error ?? "" }), { known: !!session });
     }
     if (session) this.#answer(entry, session, item, received);
   }
@@ -575,7 +577,7 @@ class EncodePool {
   // 세션의 가장 오래된 프레임에 온 답
   #answer(entry: Entry, session: Session, item: Reply, received: number) {
     const head = session.sent[0];
-    if (!head || head.seq !== item.seq) return this.#fail(session, new Error(`인코딩 응답의 순서가 어긋남(기다린 순번 ${head?.seq ?? "없음"}, 받은 순번 ${item.seq})`));
+    if (!head || head.seq !== item.seq) return this.#fail(session, logTextError(L.player.encodeReplyOutOfOrder({ expected: head?.seq ?? null, received: item.seq })));
     session.sent.shift();
     if (!session.sent.length) this.#busy.delete(session);
     // 메인이 받기를 미룬 시간은 빼고 워커가 걸린 시간을 본다. 스레드마다 시계 기준이 조금 다를 수 있어 받은 때를 넘지 않게 한다
@@ -585,7 +587,7 @@ class EncodePool {
       entry.wait.push(Math.max(0, item.startedAt - head.sentAt));
       entry.encode.push(item.encodeMs);
     }
-    if (!item.packet) return this.#fail(session, new Error(item.error ?? "인코딩 실패"));
+    if (!item.packet) return this.#fail(session, item.error === undefined ? logTextError(L.player.encodeFailed()) : new Error(item.error));
     this.#deliver(session, Buffer.from(item.packet));
     // 옮겨 가는 중이고 옛 워커에 보낸 것을 다 받았다
     const next = session.sent[0];
@@ -615,7 +617,7 @@ class EncodePool {
     try {
       session.hooks.onError(error);
     } catch (thrown) {
-      log.warn(`출력 스트림의 인코딩 오류 처리 중 실패: ${messageOf(thrown)}`);
+      log.warn(L.player.encodeErrorHandlerFailed({ error: messageOf(thrown) }));
     }
   }
 
@@ -630,13 +632,13 @@ class EncodePool {
         const head = this.#sessions.get(id)?.deref()?.sent[0];
         if (head?.sentAt && head.sentAt < oldest) oldest = head.sentAt;
       }
-      if (at - oldest > this.#stallMs) this.#died(entry, `${sec(this.#stallMs)}초 넘게 응답이 없어 내림`);
+      if (at - oldest > this.#stallMs) this.#died(entry, L.player.encodeWorkerUnresponsive({ seconds: sec(this.#stallMs) }));
     }
   }
 
   // 워커가 죽었거나 내렸다. 맡던 세션은 다른 워커로 옮긴다
   // known: 원인 세션을 이미 실패시켰다. 남은 세션에는 크래시를 세지 않는다
-  #died(entry: Entry, why: string, { known = false } = {}) {
+  #died(entry: Entry, why: string | LogText, { known = false } = {}) {
     if (entry.gone) return;
     entry.gone = true;
     this.#workers = this.#workers.filter((e) => e !== entry);
@@ -652,16 +654,13 @@ class EncodePool {
       return session.deaths.length >= POISON_DEATHS;
     });
     const moved = sessions.length - poisoned.length;
-    const what: string[] = [];
-    if (moved || !poisoned.length) what.push(`맡던 스트림 ${moved}개를 다른 워커로 옮김`);
-    if (poisoned.length) what.push(`스트림 ${poisoned.length}개는 붙어 있던 워커가 잇달아 죽어 실패 처리`);
-    log.warn(`재생 인코딩 워커 ${entry.n}: ${why}. ${what.join(". ")}`);
+    log.warn(L.player.encodeWorkerDied({ worker: entry.n, reason: why, outcomes: L.player.encodeWorkerOutcomes({ moved, poisoned: poisoned.length }) }));
     this.#stats.deaths++;
     if (!known) this.#noteDeath();
     this.#cancelMovesTo(entry);
     for (const session of sessions) {
       if (poisoned.includes(session)) {
-        this.#fail(session, new Error("이 스트림을 맡은 인코딩 워커가 잇달아 죽음"));
+        this.#fail(session, logTextError(L.player.encodeWorkerKeptDying()));
         continue;
       }
       session.moveTo = null;
@@ -696,7 +695,7 @@ class EncodePool {
     this.#deaths = [];
     this.#backoffUntil = at + wait;
     const alive = this.#workers.length;
-    log.error(`재생 인코딩 워커가 ${DEATH_WINDOW_MS / 1000}초 안에 ${DEATHS_TO_BACKOFF}번 죽어 ${wait / 60_000}분 동안 새 워커를 실행하지 않음(남은 워커 ${alive}개)` + (alive ? "" : ". 그동안 새 재생은 실패함"));
+    log.error(L.player.encodeWorkerBackoff({ windowSeconds: DEATH_WINDOW_MS / 1000, deaths: DEATHS_TO_BACKOFF, minutes: wait / 60_000, alive }));
   }
 
   // 워커를 띄우지 못했을 때 기다리던 세션: 남은 워커가 있으면 그리로, 없으면 실패
@@ -717,7 +716,7 @@ class EncodePool {
     this.#sampleCpu(at);
     let late = 0;
     let worst: Entry | null = null;
-    const details: string[] = [];
+    const details: LogText[] = [];
     for (const entry of this.#workers.slice()) {
       const { rttP99, entryLate, detail } = this.#closeSecond(entry);
       if (detail) details.push(detail);
@@ -726,7 +725,7 @@ class EncodePool {
       entry.lastLate = entryLate;
       this.#steer(entry, rttP99, at);
     }
-    if (details.length) log.debug(`재생 인코딩 상세: ${details.join(" | ")}`);
+    if (details.length) log.debug(L.player.encodeDetails({ details: details.map(asText).join(" | ") }));
     this.#noteSlow(late, worst);
   }
 
@@ -751,7 +750,7 @@ class EncodePool {
       entry.depth += action === "deepen" ? 1 : -1;
       entry.depthChanges.push(at);
       entry.calm = 0;
-      log.debug(`재생 인코딩 워커 ${entry.n}: 큐 깊이 ${entry.depth}(응답 시간 p99 ${rttP99.toFixed(1)}ms)`);
+      log.debug(L.player.encodeQueueDepth({ worker: entry.n, depth: entry.depth, rttP99Ms: rttP99.toFixed(1) }));
     }
   }
 
@@ -784,15 +783,30 @@ class EncodePool {
   #detail(entry: Entry, rttP99: number, late: number) {
     const ms = (values: number[]) => (values.length ? `${p99(values).toFixed(1)}ms` : "-");
     const max = entry.rtt.length ? Math.max(...entry.rtt) : 0;
-    const cpu = entry.load ? `${Math.round(entry.load.cpuUs / 10_000)}%` : "알 수 없음";
-    return `워커 ${entry.n}(활성 스트림 ${this.#activeOf(entry)}/${entry.ids.size}, 큐 깊이 ${entry.depth}, 응답 한도 ${(entry.depth - 1) * FRAME_MS}ms, CPU ${cpu}): ` + `지연 프레임 ${late}개 · 입력 언더런 ${entry.underrun}개 · 응답 시간 p99 ${rttP99.toFixed(1)}ms(최대 ${max.toFixed(1)}ms; 대기 p99 ${ms(entry.wait)} · 인코딩 p99 ${ms(entry.encode)}) · 메인이 받기까지 p99 ${ms(entry.receive)} · ${gcText(entry)} · ${this.#cpuText()}`;
+    const cpu = entry.load ? `${Math.round(entry.load.cpuUs / 10_000)}%` : L.player.cpuUnknown();
+    return L.player.encodeWorkerDetail({
+      worker: entry.n,
+      active: this.#activeOf(entry),
+      streams: entry.ids.size,
+      depth: entry.depth,
+      limitMs: (entry.depth - 1) * FRAME_MS,
+      cpu,
+      late,
+      underrun: entry.underrun,
+      rttP99: rttP99.toFixed(1),
+      maxMs: max.toFixed(1),
+      wait: ms(entry.wait),
+      encode: ms(entry.encode),
+      receive: ms(entry.receive),
+      gc: gcText(entry),
+      machineCpu: this.#cpuText(),
+    });
   }
 
   // 대기가 PC의 다른 작업 때문인지 가른다. 컨테이너 안에서는 호스트 전체라 할당량을 함께 적는다
   #cpuText() {
-    if (!this.#cpu) return "PC CPU 알 수 없음";
-    const quota = this.#quota === null ? "" : `, 할당 ${Math.round(this.#quota * 10) / 10}코어`;
-    return `${this.#quota === null ? "PC" : "호스트"} CPU ${this.#cpu.pc}%(봇 ${this.#cpu.bot}%${quota})`;
+    if (!this.#cpu) return L.player.machineCpuUnknown();
+    return L.player.machineCpu({ pc: this.#cpu.pc, bot: this.#cpu.bot, quota: this.#quota === null ? null : Math.round(this.#quota * 10) / 10 });
   }
 
   // 지연 프레임이 이어지면 처음 한 줄 warn, 30초 동안 지연이 없으면 해소됐다고 한 줄 info. worst: 이번 틱에 지연 프레임이 가장 많은 워커
@@ -806,11 +820,11 @@ class EncodePool {
       this.#slowLate = late;
       this.#slowCalm = 0;
       const streams = this.#workers.reduce((sum, e) => sum + e.ids.size, 0);
-      const cpu = worst?.load ? `${Math.round(worst.load.cpuUs / 10_000)}%` : "알 수 없음";
-      log.warn(`재생 인코딩 지연(워커 ${this.#workers.length}개/상한 ${this.#limit()}, 스트림 ${streams}개, 지연 워커 CPU ${cpu}). 지연된 만큼 소리가 끊김`);
+      const cpu = worst?.load ? `${Math.round(worst.load.cpuUs / 10_000)}%` : L.player.cpuUnknown();
+      log.warn(L.player.encodeLagging({ workers: this.#workers.length, limit: this.#limit(), streams, workerCpu: cpu }));
     }
     if (this.#slowSince && this.#slowCalm >= SLOW_CALM_TICKS) {
-      log.info(`재생 인코딩 지연 해소(${Math.round((now() - this.#slowSince) / 1000)}초 동안 지연 프레임 ${this.#slowLate}개)`);
+      log.info(L.player.encodeLagCleared({ seconds: Math.round((now() - this.#slowSince) / 1000), lateFrames: this.#slowLate }));
       this.#slowSince = 0;
       this.#slowLate = 0;
     }
@@ -820,13 +834,13 @@ class EncodePool {
 // 워커의 최근 두 보고(2초 안팎)의 GC. 대기가 GC 때문인지 가른다
 function gcText(entry: Entry) {
   const loads = [entry.prevLoad, entry.load].filter((l): l is Load => !!l);
-  if (!loads.length) return "워커 GC 알 수 없음";
+  if (!loads.length) return L.player.workerGcUnknown();
   const count = loads.reduce((sum, l) => sum + l.gcCount, 0);
   const max = Math.max(...loads.map((l) => l.gcMaxMs));
-  return count ? `워커 GC(최근 2초) ${count}번, 최대 ${max.toFixed(1)}ms` : "워커 GC(최근 2초) 없음";
+  return count ? L.player.workerGc({ count, maxMs: max.toFixed(1) }) : L.player.workerGcNone();
 }
 
-const unavailable = () => codedError("encoder-unavailable", "쓸 수 있는 재생 인코딩 워커가 없음");
+const unavailable = () => codedError("encoder-unavailable", L.player.encoderUnavailable());
 
 const encodePool = new EncodePool();
 

@@ -7,6 +7,8 @@
 // 불러오기는 파일을 한 번 올려 미리 보고(POST /preview, 올린 파일의 토큰 token), 선택한 항목만 그 토큰으로 불러온다(POST /import?token=…&items=…).
 // 올린 파일은 불러오거나 닫거나(DELETE /upload/:token) 1시간이 지나면 삭제한다. 올리는 크기에 고정 상한은 없고 남은 공간으로만 막는다
 
+import type { RuleProblem } from "../../rules/rule-problem.ts";
+
 /** settings: 봇 설정만, audio-cache: 오디오 캐시, favicon: 파비콘(슬롯, 기록), login-background: 로그인 배경(다 만든 배경, 화면 값, 한도). 화면의 내보내기 카드 순서 */
 const ARCHIVE_KINDS = ["settings", "audio-cache", "favicon", "login-background"] as const;
 type ArchiveKind = (typeof ARCHIVE_KINDS)[number];
@@ -31,7 +33,7 @@ type ArchiveBreakdown = { added: number; existing: number; changed: number; over
  * warnings: 불러올 수는 있지만 알아 둘 것(바깥으로 나가는 값이 바뀐다, PC에 매인 값이 바뀐다, 건너뛰는 값), count: 이미지 수, 배경 수, 행 수(나머지는 null),
  * breakdown: 합치는 항목의 나눔(오디오 캐시만)
  */
-type ArchiveRow = { item: ArchiveItem; inFile: boolean; same: boolean; problems: string[]; warnings: string[]; count: number | null; breakdown?: ArchiveBreakdown };
+type ArchiveRow = { item: ArchiveItem; inFile: boolean; same: boolean; problems: RuleProblem[]; warnings: RuleProblem[]; count: number | null; breakdown?: ArchiveBreakdown };
 /** 미리 보기. token은 올린 파일의 토큰(불러오기에 넘긴다), 파일의 종류, 만든 때, 봇 버전(파일에 적힌 그대로), 행은 그 종류의 항목만. room: 오디오 캐시를 불러올 남은 공간 */
 type ArchivePreview = { token: string; kind: ArchiveKind; exportedAt: string | null; botVersion: string | null; rows: ArchiveRow[]; room?: number };
 /** 내보내기의 응답. url은 한 번 쓰는 다운로드 주소(1분 안에) */

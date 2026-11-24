@@ -12,6 +12,7 @@ const interactionKind = (kind: Kind) => ({
   isRoleSelectMenu: () => kind === "roleSelect",
   isModalSubmit: () => kind === "modal",
   isMessageComponent: () => kind === "button" || kind === "select" || kind === "roleSelect",
+  inGuild: () => true,
   inCachedGuild: () => true,
 });
 

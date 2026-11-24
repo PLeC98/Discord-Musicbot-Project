@@ -28,9 +28,11 @@ const config: Linter.Config[] = [
   ...tseslint.configs.recommended.map((c) => ({ ...c, files: ["**/*.ts", "**/*.vue"] })),
   {
     files: ["**/*.ts"],
-    ignores: ["dashboard/src/**"],
+    ignores: ["dashboard/src/**", "locales/*/screen/**"],
     languageOptions: { globals: globals.nodeBuiltin },
   },
+  // 화면 스크립트보다 먼저 도는 브라우저 스크립트(public, 빌드하지 않고 그대로 내보낸다)
+  { files: ["dashboard/public/**/*.js"], languageOptions: { globals: globals.browser } },
   {
     files: ["**/*.ts", "**/*.vue"],
     rules: {
@@ -42,7 +44,7 @@ const config: Linter.Config[] = [
   // 대시보드 클라이언트 - Vue 3 + 브라우저 (essential = 오류 방지 규칙만, 스타일은 Prettier)
   ...pluginVue.configs["flat/essential"],
   {
-    files: ["dashboard/src/**/*.{js,ts,vue}"],
+    files: ["dashboard/src/**/*.{js,ts,vue}", "locales/*/screen/**/*.ts"],
     languageOptions: {
       sourceType: "module",
       globals: globals.browser,
@@ -74,7 +76,7 @@ const config: Linter.Config[] = [
   // 그 줄에 `// eslint-disable-next-line <규칙> -- 이유` 를 단다.
   // 일부러 비워 둔 catch · 함수는 안에 이유 주석을 적는다(주석이 있으면 빈 것으로 안 본다). 화면 앱에도 같게 건다
   {
-    files: ["src/**/*.ts", "scripts/**/*.ts", "dashboard/src/**/*.{ts,vue}"],
+    files: ["src/**/*.ts", "locales/**/*.ts", "scripts/**/*.ts", "dashboard/src/**/*.{ts,vue}"],
     rules: {
       complexity: ["error", 15],
       "max-lines-per-function": ["error", { max: 120, skipBlankLines: true, skipComments: true }],
@@ -89,7 +91,7 @@ const config: Linter.Config[] = [
   // 새어 나가는 약속을 막고, 문자열 틀에 빈 값이 끼지 않게 한다. 기다리지 않는 약속은 경계를 지나거나 bestEffort 로(실패를 받는 곳이 있어야 한다). 화면은 void 로 기다리지 않음을 적는다.
   // 타입 정보가 필요해 봇 · 화면 코드에만 건다(테스트는 가짜 · 일부러 기다리지 않는 약속이 많다). 화면 파일은 dashboard/tsconfig.json 이 본다
   {
-    files: ["src/**/*.ts", "scripts/**/*.ts", "dashboard/src/**/*.{ts,vue}"],
+    files: ["src/**/*.ts", "locales/**/*.ts", "scripts/**/*.ts", "dashboard/src/**/*.{ts,vue}"],
     languageOptions: { parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname, extraFileExtensions: [".vue"] } },
     rules: {
       "@typescript-eslint/no-floating-promises": ["error", { allowForKnownSafeCalls: [{ from: "file", name: "bestEffort", path: "src/infra/best-effort.ts" }] }],

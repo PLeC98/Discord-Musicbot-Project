@@ -16,6 +16,8 @@ import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { PROVIDER_SPECS } from "./schema/ai-providers.ts";
 import type { AiTokens } from "../dashboard/contract/ai-log.ts";
 import type { RefreshResult } from "./ai-model-types.ts";
+import { L } from "../infra/log/text.ts";
+import { logTextError } from "../infra/log/log-text.ts";
 const log = logger.child({ category: "config" });
 
 const SOURCE = "https://models.dev/api.json";
@@ -37,7 +39,7 @@ function readBook(): PriceBook | null {
   try {
     return JSON.parse(fs.readFileSync(file, "utf8")) as PriceBook;
   } catch (error) {
-    if (codeOf(error) !== "ENOENT") log.warn(`AI 가격표 읽기 실패(${path.basename(file)}): ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(L.config.aiPricesReadFailed({ file: path.basename(file), error: messageOf(error) }));
     return null;
   }
 }
@@ -120,7 +122,7 @@ async function refresh({ timeoutMs = 30000, fetchImpl = modelsdev.fetch }: { tim
   const unchanged = { changed: false, count: count(now), fetchedAt: now.fetchedAt };
   const res = await fetchImpl(SOURCE, { headers: now.etag ? { "If-None-Match": now.etag } : {}, signal: AbortSignal.timeout(timeoutMs) });
   if (res.status === 304) return unchanged;
-  if (!res.ok) throw new Error(`값표 ${res.status}: ${SOURCE}`);
+  if (!res.ok) throw logTextError(L.config.pricesHttpFailed({ status: res.status, source: SOURCE }));
   const etag = res.headers.get("etag") ?? undefined;
   const got = { ...trim((await res.json()) as SourceBook), ...(etag ? { etag } : {}) };
   if (got.hash === now.hash) {
@@ -128,7 +130,7 @@ async function refresh({ timeoutMs = 30000, fetchImpl = modelsdev.fetch }: { tim
     return unchanged;
   }
   // 저쪽 모양이 바뀌어 통째로 비었으면 쓰지 않는다(가진 값표로 계속 센다)
-  if (!count(got)) throw new Error("가격표에서 우리 프로바이더의 가격을 하나도 읽지 못함(저쪽 형식이 바뀐 것으로 보여 쓰지 않음)");
+  if (!count(got)) throw logTextError(L.config.pricesNoneRead());
   write(got);
   return { changed: true, count: count(got), fetchedAt: got.fetchedAt };
 }

@@ -108,3 +108,22 @@ test("삭제, 빈 값과 너무 큰 값은 받지 않는다, 키가 없으면 �
     config.secrets.key = saved;
   }
 });
+
+test("세션 쿠키 서명 비밀: 같은 키면 같고, 키가 다르면 다르다. 암호 키와 겹치지 않는다. 키가 없거나 형식이 틀리면 예외를 던진다", async () => {
+  const { hkdfSync } = await import("node:crypto");
+  const first = secrets.sessionSecret();
+  assert.match(first, /^[0-9a-f]{64}$/);
+  assert.equal(secrets.sessionSecret(), first, "다시 시작해도 같은 값이라 로그인이 유지된다");
+  const encryptKeys = ["secrets", "login-device", "oauth-login", "discord-token"].map((purpose) => Buffer.from(hkdfSync("sha256", Buffer.from(KEY, "base64"), Buffer.alloc(0), `musicbot ${purpose} v1 encrypt`, 32)).toString("hex"));
+  assert.ok(!encryptKeys.includes(first), "암호 키를 쿠키 서명에 쓰지 않는다");
+  secrets._useKey(OTHER_KEY);
+  assert.notEqual(secrets.sessionSecret(), first);
+  for (const bad of ["", "c2hvcnQ="]) {
+    secrets._useKey(bad);
+    assert.throws(
+      () => secrets.sessionSecret(),
+      (error: unknown) => codeOf(error) === "SECRETS_KEY_MISSING",
+      `키: ${JSON.stringify(bad)}`,
+    );
+  }
+});

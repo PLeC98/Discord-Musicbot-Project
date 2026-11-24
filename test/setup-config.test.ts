@@ -14,15 +14,15 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), "setup-env-"));
 const EXAMPLE = path.join(import.meta.dirname, "..", ".env.example");
 after(() => fs.rmSync(dir, { recursive: true, force: true }));
 
-test("없으면 만든다: 두 비밀은 채우고 사람이 채울 값은 비워 둔다. 같은 설정 검사를 지난다", () => {
+test("없으면 만든다: 비밀 키는 채우고 사람이 채울 값은 비워 둔다. 같은 설정 검사를 지난다", () => {
   const target = path.join(dir, "fresh.env");
   assert.equal(setupEnv(target, EXAMPLE), true);
   const values = parseEnv(fs.readFileSync(target, "utf8"));
   assert.ok(isSecretsKey(values.SECRETS_KEY ?? ""));
-  assert.ok((values.SESSION_SECRET ?? "").length >= 64);
+  assert.ok(!values.SESSION_SECRET, "세션 서명 비밀은 SECRETS_KEY에서 파생하므로 채우지 않는다");
   assert.equal(values.DISCORD_TOKEN, "");
 
-  const { problems } = loadConfig({ ...values, DISCORD_TOKEN: "t", CLIENT_ID: "1", CLIENT_SECRET: "s" });
+  const { problems } = loadConfig({ ...values, DISCORD_TOKEN: "t", CLIENT_SECRET: "s" });
   assert.deepEqual(problems, []);
 });
 
@@ -43,9 +43,9 @@ test("이미 있으면 손대지 않는다", () => {
 });
 
 test("값을 넣어도 줄의 주석은 남는다. 값이 이미 있는 줄, 다른 키는 그대로", () => {
-  const text = "SECRETS_KEY=        # 설명\nOTHER=1\nSESSION_SECRET=keep\n";
-  assert.equal(fillLine(text, "SECRETS_KEY", "abc"), "SECRETS_KEY=abc  # 설명\nOTHER=1\nSESSION_SECRET=keep\n");
-  assert.equal(fillLine(text, "SESSION_SECRET", "new"), text);
+  const text = "SECRETS_KEY=        # 설명\nOTHER=1\nFILLED=keep\n";
+  assert.equal(fillLine(text, "SECRETS_KEY", "abc"), "SECRETS_KEY=abc  # 설명\nOTHER=1\nFILLED=keep\n");
+  assert.equal(fillLine(text, "FILLED", "new"), text);
 });
 
 // 진입 파일이 부트스트랩을 맨 먼저 부르는지는 test/architecture가 본다

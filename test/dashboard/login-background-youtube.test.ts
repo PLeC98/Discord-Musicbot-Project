@@ -13,6 +13,7 @@ import { useExec, type Exec, type YtDlpFlags } from "../../src/sources/ytdlp-spa
 import * as store from "../../src/dashboard/login-background/store.ts";
 import { openTempStore } from "../helpers/temp-store.ts";
 import { bestSize, highRes, receiveYoutube, shortfall } from "../../src/dashboard/login-background/youtube.ts";
+import { asText } from "../../src/infra/log/log-text.ts";
 
 // yt-dlp 실행은 연령 제한으로 적어 둔 영상인지 캐시 DB를 본다
 const db = openTempStore("login-bg-youtube-db-");
@@ -87,7 +88,7 @@ test("고해상도 다운로드: 짧은 변 2160 이하의 가장 좋은 영상�
 });
 
 test("고해상도가 다운로드 단계에서 본 크기보다 작으면 그 차이를 적는다(짧은 변으로 비교한다)", () => {
-  assert.equal(shortfall({ width: 3840, height: 2160 }, { width: 640, height: 360 }), "640 × 360(다운로드 단계에서 본 크기 3840 × 2160)");
+  assert.equal(asText(shortfall({ width: 3840, height: 2160 }, { width: 640, height: 360 }) ?? ""), "640 × 360(다운로드 단계에서 본 크기 3840 × 2160)");
   assert.equal(shortfall({ width: 3840, height: 2160 }, { width: 3840, height: 2160 }), null);
   assert.equal(shortfall({ width: 1080, height: 1920 }, { width: 1080, height: 1920 }), null);
   // 다운로드 단계에서 크기를 알지 못했으면 비교하지 않는다

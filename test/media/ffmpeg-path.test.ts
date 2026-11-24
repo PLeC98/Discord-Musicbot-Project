@@ -19,7 +19,7 @@ test("resolve: 실행 가능한 ffmpeg를 찾고 버전을 추출한다", () => 
   const info = resolve();
   assert.ok(info.path, "경로가 있어야 함");
   assert.ok(info.version && info.version !== "unknown", `버전 파싱: ${info.version}`);
-  assert.ok(["FFMPEG_PATH", "설치본", "이전 설치본", "PATH"].includes(info.source), `출처: ${info.source}`);
+  assert.ok(["env", "installed", "previous", "path"].includes(info.source), `출처: ${info.source}`);
 });
 
 test("resolve: 결과를 캐시한다. 매 호출마다 프로세스를 실행하지 않는다", () => {
@@ -74,7 +74,7 @@ test("설치본이 실행되지 않으면 이전 설치본으로 뜨고, 기동 
 
   _reset();
   const info = resolve(dir);
-  assert.equal(info.source, "이전 설치본");
+  assert.equal(info.source, "previous");
   assert.equal(info.release, good.release);
   await settleRejected(dir);
   const read = readState(dir);

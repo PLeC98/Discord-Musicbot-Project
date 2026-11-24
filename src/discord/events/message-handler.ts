@@ -6,17 +6,17 @@ import { checkAdd, checkSummon } from "../../usecases/permissions.ts";
 import { requestPlayback } from "../../usecases/add-tracks.ts";
 import { channelResponder } from "../../usecases/responders.ts";
 import { scheduleDelete } from "../../ui/transient-messages.ts";
-import { offerOnChannel } from "../../usecases/playlist-more.ts";
-import * as errors from "../../ui/text/ko/errors.ts";
+import { offerOnChannel } from "../interactions/playlist-more-handler.ts";
 import { frame, noticeFrame, post } from "../../ui/frame.ts";
 import { addFailureMessage } from "../../ui/error-messages.ts";
-import * as searchText from "../../ui/text/ko/search.ts";
 import type { ClientEvent } from "../../app/main.ts";
 import { describeError, messageOf } from "../../rules/error-kind.ts";
 import { noticeMs, unlessGone } from "../../ui/delivery.ts";
 import { isShuttingDown } from "../../infra/shutdown-state.ts";
 import { readsMessageContent } from "../../infra/gateway-intents.ts";
 import { MessageType, type Message } from "discord.js";
+import { publicText } from "../../ui/language.ts";
+import { L } from "../../infra/log/text.ts";
 
 const USER_MESSAGE_DELETE_MS = 1500; // 곡 요청 메시지를 삭제하기까지
 const UNREADABLE_REPEAT_MS = 60_000; // 메시지 내용을 읽지 못한다는 안내를 같은 사람에게 다시 하기까지
@@ -41,7 +41,7 @@ async function answerUnreadable(message: Message<true>) {
   if (now - (toldUnreadable.get(key) ?? -Infinity) < UNREADABLE_REPEAT_MS) return;
   toldUnreadable.set(key, now);
   for (const [k, at] of toldUnreadable) if (now - at >= UNREADABLE_REPEAT_MS) toldUnreadable.delete(k);
-  const notice = errors.notice("text-entry-off");
+  const notice = publicText(message.guild.id).errors.notice("text-entry-off");
   const reply = await message.reply(post(noticeFrame(notice)));
   scheduleDelete(reply, noticeMs(notice));
 }
@@ -67,15 +67,17 @@ const exported: ClientEvent<Events.MessageCreate> = {
     if (!message.inGuild()) return;
     const content = await requestIn(message);
     if (!content) return;
+    // 전용 채널의 답은 채널에 보이므로 서버 언어
+    const T = publicText(message.guild.id);
 
     const member = message.member;
     if (!member) return; // 서버 메시지인데 멤버가 없다(웹훅 등)
 
     // 종료 중이면 곡을 찾지 않고 알린다(새 재생을 시작하지 않는다). 디스코드 연결을 닫은 뒤면 알림도 못 보낸다
     if (isShuttingDown()) {
-      await message.reply(post(noticeFrame(errors.notice("bot-shutting-down")))).catch((error: unknown) => {
-        if (message.client.token === null) log.debug(`종료 중 안내 전송 실패: ${messageOf(error)}`);
-        else log.warn(`봇 채널 종료 안내 답장 실패: 채널=${message.channel.id} | ${describeError(error)}`);
+      await message.reply(post(noticeFrame(T.errors.notice("bot-shutting-down")))).catch((error: unknown) => {
+        if (message.client.token === null) log.debug(L.events.stoppingNoticeFailed({ error: messageOf(error) }));
+        else log.warn(L.events.stoppingReplyFailed({ channelId: message.channel.id, error: describeError(error) }));
       });
       return;
     }
@@ -83,7 +85,7 @@ const exported: ClientEvent<Events.MessageCreate> = {
     // 곡 추가 권한: 봇 동작 중에는 동일 음성 채널 규칙(서버 관리자 면제), 유휴 시에는 소환 가능 여부. /play와 동일 기준
     const permError = checkAdd(member) || checkSummon(member);
     if (permError) {
-      const refused = errors.notice(permError);
+      const refused = T.errors.notice(permError);
       const reply = await message.reply(post(noticeFrame(refused)));
       scheduleDelete(reply, noticeMs(refused));
       scheduleDelete(message, noticeMs(refused));
@@ -96,9 +98,9 @@ const exported: ClientEvent<Events.MessageCreate> = {
 
     // "검색 중" 자리표시자. 처음부터 Components V2로 보내야 뒤의 현재 재생 메시지 흐름과 맞는다
     const preview = content.length > 60 ? content.slice(0, 60) + "…" : content;
-    const loadingMsg = await message.channel.send(post(frame({ body: searchText.searching(preview) })));
+    const loadingMsg = await message.channel.send(post(frame({ body: T.search.searching(preview) })));
 
-    const responder = channelResponder(message.channel, () => loadingMsg.delete().catch(unlessGone(log, "자리표시자 삭제")));
+    const responder = channelResponder(message.channel, () => loadingMsg.delete().catch(unlessGone(log, L.events.placeholderDelete())));
 
     try {
       const result = await requestPlayback(bot, {
@@ -108,22 +110,22 @@ const exported: ClientEvent<Events.MessageCreate> = {
         textChannel: message.channel,
         voiceChannel: member.voice.channel ?? null,
         responder,
-        source: "전용채널",
+        source: "bot-channel",
       });
 
       // 곡 찾기, 재생 시작 실패를 알린다. 알리지 않으면 왜 안 되는지 알 수 없다
       if (!result.success) {
         await responder.dismissPlaceholder();
-        const failed = addFailureMessage(result);
+        const failed = addFailureMessage(T, result);
         const errMsg = await message.channel.send(post(noticeFrame(failed)));
         scheduleDelete(errMsg, noticeMs(failed));
       } else if (result.more) {
         await offerOnChannel(message.channel, result.more, result.player, member.id);
       }
     } catch (error) {
-      log.error({ sub: "message" }, "메시지 처리 오류:", error);
+      log.error({ sub: "message" }, L.events.messageHandlingFailed(), error);
       await responder.dismissPlaceholder();
-      const failed = errors.notice("processing-failed");
+      const failed = T.errors.notice("processing-failed");
       const errMsg = await message.channel.send(post(noticeFrame(failed)));
       scheduleDelete(errMsg, noticeMs(failed));
     }

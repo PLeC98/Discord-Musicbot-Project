@@ -32,6 +32,7 @@ import type { Limits, FilterConfig } from "./filter.ts";
 import type { AiPick } from "./assist/index.ts";
 import type { Judged } from "./assist/types.ts";
 import { logTitle } from "../infra/log/title.ts";
+import { L } from "../infra/log/text.ts";
 
 /** 틀 수 있는 트랙. 대기열에 추가하는 곡이다 */
 type PickedTrack = QueuedTrack & { audioUrl: string };
@@ -81,7 +82,7 @@ function markDead(urlOrTrack: string | { audioUrl?: string | null; [field: strin
   const oldest = dead.values().next().value;
   if (dead.size >= DEAD_MAX && oldest !== undefined) dead.delete(oldest);
   dead.add(id);
-  log.debug(`재생 불가 영상으로 표시: ${id}`);
+  log.debug(L.autoplay.markedUnplayable({ id }));
   return true;
 }
 
@@ -242,16 +243,16 @@ async function findOnYouTube(cand: Candidate, genre: string | undefined, { searc
 }
 
 /**
- * 음원을 이미 가진 후보를 유튜브 것으로 바꿔도 되는가.
+ * 음원을 이미 가진 후보를 유튜브 것으로 바꿔도 되는가. 음원이 없지만 같은 기준을 적용하는 후보(strict)도 여기서 본다(기준을 못 넘으면 버린다).
  *
  * medium은 "나쁜 신호가 없다"일 뿐 "같은 곡이다"가 아니다. 애니송 DB는 길이를 주지 않고(AMQ 클립 길이라 곡 길이가 아니다)
  * 가수 이름이 채널명과 같은 일도 드물어, high로 가는 세 길이 전부 막히고 "정크 단어가 없는 검색 1위"만 남아 medium이 된다.
  * 올바른 녹음을 이미 쥐고 있을 때는 그만큼으로는 부족하다. 영상 제목에 곡 제목이 들어 있어야 바꾸고, 아니면 음원을 그대로 튼다.
  */
 function upgradeWorthIt(cand: Candidate, confidence: string, top: { breakdown?: { title?: number } } | undefined) {
-  if (!cand.audioUrl) return true;
+  if (!cand.audioUrl && !cand.strict) return true;
   const ok = confidence === "high" || !!top?.breakdown?.title;
-  if (!ok) log.debug(`음원을 그대로 씀(유튜브 매칭 근거 부족: ${confidence}) [${cand.sourceKey}]: ${cand.title}`);
+  if (!ok) log.debug(cand.audioUrl ? L.autoplay.sourceAudioKept({ confidence, sourceKey: cand.sourceKey, title: cand.title }) : L.autoplay.strictNotMatched({ confidence, sourceKey: cand.sourceKey, title: cand.title }));
   return ok;
 }
 
@@ -263,7 +264,7 @@ async function fromGivenVideo(cand: Candidate, limits: Limits, genre: string | u
   if (!verdict.ok) {
     // 소스를 같이 남긴다. "길이 없음"이 무더기로 나오면 그 소스가 길이를 안 준다는 뜻이고,
     // 그건 후보가 나쁜 게 아니라 소스 쪽을 고쳐야 하는 일이다.
-    log.debug(`필터링됨(${verdict.reason ?? "없음"}${verdict.detail ? `: ${verdict.detail}` : ""}) [${cand.sourceKey}]: ${logTitle(track.title)}`);
+    log.debug(L.autoplay.candidateFiltered({ reason: verdict.reason ?? "", detail: verdict.detail ?? "", source: cand.sourceKey, title: logTitle(track.title) }));
     return null;
   }
   // 검색으로 얻은 것(키워드)만 AI 보조에게 한 번 더 묻는다. 주소를 직접 주는 소스는 출처가 곧 정답이다.
@@ -301,8 +302,7 @@ async function resolve(cand: Candidate, limits: Limits, genre?: string, deps: De
       const verdict = autoplayFilter.judge(track, limits);
       // 길이를 넘긴 후보는 youtubeMatch가 이미 필터링했다. 모르는 후보만 여기서 한 번 더 본다.
       const needsFilter = !cand.durationSec;
-      // 음원이 따로 있는데 찾은 것이 짧으면 TV 사이즈 립이다. 그럴 바엔 음원을 쓴다
-      const tooShort = cand.audioUrl && track.duration < FULL_SEC;
+      const tooShort = ripOnly(cand, track.duration);
       if ((!needsFilter || verdict.ok) && !tooShort) return track;
     }
   }
@@ -312,6 +312,9 @@ async function resolve(cand: Candidate, limits: Limits, genre?: string, deps: De
 
   return null;
 }
+
+// 음원이 따로 있는데 찾은 것이 짧으면 TV 사이즈 립이다. 그럴 때는 음원을 쓴다(쓸 음원이 없는 strict 후보는 버린다)
+const ripOnly = (cand: Candidate, duration: number) => Boolean(cand.audioUrl || cand.strict) && duration < FULL_SEC;
 
 /** 직접 지정한 음원으로 트랙을 만든다. 곡 정보는 후보의 것, 음원, 길이는 applyPin이 정한다. 지정이 없으면 null */
 function fromPin(cand: Candidate, pin: Pin | null): PickedTrack | null {

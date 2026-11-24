@@ -20,10 +20,11 @@ import { formatDuration, liveMarkOf } from "../../ui/format.ts";
 import { frame, noticeFrame, reply } from "../../ui/frame.ts";
 import { showFailureWith } from "../../ui/failure-notice.ts";
 import { searchResultsView, type ResultRow } from "../../ui/search-results.ts";
-import * as searchText from "../../ui/text/ko/search.ts";
-import * as errors from "../../ui/text/ko/errors.ts";
+import { privateText, readingTexts } from "../../ui/language.ts";
+import type { BotText } from "../../ui/text/index.ts";
 import { LIFETIME, expireMessage, noticeMs, noticeSelf, replaceSelf } from "../../ui/delivery.ts";
 import { playOnReply } from "./play.ts";
+import { L } from "../../infra/log/text.ts";
 const log = logger.child({ category: "player" });
 
 /**
@@ -41,19 +42,22 @@ const isLink = (query: string) => {
   return isHttpLink(url) || isKnownSiteHost(url);
 };
 
-const gatedSentence = () => {
-  const gated = errors.notice("search-age-gated");
+const gatedSentence = (T: BotText) => {
+  const gated = T.errors.notice("search-age-gated");
   return `${gated.title} ${gated.body ?? ""}`.trim();
 };
 
-const lengthOf = (track: { duration: number; isLive?: boolean; liveStatus?: string | null }) => (track.isLive ? liveMarkOf(track) : formatDuration(track.duration, searchText.unknownLength()));
+const lengthOf = (T: BotText, track: { duration: number; isLive?: boolean; liveStatus?: string | null }) => (track.isLive ? liveMarkOf(T, track) : formatDuration(track.duration, T.search.unknownLength()));
 
 // ── 자동완성 ──
 
-/** 자동완성에 들어온 글자 → 찾을 검색어. 찾을 것이 없으면(빈 것, 링크, 100자 넘음, 선택한 연령 인증 줄의 문장) null */
-function searchable(typed: string): string | null {
-  if (typed.startsWith(gatedSentence().slice(0, 12))) return null;
-  const query = searchText.queryOfTyped(typed);
+/**
+ * 자동완성에 들어온 글자 → 찾을 검색어. 선택지 이름을 고쳐 보낸 것이면 그 안의 검색어만. 찾을 것이 없으면(빈 것, 링크, 100자 넘음, 연령 인증 안내 줄을 선택한 것) null.
+ * readers: 되읽어 볼 문구표들(ui/language의 readingTexts)
+ */
+function searchable(readers: readonly BotText[], typed: string): string | null {
+  if (readers.some((T) => typed.startsWith(gatedSentence(T).slice(0, 12)))) return null;
+  const query = readers.map((T) => T.search.queryOfChoice(typed)).find((one) => one !== null) ?? typed.trim();
   // 100자를 넘으면 맨 위 줄의 값이 될 수 없다(입력란 상한이 100자라 보통 오지 않는다)
   return !query || query.length > SEARCH_MAX_LEN || isLink(query) ? null : query;
 }
@@ -82,19 +86,19 @@ const rememberedPrefix = (query: string): Found => ({ youtube: youtubeSource.rem
 
 /**
  * 유튜브와 스포티파이를 함께 찾는다. 스포티파이는 준비돼 있을 때만(아니면 준비를 시작하고 유튜브만).
- * 섞지 않을 때는 유튜브가 연령 인증으로 막았을 때만 남은 시간 안에 스포티파이를 찾는다. missed: 마감을 넘기거나 실패한 쪽
+ * 섞지 않을 때는 유튜브가 연령 인증으로 막았을 때만 남은 시간 안에 스포티파이를 찾는다. missed: 쪽마다 마감을 넘겼는지(late), 실패했는지(failed)
  */
-async function findBoth(query: string, deps: Required<SearchDeps>, budget: number): Promise<{ found: Found; missed: string[] }> {
+async function findBoth(query: string, deps: Required<SearchDeps>, budget: number): Promise<{ found: Found; missed: Record<"youtube" | "spotify", "late" | "failed" | null> }> {
   const started = deps.now();
-  const missed: string[] = [];
+  const missed: Record<"youtube" | "spotify", "late" | "failed" | null> = { youtube: null, spotify: null };
   const spotifyOf = (ms: number) => (deps.spotifyReady() ? within(deps.searchSpotify(query), ms) : null);
   let spotifyWork = SPOTIFY_SHARE > 0 ? spotifyOf(budget) : null;
   const youtubeOutcome = await within(deps.search(query), budget);
   const youtube = "value" in youtubeOutcome ? youtubeOutcome.value : youtubeSource.rememberedPrefix(query);
-  if ("missed" in youtubeOutcome) missed.push(`유튜브 ${youtubeOutcome.missed === "late" ? "마감 넘김" : "실패"}`);
+  if ("missed" in youtubeOutcome) missed.youtube = youtubeOutcome.missed;
   if (!spotifyWork && youtube?.gated) spotifyWork = spotifyOf(budget - (deps.now() - started));
   const spotifyOutcome = spotifyWork ? await spotifyWork : null;
-  if (spotifyOutcome && "missed" in spotifyOutcome) missed.push(`스포티파이 ${spotifyOutcome.missed === "late" ? "마감 넘김" : "실패"}`);
+  if (spotifyOutcome && "missed" in spotifyOutcome) missed.spotify = spotifyOutcome.missed;
   const spotify = spotifyOutcome && "value" in spotifyOutcome ? spotifyOutcome.value : (spotifySource.rememberedTracksPrefix(query) ?? []);
   return { found: { youtube, spotify }, missed };
 }
@@ -103,11 +107,11 @@ async function findBoth(query: string, deps: Required<SearchDeps>, budget: numbe
  * 자동완성 선택지: 맨 위 줄(입력한 글자로 결과 화면)과 곡 후보(유튜브 다음 스포티파이).
  * 유튜브가 연령 인증 안내만 주고 스포티파이 곡도 없으면 그 문장을 맨 위 줄 이름으로
  */
-function choicesOf(query: string, found: Found): ApplicationCommandOptionChoiceData<string>[] {
-  if (found.youtube?.gated && found.spotify.length === 0) return [{ name: gatedSentence(), value: query }];
-  const top = { name: searchText.resultsChoice(query), value: query };
-  const youtube = youtubeOf(found).flatMap((track) => (track.id ? [{ name: searchText.songChoice({ title: track.title, artist: track.artist, length: lengthOf(track) }), value: pickValue({ platform: "youtube", id: track.id }) }] : []));
-  const spotify = found.spotify.flatMap((track) => (track.id ? [{ name: searchText.songChoice({ title: track.title, artist: track.artist, length: lengthOf(track), spotify: true }), value: pickValue({ platform: "spotify", id: track.id }) }] : []));
+function choicesOf(T: BotText, query: string, found: Found): ApplicationCommandOptionChoiceData<string>[] {
+  if (found.youtube?.gated && found.spotify.length === 0) return [{ name: gatedSentence(T), value: query }];
+  const top = { name: T.search.resultsChoice(query), value: query };
+  const youtube = youtubeOf(found).flatMap((track) => (track.id ? [{ name: T.search.songChoice({ title: track.title, artist: track.artist, length: lengthOf(T, track) }), value: pickValue({ platform: "youtube", id: track.id }) }] : []));
+  const spotify = found.spotify.flatMap((track) => (track.id ? [{ name: T.search.songChoice({ title: track.title, artist: track.artist, length: lengthOf(T, track), spotify: true }), value: pickValue({ platform: "spotify", id: track.id }) }] : []));
   // 이름이 같은 후보(다시 올린 영상, 여러 앨범에 실린 곡)는 하나만. 겹치면 디스코드가 응답 전체를 거절할 수 있다
   const songs = uniqueBy([top, ...youtube, ...spotify], (one) => one.name).slice(1);
   const counts = mixCounts(songs.filter((one) => one.value.startsWith("yt:")).length, songs.filter((one) => one.value.startsWith("sp:")).length, { total: CHOICES, spotifyShare: SPOTIFY_SHARE });
@@ -126,8 +130,8 @@ async function findForResults(query: string, deps: Required<SearchDeps>): Promis
 }
 
 /** 결과 화면의 줄: 유튜브 다음 스포티파이. 같은 곡(제목, 가수, 길이가 같다)은 하나만 */
-function resultRows(found: Found): ResultRow[] {
-  const keyOf = (one: ResultRow) => `${one.platform}\u0000${one.title ?? ""}\u0000${one.artist ?? ""}\u0000${lengthOf(one)}`;
+function resultRows(T: BotText, found: Found): ResultRow[] {
+  const keyOf = (one: ResultRow) => `${one.platform}\u0000${one.title ?? ""}\u0000${one.artist ?? ""}\u0000${lengthOf(T, one)}`;
   const youtube = uniqueBy(
     youtubeOf(found).flatMap((track): ResultRow[] => (track.id ? [{ platform: "youtube", id: track.id, title: track.title, artist: track.artist, duration: track.duration, isLive: track.isLive, liveStatus: track.liveStatus, pageUrl: track.pageUrl }] : [])),
     keyOf,
@@ -142,20 +146,21 @@ function resultRows(found: Found): ResultRow[] {
 
 /** 찾아서 결과 화면을 보인다. 결과가 없거나 유튜브가 연령 인증으로 막고 스포티파이도 없으면 그 안내 */
 async function showResults(interaction: ChatInputCommandInteraction<"cached">, query: string, deps: Required<SearchDeps>) {
+  const T = privateText(interaction);
   // "검색 중"은 본인에게만. 처음부터 Components V2로 응답해야 결과 화면, 안내로 고칠 수 있다. 여기서부터 예외를 던지면 이 메시지를 오류로 바꾼다
-  await interaction.reply(reply(frame({ body: searchText.searching(query) })));
+  await interaction.reply(reply(frame({ body: T.search.searching(query) })));
   showFailureWith(interaction, (notice) => replaceSelf(interaction, noticeFrame(notice), noticeMs(notice)));
 
   const found = await findForResults(query, deps);
-  const rows = resultRows(found);
+  const rows = resultRows(T, found);
   const spotifyCount = rows.filter((row) => row.platform === "spotify").length;
-  log.info({ sub: "play" }, `곡 검색: /search | ${requesterName(interaction.member)} | "${query}" → ${rows.length ? `유튜브 ${rows.length - spotifyCount}, 스포티파이 ${spotifyCount}` : "결과 없음"}${found.youtube?.gated ? "(유튜브 연령 인증 안내)" : ""}`);
+  log.info({ sub: "play" }, L.player.searchResults({ who: requesterName(interaction.member), query, youtube: rows.length - spotifyCount, spotify: spotifyCount, gated: Boolean(found.youtube?.gated) }));
 
   if (rows.length === 0) {
-    const notice = errors.notice(found.youtube?.gated ? "search-age-gated" : "no-search-results");
+    const notice = T.errors.notice(found.youtube?.gated ? "search-age-gated" : "no-search-results");
     return await replaceSelf(interaction, noticeFrame(notice), noticeMs(notice));
   }
-  const message = await interaction.editReply(searchResultsView({ query, rows, gated: Boolean(found.youtube?.gated), userId: interaction.user.id }));
+  const message = await interaction.editReply(searchResultsView(T, { query, rows, gated: Boolean(found.youtube?.gated), userId: interaction.user.id }));
   expireMessage(message.id, () => interaction.deleteReply(), LIFETIME.search);
 }
 
@@ -167,33 +172,36 @@ const exported: GuildCommand & {
   autocomplete(interaction: AutocompleteInteraction<"cached">, bot: BotContext, deps?: SearchDeps): Promise<unknown>;
 } = {
   help: { section: "explore", tier: "everyone" },
-  data: new SlashCommandBuilder()
-    .setName("search")
-    .setDescription("곡을 검색해요")
-    // 자동완성 맨 위 줄의 값이 입력한 글자다. 선택지 값은 100자까지라 넘치면 그 줄을 만들 수 없다
-    .addStringOption((option) => option.setName("query").setNameLocalizations({ ko: "검색어" }).setDescription("검색할 키워드").setRequired(true).setMaxLength(SEARCH_MAX_LEN).setAutocomplete(true)),
+  name: "search",
+  data: (C) =>
+    new SlashCommandBuilder()
+      .setName("search")
+      .setDescription(C.search.description)
+      // 자동완성 맨 위 줄의 값이 입력한 글자다. 선택지 값은 100자까지라 넘치면 그 줄을 만들 수 없다
+      .addStringOption((option) => option.setName("query").setDescription(C.search.options.query.description).setRequired(true).setMaxLength(SEARCH_MAX_LEN).setAutocomplete(true)),
 
   async autocomplete(interaction, _bot, deps: SearchDeps = {}) {
     const all = depsOf(deps);
-    const query = searchable(interaction.options.getFocused().trim());
+    const T = privateText(interaction);
+    const query = searchable(readingTexts(interaction), interaction.options.getFocused().trim());
     if (!query) return await interaction.respond([]);
-    if (graphemeLength(query) < SEARCH_MIN_LEN) return await interaction.respond(choicesOf(query, NOTHING));
+    if (graphemeLength(query) < SEARCH_MIN_LEN) return await interaction.respond(choicesOf(T, query, NOTHING));
 
     // 이미 찾은 검색어(글자를 지워 돌아온 것 등)는 기다리지 않는다
     const known = remembered(query, all.spotifyReady());
-    if (known) return await interaction.respond(choicesOf(query, known));
+    if (known) return await interaction.respond(choicesOf(T, query, known));
 
     if (!(await settled(interaction.user.id, all.wait))) {
-      log.debug({ sub: "search" }, `자동완성: "${query}" → 다음 입력이 와서 찾지 않음`);
-      return await interaction.respond(choicesOf(query, rememberedPrefix(query)));
+      log.debug({ sub: "search" }, L.player.autocompleteSkippedNewInput({ query }));
+      return await interaction.respond(choicesOf(T, query, rememberedPrefix(query)));
     }
 
     const started = all.now();
     const { found, missed } = await findBoth(query, all, autocompleteBudget(interaction.createdTimestamp, started));
-    const choices = choicesOf(query, found);
+    const choices = choicesOf(T, query, found);
     const spotifyCount = choices.filter((one) => one.value.startsWith("sp:")).length;
-    const shown = choices.length === 1 && found.youtube?.gated ? "연령 인증 안내" : `유튜브 ${choices.length - 1 - spotifyCount}, 스포티파이 ${spotifyCount}`;
-    log.debug({ sub: "search" }, `자동완성: "${query}" → ${shown}${missed.length ? `(${missed.join(", ")})` : ""} | ${all.now() - started}ms`);
+    const shown = choices.length === 1 && found.youtube?.gated ? L.player.ageGateShown() : L.player.autocompleteCounts({ youtube: choices.length - 1 - spotifyCount, spotify: spotifyCount });
+    log.debug({ sub: "search" }, L.player.autocompleteAnswered({ query, shown, youtubeMissed: missed.youtube, spotifyMissed: missed.spotify, ms: all.now() - started }));
     await interaction.respond(choices);
   },
 
@@ -205,12 +213,12 @@ const exported: GuildCommand & {
 
     // 거절은 본인에게만
     const permErr = canAdd(member);
-    if (permErr) return noticeSelf(interaction, errors.notice(permErr));
+    if (permErr) return noticeSelf(interaction, privateText(interaction).errors.notice(permErr));
 
     // 자동완성에서 선택한 곡(값이 곡을 가리킨다)과 링크는 /play처럼 바로 넣는다
     const pick = readPick(query);
-    if (pick) return await playOnReply(interaction, bot, { query: pickUrl(pick), placeholder: searchText.addingTrack((pick.platform === "spotify" ? spotifySource.rememberedTrack(pick.id) : youtubeSource.rememberedVideo(pick.id))?.title ?? null), source: "/search 자동완성" });
-    if (isLink(query)) return await playOnReply(interaction, bot, { query, placeholder: searchText.searching(query), source: "/search" });
+    if (pick) return await playOnReply(interaction, bot, { query: pickUrl(pick), placeholder: privateText(interaction).search.addingTrack((pick.platform === "spotify" ? spotifySource.rememberedTrack(pick.id) : youtubeSource.rememberedVideo(pick.id))?.title ?? null), source: "search-autocomplete" });
+    if (isLink(query)) return await playOnReply(interaction, bot, { query, placeholder: privateText(interaction).search.searching(query), source: "/search" });
 
     await showResults(interaction, query, all);
   },

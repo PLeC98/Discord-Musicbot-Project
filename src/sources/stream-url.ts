@@ -12,6 +12,8 @@ import type { Seeking } from "./youtube/equivalent.ts";
 import { logTitle } from "../infra/log/title.ts";
 import { leaveDeadPin } from "./pinned-fallback.ts";
 import { audioKeyOf } from "../rules/audio-key-of.ts";
+import { L } from "../infra/log/text.ts";
+import { logTextError } from "../infra/log/log-text.ts";
 
 /** 스트림 서술자. 재생 쪽이 읽는 필드만 둔다 */
 type StreamInfo = {
@@ -52,7 +54,7 @@ async function getStream(track: Seeking & { platform?: string | null }, options:
   try {
     const stream = await streamOf(track, opts);
     // 라이브는 지정할 수 없다: 지정한 음원이 라이브면 사라진 것과 같이 다룬다(나중에 라이브가 되는 예약 방송도 있어 지정할 때가 아니라 틀 때 본다)
-    if (track.audioFoundBy === "pinned" && (await pinnedLive(track.audioUrl, stream, opts.direct))) throw codedError("pinned-live", `직접 지정한 음원이 라이브임: ${track.audioUrl ?? "없음"}`);
+    if (track.audioFoundBy === "pinned" && (await pinnedLive(track.audioUrl, stream, opts.direct))) throw codedError("pinned-live", L.track.pinnedLive({ audioUrl: track.audioUrl ?? null }));
     return stream;
   } catch (error) {
     // 직접 지정한 음원이 사라졌으면 이번 재생은 지정을 건너뛰고 다시 찾아 한 번 더(sources/pinned-fallback)
@@ -75,7 +77,7 @@ const keyed = (stream: StreamInfo, audioUrl: string): StreamInfo => ({ ...stream
 async function streamOf(track: Seeking & { platform?: string | null }, { youtube, soundcloud, equivalent, canPlayHls, fresh }: StreamOptions): Promise<StreamInfo> {
   const audioUrl = track.audioUrl || (await equivalent.findYouTubeEquivalent(track));
   if (!audioUrl) {
-    throw codedError("sp-no-youtube-match", `유튜브에서 같은 곡을 찾지 못함: ${logTitle(track.title)}`);
+    throw codedError("sp-no-youtube-match", L.track.streamYoutubeMatchNotFound({ title: logTitle(track.title) }));
   }
 
   switch (inputKind(audioUrl)) {
@@ -85,7 +87,7 @@ async function streamOf(track: Seeking & { platform?: string | null }, { youtube
       } catch (err) {
         // 링크 데이터에서 가져온 영상이 내려간 경우(프리로드, 즉시재생 스트리밍이 여기서 먼저 실패) → 재검색 후 1회 재시도.
         if (youtube.isVideoUnavailableError(err) && track.audioFoundBy === "ledger") {
-          log.warn({ tags: ["retry"] }, `캐시된 유튜브 영상 접근 불가 (${logTitle(track.title)}). 재검색 후 재시도`);
+          log.warn({ tags: ["retry"] }, L.track.cachedYoutubeVideoUnavailable({ title: logTitle(track.title) }));
           const ytUrl = await equivalent.reresolveYouTube(track);
           if (ytUrl) return keyed(await youtube.getStream(ytUrl, { fresh }), ytUrl);
         }
@@ -102,7 +104,7 @@ async function streamOf(track: Seeking & { platform?: string | null }, { youtube
       return { url: audioUrl, platform: "direct", httpHeaders: {}, liveStatus: track.isLive === true ? "is_live" : null, audioKey: audioKeyOf(audioUrl) };
 
     default:
-      throw new Error(`지원되지 않는 음원 주소: ${track.platform ?? "없음"}`);
+      throw logTextError(L.track.unsupportedAudioUrl({ platform: track.platform ?? null }));
   }
 }
 

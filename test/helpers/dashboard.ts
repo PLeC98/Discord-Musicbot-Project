@@ -2,6 +2,8 @@
 
 import type { NextFunction, Request, Response } from "express";
 import { fake } from "./fake.ts";
+import type { RuleProblem } from "../../src/rules/rule-problem.ts";
+import { logRuleLine } from "../../src/rules/text/index.ts";
 
 /** 세션에 사용자를 꽂는 미들웨어. 요청마다 user()를 읽는다(테스트가 도중에 바꾼다). null이면 로그인 전. 로그인 시각은 방금(위험한 조작도 받는다) */
 function signedInAs(user: () => object | null) {
@@ -36,10 +38,10 @@ async function requestJson<T>(base: string, method: string, urlPath: string, bod
 }
 
 /** 문제 응답(RFC 9457)에서 테스트가 읽는 필드 */
-type ProblemReply = { type?: string; code?: string; status?: number; title?: string; detail?: string; errors?: Array<{ pointer?: string; code: string; detail?: string }> };
+type ProblemReply = { type?: string; code?: string; status?: number; title?: string; detail?: string; errors?: Array<{ pointer?: string; code: string; rule?: RuleProblem; detail?: string }> };
 
-/** 문제 응답의 운영자용 원문(detail과 필드별 detail)을 한 글자로 */
-const detailsOf = (json: ProblemReply) => [json.detail, ...(json.errors ?? []).map((one) => one.detail)].filter(Boolean).join("\n");
+/** 문제 응답의 운영자용 원문(detail과 필드별 detail, 필드별 규칙 문제는 로그 언어로 그린 것)을 줄로 이은 글 */
+const detailsOf = (json: ProblemReply) => [json.detail, ...(json.errors ?? []).map((one) => (one.rule ? logRuleLine(one.rule) : one.detail))].filter(Boolean).join("\n");
 
 export { signedInAs, requestJson, detailsOf };
 export type { ProblemReply };

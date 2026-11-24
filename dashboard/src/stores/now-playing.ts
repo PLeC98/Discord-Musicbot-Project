@@ -42,6 +42,8 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
   const wantsPlay = computed(() => Boolean(track.value && !data.value?.userPaused));
   const canSkip = computed(() => skipAllowed(data.value));
   const duration = computed(() => track.value?.duration ?? 0);
+  // 진행 막대의 분모. 글자로 보이는 길이(duration)는 실제 음원과 몇 초 다를 수 있어 아는 동안은 음원 길이로 그린다
+  const barLength = computed(() => track.value?.length || duration.value);
   const position = computed(() => positionAt(clock.value, now.value));
 
   const url = (id: string, path = "") => `/api/guilds/${id}/player${path}?queue=0`;
@@ -168,5 +170,5 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
     data.value = null;
   }
 
-  return { data, page, guildId, guild, track, visible, canControl, running, wantsPlay, canSkip, duration, position, isBusy, refresh, togglePause, skip, previous, shuffle, cycleLoop, setVolume, seek, start, stop };
+  return { data, page, guildId, guild, track, visible, canControl, running, wantsPlay, canSkip, duration, barLength, position, isBusy, refresh, togglePause, skip, previous, shuffle, cycleLoop, setVolume, seek, start, stop };
 });

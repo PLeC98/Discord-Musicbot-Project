@@ -102,6 +102,7 @@ test("확인: 최신 릴리스 태그를 카드 상태에 싣고, 실패하면 t
   latest = new Error("GitHub 릴리스 조회 503");
   const failed = await req<ProblemReply>("POST", "/bgutil/check");
   assert.equal(failed.json.code, "tool-check-failed");
+  assert.deepEqual(failed.json.errors?.[0]?.rule, { code: "plain", params: { text: "GitHub 릴리스 조회 503" } });
 });
 
 test("커밋 확인: 태그의 커밋을 돌려준다. 저장소에 없으면 bgutil-tag-missing, 태그 모양이 아니면 bad-request", async () => {

@@ -20,8 +20,10 @@ import logger from "../infra/log/logger.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { koPattern, koTidy } from "../rules/ko-search.ts";
 import { AT_AFTER_LINES, matchesLog, type FileLine, type FilePage, type LogFile, type LogFilter } from "./contract/log-files.ts";
+import type { LogText } from "../infra/log/log-text.ts";
+import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "dashboard" });
-const viewerReport = { caller: "로그 뷰어", line: (text: string) => log.warn(text) };
+const viewerReport = { caller: L.dashboard.logViewerCaller(), line: (text: LogText) => log.warn(text) };
 
 /** 짧게 읽을 때(첫 줄, 시각 찾기) 한 번에 읽는 바이트 */
 const CHUNK = 64 * 1024;
@@ -288,7 +290,7 @@ function withFile<T>(file: string, fn: (fd: number, size: number) => T): T | nul
   try {
     fd = fs.openSync(file, "r");
   } catch (error) {
-    if (codeOf(error) !== "ENOENT") log.warn(`로그 파일 열기 실패: ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(L.dashboard.logFileOpenFailed({ error: messageOf(error) }));
     return null;
   }
   let result: T;
@@ -363,7 +365,7 @@ async function listLogFiles(file: string, stop?: () => boolean): Promise<LogFile
       stat = fs.statSync(full);
     } catch (error) {
       // 지금 파일이 아직 없다(기록 전), 그새 삭제됐다
-      if (codeOf(error) !== "ENOENT") log.warn(`로그 파일 정보 읽기 실패: ${messageOf(error)}`);
+      if (codeOf(error) !== "ENOENT") log.warn(L.dashboard.logFileStatFailed({ error: messageOf(error) }));
       continue;
     }
     const s = await scan(full);
@@ -491,7 +493,7 @@ async function* filteredLines(target: { path: string }, filter: LogFilter): Asyn
   try {
     fd = fs.openSync(target.path, "r");
   } catch (error) {
-    if (codeOf(error) !== "ENOENT") log.warn(`로그 파일 열기 실패(다운로드): ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(L.dashboard.logFileDownloadOpenFailed({ error: messageOf(error) }));
     return;
   }
   try {

@@ -1,0 +1,318 @@
+// 아래층(rules, config, store)과 서버가 문장 대신 내는 문제: 코드와 값. 문장은 locales/<언어>/rules/가 그린다(봇의 로그와 터미널은 로그 언어, 화면은 보는 사람의 언어).
+// 감싸는 문제(운영 설정값의 이름과 값, 불러오기 항목)는 이유를 cause에 담는다. 화면도 부르는 Node 없는 모듈
+
+const RULE_CODES = [
+  // 감싸는 문제. tune-value: 운영 설정값의 이름(key)과 넣은 값(value), archive-item: 불러오기 항목(item)
+  "tune-value",
+  "archive-item",
+  // 운영 설정값 저장 검사(store/tunables)
+  "tune-unknown-key",
+  "tune-not-text",
+  "tune-locked",
+  // 값 검사(config/index의 invalid)
+  "guild-id",
+  "bool",
+  "one-of",
+  "integer",
+  "safe-integer",
+  "at-least",
+  "at-most",
+  "url",
+  "url-scheme",
+  "origin-only",
+  "address",
+  "color",
+  "queue-max",
+  "ytdlp-tag",
+  "cookies",
+  "client-names",
+  // bgutil의 태그와 커밋(rules/bgutil-install)
+  "bgutil-commit-only",
+  "bgutil-not-tag",
+  "bgutil-commit-hash",
+  "bgutil-needs-commit",
+  // 불러오기
+  "archive-missing",
+  // 장르 설정 검사(config/schema/genres)
+  "genre-source-weight",
+  "genre-source-min-score",
+  "genre-source-need",
+  "genre-source-enum",
+  "genre-source-years",
+  "genre-source-lengths",
+  "genre-source-missing",
+  "genre-source-type",
+  "genre-label",
+  "genre-emoji",
+  "genre-old-keywords",
+  "genre-no-sources",
+  "genre-min-duration",
+  "genre-max-duration",
+  "genre-prefetch",
+  "genre-durations",
+  "genres-empty",
+  "genres-too-many",
+  "genre-id-empty",
+  "genre-id-numeric",
+  "genre-id-long",
+  "defaults-prefetch",
+  "defaults-min-duration",
+  "defaults-max-duration",
+  "defaults-blocked",
+  "defaults-max-below-default",
+  "defaults-durations",
+  // 활동 문구 설정 검사(config/schema/status)
+  "status-range",
+  "range-not-text",
+  "range-split",
+  "range-part",
+  "status-empty-text",
+  "status-long-text",
+  "status-type",
+  "status-message-shape",
+  "status-no-messages",
+  "status-entry-empty",
+  "status-entry-no-when",
+  "status-special-shape",
+  "status-name-empty",
+  "status-name-numeric",
+  "status-interval",
+  // AI 설정 검사(config/schema/ai)
+  "ai-secret-header",
+  "ai-between",
+  "ai-line-format-text",
+  "ai-line-format",
+  "ai-list-shape",
+  "ai-provider",
+  "ai-enabled",
+  "ai-temperature",
+  "ai-skip-confident",
+  "ai-total-timeout",
+  "ai-retry-timeouts",
+  "ai-retry-status",
+  "ai-extra-text",
+  "ai-extra-no-name",
+  "ai-extra-no-value",
+  "ai-extra-bad-name",
+  "ai-extra-bad-json",
+  "ai-prompt-field",
+  "ai-project",
+  "ai-location-text",
+  "ai-location",
+  "ai-params-model",
+  "ai-params-shape",
+  "ai-hide-models",
+  "ai-prompt-names",
+  "ai-needs-provider",
+  "ai-needs-base-url",
+  "ai-base-url",
+  "ai-needs-model",
+  "format-needs-title",
+  // AI 프롬프트 검사(config/schema/ai-prompt)
+  "prompt-shape",
+  "prompt-section-shape",
+  "prompt-role",
+  "prompt-text",
+  "prompt-format",
+  "prompt-chatml",
+  "prompt-needs-list",
+  // 줄 형식 검사(rules/line-format)
+  "format-unclosed",
+  "format-block-unclosed",
+  "format-stray-close",
+  "format-unknown-block",
+  "format-block-test",
+  "format-stray-else",
+  "format-double-else",
+  "format-renamed",
+  "format-unknown-name",
+  "format-no-arg",
+  // 설정 불러오기(dashboard/settings-archive, login-background/archive, audio-cache-archive)
+  "archive-full-backup",
+  "archive-no-json",
+  "archive-json-big",
+  "archive-json-bad",
+  "archive-json-shape",
+  "archive-format",
+  "archive-favicon-big",
+  "archive-not-audio",
+  "archive-no-rows",
+  "archive-rows-bad",
+  "archive-rows-shape",
+  "archive-website",
+  "archive-website-cleared",
+  "archive-cookies",
+  "archive-potoken",
+  "archive-ytdlp-pin",
+  "archive-bgutil-pin",
+  "archive-operator-scope",
+  "archive-operator-scope-kept",
+  "archive-ai-target",
+  "archive-status-links",
+  "archive-prompt-shape",
+  "archive-not-table",
+  "archive-favicon-index",
+  "archive-favicon-missing",
+  "archive-favicon-broken",
+  "lbg-still-missing",
+  "lbg-still-format",
+  "lbg-list-missing",
+  "lbg-list-bad",
+  "lbg-rung-missing",
+  "lbg-rung-bad",
+  "lbg-index-big",
+  "lbg-index-unreadable",
+  "lbg-index-shape",
+  "lbg-unfinished",
+  "lbg-duplicate",
+  "lbg-unknown-files",
+  "lbg-no-room",
+  "lbg-replace",
+  "lbg-stop-making",
+  "lbg-none",
+  // 데이터 글 그대로(text): 모델 이름, 주소, 바깥 서비스의 오류 글
+  "plain",
+  // 메시지 없는 오류(rules/error-kind의 errorProblem). value: 던진 값, code: 오류 코드, name, at: 이름, 던진 자리(없으면 빈 글)
+  "error-thrown",
+  "error-code",
+  "error-no-message",
+  // 설정 문서를 읽은 뒤 그사이 다른 저장이 있었다(config/documents). name: 문서 이름, read: 읽은 번호, now: 지금 번호
+  "doc-revision-conflict",
+  // 복원할 스냅샷의 구조 버전이 이 봇과 다르다(store/snapshots). version: 스냅샷의 것, botVersion: 봇의 것
+  "snapshot-version",
+  // 봇 상태 탭의 연결(dashboard/status/links)
+  "link-off",
+  "link-no-key",
+  "link-no-token",
+  "link-genres-broken",
+  "link-unused",
+  "link-anon-token",
+  "link-recent-fails",
+  "link-reconnects",
+  "link-reconnecting",
+  "link-pot-down",
+  "link-lb-hint",
+  "link-not-segment-api",
+  // 슬래시 명령 배포 실패 원인 안내(app/command-loader). guildId: .env의 GUILD_ID(없으면 생략)
+  "deploy-guild-missing",
+  // yt-dlp 다운로드와 설치(sources/ytdlp-release, sources/ytdlp-binary)
+  "ytdlp-no-asset",
+  "ytdlp-stable-only",
+  "ytdlp-idle",
+  "ytdlp-download-failed",
+  "ytdlp-too-big",
+  "ytdlp-no-sig-file",
+  "ytdlp-asset-not-listed",
+  "ytdlp-sum-mismatch",
+  "ytdlp-tag-not-in-channel",
+  "ytdlp-no-sums-file",
+  "ytdlp-unzip-failed",
+  "ytdlp-latest-failed",
+  "ytdlp-unusable",
+  "ytdlp-kept-check-failed",
+  "ytdlp-run-failed",
+  "ytdlp-version-mismatch",
+  "ytdlp-busy",
+  "ytdlp-folders-crossed",
+  "ytdlp-trash-failed",
+  "ytdlp-place-failed",
+  "ytdlp-bad-release-tag",
+  // GitHub 최신 릴리스 조회(sources/github-release). status: 응답 상태, repo: 저장소
+  "github-release-status",
+  "github-release-no-tag",
+  // bgutil 저장소 조회(sources/bgutil/remote). git-ls-remote-failed: git 오류 첫 줄(detail)
+  "git-ls-remote-timeout",
+  "git-ls-remote-failed",
+  // bgutil 설치(sources/bgutil/auto-install). bgutil-install-failed: 종료 원인(why), 종료 코드(code), 스크립트 마지막 출력(tail)
+  "bgutil-needs-missing",
+  "bgutil-install-cancelled",
+  "bgutil-install-failed",
+  // 로그인 배경 인코더 확인(dashboard/login-background/encoders). encoder-failed: 인코더 이름(encoder)과 원인, encoder-exit: ffmpeg 종료 코드(code, 없으면 생략)
+  "encoder-failed",
+  "encoder-exit",
+  "encoder-none",
+  // AI 보조 연결 확인, 키 입력, 판정 테스트 후보(autoplay/assist, dashboard/routes/admin)
+  "ai-no-provider",
+  "ai-unknown-provider",
+  "ai-key-not-asked",
+  "ai-no-endpoint",
+  "ai-no-model",
+  "ai-account-missing",
+  "ai-account-not-json",
+  "ai-account-broken",
+  "ai-account-fields",
+  "ai-key-unused",
+  "ai-key-not-text",
+  "ai-key-no-url",
+  "ai-key-paste-json",
+  "ai-key-account",
+  "ai-verdict-unreadable",
+  "ai-verdict-not-json",
+  "ai-cand-not-youtube",
+  "ai-cand-timeout",
+  // AI 보조의 구글 토큰 받기, 토큰 세기, 판정 상한(autoplay/assist). ai-google-token-http: HTTP 상태(status), 이유는 응답 본문 앞부분(plain)
+  "ai-google-sign-failed",
+  "ai-google-token-http",
+  "ai-google-token-unreadable",
+  "ai-google-token-missing",
+  "ai-token-count-failed",
+  "ai-token-worker-exited",
+  "ai-token-count-timeout",
+  "ai-judge-total-limit",
+  // IP 위치 DB 다운로드(dashboard/geoip)
+  "geoip-not-city",
+  // 외부 도구 실행 종료 상태(시간 초과, 실행 실패, 시그널, 종료 코드)
+  "run-timeout",
+  "run-spawn-failed",
+  "run-signal",
+  "run-exit",
+  // 서명 확인(infra/openpgp). pgp-failed가 이유를 감싼다
+  "pgp-failed",
+  "pgp-truncated",
+  "pgp-not-packet",
+  "pgp-partial-length",
+  "pgp-unknown-length",
+  "pgp-not-key-block",
+  "pgp-no-header-end",
+  "pgp-no-key-packet",
+  "pgp-key-unsupported",
+  "pgp-fingerprint-mismatch",
+  "pgp-empty-subpacket",
+  "pgp-unknown-critical",
+  "pgp-not-one-signature",
+  "pgp-signature-unsupported",
+  "pgp-no-issuer",
+  "pgp-other-key",
+  "pgp-value-too-big",
+  "pgp-mismatch",
+] as const;
+
+type RuleCode = (typeof RULE_CODES)[number];
+type RuleParams = Readonly<Record<string, string | number>>;
+type RuleProblem = { code: RuleCode; params?: RuleParams; cause?: RuleProblem };
+/** 언어 모듈의 문장 하나. cause는 그려 둔 이유(없으면 빈 문자열) */
+type RuleSentence = (params: RuleParams, cause: string) => string;
+/** 언어 모듈이 코드마다 하나씩 적는 문장 */
+type RuleSentences = Readonly<Record<RuleCode, RuleSentence>>;
+
+const rule = (code: RuleCode, params?: RuleParams, cause?: RuleProblem): RuleProblem => ({ code, ...(params ? { params } : {}), ...(cause ? { cause } : {}) });
+
+const CODES: ReadonlySet<string> = new Set(RULE_CODES);
+const isRuleCode = (value: unknown): value is RuleCode => typeof value === "string" && CODES.has(value);
+
+/** 데이터 글을 그대로 싣는다(번역하지 않는다) */
+const plain = (text: string): RuleProblem => rule("plain", { text });
+
+/** 운영 설정값 하나의 문제: 이름과 넣은 값, 이유 */
+const tuneProblem = (key: string, value: string, reason: RuleProblem): RuleProblem => rule("tune-value", { key, value }, reason);
+
+/** 운영 설정값 문제의 이름. 다른 문제면 null */
+const tuneKeyOf = (problem: RuleProblem): string | null => (problem.code === "tune-value" || problem.code === "tune-unknown-key" || problem.code === "tune-not-text" ? String(problem.params?.key ?? "") : null);
+
+/** 문제 하나를 그 언어의 문장으로. causeLine: 이유를 그리는 함수(화면은 이름 대신 라벨을 붙여 그린다) */
+function ruleLine(sentences: RuleSentences, problem: RuleProblem, causeLine: (cause: RuleProblem) => string = (cause) => ruleLine(sentences, cause)): string {
+  return sentences[problem.code](problem.params ?? {}, problem.cause ? causeLine(problem.cause) : "");
+}
+
+export { RULE_CODES, rule, isRuleCode, plain, tuneProblem, tuneKeyOf, ruleLine };
+export type { RuleCode, RuleParams, RuleProblem, RuleSentence, RuleSentences };

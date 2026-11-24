@@ -5,7 +5,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { PassThrough, Readable, Writable } from "node:stream";
 import { createFragmentStream, openFragmentStream, streamFragments, startOf, type FragmentFetch, type FragmentSource } from "../../src/media/fragment-stream.ts";
+import { asText } from "../../src/infra/log/log-text.ts";
 import { failureScope } from "../../src/player/failure-scope.ts";
+import { testText } from "../helpers/log-text.ts";
 
 const base = "https://rr.test/videoplayback?live=1";
 
@@ -54,7 +56,7 @@ test("5xx, 네트워크 오류는 그 세그먼트만 다시 받는다", async (
   const s = createFragmentStream({ fragments: { base, count: 3 }, durationMs: 6_000, startMs: 0, fetchImpl: impl, retryDelaysMs: [1, 1] });
   assert.equal(await readAll(s), "세그먼트 0|세그먼트 1|세그먼트 2|");
   assert.equal(asked.filter((u) => u.endsWith("&sq=1")).length, 2);
-  assert.match(s.describe(), /세그먼트 3\/3\(시작 0\) · 다시 받음 2회/);
+  assert.match(asText(s.describe()), /세그먼트 3\/3\(시작 0\) · 다시 받음 2회/);
 });
 
 test("4xx는 재시도하지 않고 오류로 끝난다. 재시도해도 안 되면 오류로 끝난다", async () => {
@@ -99,12 +101,12 @@ test("출처를 넘기면: 다음 세그먼트가 늦게 나와도(라이브) �
     next: () => new Promise((resolve) => setTimeout(() => resolve(names[given++] ?? null), 5)),
     fetch: async (name) => Buffer.from(`${name}|`),
     startedAtMs: 1_000,
-    describe: (sent) => `내보냄 ${sent}`,
+    describe: (sent) => testText(`내보냄 ${sent}`),
     close: () => closed++,
   };
   const s = streamFragments(source, { retryDelaysMs: [] });
   assert.equal(await readAll(s), "a|b|c|");
-  assert.deepEqual([s.startedAtMs, s.describe(), closed], [1_000, "내보냄 3", 1]);
+  assert.deepEqual([s.startedAtMs, asText(s.describe()), closed], [1_000, "내보냄 3", 1]);
 
   const endless = streamFragments({ ...source, next: async () => "x" }, { retryDelaysMs: [] });
   for await (const _ of endless) break;
@@ -137,7 +139,7 @@ test("닫으면 받는 중인 세그먼트(미리 받는 것까지)를 끊는다
       return new Promise((_, reject) => signal.addEventListener("abort", () => reject(signal.reason)));
     },
     startedAtMs: 0,
-    describe: () => "",
+    describe: () => testText(""),
   };
   const s = streamFragments(source, { retryDelaysMs: [1], stallMs: 60_000 });
   s.on("error", () => {});
@@ -164,7 +166,7 @@ function sourceOf(parts: Array<() => Buffer | Readable | Promise<Buffer | Readab
     next: async () => (given < parts.length ? given++ : null),
     fetch: async (index) => parts[index](),
     startedAtMs: 0,
-    describe: (sent) => `내보냄 ${sent}`,
+    describe: (sent) => testText(`내보냄 ${sent}`),
     ...extra,
   };
   return source;
@@ -173,7 +175,7 @@ function sourceOf(parts: Array<() => Buffer | Readable | Promise<Buffer | Readab
 test("스트림 세그먼트: 버퍼와 Readable이 섞여도 순서대로, 빈 것도 건너뛰고 이어진다", async () => {
   const s = streamFragments(sourceOf([() => Buffer.from("a|"), () => Readable.from([Buffer.from("b1"), Buffer.from("b2|")]), () => Buffer.alloc(0), () => Readable.from([]), () => Buffer.from("c|")]), { retryDelaysMs: [] });
   assert.equal(await readAll(s), "a|b1b2|c|");
-  assert.equal(s.describe(), "내보냄 5");
+  assert.equal(asText(s.describe()), "내보냄 5");
 });
 
 // 멈췄는지는 pause를 부른 횟수와 쌓인 양으로 본다. 쓰는 순간의 isPaused()는 Node 버전마다 다시 흘리는 때가 달라(26은 더 빨리 푼다) 보는 시점에 따라 갈린다

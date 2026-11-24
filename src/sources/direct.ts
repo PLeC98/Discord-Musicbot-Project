@@ -10,6 +10,8 @@ import { openFollowing, refusedByResponse, OPEN_ACCEPT, type AudioStream, type S
 import { openHls, type Hls } from "./hls.ts";
 import { audioKeyOf } from "../rules/audio-key-of.ts";
 import type { Tags as FileTags } from "./file-tags.ts";
+import { L } from "../infra/log/text.ts";
+import { logTextError } from "../infra/log/log-text.ts";
 
 /**
  * tags: 본문의 태그를 읽어 넘길 곳(곡 찾기만). 1.5초 안에 읽으면 돌려주기 전에, 아니면 나중에 부른다. 없으면 헤더만 보고 끊는다.
@@ -50,7 +52,7 @@ async function getInfo(url: string, { tags, net = { getStream: SafeUrl.getStream
         if (read) tags(track, read);
       },
       (error) => {
-        const line = `직접 링크 태그 읽기 실패(파일 이름 사용): ${messageOf(error)}`;
+        const line = L.link.directTagReadFailed({ error: messageOf(error) });
         if (embeddedArt.linkOrCancelled(error)) log.debug(line);
         else log.warn(line);
       },
@@ -63,7 +65,7 @@ async function getInfo(url: string, { tags, net = { getStream: SafeUrl.getStream
     // 음원이 아닌 링크, 옛 SHOUTcast는 그대로(곡 찾기가 그 문장으로). 받은 응답을 보고 안 것이라 숨길 것이 없다
     if (refusedByResponse(error)) throw error;
     // SSRF 오라클 방지: 차단 사유(막힌 주소)는 원인에만 둔다. 곡 찾기가 로그 한 줄에 원인을 붙인다
-    throw codedError("direct-unavailable", "재생할 수 없는 링크", { cause: error });
+    throw codedError("direct-unavailable", L.link.directUnplayable(), { cause: error });
   } finally {
     body?.destroy();
   }
@@ -100,7 +102,7 @@ function hlsTrack(url: string, hls: Hls): DirectTrack {
 }
 
 /** 음원이 아닌 응답의 거절(받은 응답을 보고 안 것이라 숨기지 않는다) */
-const notAudio = (kind: string) => codedError("unsupported-link", `음원이 아닌 링크(${kind})`);
+const notAudio = (kind: string) => codedError("unsupported-link", L.link.notAudioLink({ kind }));
 
 /** 재생, 다운로드, 재생 테스트가 여는 것: 파일(본문, 인터넷 라디오인가) 또는 HLS(세그먼트는 media가 받는다) */
 type DirectOpen = { kind: "file"; body: AudioStream; radio: boolean; length: number | null } | { kind: "hls"; hls: Hls };
@@ -112,14 +114,14 @@ type DirectOpen = { kind: "file"; body: AudioStream; radio: boolean; length: num
 async function open(url: string, net: StreamNet = { getStream: SafeUrl.getStream }, opts: { bodyIdleMs?: number } = {}): Promise<DirectOpen> {
   let opened: Opened;
   try {
-    if (inputKind(url) !== "direct") throw new Error("직접 링크가 아님");
+    if (inputKind(url) !== "direct") throw logTextError(L.link.notDirectLink());
     opened = await openFollowing(url, { net, ...opts });
     if (opened.kind === "hls") return { kind: "hls", hls: await openHls(opened.text, opened.url, { net, bodyIdleMs: opts.bodyIdleMs }) };
   } catch (error) {
     if (refusedByResponse(error)) throw error;
     // SSRF 오라클 방지: 차단 사유는 로그로만, 사용자에겐 일반화된 오류만 (cause는 스택용. 사용자 노출 없음)
-    log.error("직접 링크 스트림 실패:", messageOf(error));
-    throw codedError("direct-unavailable", "재생할 수 없는 링크", { cause: error });
+    log.error(L.link.directStreamFailed({ error: messageOf(error) }));
+    throw codedError("direct-unavailable", L.link.directUnplayable(), { cause: error });
   }
   if (opened.kind !== "file") throw notAudio(opened.kind);
   return { kind: "file", body: opened.body, radio: opened.radio, length: opened.length };

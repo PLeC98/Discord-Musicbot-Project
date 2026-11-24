@@ -5,9 +5,10 @@ import assert from "node:assert/strict";
 import { PassThrough } from "node:stream";
 import { probeSource, type Openers } from "../../src/sources/source-probe.ts";
 import { codedError } from "../../src/rules/error-kind.ts";
+import { testText } from "../helpers/log-text.ts";
 
 const fail = (code: string) => async () => {
-  throw codedError(code, code);
+  throw codedError(code, testText(code));
 };
 const never = async () => assert.fail("이 출처를 열면 안 된다");
 

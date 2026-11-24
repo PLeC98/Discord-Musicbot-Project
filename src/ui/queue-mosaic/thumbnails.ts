@@ -13,8 +13,10 @@ import * as embeddedArt from "../../sources/embedded-art.ts";
 import logger from "../../infra/log/logger.ts";
 import { repeatingFailure } from "../../infra/repeating-failure.ts";
 import { CELL } from "./layout.ts";
+import { L } from "../../infra/log/text.ts";
+import { logTextError } from "../../infra/log/log-text.ts";
 const log = logger.child({ category: "commands" });
-const failing = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "/queue 썸네일 처리");
+const failing = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.commands.queueThumbnailLabel());
 
 /** 받는 썸네일 서버: 유튜브, 스포티파이, 사운드클라우드 */
 const ART_HOSTS = [/^i\d?\.ytimg\.com$/, /^img\.youtube\.com$/, /^i\.scdn\.co$/, /^mosaic\.scdn\.co$/, /^image-cdn-[a-z0-9-]+\.spotifycdn\.com$/, /^i\d*\.sndcdn\.com$/];
@@ -53,7 +55,7 @@ const isRaster = (data: Buffer) => (data[0] === 0xff && data[1] === 0xd8 && data
 
 /** 칸 크기 JPEG. 비율이 거의 같으면 그대로 맞추고, 다르면 흐린 바탕 위 가운데에. JPEG, PNG, WebP가 아니면 예외 */
 async function bake(data: Buffer): Promise<Buffer> {
-  if (!isRaster(data)) throw new Error("JPEG, PNG, WebP 가 아님");
+  if (!isRaster(data)) throw logTextError(L.commands.notRasterImage());
   const { data: raw, info } = await sharp(data, { limitInputPixels: MAX_PIXELS, pages: 1 }).rotate().flatten().resize(SIZE.width, SIZE.height, { fit: "inside" }).raw().toBuffer({ resolveWithObject: true });
   const fitted = { raw: { width: info.width, height: info.height, channels: info.channels } };
   if (SIZE.width - info.width <= 2 && SIZE.height - info.height <= 2) {
@@ -94,7 +96,7 @@ async function make(key: string, read: () => Promise<Buffer | null>): Promise<Bu
     remember(key, jpeg);
     return jpeg;
   } catch (error) {
-    log.debug(`/queue 썸네일 처리 실패(대체 이미지로 출력): ${key} | ${messageOf(error)}`);
+    log.debug(L.commands.queueThumbnailFailed({ key, error: messageOf(error) }));
     if (!isClientError(error)) failing.fail(messageOf(error));
     remember(key, null);
     return null;

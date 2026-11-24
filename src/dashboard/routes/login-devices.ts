@@ -12,16 +12,20 @@ import { recentLogin } from "../middleware/recent-login.ts";
 import { SIGN_OUT_LOGIN_MS } from "../contract/identity.ts";
 import { tokenStoreOf, type SqliteSessionStore } from "../session-store.ts";
 import { describe, handleOf, type Locate } from "../login-devices.ts";
-import { revokeToken, startSession } from "./auth.ts";
+import { startSession } from "./auth.ts";
+import { revokeToken } from "../oauth-client.ts";
 import { forgetGuilds } from "../user-guilds.ts";
 import { discordHttp, type DiscordHttp } from "../discord-api.ts";
 import { bestEffort } from "../../infra/best-effort.ts";
 import { sendProblem } from "../problem.ts";
 import { messageOf } from "../../rules/error-kind.ts";
-import type { LoginDevices, SignedOut } from "../contract/identity.ts";
+import type { DevicePlace, LoginDevices, SignedOut } from "../contract/identity.ts";
+import type { Language } from "../../rules/languages.ts";
+import { viewerLanguage } from "../../ui/language.ts";
+import { L } from "../../infra/log/text.ts";
 
-/** IP 위치(dashboard/geoip). load: 목록을 그리기 전에 올린다(쓸 수 있으면 true, 화면이 출처 링크를 단다). locate: 공인 주소만 조회한다 */
-type Places = { load(): Promise<boolean>; locate: Locate };
+/** IP 위치(dashboard/geoip). load: 목록을 그리기 전에 올린다(쓸 수 있으면 true, 화면이 출처 링크를 단다). locate: 공인 주소만 조회한다(이름은 해당 언어로) */
+type Places = { load(): Promise<boolean>; locate: (ip: string, language: Language) => DevicePlace };
 
 /** http: 디스코드(토큰 폐기) */
 function createLoginDevicesRouter({ places, http = discordHttp }: { places: Places; http?: DiscordHttp }) {
@@ -32,9 +36,9 @@ function createLoginDevicesRouter({ places, http = discordHttp }: { places: Plac
     for (const sid of sids) {
       try {
         const token = store.readDiscordToken(sid);
-        if (token) bestEffort(log, revokeToken(http, token), "다른 기기의 디스코드 토큰 폐기", "warn");
+        if (token) bestEffort(log, revokeToken(http, token), L.dashboard.otherDeviceTokenRevoke(), "warn");
       } catch (error) {
-        log.warn(`다른 기기의 디스코드 토큰 읽기 실패(폐기 요청 생략, 세션은 끊음): ${messageOf(error)}`);
+        log.warn(L.dashboard.otherDeviceTokenReadFailed({ error: messageOf(error) }));
       }
       forgetGuilds(sid);
     }
@@ -53,7 +57,8 @@ function createLoginDevicesRouter({ places, http = discordHttp }: { places: Plac
     const store = tokenStoreOf(req);
     if (!store) return sendProblem(res, "unknown-error");
     const geoip = await places.load();
-    const locate: Locate = geoip ? places.locate : () => null;
+    const language = viewerLanguage({ userId: signedIn(req).id, acceptLanguage: req.get("accept-language") });
+    const locate: Locate = geoip ? (ip) => places.locate(ip, language) : () => null;
     const rows = store.sessionsOf(signedIn(req).id).map(({ sid, session, device }) => describe(sid, session, device, req.sessionID, locate));
     rows.sort((a, b) => Number(b.current) - Number(a.current) || (b.seenAt ?? 0) - (a.seenAt ?? 0));
     res.json({ devices: rows, geoip } satisfies LoginDevices);
@@ -70,7 +75,7 @@ function createLoginDevicesRouter({ places, http = discordHttp }: { places: Plac
     const target = store.sessionsOf(user.id).find(({ sid }) => sid !== req.sessionID && handleOf(sid) === req.params.id);
     if (!target) return sendProblem(res, "device-not-found");
     const results = signOut(store, [target.sid], user.id);
-    log.info(`다른 기기 로그아웃: 1곳. 실행 ${user.username || user.id}`);
+    log.info(L.dashboard.otherDeviceSignedOut({ by: user.username || user.id }));
     answer(res, results);
   });
 
@@ -79,7 +84,7 @@ function createLoginDevicesRouter({ places, http = discordHttp }: { places: Plac
     try {
       return store.readDiscordToken(sid);
     } catch (error) {
-      log.warn(`요청한 기기의 디스코드 토큰 읽기 실패(새 세션에 옮기지 않음): ${messageOf(error)}`);
+      log.warn(L.dashboard.requestingDeviceTokenReadFailed({ error: messageOf(error) }));
       return null;
     }
   }
@@ -97,12 +102,12 @@ function createLoginDevicesRouter({ places, http = discordHttp }: { places: Plac
       others.map(({ sid }) => sid),
       user.id,
     );
-    if (others.length) log.info(`다른 기기 로그아웃: ${others.length}곳. 실행 ${user.username || user.id}`);
+    if (others.length) log.info(L.dashboard.otherDevicesSignedOut({ count: others.length, by: user.username || user.id }));
     const retriedResults = store.endAll(retried, user.id);
     const oldSid = req.sessionID;
     // 최근 로그인 확인을 지났으니 있다. 없으면 0(새 세션은 절대 기한이 지나 곧바로 끝난다). 기기 기록의 로그인 시각도 이것이다
     const loginAt = req.session.loginAt ?? 0;
-    const moved = await startSession(req, { user, loginAt, viewAs: req.session.viewAs, token: tokenOf(store, oldSid), signedInAt: loginAt, failure: "다른 기기 로그아웃 뒤 요청한 기기의 새 세션 저장 실패(요청한 기기도 로그아웃)" });
+    const moved = await startSession(req, { user, loginAt, viewAs: req.session.viewAs, token: tokenOf(store, oldSid), signedInAt: loginAt, failure: L.dashboard.requestingDeviceSessionSaveFailed() });
     // 이전 세션 행을 지우지 못했으면 다른 기기와 같게 성공으로 응답하지 않는다. 새 세션을 저장하지 못했으면 이 기기도 로그아웃이다
     if (!moved) return store.isUnsaved(oldSid) ? answer(res, results, [...retriedResults, false]) : sendProblem(res, "login-required");
     // 여전히 삭제하지 못했으면 성공으로 응답하지 않는다

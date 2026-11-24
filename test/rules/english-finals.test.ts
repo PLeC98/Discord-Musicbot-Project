@@ -1,4 +1,4 @@
-// data/english-finals.json, src/rules/english-final.ts: 영어 끝소리 표. 발음 사전 전체를 들고 판정할 때와 단어마다 답이 같은지, 표가 지금 사전에서 만든 그대로인지 본다.
+// data/english-finals.json, src/infra/english-final.ts: 영어 끝소리 표. 발음 사전 전체를 들고 판정할 때와 단어마다 답이 같은지, 표가 지금 사전에서 만든 그대로인지 본다.
 // 사전 패키지(cmu-pronouncing-dictionary)는 표를 만들 때만 쓰는 개발 의존성이다
 
 import { test } from "node:test";
@@ -7,16 +7,19 @@ import fs from "node:fs";
 import path from "node:path";
 import { dictionary } from "cmu-pronouncing-dictionary";
 import { PROJECT } from "../../src/infra/project-paths.ts";
-import { _internals } from "../../src/rules/josa.ts";
-import { letterFinal, phonemeFinal, spellingFinal, tableOf } from "../../src/rules/english-final.ts";
-import type { Final } from "../../src/rules/josa.ts";
+import { _internals } from "../../src/infra/josa.ts";
+import { letterFinal, phonemeFinal, spellingFinal, tableOf } from "../../src/infra/english-final.ts";
+import type { Final } from "../../src/infra/josa.ts";
 
-const { englishFinal } = _internals;
+const { englishFinal, READINGS } = _internals;
 const FILE = path.join(PROJECT.data, "english-finals.json");
 
-// 사전 전체로 판정하던 법. 사전에 있으면 그 발음, 사전에 없는 대문자 약어(또는 모음이 없는 약어)는 글자 이름, 그 밖은 철자
+// 사전 전체로 판정하던 법. 사전에 있으면 그 발음, 사전에 없는 대문자 약어(또는 모음이 없는 약어)는 글자 이름, 그 밖은 철자.
+// 예외 표(관용 표기, 고유 독법)는 사전과 규칙 위에 얹은 것이라 양쪽에 같이 둔다
 function withWholeDictionary(word: string): Final {
   const lower = word.toLowerCase();
+  const reading = READINGS.get(lower);
+  if (reading !== undefined) return reading;
   const said = Object.hasOwn(dictionary, lower) ? dictionary[lower] : null;
   if (/^[A-Z]{1,5}$/.test(word) && (!said || !/[AEIOUY]/.test(word))) return letterFinal(word);
   if (said) return phonemeFinal(said.split(" ").map((p) => p.replace(/\d/, "")));

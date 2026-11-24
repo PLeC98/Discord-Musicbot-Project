@@ -1,8 +1,8 @@
 import { SlashCommandBuilder } from "discord.js";
 import { answerSeek } from "../interactions/control-answers.ts";
-import * as errors from "../../ui/text/ko/errors.ts";
 import type { GuildCommand } from "../../app/command-loader.ts";
 import { noticeSelf } from "../../ui/delivery.ts";
+import { privateText } from "../../ui/language.ts";
 
 /** 시간 문자열을 밀리초로. "120"(초), "1:20", "1:20:55", "3m20s", "1m 50s", "1h20m30s" 형식을 읽고, 못 읽으면 null */
 function parseTimeInput(input: string) {
@@ -36,14 +36,16 @@ function parseTimeInput(input: string) {
 
 const exported: GuildCommand = {
   help: { section: "play", tier: "dj" },
-  data: new SlashCommandBuilder()
-    .setName("seek")
-    .setDescription("현재 곡의 특정 시간으로 이동해요")
-    .addStringOption((option) => option.setName("time").setNameLocalizations({ ko: "시간" }).setDescription("이동할 시간 (예: 1:30, 3m20s, 90)").setRequired(true)),
+  name: "seek",
+  data: (C) =>
+    new SlashCommandBuilder()
+      .setName("seek")
+      .setDescription(C.seek.description)
+      .addStringOption((option) => option.setName("time").setDescription(C.seek.options.time.description).setRequired(true)),
 
   async execute(interaction, bot) {
     const seekMs = parseTimeInput(interaction.options.getString("time", true));
-    if (seekMs === null) return noticeSelf(interaction, errors.notice("bad-time"));
+    if (seekMs === null) return noticeSelf(interaction, privateText(interaction).errors.notice("bad-time"));
     await answerSeek(interaction, bot.players.get(interaction.guild.id), seekMs);
   },
 };

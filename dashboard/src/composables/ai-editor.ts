@@ -19,12 +19,14 @@ import { vertexChatUrl } from "../../../src/rules/vertex-url.ts";
 import { AI_ROLES, hasListMark, promptProblems, type PromptSection } from "../../../src/config/schema/ai-prompt.ts";
 import { LINE_NAMES, formatDuration as lineDuration, parseFormat, renderNodes } from "../../../src/rules/line-format.ts";
 import { AI_KEY_ORDER, aiProblems, aiSwitchedOff, lineFormatProblems } from "../../../src/config/schema/ai.ts";
+import { extraLineProblems } from "../../../src/rules/ai-extra.ts";
+import { ruleLine } from "../utils/rule-line.ts";
 import type { ModelField, ModelGroup, RefreshResult } from "../../../src/config/ai-model-types.ts";
 import type { AiDefaults, ModelsCheck, PingCheck, Preview, JudgeResult, TestCandidate } from "../../../src/autoplay/assist/types.ts";
 import type { AiFields, AiKeyState, AiSaved, AiState, CandidatesReply, ConfigFile, KeysReply, LinesReply, PromptReply, TokensReply } from "../../../src/dashboard/contract/admin.ts";
 import { AI_SAMPLE_CANDIDATES } from "../../../src/dashboard/contract/admin.ts";
 import { formatDuration } from "../../../src/ui/format.ts";
-import { text } from "../text/index.ts";
+import { text, textLanguage } from "../text/index.ts";
 const TJ = text.ai.judge;
 const TR = text.ai.prompt;
 const TL = text.ai.list;
@@ -67,7 +69,7 @@ const NONE_MARK = "{{none}}";
 const EXTRA_SAMPLE = `think=false\nreasoning_effort=low\nresponse_format=json::{"type":"json_object"}\nheader::X-Title=Discord Musicbot\nmax_tokens=${NONE_MARK}`;
 const ROLES = AI_ROLES;
 // 줄 형식의 이름(봇과 같이 쓰는 rules/line-format)
-const MARKS = Object.keys(LINE_NAMES).map((name) => ({ mark: `{{${name}}}`, hint: T.markHints[name] }));
+const MARKS = computed(() => Object.keys(LINE_NAMES).map((name) => ({ mark: `{{${name}}}`, hint: T.markHints[name] })));
 // 길이가 있을 때만 적는 구간(넣기 칩)
 const BLOCK_MARK = "{{#if-exist {{duration}}}}{{duration}} {{/}}";
 // 조회 안 한 주소를 그대로 보내면 쓰이는 보기 곡(제목, 길이)
@@ -166,14 +168,16 @@ function providerView(s: State) {
     return state === "moved" || state === "again" ? state : null;
   });
   const spec = computed(() => providers.value.find((one) => one.value === draft.value.provider) || null);
+  // 이름은 화면 언어로(이름을 따로 두는 것만. 나머지는 상표 이름)
+  const named = computed(() => providers.value.map((one) => ({ ...one, label: T.providerNames[one.value] ?? one.label })));
   // 로컬, 클라우드, 게이트웨이로 묶어 보여 준다. 그룹 없는 것("사용하지 않음")은 맨 위에.
-  const ungrouped = computed(() => providers.value.filter((one) => !one.group));
+  const ungrouped = computed(() => named.value.filter((one) => !one.group));
   const grouped = computed(() => {
-    const out: Array<{ name: string; items: AiState["providers"] }> = [];
-    for (const one of providers.value.filter((x) => x.group)) {
-      const found = out.find((g) => g.name === one.group);
+    const out: Array<{ id: string; name: string; items: AiState["providers"] }> = [];
+    for (const one of named.value.filter((x) => x.group)) {
+      const found = out.find((g) => g.id === one.group);
       if (found) found.items.push(one);
-      else out.push({ name: one.group, items: [one] });
+      else if (one.group) out.push({ id: one.group, name: T.providerGroups[one.group], items: [one] });
     }
     return out;
   });
@@ -333,13 +337,15 @@ function advancedView(s: State) {
       draft.value.hideModels = v;
     },
   });
-  // 추가 파라미터는 한 줄에 하나씩 적는 글이다. 뜯어 읽는 것은 서버가 한다(autoplayAssist)
+  // 추가 파라미터는 한 줄에 하나씩 적는 문자열이다. 요청에 넣는 것은 서버가 한다(rules/ai-extra)
   const extraText = computed({
     get: () => draft.value.extra || "",
     set: (v: string) => {
       draft.value.extra = v;
     },
   });
+  // 파싱에 실패해 요청에서 빠질 줄(서버와 같은 파서). 저장을 막지 않는다
+  const extraWarnings = computed(() => extraLineProblems(draft.value.extra).map(ruleLine));
   const defaultOf = (key: keyof AiDefaults) => {
     const value = settingDefaults.value[key];
     return value == null ? "" : Array.isArray(value) ? value.join(", ") : String(value);
@@ -353,17 +359,17 @@ function advancedView(s: State) {
     const codes = values.map(Number).filter((n) => Number.isInteger(n));
     draft.value.retryStatus = codes.length ? codes : null;
   }
-  return { hideModels, extraText, timeoutSec: secondsOf(draft, "timeoutMs"), totalSec: secondsOf(draft, "totalTimeoutMs"), delaySec: secondsOf(draft, "retryDelayMs", false), delayMaxSec: secondsOf(draft, "retryDelayMaxMs", false), defaultOf, defaultSec, setRetryStatus };
+  return { hideModels, extraText, extraWarnings, timeoutSec: secondsOf(draft, "timeoutMs"), totalSec: secondsOf(draft, "totalTimeoutMs"), delaySec: secondsOf(draft, "retryDelayMs", false), delayMaxSec: secondsOf(draft, "retryDelayMaxMs", false), defaultOf, defaultSec, setRetryStatus };
 }
 
 // ── 프롬프트: 섹션, 줄 형식 안내, 요청 미리보기 ────────────────────────────
 // 줄 형식 문제를 보여 줄 때 앞뒤로 붙이는 글자 수
 const AROUND = 12;
 // 줄 형식 미리보기의 보기 후보 둘: 길이를 아는 것, 모르는 것
-const PREVIEW_CANDS = [
+const PREVIEW_CANDS = computed(() => [
   { label: TL.previewKnown, title: "System Of A Down - Toxicity (Official HD Video)", seconds: 223 },
   { label: TL.previewUnknown, title: "Pop Hits 2021 - Ariana Grande, Maroon 5, Taylor Swift", seconds: null },
-];
+]);
 function promptView(s: State) {
   const { sections, listCfg, defaults, shown, judgeGenre, inner } = s;
   const listMarked = computed(() => hasListMark(sections.value));
@@ -388,13 +394,13 @@ function promptView(s: State) {
     return lineFormatProblems(format).map((one) => {
       const from = Math.max(0, one.at - AROUND);
       const to = Math.min(format.length, one.end + AROUND);
-      return { ...one, before: `${from > 0 ? "…" : ""}${format.slice(from, one.at)}`, part: format.slice(one.at, one.end), after: `${format.slice(one.end, to)}${to < format.length ? "…" : ""}` };
+      return { ...one, message: ruleLine(one.rule), before: `${from > 0 ? "…" : ""}${format.slice(from, one.at)}`, part: format.slice(one.at, one.end), after: `${format.slice(one.end, to)}${to < format.length ? "…" : ""}` };
     });
   });
   // 봇과 같은 해석기로 그린 미리보기. 장르는 판정 테스트에 적은 것
   const linePreview = computed(() => {
     const nodes = parseFormat(listCfg.value.lineFormat || defaults.value.line, LINE_NAMES).nodes;
-    return PREVIEW_CANDS.map((cand, i) => ({
+    return PREVIEW_CANDS.value.map((cand, i) => ({
       label: cand.label,
       line: renderNodes(nodes, { index: () => String(i + 1), genre: () => judgeGenre.value || TJ.genrePlaceholder, title: () => cand.title, duration: (arg) => lineDuration(cand.seconds, arg) }).trim(),
     }));
@@ -531,7 +537,7 @@ function exchange(s: State, cleanParams: Ref<Record<string, Record<string, unkno
   let aiRevision = 0;
   const file = useConfigFile({
     tab: "ai",
-    savedNote: T.savedNote,
+    savedNote: () => T.savedNote,
     // 입력해 두고 저장하지 않은 키도 떠날 때 묻는다
     alsoUnsaved: () => Boolean(keyInput.value.trim()),
     payload: () => ({ data: payload.value, sections: promptPayload.value }),
@@ -554,7 +560,7 @@ function exchange(s: State, cleanParams: Ref<Record<string, Record<string, unkno
   // 저장할 때 서버가 보는 검사 그대로(schema/ai, schema/ai-prompt). 꺼 두면(enabled: false) 나머지 필드, 프롬프트를 따지지 않는다. 불러오기 전에는 문제가 없다
   const problems = computed(() => {
     if (!file.loaded.value) return [];
-    return aiSwitchedOff(payload.value) ? [...file.serverProblems.value] : [...aiProblems(payload.value), ...promptProblems(promptPayload.value, true), ...file.serverProblems.value];
+    return aiSwitchedOff(payload.value) ? [...file.serverProblems.value] : [...aiProblems(payload.value).map(ruleLine), ...promptProblems(promptPayload.value, true).map(ruleLine), ...file.serverProblems.value];
   });
   // 운영자 패널의 저장 바에 올린다(검사에 걸린 값이 있으면 저장 바가 저장을 막는다)
   useSaveTarget({ tab: "ai", dirty: file.dirty, saving: file.saving, blocked: computed(() => problems.value.length > 0), save: () => file.save(), revert: file.revert });
@@ -615,9 +621,9 @@ function serverReads(s: State, io: Exchange) {
       io.loadError.value = problemText(error, T.failed.preview);
     }
   }
-  // 프로바이더나 모델이 바뀌면 받을 수 있는 필드도 달라진다.
+  // 프로바이더나 모델이 바뀌면 받을 수 있는 필드도 달라진다. 화면 언어가 바뀌면 그룹 이름을 바뀐 언어로 다시 받는다
   watch(
-    () => [draft.value.provider, draft.value.model],
+    () => [draft.value.provider, draft.value.model, textLanguage.value],
     () => loadFields(),
     { immediate: true },
   );
@@ -651,8 +657,16 @@ function judgeTest(s: State, io: Exchange) {
       { title: "URL", text: one.url },
       { title: T.boxes.headers, text: JSON.stringify(one.headers, null, 2) },
       { title: T.boxes.body, text: JSON.stringify(one.body, null, 2) },
-      { title: T.boxes.response, text: one.response || T.boxes.empty },
+      { title: T.boxes.response, text: one.reason ? ruleLine(one.reason) : one.response || T.boxes.empty },
     ];
+  });
+  // 결과 한 줄. 연결 테스트와 같은 형식이다. 판정 자리의 "?"만으로는 요청 실패인지 판정 JSON을 못 읽은 것인지 구분할 수 없다
+  const judgeOutcome = computed(() => {
+    const one = judgeSent.value;
+    if (!one) return null;
+    const answered = one.status !== null && one.status >= 200 && one.status < 300;
+    const why = one.reason ? ruleLine(one.reason) : answered && !one.verdicts ? TJ.unread : "";
+    return { ok: answered && !!one.verdicts && !one.reason, head: `${one.status ? `HTTP ${one.status}` : TT.notSent} · ${one.tookMs ?? 0}ms`, why };
   });
   // 못 읽은 줄이 섞여 있어 후보 순서와 줄 순서가 어긋난다. 멀쩡한 것만 세어 맞춘다
   function lineFor(cand: TestCandidate) {
@@ -715,7 +729,7 @@ function judgeTest(s: State, io: Exchange) {
       judging.value = false;
     }
   }
-  return { judgeUrls, judging, judgeError, judgeCands, judgeList, judgeVerdicts, judgeSent, showJudgeRaw, judgeLookedUp, judgeStale, judgeUsable, judgeBoxes, lineFor, verdictOk, verdictText, copy, lookupJudge, drawLines, runJudge };
+  return { judgeUrls, judging, judgeError, judgeCands, judgeList, judgeVerdicts, judgeSent, judgeOutcome, showJudgeRaw, judgeLookedUp, judgeStale, judgeUsable, judgeBoxes, lineFor, verdictOk, verdictText, copy, lookupJudge, drawLines, runJudge };
 }
 type Judge = ReturnType<typeof judgeTest>;
 
@@ -735,7 +749,7 @@ function modelList(s: State, io: Exchange, reads: ReturnType<typeof serverReads>
   function modelsTested(got: ModelsCheck): Tested {
     const hidden = got.hiddenCount ? T.hiddenCount(got.hiddenCount) : "";
     const extra = got.ok ? `${T.modelCount(models.value.length)}${hidden}` : got.preset ? `${T.presetModels(models.value.length)}${hidden}` : "";
-    return { kind: TT.free, ok: got.ok, status: got.status, tookMs: got.tookMs ?? 0, reason: got.reason, extra, body: got.ok ? "" : got.response, raw: got.response };
+    return { kind: TT.free, ok: got.ok, status: got.status, tookMs: got.tookMs ?? 0, reason: got.reason ? ruleLine(got.reason) : undefined, extra, body: got.ok ? "" : got.response, raw: got.response };
   }
   // 무료. 추론을 안 돌린다. 연결 확인이자 모델 목록 불러오기다(같은 한 번의 호출이다).
   // quiet: 프로바이더를 선택할 때 저절로 도는 것이라 실패를 빨갛게 표시하지 않는다.
@@ -821,7 +835,7 @@ function paidActions(s: State, io: Exchange, judge: Judge, serviceAccount: () =>
     showRaw.value = false;
     try {
       const got = (await axios.post<PingCheck>("/api/admin/ai/ping", { data: io.payload.value }, { timeout: LIMIT.none })).data;
-      tested.value = { kind: TT.paid, ok: got.ok, status: got.status, tookMs: got.tookMs ?? 0, reason: got.reason, asked: pingText.value, body: got.answer || got.response, raw: got.response };
+      tested.value = { kind: TT.paid, ok: got.ok, status: got.status, tookMs: got.tookMs ?? 0, reason: got.reason ? ruleLine(got.reason) : undefined, asked: pingText.value, body: got.answer || got.response, raw: got.response };
     } catch (error) {
       tested.value = { kind: TT.paid, ok: false, status: null, tookMs: 0, reason: problemText(error, T.failed.send) };
     } finally {

@@ -3,9 +3,11 @@
 // 그 밖(다른 알고리즘, 부분 길이 패킷, 모르는 중요 하위 패킷)은 거절한다. 형식은 RFC 4880
 
 import crypto from "node:crypto";
+import type { RuleCode, RuleParams } from "../rules/rule-problem.ts";
+import { problemError } from "./error-text.ts";
 
-// 기반 층이라 오류 도구(rules)를 부르지 않는다. 코드는 같은 형식(code 필드)
-const bad = (why: string) => Object.assign(new Error(`서명 확인 실패: ${why}`), { code: "BAD_SIGNATURE" });
+// 이유는 규칙 문제(problem 필드, 문장은 받는 쪽이 그린다)
+const bad = (why: RuleCode, params?: RuleParams) => problemError("BAD_SIGNATURE", { code: "pgp-failed", cause: { code: why, ...(params ? { params } : {}) } });
 
 const TAG = { signature: 2, publicKey: 6 } as const;
 const RSA = 1;
@@ -22,7 +24,7 @@ type PinnedKey = { fingerprint: string; key: crypto.KeyObject; modulusBytes: num
 
 /** at부터 n 바이트가 있어야 한다 */
 function need(buf: Buffer, at: number, n: number) {
-  if (at < 0 || at + n > buf.length) throw bad("잘린 패킷");
+  if (at < 0 || at + n > buf.length) throw bad("pgp-truncated");
 }
 
 /** 패킷을 차례로. 옛 형식, 새 형식 헤더를 읽고 부분 길이, 길이 미정은 거절한다 */
@@ -31,7 +33,7 @@ function packetsOf(buf: Buffer): Packet[] {
   let at = 0;
   while (at < buf.length) {
     const head = buf[at++];
-    if (!(head & 0x80)) throw bad("패킷 헤더가 아님");
+    if (!(head & 0x80)) throw bad("pgp-not-packet");
     let tag: number;
     let length: number;
     if (head & 0x40) {
@@ -46,12 +48,12 @@ function packetsOf(buf: Buffer): Packet[] {
         need(buf, at, 4);
         length = buf.readUInt32BE(at);
         at += 4;
-      } else throw bad("부분 길이 패킷");
+      } else throw bad("pgp-partial-length");
     } else {
       tag = (head >> 2) & 0x0f;
       const kind = head & 3;
       const size = [1, 2, 4][kind];
-      if (size === undefined) throw bad("길이 미정 패킷");
+      if (size === undefined) throw bad("pgp-unknown-length");
       need(buf, at, size);
       length = size === 1 ? buf[at] : size === 2 ? buf.readUInt16BE(at) : buf.readUInt32BE(at);
       at += size;
@@ -76,10 +78,10 @@ function dearmor(text: string): Buffer {
   const lines = text.replace(/\r/g, "").split("\n");
   const begin = lines.findIndex((line) => line.trim() === "-----BEGIN PGP PUBLIC KEY BLOCK-----");
   const end = lines.findIndex((line) => line.trim() === "-----END PGP PUBLIC KEY BLOCK-----");
-  if (begin < 0 || end < begin) throw bad("공개 키 블록이 아님");
+  if (begin < 0 || end < begin) throw bad("pgp-not-key-block");
   const body = lines.slice(begin + 1, end);
   const blank = body.findIndex((line) => !line.trim());
-  if (blank < 0) throw bad("공개 키 블록에 헤더 끝이 없음");
+  if (blank < 0) throw bad("pgp-no-header-end");
   return Buffer.from(
     body
       .slice(blank + 1)
@@ -99,12 +101,12 @@ function fingerprintOf(body: Buffer) {
 function pinnedKey(armored: string, fingerprint: string): PinnedKey {
   const want = fingerprint.replace(/\s/g, "").toUpperCase();
   const packet = packetsOf(dearmor(armored)).find((one) => one.tag === TAG.publicKey);
-  if (!packet) throw bad("공개 키 패킷이 없음");
+  if (!packet) throw bad("pgp-no-key-packet");
   const body = packet.body;
   need(body, 0, 6);
-  if (body[0] !== 4 || body[5] !== RSA) throw bad(`받지 않는 공개 키(v${body[0]}, 알고리즘 ${body[5]})`);
+  if (body[0] !== 4 || body[5] !== RSA) throw bad("pgp-key-unsupported", { version: body[0], algorithm: body[5] });
   const got = fingerprintOf(body);
-  if (got !== want) throw bad(`공개 키의 지문이 고정값과 다름(${got})`);
+  if (got !== want) throw bad("pgp-fingerprint-mismatch", { got });
   const n = mpiAt(body, 6);
   const e = mpiAt(body, n.next);
   const key = crypto.createPublicKey({ key: { kty: "RSA", n: n.value.toString("base64url"), e: e.value.toString("base64url") }, format: "jwk" });
@@ -125,9 +127,9 @@ function issuerOf(hashed: Buffer): string | null {
       at += 4;
     }
     need(hashed, at, length);
-    if (length < 1) throw bad("빈 하위 패킷");
+    if (length < 1) throw bad("pgp-empty-subpacket");
     const type = hashed[at] & 0x7f;
-    if (hashed[at] & 0x80 && !KNOWN_CRITICAL.has(type)) throw bad(`모르는 중요 하위 패킷(${type})`);
+    if (hashed[at] & 0x80 && !KNOWN_CRITICAL.has(type)) throw bad("pgp-unknown-critical", { type });
     // 본문: 키 버전 1바이트(4) + 지문 20바이트
     if (type === SUB.issuerFingerprint && length === 22 && hashed[at + 1] === 4)
       issuer = hashed
@@ -141,37 +143,37 @@ function issuerOf(hashed: Buffer): string | null {
 
 /**
  * data에 대한 분리 서명(바이너리, 패킷 하나)을 고정한 키로 확인한다. 맞으면 돌아오고, 아니면 BAD_SIGNATURE 예외를 던진다.
- * 이유는 메시지에 싣는다: 다른 키가 서명함(키 교체일 수 있다), 서명이 맞지 않음(내용이나 서명이 바뀌었다), 받지 않는 형식
+ * 이유는 problem에 싣는다: 다른 키가 서명함(키 교체일 수 있다), 서명이 맞지 않음(내용이나 서명이 바뀌었다), 받지 않는 형식
  */
 function verifyDetached(data: Buffer, signature: Buffer, pinned: PinnedKey): void {
   const packets = packetsOf(signature);
-  if (packets.length !== 1 || packets[0].tag !== TAG.signature) throw bad("서명 패킷 하나가 아님");
+  if (packets.length !== 1 || packets[0].tag !== TAG.signature) throw bad("pgp-not-one-signature");
   const body = packets[0].body;
   need(body, 0, 6);
   const [version, type, algorithm, hashId] = [body[0], body[1], body[2], body[3]];
   const hash = HASHES[hashId];
-  if (version !== 4 || type !== BINARY_DOCUMENT || algorithm !== RSA || !hash) throw bad(`받지 않는 서명(v${version}, 형식 ${type}, 알고리즘 ${algorithm}, 해시 ${hashId})`);
+  if (version !== 4 || type !== BINARY_DOCUMENT || algorithm !== RSA || !hash) throw bad("pgp-signature-unsupported", { version, type, algorithm, hash: hashId });
   const hashedLength = body.readUInt16BE(4);
   need(body, 6, hashedLength + 2);
   const issuer = issuerOf(body.subarray(6, 6 + hashedLength));
-  if (!issuer) throw bad("서명한 키의 지문이 없음");
-  if (issuer !== pinned.fingerprint) throw bad(`다른 키가 서명함(${issuer})`);
+  if (!issuer) throw bad("pgp-no-issuer");
+  if (issuer !== pinned.fingerprint) throw bad("pgp-other-key", { issuer });
   const unhashedLength = body.readUInt16BE(6 + hashedLength);
   const after = 6 + hashedLength + 2 + unhashedLength;
   need(body, after, 2);
   const left16 = body.subarray(after, after + 2);
   const value = mpiAt(body, after + 2).value;
-  if (value.length > pinned.modulusBytes) throw bad("서명 값이 키보다 큼");
+  if (value.length > pinned.modulusBytes) throw bad("pgp-value-too-big");
   // 서명한 것: 문서 + 서명 패킷의 앞부분(버전부터 해시 부분 끝까지) + 트레일러(04 FF, 그 길이 4바이트)
   const trailer = Buffer.alloc(6);
   trailer[0] = 4;
   trailer[1] = 0xff;
   trailer.writeUInt32BE(6 + hashedLength, 2);
   const signed = Buffer.concat([data, body.subarray(0, 6 + hashedLength), trailer]);
-  if (!crypto.createHash(hash).update(signed).digest().subarray(0, 2).equals(left16)) throw bad("서명이 맞지 않음");
+  if (!crypto.createHash(hash).update(signed).digest().subarray(0, 2).equals(left16)) throw bad("pgp-mismatch");
   // MPI는 앞의 0을 떼고 싣는다. RSA 확인은 키 길이만큼 채운 값을 받는다
   const padded = Buffer.concat([Buffer.alloc(pinned.modulusBytes - value.length), value]);
-  if (!crypto.verify(hash, signed, { key: pinned.key, padding: crypto.constants.RSA_PKCS1_PADDING }, padded)) throw bad("서명이 맞지 않음");
+  if (!crypto.verify(hash, signed, { key: pinned.key, padding: crypto.constants.RSA_PKCS1_PADDING }, padded)) throw bad("pgp-mismatch");
 }
 
 export { pinnedKey, verifyDetached };

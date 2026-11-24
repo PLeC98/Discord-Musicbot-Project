@@ -1,4 +1,5 @@
 import { AudioPlayerStatus, createAudioPlayer, createAudioResource, joinVoiceChannel, entersState } from "@discordjs/voice";
+import { logSourceLabel } from "../rules/text/index.ts";
 import logger from "../infra/log/logger.ts";
 import { VOLUME_MAX } from "../rules/limits.ts";
 import { gainOf } from "../rules/volume-gain.ts";
@@ -29,6 +30,7 @@ import * as autoplayRoute from "../autoplay/route.ts";
 import { errorKind, messageOf, codedError, codeOf } from "../rules/error-kind.ts";
 import { failureScope, servedDirectly, type FailureScope } from "./failure-scope.ts";
 import { failureReason } from "../rules/failure-reason.ts";
+import { asText, renderLogText, type LogText } from "../infra/log/log-text.ts";
 import * as streamUrl from "../sources/stream-url.ts";
 import { SponsorSkipper } from "./sponsor-skipper.ts";
 import * as embeddedArt from "../sources/embedded-art.ts";
@@ -76,6 +78,7 @@ import type { Job } from "../infra/process-job.ts";
 import { bestEffort } from "../infra/best-effort.ts";
 import { logTitle } from "../infra/log/title.ts";
 import { sec } from "../infra/log/seconds.ts";
+import { L } from "../infra/log/text.ts";
 
 // 재생 상수. .env로 빼지 않는다. 자연스러운 값의 범위가 좁게 정해져 있어
 // 사용자가 조정해서 나아질 여지가 없다.
@@ -115,15 +118,12 @@ function dropUnplayed(player: Pick<Player, "_trackLabel">, pb: CurrentPlayback |
   try {
     resource.playStream.destroy();
   } catch (error) {
-    log.warn(`미재생 출력 스트림 정리 실패(ffmpeg 및 인코딩 세션 잔류 가능): ${player._trackLabel(pb.track)} | 입력=${pb.input?.kind ?? "?"}${pb.transport ? `(${pb.transport.via})` : ""} | ${messageOf(error)}`);
+    log.warn(L.player.unplayedOutputDestroyFailed({ track: player._trackLabel(pb.track), input: pb.input?.kind ?? "?", viaSuffix: pb.transport ? `(${pb.transport.via})` : "", error: messageOf(error) }));
   }
 }
 
-// 자동재생 선택 줄에 적을 소리의 출처(음원 주소의 종류로)
-const AUDIO_FROM: Partial<Record<ReturnType<typeof inputKind>, string>> = { youtube: "유튜브", soundcloud: "사운드클라우드", direct: "음원 직접" };
-
 // 곡이 어떻게 끝났나. dropped: 사고로 끊겼다, live: 그중 라이브가 끊긴 것
-type EndShape = { playedMs: number; label: string; dropped: boolean; live: boolean; why: string; cause?: string | null };
+type EndShape = { playedMs: number; label: string; dropped: boolean; live: boolean; why: LogText; cause?: string | null };
 
 // 끝 판정에 넘길 사실. 판정은 rules/end-verdict
 function endFactsOf(pb: CurrentPlayback | null, reason: string, positionMs: number): EndFacts {
@@ -147,30 +147,30 @@ const streamEndedOf = (pb: CurrentPlayback | null) => pb?.resource?.playStream?.
 // 입력이 마지막으로 들어온 때는 스트림, 주소 분기만 적는다(파일과 캐시 전환 뒤에는 없다)
 function starvedDetail(pb: CurrentPlayback | null) {
   const input = pb?.input;
-  const tracked = input && input.kind !== "캐시 전환" && pb.inputProgressAt;
-  const parts = [`입력 ${input?.kind ?? "?"}`];
-  if (tracked) parts.push(`입력 없음 ${sec(Date.now() - tracked)}초`);
+  const tracked = input && !input.cacheSwitch && pb.inputProgressAt;
+  const parts: Array<LogText> = [L.player.starvedInput({ kind: input?.kind ?? "?" })];
+  if (tracked) parts.push(L.player.starvedInputQuiet({ seconds: sec(Date.now() - tracked) }));
   const detail = input?.detail();
   if (detail) parts.push(detail);
   // 워커가 늦거나 멈춘 것을 입력 탓으로 읽지 않게 출력 쪽도 적는다
   const out = pb?.output?.describe();
-  if (out) parts.push(`출력 워커 ${out.worker ?? "없음"} · 응답 대기 ${out.inflight}개${out.oldestMs === null ? "" : `(가장 오래 ${sec(out.oldestMs)}초)`} · 송출 대기 ${out.ready}개 · 큐 깊이 ${out.depth}`);
-  return parts.join(" · ");
+  if (out) parts.push(L.player.outputDetail({ worker: out.worker, inflight: out.inflight, oldestSeconds: out.oldestMs === null ? null : sec(out.oldestMs), ready: out.ready, depth: out.depth }));
+  return parts.map(asText).join(" · ");
 }
 
 // 채널 알림을 못 보낸 것(권한, 삭제된 채널)은 재생을 막지 않는다
-const noticeFailed = (player: Pick<Player, "guild" | "textChannel">, notice: string) => (error: unknown) => log.warn(`텍스트 채널 알림 전송 실패: 알림=${notice}, 서버=${guildLabel(player)}, 채널=${player.textChannel?.id ?? "?"} | ${withCode(error)}`);
+const noticeFailed = (player: Pick<Player, "guild" | "textChannel">, notice: string) => (error: unknown) => log.warn(L.player.noticeSendFailed({ notice, guild: guildLabel(player), channel: player.textChannel?.id ?? "?", error: withCode(error) }));
 const guildLabel = (player: Pick<Player, "guild">) => `${player.guild.name} (${player.guild.id})`;
 const withCode = (error: unknown) => {
   const code = codeOf(error);
-  return code === undefined ? messageOf(error) : `${messageOf(error)} (코드=${code})`;
+  return code === undefined ? messageOf(error) : L.player.errorWithCode({ error: messageOf(error), code });
 };
 function writeVoiceStatus(player: Pick<Player, "guild" | "voiceChannel" | "updateVoiceStatus">, status: string) {
   const channel = player.voiceChannel?.id;
   player.updateVoiceStatus(status).catch((error: unknown) => {
     // 채널이 방금 삭제됐으면(10003) 쓸 곳이 없다. 나머지는 남긴다
     if (codeOf(error) === 10003) return;
-    log.warn(`현재 곡 정보로 음성 채널 상태 갱신 실패: 서버=${guildLabel(player)}, 채널=${channel ?? "?"} | ${withCode(error)}`);
+    log.warn(L.player.voiceStatusUpdateFailed({ guild: guildLabel(player), channel: channel ?? "?", error: withCode(error) }));
   });
 }
 function clearVoiceStatus(player: Pick<Player, "guild" | "voiceChannel" | "updateVoiceStatus">) {
@@ -180,10 +180,10 @@ function clearVoiceStatus(player: Pick<Player, "guild" | "voiceChannel" | "updat
     // 채널이 삭제됐거나(10003) 이미 나간 채널이라 채널 관리 권한이 없으면(50013) 지울 상태도 없다. 나머지는 남긴다
     const code = codeOf(error);
     if (code === 10003 || (code === 50013 && !connected)) return;
-    log.warn(`플레이어 정리 중 음성 채널 상태 지우기 실패: 서버=${guildLabel(player)}, 채널=${channel ?? "?"}, 음성 채널 접속=${connected ? "y" : "n"} | ${withCode(error)}`);
+    log.warn(L.player.voiceStatusClearFailed({ guild: guildLabel(player), channel: channel ?? "?", connected: connected ? "y" : "n", error: withCode(error) }));
   });
 }
-const refreshPanel = (player: Player, content: string) => playerEvents.refresh(player).catch((error: unknown) => log.warn(`재생 패널 갱신 실패: ${guildLabel(player)} | 내용=${content} | ${messageOf(error)}`));
+const refreshPanel = (player: Player, content: LogText) => playerEvents.refresh(player).catch((error: unknown) => log.warn(L.player.panelRefreshFailed({ guild: guildLabel(player), content, error: messageOf(error) })));
 
 /** 다운로드가 고칠 수 있는 곡 정보 */
 const infoOf = (track: QueuedTrack) => ({ title: track.title, artist: track.artist, album: track.album, duration: track.duration });
@@ -381,7 +381,7 @@ class Player {
       warm: (track) => {
         const before = infoOf(track);
         return inGuild(this.guild.id, () => this.downloader.warm(track), "prefetch").then((done) => {
-          if (this._noteTrackInfo(track, before)) void refreshPanel(this, "미리 받기 곡 정보");
+          if (this._noteTrackInfo(track, before)) void refreshPanel(this, L.player.panelPrefetchInfo());
           return done;
         });
       },
@@ -445,7 +445,7 @@ class Player {
     this.audioPlayer.on(
       "error",
       own((error: Error) => {
-        log.debug(`재생 스트림 오류: ${this._trackLabel()} | ${messageOf(error)}`);
+        log.debug(L.player.playStreamError({ track: this._trackLabel(), error: messageOf(error) }));
         if (!this._endReason && this.playback) this.playback.streamError = messageOf(error);
         this._endReason ??= "stream-error";
       }),
@@ -460,14 +460,14 @@ class Player {
       const heldMs = this.watch.bufferingSince ? Date.now() - this.watch.bufferingSince : null;
       this.watch.stopBuffering();
       if (heldMs !== null) {
-        const line = `상태 전이: buffering → ${newState.status} | ${this._trackLabel()} | 버퍼링 ${sec(heldMs)}s`;
-        if (heldMs >= 3000) wlog.warn(`${line} 오래 걸림`);
+        const line = L.watchdog.bufferingTransition({ status: newState.status, track: this._trackLabel(), seconds: sec(heldMs) });
+        if (heldMs >= 3000) wlog.warn(L.watchdog.bufferingSlow({ transition: line }));
         else wlog.debug(line);
       }
       return;
     }
 
-    wlog.debug(`재생 상태 전이: ${oldState.status} → ${newState.status} | ${this._trackLabel()}`);
+    wlog.debug(L.watchdog.playerStateChanged({ from: oldState.status, to: newState.status, track: this._trackLabel() }));
 
     if (newState.status === AudioPlayerStatus.Buffering) this.watch.startBuffering();
   }
@@ -510,7 +510,7 @@ class Player {
     try {
       await this.play(this.getCurrentTime(), { continued: true });
     } catch (error) {
-      log.error("재생 재개 실패:", error);
+      log.error(L.player.resumeFailed(), error);
       await this.onTrackEnd("error");
     }
   }
@@ -557,7 +557,7 @@ class Player {
       });
       if (!opened) return { ok: false, code: "live-ended" };
       const { source, input } = opened;
-      if (!input.resource) throw codedError("stream-failed", "오디오 리소스 만들기 실패");
+      if (!input.resource) throw codedError("stream-failed", L.player.audioResourceFailed());
       pb.resource = input.resource;
       pb.output = input.output ?? null;
       pb.tap = input.tap ?? null;
@@ -603,7 +603,7 @@ class Player {
     }
     if (!this.lifecycle.starting || gen !== this._playGen) return;
     this.releaseAudioProtection();
-    this.lifecycle.to("idle", "시작 못 함");
+    this.lifecycle.to("idle", L.watchdog.startFailed());
   }
 
   // 연 곡에 여는 중에 온 끝 요청이 있었으면 이제 건다. 다른 재생이 그사이 시작했으면 그쪽 것이 아니다
@@ -611,7 +611,7 @@ class Player {
     const pending = this._endWhileStarting;
     this._endWhileStarting = null;
     if (!pending || pending.gen !== gen || this.lifecycle.disposed) return;
-    log.debug(`스트림 로딩 중 받은 정지 요청을 로딩 완료 후 처리(원인=${pending.reason}): ${this._trackLabel()}`);
+    log.debug(L.player.deferredStopHandled({ reason: pending.reason, track: this._trackLabel() }));
     this._stopWith(pending.reason);
   }
 
@@ -665,27 +665,27 @@ class Player {
     if (codeOf(error) === "bot-shutting-down") return { ok: false, code: "bot-shutting-down" } satisfies PlayResult;
     // 음성에 붙지 못했다. 넘기거나 세지 않는다(다음 곡도 붙지 못한다). 곡 추가는 직접 정리하고(finishByCaller), 음성 복구 중이면 복구가 다시 연다. 그 밖은 세션을 남기고 버린다
     if (codeOf(error) === "voice-failed") {
-      log.warn(`음성 채널에 연결하지 못해 재생 실패: ${this._trackLabel()} | ${messageOf(error)}`);
-      if (!this.finishByCaller && !this.isVoiceRecovering) await this.dispose({ reason: "음성 채널 접속 실패", session: "keep", end: "connect-failed" });
+      log.warn(L.player.voiceConnectPlayFailed({ track: this._trackLabel(), error: messageOf(error) }));
+      if (!this.finishByCaller && !this.isVoiceRecovering) await this.dispose({ reason: L.player.disposeVoiceConnectFailed(), session: "keep", end: "connect-failed" });
       return { ok: false, code: "voice-failed", error } satisfies PlayResult;
     }
     // 열어 보고서야 방송이 끝난 것을 안 라이브(직접 링크 HLS). 다시 연 것이 아니면(처음, 세션 복원) 실패로 세지 않고 알리고 넘긴다
     const ended = codeOf(error) === "live-ended";
     if (liveReopen) return ended ? ({ ok: false, code: "live-ended" } satisfies PlayResult) : ({ ok: false, code: "live-reopen-failed", error } satisfies PlayResult);
     if (ended) {
-      log.info(`종료된 라이브 방송이라 재생하지 않고 넘김: ${this._trackLabel()} | 확인 결과 라이브 아님`);
+      log.info(L.player.liveEndedSkipped({ track: this._trackLabel() }));
       await this.handleError(error, { tell: true, counted: false });
       return { ok: false, code: "live-ended" } satisfies PlayResult;
     }
     // 넣은 사람이 고른 시작 전 라이브. 봇의 실패가 아니라 세지 않고 알리고 넘긴다
     if (codeOf(error) === "live-upcoming") {
-      log.info(`아직 시작하지 않은 라이브라 재생하지 않고 넘김: ${this._trackLabel()}`);
+      log.info(L.player.liveUpcomingSkipped({ track: this._trackLabel() }));
       await this.handleError(error, { tell: true, counted: false });
       return { ok: false, code: "live-upcoming" } satisfies PlayResult;
     }
     // 한 줄에는 무엇이 막았는지만. 원문(yt-dlp의 WARNING 줄 포함)은 조사할 때 본다
-    elog.error({ sub: "Player.play", kind: errorKind(error) }, `재생 실패: ${this._trackLabel()} | ${failureReason(error, youtubeSource.cookiesConfigured())}`);
-    elog.debug({ sub: "Player.play" }, `재생 실패 원문: ${youtubeSource.briefError(error)}`);
+    elog.error({ sub: "Player.play", kind: errorKind(error) }, L.error.playFailed({ track: this._trackLabel(), reason: renderLogText(failureReason(error, youtubeSource.cookiesConfigured())) }));
+    elog.debug({ sub: "Player.play" }, L.error.playFailedRaw({ error: youtubeSource.briefError(error) }));
     await this.handleError(error, { tell: true, at, continued });
     if (this.lifecycle.parked) return { ok: false, code: "parked", error } satisfies PlayResult;
     return { ok: false, code: "play-failed", error } satisfies PlayResult;
@@ -698,7 +698,7 @@ class Player {
   _downloadAlongside(track: QueuedTrack, streamInfo: { duration?: number | null } | null) {
     const seconds = streamInfo?.duration || track.duration;
     if (tooLongToCache(seconds)) {
-      log.debug(`길이가 ${Math.round(seconds / 60)}분이라 캐시하지 않고 스트림으로만 재생: ${this._trackLabel(track)}`);
+      log.debug(L.player.tooLongStreamOnly({ minutes: Math.round(seconds / 60), track: this._trackLabel(track) }));
       return null;
     }
     return { start: () => this._startBackgroundDownload(), filePath: this.downloader.trackFilePath(track), wait: (file: string) => TrackDownloader.waitFor(file) };
@@ -713,16 +713,16 @@ class Player {
     this.downloader
       .downloadTrack(track)
       .then((file) => {
-        log.debug(`백그라운드 캐시 다운로드 완료: ${this._trackLabel(track)} → ${file}`);
+        log.debug(L.player.backgroundDownloadDone({ track: this._trackLabel(track), file }));
         if (this.currentTrack === track) {
           this._learnLength(track);
           this._loudnessAfterDownload();
         }
-        if (this._noteTrackInfo(track, before)) void refreshPanel(this, "백그라운드 다운로드 곡 정보");
+        if (this._noteTrackInfo(track, before)) void refreshPanel(this, L.player.panelDownloadInfo());
       })
       .catch(() => {
         // 원인은 다운로드가 남겼다(캐시 다운로드 실패 줄)
-        log.debug(`백그라운드 캐시 다운로드 실패(재생은 스트림으로 계속): ${this._trackLabel(track)}`);
+        log.debug(L.player.backgroundDownloadFailed({ track: this._trackLabel(track) }));
       });
   }
 
@@ -748,7 +748,7 @@ class Player {
       applyTags(track, found.tags);
       if (this._noteTrackInfo(track, before)) changed = true;
     }
-    if (changed || found.art) void refreshPanel(this, "파일 태그");
+    if (changed || found.art) void refreshPanel(this, L.player.panelFileTags());
   }
 
   // 볼륨 정규화의 탭을 열 때 넘길 것. 음악 가정의 10분 기준에 쓰는 길이는 캐시 파일이면 캐시 행의 길이, 스트림이면 캐시할지 정할 때 쓰는 길이이다.
@@ -784,18 +784,18 @@ class Player {
    */
   _planCacheSwitch(splicer: Switchable | null, pb: Pick<CurrentPlayback, "track" | "startOffsetMs" | "input" | "audioKey">) {
     const { track } = pb;
-    const giveUp = (why: string) => {
-      wlog.debug(`갭리스 전환 포기: ${this._trackLabel()} | ${why}`);
+    const giveUp = (why: LogText) => {
+      wlog.debug(L.watchdog.gaplessSwitchAbandoned({ track: this._trackLabel(), reason: why }));
       return false;
     };
 
-    if (!splicer || splicer.destroyed || splicer.switchPending) return giveUp("전환할 수 있는 상태가 아님");
+    if (!splicer || splicer.destroyed || splicer.switchPending) return giveUp(L.watchdog.gaplessNotReady());
     // 늦게 도착한 오류가 다음 곡의 재생을 건드리지 않도록
-    if (!track || this.currentTrack !== track) return giveUp("이미 다른 곡으로 넘어감");
+    if (!track || this.currentTrack !== track) return giveUp(L.watchdog.gaplessTrackChanged());
 
     // 트는 음원의 파일만 잇는다. 곡이 그사이 다른 음원으로 다시 찾아졌으면 그 파일은 다른 소리다(잇지 않고 끊긴 곡 다시 열기가 새 음원으로 연다)
     const file = TrackDownloader.cacheFileOf(pb.audioKey);
-    if (!file) return giveUp(pb.audioKey !== audioKeyOf(track.audioUrl) ? "곡의 음원이 바뀌어 트는 음원의 파일이 없음" : "쓸 수 있는 캐시 파일이 없음");
+    if (!file) return giveUp(pb.audioKey !== audioKeyOf(track.audioUrl) ? L.watchdog.gaplessAudioChanged() : L.watchdog.gaplessNoCacheFile());
 
     // 전환 지점은 스플라이서 출력 기준이다. 리소스는 그보다 뒤처져 있으므로
     // resource.playbackDuration을 쓰면 지점이 어긋난다.
@@ -806,7 +806,7 @@ class Player {
     try {
       decoder = this.io.spawnFfmpeg(buildFfmpegArgs({ file, seekMs }), "switch");
     } catch (error) {
-      log.warn(`캐시 재생용 ffmpeg 실행 실패: ${messageOf(error)}`);
+      log.warn(L.player.cacheSwitchSpawnFailed({ error: messageOf(error) }));
       return false;
     }
 
@@ -815,19 +815,19 @@ class Player {
       return false;
     }
     // 갈아타면 곡 끝 판정은 캐시 파일 쪽을 본다. 버린 스트림이 늦게 남기는 표시는 이 재생과 무관하다
-    const health = new InputHealth("캐시 전환").watch(decoder);
+    const health = new InputHealth(L.player.inputCacheSwitch(), { cacheSwitch: true }).watch(decoder);
     splicer.once("switched", (ms: number) => {
       pb.input = health;
-      log.info({ tags: ["fallback", "recovered"] }, `오디오 캐시로 갭리스 전환: ${this._trackLabel()}`);
+      log.info({ tags: ["fallback", "recovered"] }, L.player.gaplessSwitchedToCache({ track: this._trackLabel() }));
       // 지점, 조정 횟수는 스플라이서 내부 수치라 조사할 때만 본다.
-      wlog.debug(`갭리스 전환 상세: ${sec(ms)}초 지점${splicer.slips ? ` | 지점 조정 ${splicer.slips}회` : ""}`);
+      wlog.debug(L.watchdog.gaplessSwitchDetail({ seconds: sec(ms), slips: splicer.slips }));
     });
     return true;
   }
 
   // 로그용 곡 식별
   _trackLabel(track = this.currentTrack) {
-    return track ? `"${logTitle(track.title)}" (${track.platform})` : "(곡 없음)";
+    return track ? `"${logTitle(track.title)}" (${track.platform})` : asText(L.player.noTrackLabel());
   }
 
   onAudioIdle(trigger = "idle") {
@@ -846,7 +846,7 @@ class Player {
   _scheduleEnd(reason: string) {
     this._endScheduled = true;
     setImmediate(() => {
-      this.onTrackEnd(reason).catch((error) => log.error("곡 끝 처리 실패:", error));
+      this.onTrackEnd(reason).catch((error) => log.error(L.player.trackEndFailed(), error));
     });
   }
 
@@ -882,7 +882,7 @@ class Player {
       return;
     }
     if (deferWhileStarting(this, reason)) return;
-    if (this._endReason && this._endReason !== reason) log.debug(`이미 정지 처리 중(원인=${this._endReason})이라 ${reason} 요청 무시: ${this._trackLabel()}`);
+    if (this._endReason && this._endReason !== reason) log.debug(L.player.stopAlreadyPending({ current: this._endReason, requested: reason, track: this._trackLabel() }));
     this._endReason ??= reason;
     if (force || this.audioPlayer.state.status !== AudioPlayerStatus.Playing) {
       this._clearSilentStop();
@@ -894,7 +894,7 @@ class Player {
     this._silentStop = setTimeout(() => {
       this._silentStop = null;
       if (this.audioPlayer.state.status === AudioPlayerStatus.Idle) return;
-      log.debug(`무음 정지가 ${SILENT_STOP_CAP_MS}ms 안에 끝나지 않아 즉시 정지(상태=${this.audioPlayer.state.status}): ${this._trackLabel()}`);
+      log.debug(L.player.silentStopTimedOut({ limitMs: SILENT_STOP_CAP_MS, state: this.audioPlayer.state.status, track: this._trackLabel() }));
       this.audioPlayer.stop(true);
     }, SILENT_STOP_CAP_MS);
     this._silentStop.unref?.();
@@ -932,7 +932,7 @@ class Player {
     if (removed.length && !this.paused && this.lifecycle.resting) {
       const label = this._trackLabel();
       const at = this.getCurrentTime();
-      this.wake().catch((error: unknown) => log.error(`스트림 휴면 해제 후 다시 재생 실패(재생 재개 안 됨): ${label} | 재개 지점=${sec(at)}초, 풀린 억제 사유=${removed.join(", ")} | ${messageOf(error)}`));
+      this.wake().catch((error: unknown) => log.error(L.player.wakeReplayFailed({ track: label, positionSeconds: sec(at), holds: removed.join(", "), error: messageOf(error) })));
     }
   }
 
@@ -949,15 +949,15 @@ class Player {
   // 멈춤이 바뀌었다. 로그, 저장 알림, 패널 갱신
   _pauseChanged({ user, added, removed }: PauseChange) {
     const label = this._trackLabel();
-    if (user !== undefined) log.info(`${user ? "일시정지" : "일시정지 해제"}: 원인=user | ${label}`);
-    for (const hold of added) log.info(`일시정지: 원인=${hold} | ${label}`);
-    for (const hold of removed) log.info(`일시정지 해제: 원인=${hold} | ${label}`);
+    if (user !== undefined) log.info(user ? L.player.pauseHoldAdded({ hold: "user", track: label }) : L.player.pauseHoldRemoved({ hold: "user", track: label }));
+    for (const hold of added) log.info(L.player.pauseHoldAdded({ hold, track: label }));
+    for (const hold of removed) log.info(L.player.pauseHoldRemoved({ hold, track: label }));
     this.settingsSink?.onSettingsChanged(); // 받는 쪽이 잠깐 모았다가 읽는다
     // 멈춘 위치를 곧바로 쓴다. 주기 저장은 멈춘 플레이어를 건너뛰고, 세션 행에는 사람의 멈춤만 있어 억제로 멈춘 것은 행이 바뀌지 않는다
     if (this.paused) this.persistence?.savePosition();
     if (this.paused) this._armRest();
     else this._cancelRest();
-    if (this.currentTrack) playerEvents.refresh(this).catch((error: unknown) => log.warn(`일시정지 상태 변경 후 재생 패널 갱신 실패: 서버=${guildLabel(this)} | ${messageOf(error)}`));
+    if (this.currentTrack) playerEvents.refresh(this).catch((error: unknown) => log.warn(L.player.pausePanelRefreshFailed({ guild: guildLabel(this), error: messageOf(error) })));
   }
 
   // 일시정지한 채 열린 곡이면 휴면 타이머를 건다. 이미 걸려 있으면 그대로(억제 사유가 오락가락해도 처음 멈춘 때부터 잰다)
@@ -1011,8 +1011,10 @@ class Player {
    * @param o.end  곡이 있었으면 끝 줄에 남길 원인(kicked, alone-timeout, leave 등). 기본 stop
    * @param o.stay  음성 채널에는 남는다(곧 재연결한다. 서버 하나 다시 시작). 기본은 나간다
    */
-  async dispose({ reason, session, panel, end, stay = false }: { reason: string; session: "remove" | "save" | "save-for-join" | "keep"; panel?: "stop" | "leave" | "disconnected"; end: PlayerEnd; stay?: boolean }) {
+  async dispose({ reason: given, session, panel, end, stay = false }: { reason: LogText; session: "remove" | "save" | "save-for-join" | "keep"; panel?: "stop" | "leave" | "disconnected"; end: PlayerEnd; stay?: boolean }) {
     if (this.lifecycle.disposed) return;
+    // 재생 단계와 버림 알림은 글을 받는다
+    const reason = asText(given);
     this.lifecycle.to("disposed", reason);
     try {
       clearVoiceStatus(this);
@@ -1027,14 +1029,14 @@ class Player {
       this._stopTimers();
       this.releaseAudioProtection(); // currentTrack을 읽으므로 비우기 전에
       this._endPlayback(end);
-      if (stay) this.voice.release(reason);
-      else this.voice.disconnect(reason);
+      if (stay) this.voice.release(given);
+      else this.voice.disconnect(given);
     } catch (error) {
-      log.error("정리 중 오류:", error);
+      log.error(L.player.disposeError(), error);
     }
     playerEvents.disposed(this, reason, end);
     // 패널은 정리가 끝난 뒤에. 패널 참조(텍스트 채널, 메시지)를 놓기 전에 끝난 모양으로 고친다
-    if (panel) await playerEvents.ended(this, panel, end).catch((error) => log.warn(`종료된 재생 패널 갱신 실패: ${messageOf(error)}`));
+    if (panel) await playerEvents.ended(this, panel, end).catch((error) => log.warn(L.player.endedPanelRefreshFailed({ error: messageOf(error) })));
     this._dropPanel();
   }
 
@@ -1044,11 +1046,11 @@ class Player {
     trackState.reset(this, { history: true });
     this.audioPlayer.removeAllListeners();
     this.audioPlayer.stop(true);
-    if (ending) log.info(`트랙 종료: ${ending} | 원인=${end}`);
+    if (ending) log.info(L.player.trackEnded({ track: ending, reason: end }));
     try {
       this.playback?.resource?.playStream?.destroy();
     } catch (error) {
-      log.warn(`재생 종료 중 출력 스트림 해제 실패: ${ending ?? this._trackLabel(null)} | 종료 원인=${end}, 입력=${this.playback?.input?.kind ?? "?"} | ${messageOf(error)}`);
+      log.warn(L.player.disposeOutputDestroyFailed({ track: ending ?? this._trackLabel(null), end, input: this.playback?.input?.kind ?? "?", error: messageOf(error) }));
     }
     this.playback = null;
     this.gain.end();
@@ -1075,19 +1077,19 @@ class Player {
   async seek(seekMs: number, reason = "seek") {
     // 라이브에는 실시간밖에 없다. 되감을 위치도, 앞서 갈 위치도 없다.
     if (this.isLive) {
-      clog.info(`위치 이동 거부: ${this._trackLabel()} | 라이브 | 원인=${reason}`);
+      clog.info(L.control.seekRejectedLive({ track: this._trackLabel(), reason }));
       return { ok: false, code: "live-no-seek" };
     }
     // 출발은 지금 재생 위치다(heldPositionMs는 재생이 없을 때 알려 줄 위치다)
     const from = Math.round(this.getCurrentTime() / 1000);
-    clog.info(`위치 이동: ${this._trackLabel()} | ${from}초 → ${Math.round(seekMs / 1000)}초 | 원인=${reason}`);
+    clog.info(L.control.seeked({ track: this._trackLabel(), fromSeconds: from, toSeconds: Math.round(seekMs / 1000), reason }));
     return this.play(seekMs, { continued: true });
   }
 
   // reason: "skip"(기본) 또는 "jump"(대기열 점프. 한 곡 반복 중에도 재시작이 아니라 선택 곡으로 이동)
   skip(reason = "skip") {
     if (this.currentTrack) {
-      clog.info(`스킵: ${this._trackLabel()} | 원인=${reason} | 대기열 ${this.queue?.length ?? 0}곡`);
+      clog.info(L.control.trackSkipped({ track: this._trackLabel(), reason, queued: this.queue?.length ?? 0 }));
       // 이 곡에 걸린 감시, 대기 타이머를 멈춘다
       this.watch.stopOverflow();
       this.idle.cancelEmpty();
@@ -1101,7 +1103,7 @@ class Player {
   previous() {
     // 틀고 있는 곡이 없으면 멈출 것도 없다. 멈춤이 곡 끝을 부르지 않아 되감은 곡이 대기열에 걸린 채 남는다
     if (!this.currentTrack) return false;
-    clog.info(`이전곡: ${this._trackLabel()} | 이전 기록 ${this.previousTracks?.length ?? 0}곡 | 반복=${this.loop || "off"}`);
+    clog.info(L.control.previousTrackPlayed({ track: this._trackLabel(), history: this.previousTracks?.length ?? 0, loop: this.loop || "off" }));
     // 한 곡 반복 중 이전 곡 = 현재 곡 재시작. 대기열 반복인데 대기열이 비었으면 고리에 지금 곡뿐이라 같다. 대기열, 기록 불변.
     if (this._restartsOnPrevious()) {
       this.watch.stopOverflow();
@@ -1138,7 +1140,7 @@ class Player {
 
   shuffleQueue() {
     if (this.queue.length > 1) {
-      clog.info(`대기열 섞음: ${this.queue.length}곡`);
+      clog.info(L.control.queueShuffled({ count: this.queue.length }));
       trackState.shuffle(this);
       return true;
     }
@@ -1154,7 +1156,7 @@ class Player {
   /** 라이브가 대기열에 들어왔을 때 걸려 있던 반복을 푼다. 풀었으면 true. */
   releaseLoopForLive() {
     if (!this.loop) return false;
-    clog.info(`반복 해제: 라이브가 들어와 반복(${this.loop}) 해제`);
+    clog.info(L.control.loopReleasedForLive({ mode: this.loop }));
     this.setLoop(false);
     return true;
   }
@@ -1162,10 +1164,10 @@ class Player {
   setLoop(mode: Loop) {
     // 끝이 없는 것은 반복할 수 없다. 켜려는 요청만 막고 끄는 것은 언제나 통한다.
     if (mode && this.hasLiveTrack()) {
-      clog.info(`반복 거부: 라이브가 있어 반복(${mode})을 켜지 않음`);
+      clog.info(L.control.loopRejectedLive({ mode }));
       return this.loop;
     }
-    if (this.loop !== mode) clog.info(`반복: ${this.loop || "off"} → ${mode || "off"}`);
+    if (this.loop !== mode) clog.info(L.control.loopChanged({ from: this.loop || "off", to: mode || "off" }));
     this.loop = mode;
     this.settingsSink?.onSettingsChanged();
     return this.loop;
@@ -1178,15 +1180,15 @@ class Player {
   setAutoplay(genre: string | false | null | undefined) {
     const next = genre || false;
     const changed = this.autoplay !== next;
-    if (changed) clog.info(`자동재생: ${this.autoplay || "off"} → ${next || "off"}`);
+    if (changed) clog.info(L.control.autoplayChanged({ from: this.autoplay || "off", to: next || "off" }));
     this.autoplay = next;
 
     // 미리 선택해 둔 곡은 껐으면 남을 이유가 없고, 장르를 바꿨으면 이전 장르의 곡이다.
     // 사용자가 추가한 곡은 건드리지 않는다.
     if (changed) {
       const dropped = trackState.dropAutoplay(this);
-      if (dropped > 0) clog.info(`미리 선택해 둔 자동재생 곡 ${dropped}곡을 대기열에서 뺌`);
-      if (next) this.ensureAutoplayNext().catch((error: unknown) => log.warn(`자동재생 장르 변경 후 다음 곡 미리 추가 실패(곡 종료 시 재시도): 서버=${guildLabel(this)}, 장르=${next} | ${messageOf(error)}`));
+      if (dropped > 0) clog.info(L.control.autoplayPrefetchDropped({ count: dropped }));
+      if (next) this.ensureAutoplayNext().catch((error: unknown) => log.warn(L.player.autoplayGenreChangePrefetchFailed({ guild: guildLabel(this), genre: next, error: messageOf(error) })));
     }
     this.settingsSink?.onSettingsChanged();
     return this.autoplay;
@@ -1194,8 +1196,9 @@ class Player {
 
   clearQueue() {
     const cleared = this.queue.length;
-    if (cleared) clog.info(`대기열 비움: ${cleared}곡`);
+    if (cleared) clog.info(L.control.queueCleared({ count: cleared }));
     trackState.clearQueue(this);
+    if (cleared) this._refillAutoplay(L.player.refillQueueCleared());
     return cleared;
   }
 
@@ -1207,15 +1210,22 @@ class Player {
     // 뒤에서부터 빼야 앞의 순번이 그대로다
     const removed = at.toReversed().flatMap((i) => trackState.removeAt(this, i) ?? []);
     removed.reverse();
-    if (removed.length === 1) clog.info(`대기열 제거: ${at[0] + 1}번 "${logTitle(removed[0].title)}" | 남은 ${this.queue.length}곡`);
-    else if (removed.length > 1) clog.info(`대기열 제거: ${removed.length}곡(${at[0] + 1}번부터) | 남은 ${this.queue.length}곡`);
+    if (removed.length === 1) clog.info(L.control.queueTrackRemoved({ position: at[0] + 1, title: logTitle(removed[0].title), remaining: this.queue.length }));
+    else if (removed.length > 1) clog.info(L.control.queueTracksRemoved({ count: removed.length, position: at[0] + 1, remaining: this.queue.length }));
+    if (removed.length) this._refillAutoplay(L.player.refillTrackRemoved());
     return removed;
+  }
+
+  // 사용자가 곡을 빼서 자동재생 곡이 정해 둔 수(prefetchCount)보다 적어졌으면 다음 곡이 시작하기 전에 다시 채운다(기다리지 않는다).
+  // 다 차 있거나 자동재생이 꺼져 있으면 ensureAutoplayNext가 아무것도 하지 않고, 이미 고르는 중이면 그 고르기가 정해 둔 수까지 이어서 채운다. after: 로그에 쓰는 앞선 동작
+  _refillAutoplay(after: LogText) {
+    this.ensureAutoplayNext().catch((error: unknown) => log.warn(L.player.autoplayRefillFailed({ action: after, guild: guildLabel(this), genre: this.autoplay || "off", error: messageOf(error) })));
   }
 
   moveInQueue(from: number, to: number) {
     const track = trackState.move(this, from, to);
     if (track) {
-      clog.info(`대기열 이동: "${logTitle(track.title)}" ${from + 1}번 → ${to + 1}번`);
+      clog.info(L.control.queueMoved({ title: logTitle(track.title), from: from + 1, to: to + 1 }));
       return true;
     }
     return false;
@@ -1274,7 +1284,7 @@ class Player {
   _toIdleOnEnd(reason: string) {
     this._cancelRest();
     const wasParked = this.lifecycle.parked;
-    if (this.lifecycle.phase === "playing" || this.lifecycle.released) this.lifecycle.to("idle", `곡 끝(${reason})`);
+    if (this.lifecycle.phase === "playing" || this.lifecycle.released) this.lifecycle.to("idle", L.watchdog.trackEndPhase({ reason }));
     if (wasParked) this._leaveParked();
   }
 
@@ -1300,17 +1310,17 @@ class Player {
     const playedMs = this.getCurrentTime();
     this.heldPositionMs = playedMs;
     const label = this._trackLabel(finishedTrack);
-    log.info(`트랙 종료: ${label} | 원인=${reason}`);
-    if (!finishedTrack) return { playedMs, label, dropped: false, live: false, why: "곡 없음" };
+    log.info(L.player.trackEnded({ track: label, reason }));
+    if (!finishedTrack) return { playedMs, label, dropped: false, live: false, why: L.player.endNoTrack() };
 
     const facts = endFactsOf(this.playback, reason, playedMs);
     const { dropped, why } = endVerdict(facts);
-    const lengthText = facts.lengthMs ? `${sec(facts.lengthMs)}초` : "모름";
-    wlog.debug(`트랙 종료 판정: ${dropped ? "끊김" : "끝"}(${why}) | 재생 ${sec(playedMs)}초 / 길이 ${lengthText}`);
-    if (reason === "idle" && !facts.streamEnded && !facts.live) log.warn(`패킷 공급이 끊겨 플레이어가 멈춤: ${label} | ${starvedDetail(this.playback)}`);
+    const lengthText = facts.lengthMs ? L.player.inSeconds({ seconds: sec(facts.lengthMs) }) : L.player.lengthUnknown();
+    wlog.debug(L.watchdog.endVerdict({ dropped, why, playedSeconds: sec(playedMs), length: lengthText }));
+    if (reason === "idle" && !facts.streamEnded && !facts.live) log.warn(L.player.packetsStarved({ track: label, detail: starvedDetail(this.playback) }));
     // 길이는 판정에 쓰지 않는다. 저절로 끝난 위치가 길이와 크게 다르면 길이 쪽을 살필 수 있게 남긴다
     if (!dropped && reason === "idle" && facts.lengthMs && Math.abs(playedMs - facts.lengthMs) > LENGTH_MISMATCH_LOG_MS) {
-      log.info(`곡이 길이와 다른 위치에서 끝남: ${label} | 재생 ${sec(playedMs)}초 / 길이 ${lengthText}`);
+      log.info(L.player.endedOffLength({ track: label, playedSeconds: sec(playedMs), length: lengthText }));
     }
     return { playedMs, label, dropped, live: dropped && facts.live, why, cause: reason === "stream-error" ? (this.playback?.streamError ?? null) : null };
   }
@@ -1329,30 +1339,30 @@ class Player {
     const step = countDrop(this.retry, this.playback?.resource?.playbackDuration ?? 0, live);
     this.retry = step.state;
     const tries = `${step.state.used}/${live ? MAX_LIVE_REOPENS : MAX_TRACK_RETRIES}`;
-    const at = `${sec(playedMs)}초`;
-    const causeText = cause ? ` | 원인=${cause}` : "";
+    const at = L.player.inSeconds({ seconds: sec(playedMs) });
+    const causeText = cause ? L.player.causeSuffix({ cause }) : "";
     if (step.reopen && live) {
-      log.warn({ tags: ["retry"] }, `라이브 연결이 끊겨 다시 열기: ${label} | ${why} (${tries})${causeText}`);
+      log.warn({ tags: ["retry"] }, L.player.liveReconnecting({ track: label, reason: asText(why), tries, causeSuffix: causeText }));
       // 주소에는 수명이 있고, 만료된 주소로는 몇 번을 재연결해도 실패한다.
       // 위치 0으로 트는 것이 곧 "yt-dlp로 주소를 새로 받는다"이고, 라이브는 애초에 엣지로만 붙는다.
       await new Promise((done) => setTimeout(done, LIVE_REOPEN_DELAY_MS * step.state.used));
       return this._reopenLive(label);
     }
     if (step.reopen) {
-      log.warn({ tags: ["retry"] }, `재생이 끊겨 ${at} 지점부터 다시 재생: ${label} | ${why} (${tries})${causeText}`);
+      log.warn({ tags: ["retry"] }, L.player.reopeningAt({ position: at, track: label, reason: asText(why), tries, causeSuffix: causeText }));
       const started = Date.now();
       const reopened = await this.play(playedMs, { continued: true });
-      if (reopened.ok) log.info({ tags: ["retry"] }, `다시 열기 완료: ${label} | ${sec(Date.now() - started)}초 걸림`);
+      if (reopened.ok) log.info({ tags: ["retry"] }, L.player.reopenDone({ track: label, seconds: sec(Date.now() - started) }));
       return true;
     }
     // 들리던 곡이다(곡 탓으로 볼 근거가 없다). 끊긴 위치에서 일시정지해 둔다. 라이브는 끊긴 위치가 의미 없어 세고 넘긴다
     if (!live) {
-      log.error(`재생 복구 실패(그 곡에서 일시정지해 둠): ${label} | ${at} 지점, ${step.why}${causeText}`);
+      log.error(L.player.recoveryFailedParked({ track: label, position: at, reason: asText(step.why), causeSuffix: causeText }));
       this.park(playedMs, { kind: "dropped" });
       return true;
     }
     const stopping = this._countFailure();
-    log.error(`라이브 다시 열기 실패(${stopping ? "일시정지해 둠" : "다음 곡으로 넘김"}): ${label} | ${step.why}${causeText}`);
+    log.error(L.player.liveReopenGaveUp({ parked: stopping, track: label, reason: step.why, causeSuffix: causeText }));
     if (!stopping) return false;
     this.park(0, { kind: "failures", count: this._takeFailures() });
     return true;
@@ -1368,9 +1378,9 @@ class Player {
       this.park(0, { kind: "environment", error: reopened.error });
       return true;
     }
-    if (reopened.code === "live-ended") log.info(`라이브 방송이 종료되어 다음 곡으로 넘김: ${label} | 재확인 결과 라이브 아님`);
-    else if (reopened.error) log.warn({ kind: errorKind(reopened.error) }, `라이브 다시 열기 실패(다음 곡으로 넘김): ${label} | ${failureReason(reopened.error, youtubeSource.cookiesConfigured())}`);
-    else log.warn(`라이브 다시 열기 실패(다음 곡으로 넘김): ${label} | ${reopened.code}`);
+    if (reopened.code === "live-ended") log.info(L.player.liveEndedNext({ track: label }));
+    else if (reopened.error) log.warn({ kind: errorKind(reopened.error) }, L.player.liveReopenFailed({ track: label, reason: renderLogText(failureReason(reopened.error, youtubeSource.cookiesConfigured())) }));
+    else log.warn(L.player.liveReopenFailed({ track: label, reason: reopened.code }));
     return false;
   }
 
@@ -1391,7 +1401,7 @@ class Player {
   // 한도에 닿아 일시정지해 둔다. 실패한 곡들을 로그에 남기고 다시 센다(사람이 다시 틀 때 한 번 실패로 곧바로 멈추지 않게). 실패한 수
   _takeFailures() {
     const count = this.failedTracks;
-    log.error(`곡 ${count}개가 연달아 실패: ${this.failedLabels.join(", ") || this._trackLabel()}`);
+    log.error(L.player.consecutiveFailures({ count, tracks: this.failedLabels.join(", ") || this._trackLabel() }));
     this.failedTracks = 0;
     this.failedLabels = [];
     return count;
@@ -1418,7 +1428,7 @@ class Player {
       trackState.shiftNext(this);
       await this.play(0);
       // 패널 고치기(디스코드 메시지 수정)는 기다리지 않는다. 연달아 넘기면 요청 제한에 걸려 끝 처리가 그만큼 붙들린다
-      playerEvents.refresh(this).catch((error) => log.warn(`다음 곡 패널 갱신 실패: ${messageOf(error)}`));
+      playerEvents.refresh(this).catch((error) => log.warn(L.player.nextPanelRefreshFailed({ error: messageOf(error) })));
       return true;
     }
     return this.autoplay ? this._continueAutoplay(this.autoplay) : false;
@@ -1429,14 +1439,14 @@ class Player {
     const { genres } = genreConfig.genres();
     if (!genres[genre]) {
       // 알 수 없는 장르(장르 목록 변경 전에 저장된 세션 등). 끄고 알린 뒤 일반 대기열 종료 흐름으로
-      log.warn(`자동재생 종료: 알 수 없는 장르: ${genre}`);
+      log.warn(L.player.autoplayUnknownGenre({ genre }));
       if (!this.quietFailures) playerEvents.notice(this, "autoplay-unknown-genre", { genre }).catch(noticeFailed(this, "autoplay-unknown-genre"));
       this.setAutoplay(false);
       return false;
     }
     const missing = genreConfig.unusableGenre(genre);
     if (missing) {
-      log.warn(`자동재생 종료: 장르 ${genre}에 ${missing.join(", ")} 키가 없어 쓸 소스가 없음`);
+      log.warn(L.player.autoplayGenreUnusable({ genre, sources: missing.map(logSourceLabel).join(", ") }));
       if (!this.quietFailures) playerEvents.notice(this, "autoplay-genre-unusable", { genre, keys: missing.join(", ") }).catch(noticeFailed(this, "autoplay-genre-unusable"));
       this.setAutoplay(false);
       return false;
@@ -1502,7 +1512,7 @@ class Player {
       // 길 찾기는 바깥 경계(pickAutoplay)를 지난다. autoplayDeps: 그 안의 소스, 검색, 링크 데이터, AI 보조. 테스트만 넘긴다. 없으면 진짜
       const picked = await inGuild(this.guild.id, () => this.io.pickAutoplay(cfg, recent, this.autoplayDeps), job);
       if (!picked) {
-        log.warn(`자동재생: 어느 소스에서도 곡을 찾지 못함(장르 ${this.autoplay})`);
+        log.warn(L.player.autoplayNoPick({ genre: this.autoplay }));
         return null;
       }
 
@@ -1512,11 +1522,11 @@ class Player {
       // 어디서 어떻게 왔는지 한 줄. "이 곡이 왜 나왔지"를 로그로 되짚는 근거다.
       // platform으로는 구분하지 못한다. 음원을 직접 트는 곡도 platform은 출처 이름(anisongdb 등)이다.
       // 소리가 어디서 오는지는 음원 주소가 구분한다.
-      const how = picked.audioFoundBy === "pinned" ? `직접 지정한 음원 ${picked.audioUrl}` : `${AUDIO_FROM[inputKind(picked.audioUrl)] ?? "유튜브"}${inputKind(picked.audioUrl) === "direct" ? "" : ` ${picked.audioUrl}`}${picked.audioFoundBy === "ledger" ? " (링크 데이터 재사용, 검색 생략)" : ""}`;
-      clog.info(`자동재생 선택: "${logTitle(picked.title)}" / ${picked.artist || "?"} (장르 ${this.autoplay}, 소스 ${picked.pickedFrom || "?"} → ${how})`);
+      const how = picked.audioFoundBy === "pinned" ? L.control.autoplayFromPinned({ url: picked.audioUrl }) : L.control.autoplayAudioFrom({ kind: inputKind(picked.audioUrl), url: picked.audioUrl, ledger: picked.audioFoundBy === "ledger" });
+      clog.info(L.control.autoplayPicked({ title: logTitle(picked.title), artist: picked.artist || "?", genre: this.autoplay, source: picked.pickedFrom || "?", how }));
       return picked;
     } catch (error) {
-      log.error("자동재생 오류:", messageOf(error));
+      log.error(L.player.autoplayError({ error: messageOf(error) }));
       return null;
     }
   }
@@ -1530,7 +1540,7 @@ class Player {
   _giveUpAutoplay() {
     if (!this.autoplay) return;
     const genre = this.autoplay;
-    log.warn(`자동재생 종료: 곡을 찾지 못함(장르 ${genre})`);
+    log.warn(L.player.autoplayGaveUp({ genre }));
     playerEvents.notice(this, "autoplay-gave-up", { genre }).catch(noticeFailed(this, "autoplay-gave-up"));
     this.setAutoplay(false);
   }
@@ -1596,7 +1606,7 @@ class Player {
         added++;
       }
 
-      if (added) await refreshPanel(this, "자동재생 곡");
+      if (added) await refreshPanel(this, L.player.panelAutoplayTrack());
       return added > 0;
     } finally {
       this._autoplayPicking = false;
@@ -1628,7 +1638,7 @@ class Player {
     const failed = this.currentTrack;
     if (!failed?.autoplay || !youtubeSource.isVideoUnavailableError(error)) return false;
     autoplayRoute.markDead(failed);
-    log.info(`자동재생 곡 건너뜀(영상 없음): "${logTitle(failed.title)}"`);
+    log.info(L.player.autoplayTrackUnavailable({ title: logTitle(failed.title) }));
     return true;
   }
 
@@ -1688,7 +1698,7 @@ class Player {
       try {
         this.audioPlayer.stop(true);
       } catch (error) {
-        log.warn(`오디오 플레이어 정지 실패: ${messageOf(error)}`);
+        log.warn(L.player.audioPlayerStopFailed({ error: messageOf(error) }));
       }
       // 틀 곡이 없다. 다 튼 것과 같이 끝낸다(끝난 패널, 세션 삭제, 나갈 예약). 곡 추가가 첫 곡을 트는 중이면 곡 추가 쪽이 끝낸다
       if (!this.finishByCaller) await this.finishQueue();
@@ -1705,7 +1715,7 @@ class Player {
       trackState.removeAt(this, i);
       removed++;
     }
-    if (removed) log.info(`넘긴 곡과 같은 곡을 대기열에서 뺌: ${this._trackLabel(track)} | ${removed}곡`);
+    if (removed) log.info(L.player.duplicatesRemoved({ track: this._trackLabel(track), count: removed }));
     return removed;
   }
 
@@ -1745,9 +1755,9 @@ class Player {
     this.pause.setUser(true);
     // 소리를 한 번도 열지 못한 플레이어는 상태 동기화에 없어 설정 변경이 저장되지 않는다. 붙이고 지금 상태를 곧바로 쓴다
     this.persistence.startPeriodicSave();
-    bestEffort(log, this.persistence.save("parked"), "세션 저장"); // 쓰기는 동기라 여기서 끝난다
+    bestEffort(log, this.persistence.save("parked"), L.player.sessionSave()); // 쓰기는 동기라 여기서 끝난다
     this._showTrackInVoiceStatus();
-    log.warn(`그 곡에서 일시정지(재생 버튼으로 재시도 가능): ${this._trackLabel()} | ${why.kind}${why.error ? ` | ${failureReason(why.error, youtubeSource.cookiesConfigured())}` : ""}`);
+    log.warn(L.player.parkedOnTrack({ track: this._trackLabel(), kind: why.kind, reasonSuffix: why.error ? ` | ${renderLogText(failureReason(why.error, youtubeSource.cookiesConfigured()))}` : "" }));
     // 기다리지 않는다. 기다리는 사이 재생 버튼으로 시작한 새 재생을 이 실패한 재생의 끝 정리가 덮는다
     if (!this.quietFailures) playerEvents.notice(this, "parked", why).catch(noticeFailed(this, `parked(${why.kind})`));
   }
@@ -1790,7 +1800,7 @@ class Player {
     // 소리를 낸 곡이면 연달은 실패가 아니다. 곡 끝(onTrackEnd)은 리소스가 낸 시간으로 보는데 휴면하면 리소스가 없다
     if ((pb.resource.playbackDuration ?? 0) >= PROGRESS_MS) this._resetFailures();
     // 단계를 먼저 바꾼다. 아래 stop이 Idle을 동기로 알리는데, 그 끝 처리가 곡을 넘기지 않게(onAudioIdle이 released를 본다)
-    this.lifecycle.to("resting", "장시간 일시정지");
+    this.lifecycle.to("resting", L.watchdog.longPause());
     pb.startOffsetMs = at;
     pb.resource = null;
     this.heldPositionMs = at;
@@ -1800,7 +1810,7 @@ class Player {
     this.watch.stopOverflow();
     this.sponsorSkipper?.stop();
     this.persistence?.savePosition();
-    log.info(`장시간 일시정지로 스트림 휴면 전환(프로세스 해제): ${this._trackLabel()} | 위치 ${Math.round(at / 1000)}초`);
+    log.info(L.player.restingStarted({ track: this._trackLabel(), positionSeconds: Math.round(at / 1000) }));
     return true;
   }
 
@@ -1809,7 +1819,7 @@ class Player {
     if (!this.lifecycle.resting || this.paused || this._endScheduled || this.lifecycle.ending || this.isStopping || !this.currentTrack) return;
     this._waking = true;
     try {
-      log.info(`휴면 중인 곡의 스트림 다시 열기: ${this._trackLabel()}`);
+      log.info(L.player.restingWake({ track: this._trackLabel() }));
       await this.play(this.getCurrentTime(), { continued: true });
     } finally {
       this._waking = false;
@@ -1883,7 +1893,7 @@ class Player {
       // 이전 채널이 삭제됐거나(10003) 이미 나간 채널이라 채널 관리 권한이 없으면(50013) 지울 상태도 없다. 나머지는 남긴다
       const code = codeOf(error);
       if (code === 10003 || code === 50013) return;
-      log.warn(`음성 채널 이동 후 이전 채널 상태 지우기 실패: 서버=${guildLabel(this)}, 이전 채널=${fromId} | ${withCode(error)}`);
+      log.warn(L.player.movedOldStatusClearFailed({ guild: guildLabel(this), channel: fromId, error: withCode(error) }));
     });
     if (this.currentTrack) this._showTrackInVoiceStatus();
     else this.showIdleVoiceStatus();

@@ -25,4 +25,10 @@ function parseCount(raw: unknown) {
 }
 
 export { MAX_COUNT, moreChoices, parseCount };
-export type { Kind, MoreState, More };
+/**
+ * 이어 넣은 결과(디스코드 메뉴와 대시보드가 각자 독자의 언어로 그린다). collection은 출처의 종류(sources/lookup의 collection 값),
+ * nextOffset은 더 넣을 것이 남았을 때 넣은 데까지의 위치(끝까지 넣었거나 이어 넣을 수 없으면 null)
+ */
+type MoreOutcome = { collection: string; added: number; skipped?: number; dropped?: number; total: number | null; remaining: number; nextOffset: number | null };
+
+export type { Kind, MoreState, More, MoreOutcome };

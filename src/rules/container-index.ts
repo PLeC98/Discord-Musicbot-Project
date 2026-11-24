@@ -4,12 +4,15 @@
 //   mp4   ftyp → moov(여기까지가 헤더) → sidx(version 0, 1, 세그먼트마다 크기, 길이). 세그먼트 시작은 sidx 다음 바이트 + first_offset
 // 인덱스가 이상하면(값이 빠짐, 시각이나 바이트가 줄어듦, 파일 밖, 계층형 sidx 등) 없음을 반환한다. 호출부는 그때 파일 처음부터 받는다.
 
+import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
+
 type Kind = "webm" | "mp4";
 /** 키프레임 하나: 곡 안의 시각(ms)과 파일 안의 바이트. raw는 webm 클러스터의 Timestamp와 비교할 원래 값 */
 type Point = { ms: number; byte: number; raw: number };
 type ContainerIndex = { kind: Kind; headerEnd: number; points: Point[]; segment: { at: number; width: number } | null };
 /** 인덱스를 읽은 결과: 인덱스, 더 받아야 함(앞에서부터 need 바이트), 인덱스 없음(why에 원인) */
-type Read = { ok: true; index: ContainerIndex } | { ok: false; need: number } | { ok: false; why: string };
+type Read = { ok: true; index: ContainerIndex } | { ok: false; need: number } | { ok: false; why: string | LogText };
 type StartPoint = { byte: number; startedAtMs: number; expectStart(bytes: Buffer): boolean };
 
 /** 받은 첫 바이트를 확인하는 데 드는 양(webm: 클러스터 ID, 크기, Timestamp, mp4: 상자 헤더) */
@@ -22,8 +25,8 @@ const MAX_HEAD_BYTES = 4 * 1024 * 1024;
 const LAST_POINT_EARLY_MS = 60_000;
 const LAST_POINT_LATE_MS = 1000;
 
-const none = (why: string): Read => ({ ok: false, why });
-const need = (bytes: number): Read => (bytes > MAX_HEAD_BYTES ? none(`색인이 너무 길다(${bytes}B)`) : { ok: false, need: bytes });
+const none = (why: string | LogText): Read => ({ ok: false, why });
+const need = (bytes: number): Read => (bytes > MAX_HEAD_BYTES ? none(L.player.indexTooLong({ bytes })) : { ok: false, need: bytes });
 /** 더 받을 양: 모자란 요소의 끝에 다음 요소 몫(4KB)을 더하고, 적어도 지금의 두 배(요소를 하나씩 알아내며 여러 번 오가지 않게) */
 const more = (buf: Buffer, end: number) => Math.max(end + 4096, buf.length * 2);
 
@@ -106,9 +109,9 @@ type WebmParts = { segment: Element; scale: number; audioTrack: number | null; c
 /** Segment의 자식을 첫 클러스터까지 훑는다. 앞부분이 모자라면 더 받아야 할 양 */
 function webmParts(buf: Buffer): WebmParts | Read {
   const ebml = elementAt(buf, 0);
-  if (!ebml || ebml.id !== ID.EBML || !Number.isFinite(ebml.size)) return none("EBML 헤더가 아님");
+  if (!ebml || ebml.id !== ID.EBML || !Number.isFinite(ebml.size)) return none(L.player.notEbml());
   const segment = elementAt(buf, ebml.end);
-  if (!segment || segment.id !== ID.Segment) return none("Segment가 없음");
+  if (!segment || segment.id !== ID.Segment) return none(L.player.noSegment());
   let scale = 1_000_000;
   let audioTrack: number | null = null;
   let cues: Element | null = null;
@@ -116,7 +119,7 @@ function webmParts(buf: Buffer): WebmParts | Read {
     const el = elementAt(buf, at);
     if (!el) return need(more(buf, at));
     if (el.id === ID.Cluster) return { segment, scale, audioTrack, cues, firstCluster: el.start };
-    if (!Number.isFinite(el.size)) return none("첫 클러스터 앞에 크기 모를 요소");
+    if (!Number.isFinite(el.size)) return none(L.player.unsizedBeforeCluster());
     if (el.end > buf.length) return need(more(buf, el.end));
     if (el.id === ID.Info) scale = childUint(buf, el, ID.TimecodeScale) ?? scale;
     if (el.id === ID.Tracks) audioTrack = audioTrackOf(buf, el);
@@ -129,8 +132,8 @@ function readWebm(buf: Buffer, totalBytes: number): Read {
   const parts = webmParts(buf);
   if ("ok" in parts) return parts;
   const { segment, scale, audioTrack, cues, firstCluster } = parts;
-  if (!cues) return none("Cues가 첫 클러스터 앞에 없음");
-  if (!(scale > 0)) return none("TimecodeScale이 0");
+  if (!cues) return none(L.player.noCuesBeforeCluster());
+  if (!(scale > 0)) return none(L.player.zeroTimecodeScale());
   const points: Point[] = [];
   for (const el of childrenOf(buf, cues)) {
     const cue = el.id === ID.CuePoint ? cueOf(buf, el, audioTrack) : null;
@@ -158,11 +161,11 @@ function boxAt(buf: Buffer, at: number): Box | null {
 }
 
 /** sidx → 세그먼트의 시작 바이트, 시각. 계층형(reference_type 1), 값이 이상하면 원인 */
-function sidxPoints(buf: Buffer, sidx: Box): Point[] | string {
+function sidxPoints(buf: Buffer, sidx: Box): Point[] | string | LogText {
   const version = buf[sidx.data];
   if (version > 1) return `sidx version ${version}`;
   const timescale = buf.readUInt32BE(sidx.data + 8);
-  if (timescale === 0) return "sidx timescale이 0";
+  if (timescale === 0) return L.player.sidxZeroTimescale();
   let at = sidx.data + 12;
   const wide = version === 1;
   let time = wide ? Number(buf.readBigUInt64BE(at)) : buf.readUInt32BE(at);
@@ -170,16 +173,16 @@ function sidxPoints(buf: Buffer, sidx: Box): Point[] | string {
   at += wide ? 16 : 8;
   const count = buf.readUInt16BE(at + 2);
   at += 4;
-  if (count === 0) return "sidx 항목이 없음";
-  if (at + count * 12 > sidx.end) return "sidx 항목이 상자를 넘음";
+  if (count === 0) return L.player.sidxNoEntries();
+  if (at + count * 12 > sidx.end) return L.player.sidxOverBox();
   const points: Point[] = [];
   for (let i = 0; i < count; i++, at += 12) {
     const word = buf.readUInt32BE(at);
-    if (word & 0x80000000) return "계층형 sidx";
+    if (word & 0x80000000) return L.player.sidxHierarchical();
     points.push({ ms: (time / timescale) * 1000, byte, raw: time });
     byte += word & 0x7fffffff;
     time += buf.readUInt32BE(at + 4);
-    if (!Number.isSafeInteger(byte) || !Number.isSafeInteger(time)) return "sidx 값 오버플로";
+    if (!Number.isSafeInteger(byte) || !Number.isSafeInteger(time)) return L.player.sidxOverflow();
   }
   points.push({ ms: (time / timescale) * 1000, byte, raw: time }); // 마지막 세그먼트의 끝(검사에만 쓴다)
   return points;
@@ -189,17 +192,17 @@ function readMp4(buf: Buffer, totalBytes: number): Read {
   let moovEnd: number | null = null;
   for (let at = 0; ;) {
     const box = boxAt(buf, at);
-    if (!box) return at + 16 > buf.length ? need(more(buf, at)) : none("상자가 깨짐");
-    if (at === 0 && box.type !== "ftyp") return none("ftyp로 시작하지 않음");
-    if (box.type === "moof" || box.type === "mdat") return none("sidx가 세그먼트 앞에 없음");
+    if (!box) return at + 16 > buf.length ? need(more(buf, at)) : none(L.player.boxBroken());
+    if (at === 0 && box.type !== "ftyp") return none(L.player.notFtyp());
+    if (box.type === "moof" || box.type === "mdat") return none(L.player.sidxAfterSegment());
     if (box.end > buf.length) return need(more(buf, box.end));
     if (box.type === "moov") moovEnd = box.end;
     if (box.type === "sidx") {
-      if (moovEnd === null) return none("sidx가 moov 앞에 있음");
+      if (moovEnd === null) return none(L.player.sidxAfterMoov());
       const points = sidxPoints(buf, box);
-      if (typeof points === "string") return none(points);
+      if (!Array.isArray(points)) return none(points);
       const end = points.pop()!;
-      if (end.byte > totalBytes) return none("sidx의 끝이 파일 밖");
+      if (end.byte > totalBytes) return none(L.player.sidxPastFile());
       return checked({ kind: "mp4", headerEnd: moovEnd, points, segment: null }, totalBytes);
     }
     at = box.end;
@@ -211,10 +214,10 @@ function readMp4(buf: Buffer, totalBytes: number): Read {
 /** 시각, 바이트가 늘어나기만 하고 모두 [헤더 끝, 파일 끝) 안인가 */
 function checked(index: ContainerIndex, totalBytes: number): Read {
   const { points, headerEnd } = index;
-  if (points.length === 0) return none("색인 항목이 없음");
+  if (points.length === 0) return none(L.player.indexEmpty());
   for (const [i, p] of points.entries()) {
-    if (p.byte < headerEnd || p.byte >= totalBytes) return none(`색인이 가리키는 자리가 파일 밖(${p.byte})`);
-    if (i > 0 && (p.ms <= points[i - 1].ms || p.byte <= points[i - 1].byte)) return none("색인의 시각이나 바이트가 늘어나지 않음");
+    if (p.byte < headerEnd || p.byte >= totalBytes) return none(L.player.indexPointPastFile({ byte: p.byte }));
+    if (i > 0 && (p.ms <= points[i - 1].ms || p.byte <= points[i - 1].byte)) return none(L.player.indexNotIncreasing());
   }
   return { ok: true, index };
 }
@@ -223,7 +226,7 @@ function checked(index: ContainerIndex, totalBytes: number): Read {
 function readIndex(head: Buffer, totalBytes: number): Read {
   if (head.length >= 4 && head.readUInt32BE(0) === ID.EBML) return readWebm(head, totalBytes);
   if (head.length >= 8 && head.toString("latin1", 4, 8) === "ftyp") return readMp4(head, totalBytes);
-  return none("webm이나 mp4가 아님");
+  return none(L.player.notWebmOrMp4());
 }
 
 /** 헤더로 넣을 바이트. webm은 Segment 크기를 같은 너비의 크기 모름으로 바꾼다(중간을 건너뛰고 넣어도 디먹서가 크기를 따지지 않게) */
@@ -254,12 +257,12 @@ function startCheck(kind: Kind, point: Point): (bytes: Buffer) => boolean {
  * 목표 위치에서 받기 시작할 키프레임. 목표보다 예열(1초) 넘게 앞선 마지막 것. 없으면 이유(호출부는 파일 처음부터).
  * 그 바이트가 첫 청크 안이면 처음부터 받는 것과 다르지 않다. 마지막 키프레임이 곡 길이와 크게 다르면 시간 축을 잘못 읽은 것이다
  */
-function startPoint(index: ContainerIndex, { targetMs, durationMs, chunkBytes }: { targetMs: number; durationMs: number; chunkBytes: number }): StartPoint | { why: string } {
+function startPoint(index: ContainerIndex, { targetMs, durationMs, chunkBytes }: { targetMs: number; durationMs: number; chunkBytes: number }): StartPoint | { why: LogText } {
   const last = index.points.at(-1)!;
-  if (!(durationMs > 0) || last.ms < durationMs - LAST_POINT_EARLY_MS || last.ms > durationMs + LAST_POINT_LATE_MS) return { why: `마지막 키프레임(${Math.round(last.ms)}ms)이 곡 길이(${Math.round(durationMs)}ms)와 맞지 않음` };
+  if (!(durationMs > 0) || last.ms < durationMs - LAST_POINT_EARLY_MS || last.ms > durationMs + LAST_POINT_LATE_MS) return { why: L.player.lastKeyframeOff({ keyframeMs: Math.round(last.ms), durationMs: Math.round(durationMs) }) };
   const point = index.points.filter((p) => p.ms <= targetMs - PREROLL_MS).at(-1);
-  if (!point) return { why: "목표 앞에 키프레임이 없음" };
-  if (point.byte < chunkBytes) return { why: "키프레임이 첫 청크 안" };
+  if (!point) return { why: L.player.noKeyframeBefore() };
+  if (point.byte < chunkBytes) return { why: L.player.keyframeInFirstChunk() };
   return { byte: point.byte, startedAtMs: Math.round(point.ms), expectStart: startCheck(index.kind, point) };
 }
 

@@ -1,8 +1,8 @@
-// src/ui/text/ko/more.ts: 더 넣기의 글자를 모두 적어 둔다. 문장을 고치면 여기도 같이 고친다
+// locales/ko/bot/more.ts: 더 넣기의 글자를 모두 적어 둔다. 문장을 고치면 여기도 같이 고친다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import * as more from "../../../../src/ui/text/ko/more.ts";
+import * as more from "../../../../locales/ko/bot/more.ts";
 
 test("모든 문장", () => {
   assert.deepEqual(
@@ -23,12 +23,15 @@ test("모든 문장", () => {
       more.fetching(),
       more.fetchingCount(3, 10),
       more.resultMark("머리"),
+      more.result({ collection: "album", added: 5, total: 25, remaining: 0, nextOffset: null }),
+      more.result({ collection: "playlist", added: 10, skipped: 1, total: 120, remaining: 3, nextOffset: null }),
+      more.result({ collection: "playlist", added: 10, total: 1234, remaining: 1174, nextOffset: 60 }),
     ],
     [
       "📃 재생목록은 모두 1,234곡이에요. 앞 50곡까지 넣었어요.",
       "📃 앨범은 모두 12곡이에요. 앞 10곡까지 넣었어요.",
       "앨범에서 20곡을 더 넣었어요.",
-      "재생목록에서 1,000곡을 더 넣었어요. 재생할 수 없는 2곡(미리듣기, 지역 제한 등)은 제외했어요. 대기열이 가득 차 3곡은 빠졌어요.",
+      "재생목록에서 1,000곡을 더 넣었어요. 재생할 수 없는 2곡(삭제, 비공개, 미리듣기 전용, 지역 제한 등)은 제외했어요. 대기열이 가득 차 3곡은 빠졌어요.",
       "머리 목록을 끝까지 넣었어요.",
       "머리 (1,234곡 중 1,050곡까지)",
       "머리\n대기열이 가득 차 지금은 더 넣을 수 없어요.",
@@ -41,6 +44,9 @@ test("모든 문장", () => {
       "🔄 곡을 가져오는 중…",
       "🔄 3/10곡 가져오는 중…",
       "✅ 머리",
+      "앨범에서 5곡을 더 넣었어요. 목록을 끝까지 넣었어요.",
+      "재생목록에서 10곡을 더 넣었어요. 재생할 수 없는 1곡(삭제, 비공개, 미리듣기 전용, 지역 제한 등)은 제외했어요.",
+      "재생목록에서 10곡을 더 넣었어요. (1,234곡 중 60곡까지)",
     ],
   );
 });

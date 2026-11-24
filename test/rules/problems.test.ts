@@ -3,7 +3,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { PROBLEMS, isCode, type Code, type Params } from "../../src/rules/problems.ts";
-import { noticeFor } from "../../src/ui/text/ko/errors.ts";
+import { textFor } from "../../src/ui/text/index.ts";
+const { noticeFor } = textFor("ko").errors;
 
 const codes = Object.keys(PROBLEMS) as Code[];
 const SAMPLE: Required<Params> = { max: 100, min: 1, queueCap: 50, size: 3, skipped: 7, durationMs: 185000, genre: "가요", keys: "Last.fm", channelId: "42", length: 2100, left: 2, received: 1024 };

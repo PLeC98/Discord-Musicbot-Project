@@ -16,6 +16,8 @@ import { toolEnv } from "../../config/tool-env.ts";
 import { bgutilBundle } from "../bgutil/bundle.ts";
 import { ENTRY, HOST, pickFreePort, serverArgs, versionOf } from "../bgutil/launch.ts";
 import { messageOf } from "../../rules/error-kind.ts";
+import { L } from "../../infra/log/text.ts";
+import type { LogText } from "../../infra/log/log-text.ts";
 
 const RESTART_MS = 5000; // 비정상 종료 뒤 다시 실행하기까지
 const BIND_TRIES = 3; // 받은 빈 포트를 그 사이 남이 잡아 실행하지 못한 일이 연달아 이만큼이면 멈춘다
@@ -57,9 +59,10 @@ const BIND_FAILED = /could not listen/i;
 function relay(chunk: Buffer | string, stream: "out" | "err") {
   for (const raw of chunk.toString().split("\n").filter(Boolean)) {
     const line = scrubBgutilLine(raw);
-    if (stream === "out" || BIND_FAILED.test(line)) log.debug({ sub: "bgutil" }, line);
-    else if (/EADDRINUSE|^\s+at /i.test(line)) log.error({ sub: "bgutil" }, line);
-    else log.warn({ sub: "bgutil" }, line);
+    const text = L.core.bgutilOutput({ text: line });
+    if (stream === "out" || BIND_FAILED.test(line)) log.debug({ sub: "bgutil" }, text);
+    else if (/EADDRINUSE|^\s+at /i.test(line)) log.error({ sub: "bgutil" }, text);
+    else log.warn({ sub: "bgutil" }, text);
   }
 }
 
@@ -82,7 +85,7 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
   function run(newPort: boolean) {
     starting = launch(newPort).catch((error: unknown) => {
       current = null;
-      log.error({ sub: "bgutil" }, `POToken 서버 실행 실패(POToken 없이 진행): ${messageOf(error)}`);
+      log.error({ sub: "bgutil" }, L.core.potServerLaunchFailed({ error: messageOf(error) }));
     });
     return starting;
   }
@@ -94,12 +97,12 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
     // 꺼 두었으면 조용히 넘어간다. 인증 없는 로컬 HTTP 서버를 상시 실행하지 않는 것이
     // 이 설정의 목적이다.
     if (!config.bgutil.enabled) {
-      if (installed) log.debug({ sub: "bgutil" }, "bgutil이 설치되어 있지만 유튜브 탭의 POToken 서버 사용이 꺼져 있음(POToken 서버를 실행하지 않고 진행)");
+      if (installed) log.debug({ sub: "bgutil" }, L.core.potServerDisabled());
       return;
     }
     // 켜 두었는데 설치돼 있지 않으면 알린다. 조용히 넘어가면 POToken이 없는 줄 모른 채 돈다(설치는 기동 뒤 sources/bgutil/auto-install이 한다)
     if (!installed) {
-      log.warn({ sub: "bgutil" }, "유튜브 탭에서 POToken 서버 사용을 켰지만 bgutil이 설치되어 있지 않음(POToken 없이 진행. 기동 뒤 자동으로 설치하고, 다시 시작하면 켜짐)");
+      log.warn({ sub: "bgutil" }, L.core.potServerNotInstalled());
       return;
     }
     if (!serverDir) return;
@@ -117,31 +120,31 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
       if (BIND_FAILED.test(d.toString())) bindFailed = true;
       relay(d, "err");
     });
-    child.on("error", (error) => log.error({ sub: "bgutil" }, `POToken 서버 실행 실패: ${messageOf(error)}`));
+    child.on("error", (error) => log.error({ sub: "bgutil" }, L.core.potServerProcessError({ error: messageOf(error) })));
     child.on("exit", (code) => {
       release();
       proc = null;
       if (stopping) return;
       if (code === CONSOLE_EXIT) {
-        log.debug({ sub: "bgutil" }, "POToken 서버가 콘솔 종료 신호로 끝남(봇도 곧 끝나므로 다시 실행하지 않음)");
+        log.debug({ sub: "bgutil" }, L.core.potServerConsoleClosed());
         return;
       }
       // 포트를 열지 못해 끝났다(받은 빈 포트를 그 사이 남이 잡았다). 새 포트로 곧바로 다시
       if (bindFailed && code === 1) {
         if (++bindFailures >= BIND_TRIES) {
           current = null;
-          log.error({ sub: "bgutil" }, `POToken 서버가 빈 포트를 ${BIND_TRIES}번 연달아 열지 못해 다시 실행하지 않음(POToken 없이 진행)`);
+          log.error({ sub: "bgutil" }, L.core.potServerBindGaveUp({ tries: BIND_TRIES }));
           return;
         }
-        log.warn({ sub: "bgutil" }, `포트 ${String(port)}번을 열지 못해 새 포트로 POToken 서버 다시 실행`);
+        log.warn({ sub: "bgutil" }, L.core.potServerPortRetry({ port: String(port) }));
         void run(true);
         return;
       }
       bindFailures = 0;
-      log.warn({ sub: "bgutil" }, `POToken 서버 비정상 종료 (code=${code ?? "없음"}), 5초 후 다시 시작`);
+      log.warn({ sub: "bgutil" }, L.core.potServerExited({ code }));
       setTimeout(() => void run(false), RESTART_MS);
     });
-    log.debug({ sub: "bgutil" }, `POToken 서버 시작(포트 ${port})`);
+    log.debug({ sub: "bgutil" }, L.core.potServerStarting({ port }));
   }
 
   // 내리고 꺼질 때까지 기다린다(상한 STOP_WAIT_MS). 꺼지면 레지스트리에서도 빠져 종료 처리의 자식 정리에 섞이지 않는다
@@ -169,7 +172,7 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
     await starting;
     if (!proc) return true;
     const deadline = Date.now() + timeoutMs;
-    let lastError = "";
+    let lastError: string | LogText = "";
     while (Date.now() < deadline) {
       const url = current;
       try {
@@ -177,10 +180,10 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
         if (res?.ok) {
           const answered = await versionOf(res);
           if (!version || !answered || answered === version) {
-            log.info({ sub: "bgutil" }, `POToken 서버 준비 완료 (${String(url)})`);
+            log.info({ sub: "bgutil" }, L.core.potServerReady({ url: String(url) }));
             return true;
           }
-          lastError = `다른 버전(${answered})의 서버가 응답함`;
+          lastError = L.core.potServerOtherVersion({ answered });
         }
       } catch (error) {
         // 아직 준비 안 됨. 재시도
@@ -188,7 +191,7 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
       }
       await new Promise((resolve) => setTimeout(resolve, 250));
     }
-    log.warn({ sub: "bgutil" }, `POToken 서버가 ${timeoutMs / 1000}초 안에 응답하지 않아 POToken 없이 봇 기동.${lastError ? ` 마지막 확인: ${lastError}` : ""}`);
+    log.warn({ sub: "bgutil" }, L.core.potServerNoAnswer({ seconds: timeoutMs / 1000, lastError }));
     return false;
   }
 

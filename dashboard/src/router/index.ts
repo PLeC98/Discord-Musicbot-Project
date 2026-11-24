@@ -14,7 +14,7 @@ declare module "vue-router" {
     /** 화면이 자체적으로 바탕화면을 채운다(창 배치를 갖는다). 아니면 창 하나 안에 넣는다 */
     workspace?: boolean;
     /** 위 막대 가운데에 표시할 이름(서버 화면, 운영자 패널처럼 따로 그리는 화면 말고) */
-    title?: string;
+    title?: () => string;
     /** 로그인했어도 틀 없이 화면만. 이 앱의 라우트는 쓰지 않고, 미리 보기처럼 개발 도구가 더하는 라우트가 쓴다(app.ts의 createDashboard의 extraRoutes) */
     bare?: boolean;
   }
@@ -60,7 +60,7 @@ const routes: RouteRecordRaw[] = [
     // 로그 파일 보기: 실시간 로그 헤더의 "파일 보기"가 같은 창에서 연다
     path: "/admin/log-files",
     component: () => import("../views/LogFilesView.vue"),
-    meta: { requiresAuth: true, requiresOwner: true, workspace: true, title: text.logs.files.title },
+    meta: { requiresAuth: true, requiresOwner: true, workspace: true, title: () => text.logs.files.title },
   },
   {
     // 로그인 창(다시 로그인)이 로그인을 마치고 오는 곳. 원래 탭에 알리고 창을 닫는다
@@ -72,7 +72,7 @@ const routes: RouteRecordRaw[] = [
     // 없는 주소
     path: "/:pathMatch(.*)*",
     component: () => import("../views/NotFoundView.vue"),
-    meta: { requiresAuth: true, workspace: true, title: text.shell.notFoundTitle },
+    meta: { requiresAuth: true, workspace: true, title: () => text.shell.notFoundTitle },
   },
 ];
 

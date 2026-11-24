@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { bgutilTarget, isCommitSha, isPlainTag, rebuildTargets, rootInstallScripts, taggedCommit } from "../../src/rules/bgutil-install.ts";
 import { BGUTIL_COMMIT, BGUTIL_VERSION } from "../../src/config/vendor-versions.ts";
 import { loadConfig } from "../../src/config/index.ts";
+import { logRuleLine } from "../../src/rules/text/index.ts";
 import { rewriteConstant } from "../../src/rules/vendor-updates.ts";
 
 const DEFAULTS = { version: "2.0.2", commit: "a".repeat(40) };
@@ -26,8 +27,8 @@ test("받을 짝: 고정이 없으면 기본 짝, 기본 태그만이면 고정�
 });
 
 test("받을 짝: 다른 태그에 커밋이 없거나, 커밋만 있거나, 형식이 아니면 어느 이름이 왜 틀렸는지", () => {
-  assert.deepEqual(bgutilTarget("2.0.3", "", DEFAULTS), { key: "BGUTIL_COMMIT", value: "", reason: "기본값(2.0.2)과 다른 태그에는 그 태그의 커밋이 함께 있어야 함" });
-  assert.deepEqual(bgutilTarget("", OTHER, DEFAULTS), { key: "BGUTIL_VERSION", value: "", reason: "커밋만 있고 태그가 없음" });
+  assert.deepEqual(bgutilTarget("2.0.3", "", DEFAULTS), { key: "BGUTIL_COMMIT", value: "", reason: { code: "bgutil-needs-commit", params: { tag: "2.0.2" } } });
+  assert.deepEqual(bgutilTarget("", OTHER, DEFAULTS), { key: "BGUTIL_VERSION", value: "", reason: { code: "bgutil-commit-only" } });
   for (const commit of ["26475e9", "g".repeat(40), `${OTHER} `]) assert.equal((bgutilTarget("2.0.3", commit, DEFAULTS) as { key?: string }).key, "BGUTIL_COMMIT", commit);
   for (const tag of ["-x", "a:refs/heads/main", "v*", "a..b", "a b"]) {
     assert.equal(isPlainTag(tag), false, tag);
@@ -44,9 +45,10 @@ test("설정값의 짝: 커밋은 소문자로 읽고, 틀린 짝은 둘 다 기
   assert.deepEqual([pinned.config.bgutil.version, pinned.config.bgutil.commit, pinned.config.bgutil.pinned], ["2.0.3", "a".repeat(40), true]);
   const half = loadConfig({}, { tunables: { BGUTIL_VERSION: "2.0.3" } });
   assert.deepEqual([half.config.bgutil.version, half.config.bgutil.commit, half.config.bgutil.pinned], [BGUTIL_VERSION, BGUTIL_COMMIT, false]);
+  const lines = half.tuneProblems.map(logRuleLine);
   assert.ok(
-    half.tuneProblems.some((line) => line.startsWith("BGUTIL_COMMIT 값이 잘못됨")),
-    half.tuneProblems.join("\n"),
+    lines.some((line) => line.startsWith("BGUTIL_COMMIT 값이 잘못됨")),
+    lines.join("\n"),
   );
 });
 
@@ -71,19 +73,19 @@ test("설치 스크립트를 돌릴 의존성: 실행 의존성 가운데 설치
       "node_modules/linked": { hasInstallScript: true, link: true },
     },
   };
-  assert.deepEqual(rebuildTargets(lock), ["@scope/native", "canvas"]);
-  assert.deepEqual(rebuildTargets({}), []);
+  assert.deepEqual(rebuildTargets(lock), { ok: true, names: ["@scope/native", "canvas"] });
+  assert.deepEqual(rebuildTargets({}), { ok: true, names: [] });
 });
 
-test("설치 스크립트를 돌릴 의존성: 이름이 npm 패키지 형식이 아니면 예외를 던진다(셸 명령줄에 들어간다)", () => {
+test("설치 스크립트를 돌릴 의존성: 이름이 npm 패키지 형식이 아니면 못 정하고 그 키를 돌려준다(셸 명령줄에 들어간다)", () => {
   for (const key of ["node_modules/a;rm -rf", "node_modules/$(x)", "node_modules/A"]) {
-    assert.throws(() => rebuildTargets({ packages: { [key]: { hasInstallScript: true } } }), /잘못된 형식의 패키지 이름이 있습니다/, key);
+    assert.deepEqual(rebuildTargets({ packages: { [key]: { hasInstallScript: true } } }), { ok: false, why: "bad-name", key }, key);
   }
 });
 
-test("설치 스크립트를 돌릴 의존성: 이름이 같은 개발 의존성에도 설치 스크립트가 있으면 예외를 던진다(npm rebuild는 이름으로 모두 고른다)", () => {
+test("설치 스크립트를 돌릴 의존성: 이름이 같은 개발 의존성에도 설치 스크립트가 있으면 못 정하고 그 이름을 돌려준다(npm rebuild는 이름으로 모두 고른다)", () => {
   const lock = { packages: { "node_modules/canvas": { hasInstallScript: true }, "node_modules/jest/node_modules/canvas": { hasInstallScript: true, dev: true } } };
-  assert.throws(() => rebuildTargets(lock), /canvas/);
+  assert.deepEqual(rebuildTargets(lock), { ok: false, why: "dev-overlap", names: ["canvas"] });
 });
 
 test("루트의 설치 수명 주기 스크립트를 찾는다(--ignore-scripts로 건너뛰므로 사람이 본다)", () => {

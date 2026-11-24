@@ -4,16 +4,17 @@
 
 import { DbFile } from "./sqlite.ts";
 import type { Db } from "./sqlite.ts";
+import { L } from "../infra/log/text.ts";
 
 const VERSION = 1;
 
 const settingsDb = new DbFile({
-  label: "설정 DB",
+  label: L.core.settingsDbLabel(),
   fileName: "settings.db",
   version: VERSION,
   synchronous: "FULL",
   onMismatch: {
-    hint: (found, file) => `설정 DB 구조가 이 봇과 맞지 않음(DB v${found}, 봇 v${VERSION}): ${file}. 설정을 지우지 않도록 새로 만들지 않음. 이 DB를 만든 버전의 봇으로 실행하세요`,
+    hint: (found, file) => L.core.settingsDbSchemaMismatch({ dbVersion: found, botVersion: VERSION, file }),
   },
   createTables,
 });

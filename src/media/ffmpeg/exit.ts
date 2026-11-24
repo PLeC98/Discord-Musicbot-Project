@@ -3,6 +3,8 @@
 // 그 밖의 OS는 하위 8비트만 남아(-22 → 234) 되돌릴 수 없으니 숫자 그대로 둔다.
 
 import os from "os";
+import { L } from "../../infra/log/text.ts";
+import type { LogText } from "../../infra/log/log-text.ts";
 
 // FFERRTAG(a, b, c, d) = -(a | b << 8 | c << 16 | d << 24). libavutil/error.h
 const tag = (a: string | number, b: string, c: string, d: string) => -((typeof a === "number" ? a : a.charCodeAt(0)) | (b.charCodeAt(0) << 8) | (c.charCodeAt(0) << 16) | (d.charCodeAt(0) << 24));
@@ -45,8 +47,8 @@ function signedCode(code: number, platform: NodeJS.Platform = process.platform):
 }
 
 /** 로그에 남길 글. 예: "-22(EINVAL)", "INVALIDDATA", "SIGKILL" */
-function exitText(code: number | null, signal: string | null, platform: NodeJS.Platform = process.platform): string {
-  if (code === null) return signal ?? "없음";
+function exitText(code: number | null, signal: string | null, platform: NodeJS.Platform = process.platform): string | LogText {
+  if (code === null) return signal ?? L.ffmpeg.exitNone();
   const signed = signedCode(code, platform);
   if (signed === null || signed >= 0) return String(code);
   const name = AVERRORS.get(signed) ?? ERRNO_NAMES.get(-signed);

@@ -10,6 +10,7 @@ import { unlessGone } from "./delivery.ts";
 import { RESTJSONErrorCodes, type Guild, type GuildBasedChannel, type WebhookClient } from "discord.js";
 import type { PanelRecord } from "../store/panel-records.ts";
 import type { PanelHook as Hook } from "../player/player.ts";
+import { L } from "../infra/log/text.ts";
 
 const { UnknownChannel: UNKNOWN_CHANNEL, UnknownMessage: UNKNOWN_MESSAGE, UnknownWebhook: UNKNOWN_WEBHOOK } = RESTJSONErrorCodes;
 
@@ -61,7 +62,7 @@ class PanelLocation {
         if (codeOf(error) === UNKNOWN_MESSAGE) await this.store.setPanel(guild.id, null, null); // 삭제됐다. 다음 게시가 새로 올린다
         // 웹훅이 삭제됐다. 캐시에서 지운다(새 웹훅은 옛 패널을 고칠 수 없다. 다음 게시가 새로 올리고 옛 것은 채널 권한으로 삭제한다)
         if (codeOf(error) === UNKNOWN_WEBHOOK) this.embeds.deleteWebhookCache(channel.id);
-        else if (codeOf(error) !== UNKNOWN_MESSAGE) log.warn(`기록된 재생 패널 갱신 실패 (${guild.id}): ${describeError(error)}`);
+        else if (codeOf(error) !== UNKNOWN_MESSAGE) log.warn(L.player.savedPanelEditFailed({ guildId: guild.id, error: describeError(error) }));
         return null;
       }
     });
@@ -84,7 +85,7 @@ class PanelLocation {
     if (cached) return cached;
     const fetched = await guild.channels?.fetch?.(channelId).catch((error: unknown) => {
       // 채널이 삭제됐다(10003)는 응답은 없다는 뜻이다
-      if (codeOf(error) !== UNKNOWN_CHANNEL) log.warn(`패널 채널 조회 실패 (${guild.id}, ${channelId}): ${describeError(error)}`);
+      if (codeOf(error) !== UNKNOWN_CHANNEL) log.warn(L.player.panelChannelFetchFailed({ guildId: guild.id, channelId, error: describeError(error) }));
       return null;
     });
     return fetched ?? null;
@@ -100,10 +101,10 @@ class PanelLocation {
       if (webhook) return await webhook.deleteMessage(messageId);
     } catch (error) {
       // 아래에서 채널 권한으로
-      unlessGone(log, "웹훅으로 옛 패널 삭제")(error);
+      unlessGone(log, L.player.oldPanelWebhookDelete())(error);
     }
     // 못 지우면 옛 패널이 남을 뿐이다
-    if ("messages" in channel) await Promise.resolve(channel.messages.delete(messageId)).catch(unlessGone(log, "옛 패널 삭제"));
+    if ("messages" in channel) await Promise.resolve(channel.messages.delete(messageId)).catch(unlessGone(log, L.player.oldPanelDelete()));
   }
 }
 

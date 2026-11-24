@@ -7,6 +7,7 @@ import * as aiKeys from "../../store/ai-keys.ts";
 import * as googleAuth from "./google-auth.ts";
 import { PROVIDERS } from "../../config/schema/ai-providers.ts";
 import { isSecretHeader } from "../../rules/secret-headers.ts";
+import { plain, type RuleProblem } from "../../rules/rule-problem.ts";
 
 const REDACTED = "[REDACTED_SECRET_KEY]";
 
@@ -48,4 +49,10 @@ function safeHeaders(headers: Record<string, string> | null | undefined) {
   return out;
 }
 
-export { REDACTED, mask, safeHeaders };
+/** 규칙 문제 안의 바깥 글(plain. 감싼 이유 안의 것도)에서 키를 가린다 */
+function maskProblem(problem: RuleProblem): RuleProblem {
+  if (problem.code === "plain") return plain(mask(String(problem.params?.text ?? "")));
+  return problem.cause ? { ...problem, cause: maskProblem(problem.cause) } : problem;
+}
+
+export { REDACTED, mask, maskProblem, safeHeaders };

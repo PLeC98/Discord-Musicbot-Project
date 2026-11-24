@@ -4,6 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { recheck, type RecheckDeps } from "../../src/media/source-recheck.ts";
 import { codedError } from "../../src/rules/error-kind.ts";
+import { testText } from "../helpers/log-text.ts";
 
 const fmt = (itag: number, lmt: string, dur: string, audio = true) => ({ format_id: String(itag), url: `https://rr1.googlevideo.com/videoplayback?itag=${itag}&lmt=${lmt}&dur=${dur}`, acodec: audio ? "opus" : "none", vcodec: audio ? "none" : "avc1" });
 // 편집 전, 30초 자른 뒤, 이어서 오디오만 넣은 뒤(길이 그대로)
@@ -44,7 +45,7 @@ test("사운드클라우드: 음원 파일 id로 비교하고, 미리듣기만 �
   const stream = (file: string) => async () => ({ url: `https://playback.media-streaming.soundcloud.cloud/${file}/aac_160k/u/playlist.m3u8?x=1` });
   assert.deepEqual(await recheck(SC, { version: "file:cWHNerOLlkUq", durationSec: 1 }, deps({ soundcloudStream: stream("cWHNerOLlkUq") })), { kind: "same", version: "file:cWHNerOLlkUq" });
   assert.deepEqual(await recheck(SC, { version: "file:cWHNerOLlkUq", durationSec: 1 }, deps({ soundcloudStream: stream("NEWfile12345") })), { kind: "changed", version: "file:NEWfile12345", durationChanged: null });
-  const preview = await recheck(SC, { version: "file:cWHNerOLlkUq", durationSec: 1 }, deps({ soundcloudStream: async () => Promise.reject(codedError("sc-preview-only", "미리듣기")) }));
+  const preview = await recheck(SC, { version: "file:cWHNerOLlkUq", durationSec: 1 }, deps({ soundcloudStream: async () => Promise.reject(codedError("sc-preview-only", testText("미리듣기"))) }));
   assert.deepEqual(preview, { kind: "gone", code: "sc-preview-only" });
   const older = await recheck(SC, { version: "modified:1657536958", durationSec: 1 }, deps({ soundcloudStream: stream("cWHNerOLlkUq") }));
   assert.equal(older.kind, "uncompared", "적어 둔 것이 수정 시각이면 파일 id와 비교하지 않는다");

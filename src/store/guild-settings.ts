@@ -9,6 +9,9 @@ import { codeOf } from "../rules/error-kind.ts";
 import { AGE_PLACES, type AgePlace } from "../rules/age-place.ts";
 import { PLAYLIST_ADD_DEFAULT, VOLUME_BASE, VOLUME_MAX } from "../rules/limits.ts";
 import { sameValue, type SettingsKey } from "../rules/guild-settings-values.ts";
+import { KNOWN_TAGS, type Language } from "../rules/languages.ts";
+import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
 
 // 재생목록 한 번에 넣는 곡 수의 상한. 대기열 상한이 더 작으면 그쪽을 따른다
 const PLAYLIST_ADD_CEILING = 1000;
@@ -33,12 +36,13 @@ const FIELDS = {
   agePlace: z.enum(AGE_PLACES),
   volume: z.number().int().min(0).max(VOLUME_MAX),
   normalize: z.boolean(),
+  language: z.enum(KNOWN_TAGS),
 };
 type GuildDoc = { [K in keyof typeof FIELDS]?: z.infer<(typeof FIELDS)[K]> };
 
 // 이미 알린 틀린 문서(서버, 내용). 곡마다 읽는 필드가 있어 같은 문서를 되풀이해 알리지 않는다
 const warned = new Set<string>();
-function warnOnce(guildId: string, raw: string, line: string) {
+function warnOnce(guildId: string, raw: string, line: LogText) {
   const key = `${guildId}|${raw}`;
   if (warned.has(key)) return;
   warned.add(key);
@@ -51,7 +55,7 @@ function shapeOf(guildId: string, raw: string): GuildDoc {
   try {
     parsed = JSON.parse(raw);
   } catch {
-    warnOnce(guildId, raw, `서버 ${guildId} 설정 읽기 실패(기본값 사용): 올바른 JSON 형식이 아님`);
+    warnOnce(guildId, raw, L.guild.guildSettingsJsonInvalid({ guildId }));
     return {};
   }
   const source = parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
@@ -63,7 +67,7 @@ function shapeOf(guildId: string, raw: string): GuildDoc {
     if (checked.success) doc[key] = checked.data;
     else wrong.push(key);
   }
-  if (wrong.length) warnOnce(guildId, raw, `서버 ${guildId} 설정의 ${wrong.join(", ")} 값 검증 실패(기본값 사용)`);
+  if (wrong.length) warnOnce(guildId, raw, L.guild.guildSettingsValueInvalid({ guildId, fields: wrong.join(", ") }));
   return doc as GuildDoc;
 }
 
@@ -75,21 +79,23 @@ function readDoc(guildId: string): GuildDoc {
 type GuildField = keyof GuildDoc;
 const GUILD_FIELDS = Object.keys(FIELDS) as GuildField[];
 
-/** 로그에 쓰는 필드 이름 */
-const FIELD_LABEL: Readonly<Record<GuildField, string>> = {
-  botChannelId: "전용 채널",
-  djRoleIds: "DJ 역할",
+/** 로그에 쓰는 필드 이름. 고유 이름(SponsorBlock)은 그대로 글이다 */
+const FIELD_LABEL: Readonly<Record<GuildField, string | LogText>> = {
+  botChannelId: L.guild.fieldBotChannel(),
+  djRoleIds: L.guild.fieldDjRoles(),
   sponsorBlock: "SponsorBlock",
-  playlistAddMax: "재생목록 한 번에 넣을 곡 수",
-  agePlace: "연령 제한 콘텐츠를 틀 곳",
-  volume: "볼륨",
-  normalize: "볼륨 정규화",
+  playlistAddMax: L.guild.fieldPlaylistAddMax(),
+  agePlace: L.guild.fieldAgePlace(),
+  volume: L.guild.fieldVolume(),
+  normalize: L.guild.fieldNormalize(),
+  language: L.guild.fieldLanguage(),
 };
 
 /**
  * update에 넘기는 패치. 빠진 필드는 그대로 두고, null이면 그 필드를 지운다(기본값으로 돌아간다).
  * djRoleIds가 []이면 지운다. sponsorBlock은 넘긴 하위 키만 바꾸고, 하위 키가 null이면 전역 설정을 따른다.
- * agePlace가 "channel", volume이 기본 볼륨, normalize가 false면 기본값이라 문서에서 뺀다
+ * agePlace가 "channel", volume이 기본 볼륨, normalize가 false면 기본값이라 문서에서 뺀다.
+ * language는 봇 기본 언어와 같아도 남긴다(봇 기본 언어가 바뀌어도 그 서버가 고른 언어가 따라 바뀌지 않게). null이면 봇 기본 언어를 따른다
  */
 type GuildPatch = {
   botChannelId?: string | null;
@@ -99,6 +105,7 @@ type GuildPatch = {
   agePlace?: AgePlace;
   volume?: number;
   normalize?: boolean;
+  language?: Language | null;
 };
 
 // 필드마다 패치 값을 문서에 남길 값으로 바꾼다. undefined면 문서에서 뺀다(기본값과 같은 값은 빼서 서버가 정한 값만 남긴다)
@@ -114,6 +121,7 @@ const STORED: { [F in GuildField]: (value: Exclude<GuildPatch[F], undefined>, do
   agePlace: (value) => (value === "channel" ? undefined : value),
   volume: (value) => (value === VOLUME_BASE ? undefined : value),
   normalize: (value) => (value ? true : undefined),
+  language: (value) => value ?? undefined,
 };
 
 // 패치를 반영한 새 문서
@@ -236,6 +244,11 @@ const table = {
   setNormalize(guildId: string, on: boolean) {
     writePatch(guildId, { normalize: on });
   },
+
+  /** 서버 언어. 정하지 않았으면 null(봇 기본 언어를 따른다) */
+  getLanguage(guildId: string): Language | null {
+    return (readDoc(guildId).language as Language | undefined) ?? null;
+  },
 };
 
 /** 설정이 있는 서버 수(초기화 카드) */
@@ -255,7 +268,7 @@ function removeAll() {
 }
 
 // 서버, 필드마다 담아 두는 값. 키는 `${guildId}_${필드}`
-type Cached = { botChannel: string | null; djRoles: string[]; playlistAdd: number | null; sb: SponsorBlockSetting; agePlace: AgePlace; volume: number | null; normalize: boolean };
+type Cached = { botChannel: string | null; djRoles: string[]; playlistAdd: number | null; sb: SponsorBlockSetting; agePlace: AgePlace; volume: number | null; normalize: boolean; language: Language | null };
 
 const cache = new Map<string, Cached[keyof Cached]>();
 
@@ -281,6 +294,7 @@ const CACHED_AS: { [F in GuildField]: (doc: GuildDoc) => [keyof Cached, Cached[k
   agePlace: (doc) => ["agePlace", doc.agePlace ?? "channel"],
   volume: (doc) => ["volume", doc.volume ?? null],
   normalize: (doc) => ["normalize", doc.normalize ?? false],
+  language: (doc) => ["language", (doc.language as Language | undefined) ?? null],
 };
 
 function rememberField(guildId: string, doc: GuildDoc, field: GuildField) {
@@ -303,7 +317,7 @@ function announce(guildId: string, fields: GuildField[]) {
     try {
       fn(guildId, fields);
     } catch (error) {
-      log.error("서버 설정 변경 알림 처리 실패:", error);
+      log.error(L.guild.guildSettingsNotifyFailed(), error);
     }
   }
 }
@@ -359,7 +373,7 @@ async function getBotChannel(guildId: string): Promise<string | null> {
     return channelId;
   } catch (error) {
     unlessNotOpen(error);
-    log.error("전용 채널 읽기 실패:", error);
+    log.error(L.guild.dedicatedChannelReadFailed(), error);
     return null;
   }
 }
@@ -382,7 +396,7 @@ async function getDjRoles(guildId: string): Promise<string[]> {
     return roleIds;
   } catch (error) {
     unlessNotOpen(error);
-    log.error("DJ 역할 읽기 실패:", error);
+    log.error(L.guild.djRoleReadFailed(), error);
     return [];
   }
 }
@@ -410,7 +424,7 @@ async function getPlaylistAddMax(guildId: string): Promise<number | null> {
     return value;
   } catch (error) {
     unlessNotOpen(error);
-    log.error("재생목록 1회 최대 추가 곡 수 읽기 실패(기본값 사용):", error);
+    log.error(L.guild.playlistLimitReadFailed(), error);
     return null;
   }
 }
@@ -432,7 +446,7 @@ function resolvePlaylistAddMax(guildId: string): number {
       stored = table.getPlaylistAddMax(guildId);
       remember(guildId, "playlistAdd", stored);
     } catch (error) {
-      log.error("재생목록 1회 최대 추가 곡 수 읽기 실패(기본값 사용):", error);
+      log.error(L.guild.playlistLimitReadFailed(), error);
       stored = null;
     }
   }
@@ -451,7 +465,7 @@ function resolveAgePlace(guildId: string): AgePlace {
     remember(guildId, "agePlace", value);
     return value;
   } catch (error) {
-    log.error("연령 제한 콘텐츠 허용 범위 읽기 실패(연령 제한 채널만 허용으로 적용):", error);
+    log.error(L.guild.ageRestrictedReadFailed(), error);
     return "channel";
   }
 }
@@ -470,7 +484,7 @@ function resolveVolume(guildId: string): number {
       stored = table.getVolume(guildId);
       remember(guildId, "volume", stored);
     } catch (error) {
-      log.error("서버 볼륨 읽기 실패(기본 볼륨 사용):", error);
+      log.error(L.guild.volumeReadFailed(), error);
       stored = null;
     }
   }
@@ -496,7 +510,7 @@ function resolveNormalize(guildId: string): boolean {
   try {
     value = table.getNormalize(guildId);
   } catch (error) {
-    log.error("볼륨 정규화 설정 읽기 실패(끔으로 적용):", error);
+    log.error(L.guild.volumeNormalizeReadFailed(), error);
   }
   remember(guildId, "normalize", value);
   return value;
@@ -504,6 +518,32 @@ function resolveNormalize(guildId: string): boolean {
 
 async function setNormalize(guildId: string, on: boolean) {
   return write(guildId, { normalize: on });
+}
+
+// ── 서버 언어 ──
+
+/**
+ * 이 서버가 고른 언어. 공개 메시지를 그릴 때마다(재생 패널은 5초마다) 부르므로 메모리에 담는다. 정하지 않았으면 null.
+ * 못 읽으면 null로 기억하고 오류 로그를 남긴다(다음에 바꾸거나 초기화하면 다시 읽는다). DB가 열리지 않았으면 null
+ */
+function resolveLanguage(guildId: string): Language | null {
+  const hit = cached(guildId, "language");
+  if (hit !== undefined) return hit;
+  if (!settingsDb.isOpen()) return null;
+  let value: Language | null = null;
+  try {
+    value = table.getLanguage(guildId);
+  } catch (error) {
+    unlessNotOpen(error);
+    log.error(L.guild.guildLanguageReadFailed(), error);
+  }
+  remember(guildId, "language", value);
+  return value;
+}
+
+/** null이면 봇 기본 언어를 따르게 되돌린다. 바뀐 필드를 돌려준다 */
+function setLanguage(guildId: string, language: Language | null) {
+  return write(guildId, { language });
 }
 
 // ── SponsorBlock 서버별 설정 ──
@@ -518,7 +558,7 @@ async function getSponsorBlock(guildId: string): Promise<SponsorBlockSetting> {
     return v;
   } catch (error) {
     unlessNotOpen(error);
-    log.error("SponsorBlock 설정 읽기 실패(전역 설정 적용):", error);
+    log.error(L.guild.sponsorBlockReadFailed(), error);
     return { enabled: null, categories: null };
   }
 }
@@ -540,7 +580,7 @@ function resolveSponsorBlock(guildId: string): { enabled: boolean; categories: s
     per = table.getGuildSponsorBlock(guildId);
   } catch (error) {
     unlessNotOpen(error);
-    log.error("SponsorBlock 설정 읽기 실패(전역 설정 적용):", error);
+    log.error(L.guild.sponsorBlockReadFailed(), error);
     per = { enabled: null, categories: null };
   }
   return {
@@ -549,5 +589,5 @@ function resolveSponsorBlock(guildId: string): { enabled: boolean; categories: s
   };
 }
 
-export { table, update, read, onChanged, removeAll, FIELD_LABEL, forgetCache, guildCount, setBotChannel, getBotChannel, clearBotChannel, setDjRoles, getDjRoles, clearDjRoles, playlistAddLimits, getPlaylistAddMax, setPlaylistAddMax, resolvePlaylistAddMax, resolveAgePlace, setAgePlace, resolveVolume, saveVolume, resolveNormalize, setNormalize, getSponsorBlock, setSponsorBlock, resolveSponsorBlock };
+export { table, update, read, onChanged, removeAll, FIELD_LABEL, forgetCache, guildCount, setBotChannel, getBotChannel, clearBotChannel, setDjRoles, getDjRoles, clearDjRoles, playlistAddLimits, getPlaylistAddMax, setPlaylistAddMax, resolvePlaylistAddMax, resolveAgePlace, setAgePlace, resolveVolume, saveVolume, resolveNormalize, setNormalize, getSponsorBlock, setSponsorBlock, resolveSponsorBlock, resolveLanguage, setLanguage };
 export type { SponsorBlockSetting, GuildDoc, GuildField, GuildPatch, Updated };

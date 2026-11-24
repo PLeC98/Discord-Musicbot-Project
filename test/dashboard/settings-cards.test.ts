@@ -1,5 +1,6 @@
 // src/dashboard/settings-cards.ts: 서버 설정 카드마다 누가 보고 고치는가. 카드의 조건(계층, 봇 추방), 보이는 카드, 막힌 필드가 하나라도 있으면 거절, 카드가 없을 때의 거절
 
+import { withTestLanguage } from "../helpers/test-language.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { CARDS, shownCards, editsAny, noCardRefusal, noBodyCardRefusal, cardRefusal, fieldRefusal, type CardTable, type Viewer } from "../../src/dashboard/settings-cards.ts";
@@ -13,7 +14,7 @@ const DJ = as("dj");
 const USER = as("user");
 
 test("카드별 권한 조건: 상주 모드와 볼륨 정규화는 DJ(/247, /normalize와 같다), 봇 내보내기는 봇을 추방할 수 있는 사람, 나머지는 서버 관리자", () => {
-  assert.deepEqual(Object.fromEntries(Object.entries(CARDS).map(([card, rule]) => [card, rule.gate])), { stay: "dj", normalize: "dj", channel: "server-manager", dj: "server-manager", sponsorblock: "server-manager", playlistAdd: "server-manager", agePlace: "server-manager", leave: "kick-bot" });
+  assert.deepEqual(Object.fromEntries(Object.entries(CARDS).map(([card, rule]) => [card, rule.gate])), { stay: "dj", normalize: "dj", channel: "server-manager", dj: "server-manager", sponsorblock: "server-manager", playlistAdd: "server-manager", agePlace: "server-manager", language: "server-manager", leave: "kick-bot" });
   assert.deepEqual(shownCards(DJ), ["stay", "normalize"]);
   assert.deepEqual(shownCards(USER), []);
   assert.equal(noCardRefusal(), "must-dj");
@@ -46,6 +47,13 @@ test("연령 제한 카드는 운영자가 켰을 때만 보인다(고치는 것
   } finally {
     useDefaultDocuments();
   }
+});
+
+test("서버 언어 카드는 언어가 둘 이상일 때만 보인다(디스코드 /language와 같다. 고치는 것은 막지 않는다)", () => {
+  assert.ok(!withTestLanguage(false, () => shownCards(MANAGER)).includes("language"));
+  assert.equal(fieldRefusal(MANAGER, { language: { from: null, to: "ko" } }), null);
+  assert.ok(withTestLanguage(true, () => shownCards(MANAGER)).includes("language"));
+  assert.ok(!withTestLanguage(true, () => shownCards(DJ)).includes("language"), "서버 관리자만");
 });
 
 test("저장 본문의 필드는 모두 어느 한 카드에 속한다(속하지 않은 필드는 권한 확인 없이 지나간다)", () => {

@@ -3,8 +3,7 @@
 
 import config from "../config/index.ts";
 import { frame } from "./frame.ts";
-import * as labels from "./text/ko/labels.ts";
-import * as queueText from "./text/ko/queue.ts";
+import type { BotText } from "./text/index.ts";
 
 /** 일부만 추가한 이유. dropped 대기열이 차서 못 넣은 곡 수, skipped 받을 수 없어 뺀 곡 수, total 출처 전체 곡 수(일부만 불러왔을 때), queueLimited 자리가 모자라 목록을 덜 불러옴 */
 type AdditionNotice = { dropped?: number; skipped?: number; total?: number | null; queueLimited?: boolean };
@@ -14,12 +13,13 @@ type AdditionNotice = { dropped?: number; skipped?: number; total?: number | nul
  */
 type Added = { tracks: Array<{ title?: string | null }>; collection: string | null; insertFirst?: boolean; position?: number | null; notice?: AdditionNotice };
 
-function addedView({ tracks, collection, insertFirst = false, position = null, notice = {} }: Added) {
+/** T는 그 서버의 문구표(채널에 보이는 안내) */
+function addedView(T: BotText, { tracks, collection, insertFirst = false, position = null, notice = {} }: Added) {
   const { dropped = 0, skipped = 0, total = null, queueLimited = false } = notice;
-  const head = queueText.added({ tracks, collection: collection === null ? null : labels.collection(collection), total, first: insertFirst, position });
-  const warnings = queueText.addedWarnings({ dropped, skipped, queueLimited, max: config.bot.maxQueueSize });
+  const head = T.queue.added({ tracks, collection: collection === null ? null : T.labels.collection(collection), total, first: insertFirst, position });
+  const warnings = T.queue.addedWarnings({ dropped, skipped, queueLimited, max: config.bot.maxQueueSize });
   if (!warnings.length) return frame({ icon: head.icon, title: head.title, body: head.body });
-  const partly = queueText.partlyAdded();
+  const partly = T.queue.partlyAdded();
   return frame({ icon: partly.icon, title: partly.title, body: [head.body, ...warnings].join("\n"), color: "warning" });
 }
 

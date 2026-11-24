@@ -1,6 +1,8 @@
 <template>
   <div ref="root" class="relative">
-    <button ref="anchor" type="button" :class="boxCls" :aria-expanded="open" :disabled="disabled" @click="open = !open">
+    <!-- 쓰는 쪽이 버튼 모양을 넣으면(trigger, 위 막대의 아이콘 버튼) 그 모양에 이름과 툴팁을 단다 -->
+    <button v-if="$slots.trigger" ref="anchor" v-tooltip="label" type="button" :class="triggerClass" :aria-label="label" :aria-expanded="open" :disabled="disabled" @click="open = !open"><slot name="trigger" /></button>
+    <button v-else ref="anchor" type="button" :class="boxCls" :aria-expanded="open" :disabled="disabled" @click="open = !open">
       <span class="min-w-0 flex items-center gap-2" :class="muted ? 'text-on-surface-variant' : 'text-on-surface'"
         ><span v-if="summaryColor" class="size-2 shrink-0 rounded-full" :style="{ backgroundColor: summaryColor }"></span><span class="truncate">{{ summary }}</span></span
       >
@@ -55,6 +57,11 @@ const props = defineProps<{
   rows?: number;
   /** 작은 버튼(높이 32px, 아이콘 버튼이 늘어선 도구 줄) */
   small?: boolean;
+  /** 버튼 모양을 넣을 때(trigger) 그 버튼의 클래스, 이름(화면 읽기, 툴팁) */
+  triggerClass?: string;
+  label?: string;
+  /** 패널 폭(px). 없으면 버튼 폭. 버튼이 작을 때(아이콘 버튼) 준다 */
+  panelWidth?: number;
 }>();
 const open = defineModel<boolean>("open", { default: false });
 const term = defineModel<string>("term", { default: "" });
@@ -80,7 +87,7 @@ const PANEL_MAX = rem(LIST_MAX_REM + 3) + 1; // 검색창 몫: 위아래 여백 
 const listEl = ref<HTMLElement | null>(null);
 const overflowing = useOverflowing(listEl);
 
-const { style } = useAnchoredPanel({ root, anchor, panel, open, maxHeight: PANEL_MAX });
+const { style } = useAnchoredPanel({ root, anchor, panel, open, maxHeight: PANEL_MAX, width: props.panelWidth });
 
 // 바깥 누름과 Esc, 기기의 뒤로는 패널 위치를 잡는 쪽이 같이 본다(검색어가 있으면 Esc는 SearchInput이 먼저 비운다)
 watch(open, (now) => {

@@ -8,6 +8,7 @@
  * 환경 변수를 여기서 심는 이유: npm 스크립트의 `VAR=값 node ...` 표기는 Windows에서 동작하지 않는다.
  * 실행기가 실행하는 봇은 이 환경을 물려받는다.
  */
+import "../src/infra/log/choose-at-start.ts"; // 다른 import보다 먼저 로그 언어를 고른다
 process.env.DASHBOARD_DEV_ORIGIN = "true";
 
 // 환경 변수를 심은 뒤에 불러와야 한다(import는 끌어올려진다)

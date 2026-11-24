@@ -8,6 +8,8 @@ import assert from "node:assert/strict";
 import type { NextFunction, Request, Response } from "express";
 import { fake, fakeBot } from "../helpers/fake.ts";
 import { baseUrl, listenForFetch } from "../helpers/listen.ts";
+import { useAppId } from "../../src/infra/app-id.ts";
+useAppId("123456789012345678"); // 기동은 봇 토큰으로 앱 ID를 읽어 넣는다(app/app-info). 세션 쿠키 이름, 로그인, 초대 링크, 명령 배포가 쓴다
 
 const { openTempStore } = await import("../helpers/temp-store.ts");
 const store = openTempStore("plaintext-");
@@ -15,6 +17,7 @@ const { default: config } = await import("../../src/config/index.ts");
 const { createApp } = await import("../../src/dashboard/index.ts");
 const { createPlayerStream } = await import("../../src/dashboard/player-stream.ts");
 const { plaintextReason, checkPublicUrl, siblingCookieNote } = await import("../../src/dashboard/plaintext.ts");
+const { asText } = await import("../../src/infra/log/log-text.ts");
 const { browserSecure } = await import("../../src/dashboard/browser-side.ts");
 const { trustProxy } = await import("../../src/dashboard/client-ip.ts");
 const { sessionCookieName } = await import("../../src/dashboard/cookies.ts");
@@ -91,10 +94,10 @@ test("기동 시 공개 주소 검사: http이고 공인 주소면 열지 않는
 test("기동 시 공개 주소 검사: 호스트를 찾지 못하거나 시간이 넘으면 막지 않고 원인을 구별해 알린다", async () => {
   const notFound = await checkPublicUrl("http://nowhere.example.com", { lookup: () => Promise.reject(Object.assign(new Error("x"), { code: "ENOTFOUND" })) });
   assert.equal(notFound.open, true);
-  assert.match(notFound.open ? (notFound.note ?? "") : "", /찾지 못해/);
+  assert.match(asText(notFound.open ? (notFound.note ?? "") : ""), /찾지 못해/);
   const slow = await checkPublicUrl("http://slow.example.com", { lookup: () => new Promise(() => undefined), timeoutMs: 20 });
   assert.equal(slow.open, true);
-  assert.match(slow.open ? (slow.note ?? "") : "", /0\.02초 안에 조회하지 못해/);
+  assert.match(asText(slow.open ? (slow.note ?? "") : ""), /0\.02초 안에 조회하지 못해/);
 });
 
 test("기동: 공개 주소가 인터넷 평문이면 대시보드를 열지 않고, 이 기기 주소면 127.0.0.1과 ::1에 열고 연 범위를 적는다", async () => {
@@ -184,6 +187,6 @@ test("접속 경로별 판정: 신뢰하지 않는 공인 IP의 평문은 헤더
 });
 
 test("기동 안내: 공개 주소가 http이고 점이 있는 도메인 이름이면 같은 상위 도메인의 쿠키 심기를 알린다. IP, localhost, 점 없는 이름, https는 알리지 않는다", () => {
-  for (const url of ["http://dash.example.com:3000", "http://pc.tailnet.ts.net:3000", "http://Dash.Example.com./"]) assert.match(siblingCookieNote(url) ?? "", /^DASHBOARD_URL이 http이고 호스트가 도메인 이름\(dash\.example\.com|pc\.tailnet\.ts\.net\)/, url);
+  for (const url of ["http://dash.example.com:3000", "http://pc.tailnet.ts.net:3000", "http://Dash.Example.com./"]) assert.match(asText(siblingCookieNote(url) ?? ""), /^DASHBOARD_URL이 http이고 호스트가 도메인 이름\(dash\.example\.com|pc\.tailnet\.ts\.net\)/, url);
   for (const url of ["https://dash.example.com", "http://192.168.0.10:3000", "http://[::1]:3000", "http://[::ffff:10.0.0.1]:3000", "http://localhost:3000", "http://app.localhost:3000", "http://mypc:3000"]) assert.equal(siblingCookieNote(url), null, url);
 });

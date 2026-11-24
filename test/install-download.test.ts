@@ -8,6 +8,8 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import type { AddressInfo, Socket } from "node:net";
 import { download } from "../scripts/download.ts";
+import { useTestLogLanguage } from "../src/infra/log/language.ts";
+import type { LogText } from "../src/infra/log/log-text.ts";
 
 const IDLE_MS = 400;
 const sockets = new Set<Socket>();
@@ -44,6 +46,15 @@ test("응답 헤더가 정한 시간 동안 오지 않으면 끊는다", async (
 
 test("본문을 받는 도중 정한 시간 동안 아무것도 오지 않으면 끊는다", async () => {
   await assert.rejects(download(`${base}/stall`, { idleMs: IDLE_MS }), /받은 것이 없어 끊음/);
+});
+
+test("끊은 까닭은 로그 언어로 그린다(로그 테스트 언어에서는 바꾼 글, 문구 코드는 같다)", async () => {
+  useTestLogLanguage(true);
+  try {
+    await assert.rejects(download(`${base}/silent`, { idleMs: IDLE_MS }), (error: Error & { logText?: LogText }) => !/[가-힣]/.test(error.message) && error.message.includes("/silent") && error.logText?.event === "ffmpeg.downloadIdle");
+  } finally {
+    useTestLogLanguage(false);
+  }
 });
 
 test("조각이 꾸준히 오면 전체가 정한 시간보다 오래 걸려도 끝까지 받는다", async () => {

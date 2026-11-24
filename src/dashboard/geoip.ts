@@ -18,9 +18,15 @@ import { httpFor } from "../infra/http.ts";
 import { PROJECT } from "../infra/project-paths.ts";
 import { onTunablesChanged } from "../config/tunables-changed.ts";
 import { repeatingFailure } from "../infra/repeating-failure.ts";
-import { codeOf, messageOf } from "../rules/error-kind.ts";
+import { codeOf, errorProblem, messageOf } from "../rules/error-kind.ts";
+import { rule, type RuleProblem } from "../rules/rule-problem.ts";
+import { logRuleLine } from "../rules/text/index.ts";
 import type { DevicePlace } from "./contract/identity.ts";
+import { nameFor, type Language } from "../rules/languages.ts";
 import type { GeoipCheck, GeoipStatus } from "./contract/admin.ts";
+import { L } from "../infra/log/text.ts";
+import { logTextError } from "../infra/log/log-text.ts";
+import { ruleLogText } from "../rules/text/index.ts";
 const log = logger.child({ category: "dashboard", sub: "geoip" });
 
 const http = httpFor("dbip");
@@ -43,10 +49,10 @@ let readerVersion: string | null = null;
 let idleTimer: NodeJS.Timeout | null = null;
 let job: GeoipStatus["job"] = "idle";
 let progress: { received: number; total: number | null } | null = null;
-let lastError: string | null = null;
+let lastError: RuleProblem | null = null;
 let busy: Promise<unknown> | null = null;
-const folderFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "GeoIP 폴더 읽기");
-const statFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "GeoIP 파일 정보 조회");
+const folderFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.dashboard.geoipFolderRead());
+const statFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, L.dashboard.geoipFileStat());
 const loggedErrors = new WeakSet<object>();
 const markLogged = (error: unknown) => {
   if (error && typeof error === "object") loggedErrors.add(error);
@@ -71,7 +77,7 @@ function versionsOnDisk(): string[] {
     return versions;
   } catch (error) {
     // 폴더가 아직 없다(다운로드한 적이 없다)
-    if (codeOf(error) !== "ENOENT") folderFailure.fail(`${DIR} | ${codeOf(error) ?? messageOf(error)} (DB 없음으로 처리)`);
+    if (codeOf(error) !== "ENOENT") folderFailure.fail(L.dashboard.geoipFolderFailure({ dir: DIR, reason: codeOf(error) ?? messageOf(error) }));
     return [];
   }
 }
@@ -88,7 +94,7 @@ function status(): GeoipStatus {
       statFailure.ok();
     } catch (error) {
       // 그새 새 버전으로 바뀌었다
-      if (codeOf(error) !== "ENOENT") statFailure.fail(`${fileOf(version)} | stat ${codeOf(error) ?? messageOf(error)} (파일 크기 생략)`);
+      if (codeOf(error) !== "ENOENT") statFailure.fail(L.dashboard.geoipStatFailure({ file: fileOf(version), reason: codeOf(error) ?? messageOf(error) }));
       bytes = null;
     }
   }
@@ -114,7 +120,7 @@ async function load(): Promise<boolean> {
       reader = await open(fileOf(version));
       readerVersion = version;
     } catch (error) {
-      log.warn(`IP 위치 DB 열기 실패(위치 필드를 비움): ${messageOf(error)}`);
+      log.warn(L.dashboard.geoipOpenFailed({ error: messageOf(error) }));
       unload();
       return false;
     }
@@ -125,12 +131,14 @@ async function load(): Promise<boolean> {
   return true;
 }
 
-/** 공인 주소의 위치. 올리지 않았거나 모르면 null. 이름은 한국어가 있으면 한국어 */
-function locate(ip: string): DevicePlace {
+// DB 이름 중 해당 언어의 이름, 없으면 영어
+const nameIn = (names: { en?: string } | undefined, language: Language) => nameFor(names, language) ?? names?.en ?? null;
+
+/** 공인 주소의 위치. 올리지 않았거나 모르면 null. 이름은 사용자 언어(없으면 영어) */
+function locate(ip: string, language: Language): DevicePlace {
   const hit = reader?.get(ip);
   if (!hit) return null;
-  const name = (names: { en?: string; ko?: string } | undefined) => names?.ko ?? names?.en ?? null;
-  return { kind: "geo", city: name(hit.city?.names), region: name(hit.subdivisions?.[0]?.names), country: name(hit.country?.names) };
+  return { kind: "geo", city: nameIn(hit.city?.names, language), region: nameIn(hit.subdivisions?.[0]?.names, language), country: nameIn(hit.country?.names, language) };
 }
 
 /** 그 버전이 올라와 있으면 받는 크기, 없으면 null(HEAD 요청만 보낸다) */
@@ -138,7 +146,7 @@ async function sizeOf(version: string): Promise<number | null> {
   const res = await http.fetch(urlOf(version), { method: "HEAD", signal: AbortSignal.timeout(15_000) });
   if (!res.ok) {
     // 없는 버전이면 404. 다른 거절도 없는 버전으로 보되 원인을 남긴다
-    if (res.status !== 404) log.warn(`IP 위치 DB ${version} 버전 확인: HTTP ${res.status}`);
+    if (res.status !== 404) log.warn(L.dashboard.geoipVersionCheckHttp({ version, status: res.status }));
     return null;
   }
   return Number(res.headers.get("content-length")) || 0;
@@ -168,7 +176,7 @@ async function download(version: string) {
   progress = { received: 0, total: null };
   try {
     const res = await http.fetch(urlOf(version), { signal: AbortSignal.timeout(30 * 60_000) });
-    if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok || !res.body) throw logTextError(L.net.httpStatus({ status: res.status }));
     progress.total = Number(res.headers.get("content-length")) || null;
     const body = Readable.fromWeb(res.body as import("node:stream/web").ReadableStream<Uint8Array>);
     body.on("data", (chunk: Buffer) => {
@@ -177,15 +185,18 @@ async function download(version: string) {
     await pipeline(body, createGunzip(), fs.createWriteStream(temp));
     // 읽히는지 본다(도시 DB 인지까지)
     const probe = await open(temp);
-    if (!/City/i.test(probe.metadata.databaseType)) throw new Error(`도시 DB가 아님(${probe.metadata.databaseType})`);
+    if (!/City/i.test(probe.metadata.databaseType)) {
+      const problem = rule("geoip-not-city", { type: probe.metadata.databaseType });
+      throw Object.assign(new Error(logRuleLine(problem)), { problem });
+    }
     unload();
     for (const old of versionsOnDisk()) fs.rmSync(fileOf(old), { force: true });
     fs.renameSync(temp, fileOf(version));
     lastError = null;
-    log.info(`IP 위치 DB 다운로드 완료: ${version} (${Math.round(fs.statSync(fileOf(version)).size / 1e6)}MB)`);
+    log.info(L.dashboard.geoipDownloaded({ version, megabytes: Math.round(fs.statSync(fileOf(version)).size / 1e6) }));
   } catch (error) {
-    lastError = messageOf(error);
-    log.warn(`IP 위치 DB 다운로드 실패(기존 버전 유지): ${lastError}`);
+    lastError = errorProblem(error);
+    log.warn(L.dashboard.geoipDownloadFailed({ error: ruleLogText(lastError) }));
     markLogged(error);
     throw error;
   } finally {
@@ -208,7 +219,7 @@ const update = () =>
   once(async () => {
     // 받기 실패는 download가 남긴다
     const { latest } = await check().catch((error: unknown) => {
-      log.warn(`IP 위치 DB 버전 확인 실패: ${messageOf(error)}`);
+      log.warn(L.dashboard.geoipVersionCheckFailed({ error: messageOf(error) }));
       markLogged(error);
       throw error;
     });
@@ -224,7 +235,7 @@ async function autoCheck() {
   if (have === thisMonth) return;
   const probe = (version: string) =>
     sizeOf(version).catch((error: unknown) => {
-      log.warn(`IP 위치 DB ${version} 버전 확인 실패: ${messageOf(error)}`);
+      log.warn(L.dashboard.geoipVersionLookupFailed({ version, error: messageOf(error) }));
       markLogged(error);
       throw error;
     });
@@ -232,11 +243,11 @@ async function autoCheck() {
     await once(async () => {
       if ((await probe(thisMonth)) !== null) return download(thisMonth);
       if (!have && (await probe(lastMonth)) !== null) return download(lastMonth);
-      log.debug(`IP 위치 DB ${thisMonth} 버전이 아직 없음(내일 다시 확인)`);
+      log.debug(L.dashboard.geoipVersionNotYet({ version: thisMonth }));
     });
   } catch (error) {
     // 내일 다시 본다(원인은 probe, download가 남겼다)
-    if (!alreadyLogged(error)) log.warn(`GeoIP 다운로드 실패: ${messageOf(error)}`);
+    if (!alreadyLogged(error)) log.warn(L.dashboard.geoipFetchFailed({ error: messageOf(error) }));
   }
 }
 
@@ -246,7 +257,7 @@ function start() {
     for (const name of fs.readdirSync(DIR)) if (name.startsWith(".download-")) fs.rmSync(path.join(DIR, name), { force: true });
   } catch (error) {
     // 폴더가 아직 없다
-    if (codeOf(error) !== "ENOENT") log.warn(`IP 위치 DB 임시 파일 삭제 실패: ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(L.dashboard.geoipTempRemoveFailed({ error: messageOf(error) }));
   }
   setTimeout(() => void autoCheck(), FIRST_CHECK_MS).unref();
   setInterval(() => void autoCheck(), CHECK_EVERY_MS).unref();

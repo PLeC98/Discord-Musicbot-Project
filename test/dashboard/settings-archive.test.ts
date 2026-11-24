@@ -16,6 +16,8 @@ const { fake } = await import("../helpers/fake.ts");
 const { openTempStore } = await import("../helpers/temp-store.ts");
 const { useDefaultDocuments } = await import("../helpers/config-docs.ts");
 const { unzip } = await import("../../src/infra/zip.ts");
+const { logRuleLine } = await import("../../src/rules/text/index.ts");
+type RuleProblem = import("../../src/rules/rule-problem.ts").RuleProblem;
 const { zipped } = await import("../helpers/zip.ts");
 const config = (await import("../../src/config/index.ts")).default;
 const documents = await import("../../src/config/documents.ts");
@@ -29,6 +31,8 @@ const uploads = await import("../../src/dashboard/archive-uploads.ts");
 const { settingsArchiveRouter } = await import("../../src/dashboard/routes/settings-archive.ts");
 const { uploadsRouter } = await import("../../src/dashboard/routes/uploads.ts");
 const { uploadVia } = await import("../helpers/chunk-upload.ts");
+const { _setAppOwners } = await import("../../src/usecases/app-owners.ts");
+const { teamApp } = await import("../helpers/app-owners.ts");
 
 const store = openTempStore("settings-archive-");
 const faviconDir = fs.mkdtempSync(path.join(os.tmpdir(), "settings-archive-favicon-"));
@@ -68,7 +72,7 @@ after(() => {
   fs.rmSync(uploadDir, { recursive: true, force: true });
 });
 
-type Row = { item: string; inFile: boolean; same: boolean; problems: string[]; warnings: string[]; count: number | null };
+type Row = { item: string; inFile: boolean; same: boolean; problems: RuleProblem[]; warnings: RuleProblem[]; count: number | null };
 
 /** 내보낸 파일. 기본은 봇 설정만 */
 async function exported(kind: "settings" | "favicon" = "settings") {
@@ -84,14 +88,15 @@ async function exported(kind: "settings" | "favicon" = "settings") {
 const upload = async (file: Buffer) => fetch(`${base}/preview`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ upload: await uploadVia(origin, "archive", file) }) });
 async function preview(file: Buffer) {
   const res = await upload(file);
-  return { status: res.status, json: (await res.json()) as { token: string; kind: string; rows: Row[]; botVersion: string | null; code?: string; detail?: string } };
+  return { status: res.status, json: (await res.json()) as { token: string; kind: string; rows: Row[]; botVersion: string | null; code?: string; detail?: string; errors?: Array<{ rule?: RuleProblem }> } };
 }
 /** 불러오기: 미리 보기로 올려 받은 티켓으로(route는 "import?items=…") */
 async function send(route: string, file: Buffer) {
   const { json } = await preview(file);
   return fetch(`${base}/${route}${route.includes("?") ? "&" : "?"}token=${json.token}`, { method: "POST" });
 }
-const rowsOf = (json: { rows: Row[] }) => Object.fromEntries(json.rows.map((one) => [one.item, one]));
+// 행의 문제와 경고는 로그 언어로 그려 비교한다(화면은 그 사람의 언어로 그린다)
+const rowsOf = (json: { rows: Row[] }) => Object.fromEntries(json.rows.map((one) => [one.item, { ...one, problems: one.problems.map(logRuleLine), warnings: one.warnings.map(logRuleLine) }]));
 const settingsOf = (file: Buffer) =>
   JSON.parse(
     unzip(file)
@@ -208,10 +213,10 @@ test("선택한 항목 하나라도 검사에 걸리면 400으로 원인을 모�
   tunables.save({ QUEUE_MAX_TRACKS: "77" }, 0);
   const genresRevision = documents.revisionOf("genres");
   const res = await send("import?items=genres,status,tunables", file);
-  const json = (await res.json()) as { code: string; errors: { detail: string }[] };
+  const json = (await res.json()) as { code: string; errors: { rule: RuleProblem }[] };
   assert.deepEqual([res.status, json.code], [400, "config-invalid"]);
-  assert.ok(json.errors.some((one) => one.detail.startsWith("활동 문구:")));
-  assert.ok(json.errors.some((one) => one.detail.startsWith("운영 설정값:")));
+  const items = json.errors.map((one) => (one.rule.code === "archive-item" ? one.rule.params?.item : null));
+  assert.ok(items.includes("status") && items.includes("tunables"), "항목마다 감싼 문제");
   assert.equal(config.bot.maxQueueSize, 77);
   assert.equal(documents.revisionOf("genres"), genresRevision, "검사를 지난 항목도 쓰지 않는다");
 });
@@ -242,7 +247,11 @@ test("명령 전체 백업을 올리면 bad-archive로 봇 폴더에 풀라고 �
   ]);
   const { status, json } = await preview(full);
   assert.deepEqual([status, json.code], [400, "bad-archive"]);
-  assert.match(json.detail ?? "", /전체 백업은 불러올 수 없음/);
+  assert.deepEqual(
+    json.errors?.map((one) => one.rule),
+    [{ code: "archive-full-backup" }],
+    "화면이 그 언어로 그릴 이유",
+  );
 });
 
 test("ZIP이 아니거나 settings.json이 없거나 모르는 형식이면 bad-archive", async () => {
@@ -416,4 +425,23 @@ test("불러오기: 스냅샷을 뜬 뒤 중단되면(go가 예외를 던짐, �
   assert.equal(snapped, 1, "스냅샷은 떴다(그 뒤에 go를 확인한다)");
   assert.deepEqual(settingsDocs.read("genres"), now, "쓰지 않았다");
   fs.rmSync(file, { force: true });
+});
+
+test("봇 운영자 범위는 앱 소유자(팀 소유자)가 불러올 때만 바뀐다. 아니면 미리 보기가 알리고 지금 값을 그대로 둔다", async () => {
+  tunables.saveCard({ OPERATOR_SCOPE: "developer" });
+  const file = await exported();
+  tunables.saveCard({ OPERATOR_SCOPE: null });
+  try {
+    _setAppOwners(teamApp("someone-else", [{ id: "owner", role: "admin" }]));
+    assert.deepEqual(rowsOf((await preview(file)).json).tunables.warnings, ["봇 운영자 범위는 디스코드 팀 소유자만 바꿀 수 있어서 지금 값을 그대로 둬요"]);
+    assert.equal((await send("import?items=tunables", file)).status, 200);
+    assert.equal(tunables.view().values.OPERATOR_SCOPE, undefined, "팀 소유자가 아니면 그대로");
+
+    _setAppOwners(teamApp("owner", []));
+    assert.deepEqual(rowsOf((await preview(file)).json).tunables.warnings, ["봇 운영자 범위가 바뀌어요: 팀 소유자 → 팀 소유자, Admin, Developer"]);
+    assert.equal((await send("import?items=tunables", file)).status, 200);
+    assert.deepEqual([tunables.view().values.OPERATOR_SCOPE, config.dashboard.operators.scope], ["developer", "developer"]);
+  } finally {
+    _setAppOwners(null);
+  }
 });

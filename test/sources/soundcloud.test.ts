@@ -1,6 +1,7 @@
 // src/sources/soundcloud.ts: 사운드클라우드 출처. yt-dlp는 실행하는 exec만 가짜로 둔다(응답, 오류 모양 맞추기는 진짜가 돈다).
 // 응답 모양은 실제 응답(곡, 세트, 미리듣기, 지역 제한)을 따른다.
 
+import { logRuleLine } from "../../src/rules/text/index.ts";
 import { test, before, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 import * as soundcloudSource from "../../src/sources/soundcloud/index.ts";
@@ -227,7 +228,7 @@ test("연결 기록: 응답을 받았으면 성공(없는 곡, 포맷 없음 포
   respond = () => ({ fail: "ERROR: [soundcloud] HTTP Error 403: Forbidden" });
   await assert.rejects(soundcloudSource.find("https://soundcloud.com/artist/blocked"));
   assert.deepEqual(
-    linkStatus("soundcloud")?.recent.map((one) => [one.ok, one.error]),
+    linkStatus("soundcloud")?.recent.map((one) => [one.ok, one.error && logRuleLine(one.error)]),
     [
       [true, null],
       [true, null],

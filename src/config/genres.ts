@@ -1,6 +1,9 @@
 // 자동재생 장르 설정(settings.db의 "genres" 문서, config/documents). 읽을 때 모양과 소스 키를 본다.
 
+import { logRuleLine, logSourceLabel } from "../rules/text/index.ts";
 import logger from "../infra/log/logger.ts";
+import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
 const log = logger.child({ category: "config" });
 // 설정 검증과 실제 실행이 같은 표를 봐야 한다. 어긋나면 저장은 되는데 재생이 안 된다
 import * as sources from "./schema/genre-sources.ts";
@@ -8,6 +11,7 @@ import { usable } from "./source-keys.ts";
 import * as documents from "./documents.ts";
 import { genreProblems, tidyGenres } from "./schema/genres.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
+import { logTextError } from "../infra/log/log-text.ts";
 
 // 저장 전 검사(대시보드)와 읽을 때 검사가 같은 스키마를 본다
 const validateGenres = genreProblems;
@@ -85,7 +89,7 @@ function genres(): GenresConfig {
   } catch (error) {
     if (codeOf(error) !== "CONFIG_INVALID") throw error;
     const message = messageOf(error);
-    if (message !== reported) log.error(`${message}\n   ${lastGood ? "고칠 때까지 이전 정상 설정으로 동작" : "고칠 때까지 자동재생 장르가 없음. 운영자 패널의 자동재생 탭에서 고치세요"}`);
+    if (message !== reported) log.error(L.config.genresInvalid({ error: message, kept: Boolean(lastGood) }));
     reported = message;
     return lastGood ?? EMPTY;
   }
@@ -102,7 +106,7 @@ function checkedGenres(): GenresConfig {
   // 이름, 숫자 이름, 이모지도 같은 검사가 본다(대시보드 저장 전 검사와 같은 문구). 문제를 한 번에 다 알린다
   const shape = validateGenres(loaded);
   if (shape.length) {
-    throw Object.assign(new Error(["자동재생 장르 설정 읽기 실패:", ...shape.map((p) => `   ${p}`)].join("\n")), { code: "CONFIG_INVALID" });
+    throw Object.assign(logTextError(L.config.genresReadFailed({ problems: shape.map((p) => `   ${logRuleLine(p)}`).join("\n") })), { code: "CONFIG_INVALID" });
   }
   const data = loaded as Partial<GenresConfig>; // 검사를 지났다
 
@@ -119,7 +123,7 @@ function checkedGenres(): GenresConfig {
 function keyCheck(name: string, genre: Genre) {
   const list = Array.isArray(genre?.sources) ? genre.sources : [];
   if (!list.length) {
-    throw Object.assign(new Error(`자동재생 장르 ${name}에 소스와 키워드가 하나도 없음. 운영자 패널의 자동재생 탭에서 확인하세요`), { code: "CONFIG_INVALID" });
+    throw Object.assign(logTextError(L.config.genreEmpty({ name })), { code: "CONFIG_INVALID" });
   }
   const missing: string[] = [];
   let alive = 0;
@@ -128,13 +132,12 @@ function keyCheck(name: string, genre: Genre) {
       alive++;
       continue;
     }
-    const need = sources.needsOf(source?.type);
-    if (need && !missing.includes(need.label)) missing.push(need.label);
+    if (sources.needsOf(source?.type) && !missing.includes(source.type)) missing.push(source.type);
   }
   return { missing, alive };
 }
 
-/** 이 장르를 지금 못 쓰면 빠진 키 이름들, 쓸 수 있으면 null(모르는 장르도 null. 그쪽은 unknown-genre) */
+/** 이 장르를 지금 못 쓰면 키가 없는 소스 종류들, 쓸 수 있으면 null(모르는 장르도 null. 그쪽은 unknown-genre) */
 function unusableGenre(name: string): string[] | null {
   const genre = genres().genres[name];
   if (!genre) return null;
@@ -145,23 +148,23 @@ function unusableGenre(name: string): string[] | null {
 function checkSourceKeys(genres: Record<string, Genre>) {
   // 같은 키가 빠진 장르를 묶어 한 줄로 알린다. 장르마다 한 줄이면 기동 로그가 경고로 덮인다
   const grouped = new Map<string, string[]>();
-  const lines: string[] = [];
+  const lines: LogText[] = [];
 
   const dead = new Map<string, string[]>();
 
   for (const [name, genre] of Object.entries(genres)) {
     const { missing, alive } = keyCheck(name, genre);
     if (!missing.length) continue;
-    const key = missing.join(", ");
+    const key = missing.map(logSourceLabel).join(", ");
     const into = alive ? grouped : dead;
     into.set(key, [...(into.get(key) ?? []), name]);
   }
 
   for (const [missing, names] of grouped) {
-    lines.push(`자동재생 장르 ${names.join(", ")}: ${missing} 키가 없어 그 소스를 빼고 나머지 소스만 사용`);
+    lines.push(L.config.genreSourcesDropped({ genres: names.join(", "), missing }));
   }
   for (const [missing, names] of dead) {
-    lines.push(`자동재생 장르 ${names.join(", ")}: ${missing} 키가 없어 쓸 소스가 없음. 키를 입력하기 전까지 이 장르는 선택할 수 없음`);
+    lines.push(L.config.genreSourcesNone({ genres: names.join(", "), missing }));
   }
 
   // 곡을 선택할 때마다 불리므로 내용이 달라졌을 때만 남긴다

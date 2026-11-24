@@ -6,6 +6,7 @@ import path from "node:path";
 import logger from "../../infra/log/logger.ts";
 import { codeOf, messageOf } from "../../rules/error-kind.ts";
 import { LOGIN_BG_CODECS, type LoginBackgroundCodec } from "../contract/login-background.ts";
+import { L } from "../../infra/log/text.ts";
 const log = logger.child({ category: "dashboard" });
 
 const STILL_FILE = /^still-(\d{2,4})\.webp$/;
@@ -31,7 +32,7 @@ function servedFiles(folder: string): string[] {
     try {
       entries = fs.readdirSync(path.join(folder, ...parts), { withFileTypes: true });
     } catch (error) {
-      if (codeOf(error) !== "ENOENT") log.warn(`로그인 배경 파일 목록 읽기 실패(${path.join(folder, ...parts)}): ${messageOf(error)}`);
+      if (codeOf(error) !== "ENOENT") log.warn(L.dashboard.backgroundFilesListFailed({ folder: path.join(folder, ...parts), error: messageOf(error) }));
       return;
     }
     for (const entry of entries) {

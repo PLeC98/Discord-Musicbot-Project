@@ -126,7 +126,7 @@
                     ><span class="w-14 shrink-0 font-semibold">{{ A.codec[one.codec] }}</span
                     ><span :class="one.encoder ? 'text-on-surface-variant' : 'text-error'">{{ one.encoder ? A.use(A.encoderName[one.encoder] ?? one.encoder, one.hardware) : A.noEncoder }}</span></span
                   >
-                  <span v-if="one.why" class="ml-16 flex items-start gap-1 text-xs text-(--warn-ink)"><Icon name="warning" :size="14" class="mt-px shrink-0" />{{ one.why }}</span>
+                  <span v-if="one.why" class="ml-16 flex items-start gap-1 text-xs text-(--warn-ink)"><Icon name="warning" :size="14" class="mt-px shrink-0" />{{ ruleLine(one.why) }}</span>
                 </li>
               </ul>
               <!-- 지금 인코딩: 함께 인코딩하는 단계, AV1 병렬 단계(남은 메모리에 맞춰 정한 것), CPU 선호도로 지정한 코어, 속도. 메모리, 이벤트 루프 지연은 봇 상태 탭 -->
@@ -182,6 +182,7 @@ import { useSaveTarget } from "../composables/save-targets.ts";
 import { formatBytes } from "../../../src/ui/format.ts";
 import { LOGIN_BG_BEFORE_EDIT, LOGIN_BG_BLUR_MAX, LOGIN_BG_COVER_MAX, LOGIN_BG_LIMITS_DEFAULT, LOGIN_BG_OPTIONS_DEFAULT, type LoginBackground, type LoginBackgroundCrop, type LoginBackgroundEdit, type LoginBackgroundItem, type LoginBackgroundLook, type LoginBackgroundOptions, type LoginBackgroundState } from "../../../src/dashboard/contract/login-background.ts";
 import { text } from "../text/index.ts";
+import { ruleLine } from "../utils/rule-line.ts";
 const C = text.loginBackground.card;
 const A = text.loginBackground.advanced;
 const N = text.loginBackground.notice;
@@ -198,10 +199,10 @@ const OPACITY_MIN = 100 - LOGIN_BG_COVER_MAX;
 /** 미리보기 화면의 높이(rem). 넓은 비율은 영역 폭에 맞춰 줄인다 */
 const PANE_REM = 20;
 /** 보일 위치 슬라이더 */
-const AXES = [
+const AXES = computed(() => [
   { key: "x" as const, label: C.positionX },
   { key: "y" as const, label: C.positionY },
-];
+]);
 /** 화면 비율(그 비율의 기기 이름은 문구표). vw, vh는 그 기기의 대표 CSS 크기(로그인 화면 실루엣에 쓴다), mouse는 마우스 기기 */
 const RATIOS = [
   { label: "16:9", w: 16, h: 9, vw: 1920, vh: 1080, mouse: true },

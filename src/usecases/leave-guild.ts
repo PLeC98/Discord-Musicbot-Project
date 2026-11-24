@@ -6,12 +6,13 @@ import * as staySeats from "../store/stay-seats.ts";
 import * as playerEvents from "../player/events.ts";
 import type { PlayerEnd } from "../player/player.ts";
 import type { PlayerSeats } from "../player/registry.ts";
+import type { LogText } from "../infra/log/log-text.ts";
 
 /**
  * 상주 자리를 먼저 지우고(끝 알림을 받은 자리 지킴이가 다시 붙지 않게), 재생 중이면 플레이어를 정리한 뒤(세션도 지운다) 나간다. 나간 뒤 그 서버를 보던 화면에 알린다.
  * reason: 로그에 남길 원인, end: 패널의 끝 문장, go: 나가기 직전에 호출하는 확인(대시보드 로그인 세션 확인. 정리가 패널을 고치는 사이 세션이 끝났으면 예외를 던져 나가지 않음). 나가지 못하면 예외를 던짐
  */
-async function leaveGuild(players: Pick<PlayerSeats, "get">, guild: Guild, { reason, end, go }: { reason: string; end: Extract<PlayerEnd, "operator-leave" | "dashboard-leave">; go?: () => void }) {
+async function leaveGuild(players: Pick<PlayerSeats, "get">, guild: Guild, { reason, end, go }: { reason: LogText; end: Extract<PlayerEnd, "operator-leave" | "dashboard-leave">; go?: () => void }) {
   go?.();
   staySeats.clear(guild.id);
   const player = players.get(guild.id);

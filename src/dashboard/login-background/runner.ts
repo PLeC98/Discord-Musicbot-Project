@@ -9,6 +9,7 @@ import { codeOf, codedError, messageOf } from "../../rules/error-kind.ts";
 import { isCode } from "../../rules/problems.ts";
 import { LOGIN_BG_ENCODE_STAGES, type LoginBackgroundCrop, type LoginBackgroundStage } from "../contract/login-background.ts";
 import * as store from "./store.ts";
+import { L } from "../../infra/log/text.ts";
 
 /** 단계 하나의 작업. item은 지금 기록(바꾸지 않는다), folder는 배경의 폴더, signal은 취소, progress는 그 단계의 0 ~ 1 */
 type StageJob = { item: Readonly<store.Stored>; folder: string; signal: AbortSignal; progress: (value: number) => void };
@@ -57,7 +58,7 @@ function recount(one: store.Stored, crop: LoginBackgroundCrop, range: [number, n
     (error: unknown) => {
       if (counting.get(one.id) !== controller) return;
       counting.delete(one.id);
-      log.warn({ sub: "admin" }, `로그인 배경 "${one.name}"의 예상 용량 재계산 실패: ${messageOf(error)}`);
+      log.warn({ sub: "admin" }, L.dashboard.backgroundEstimateRecountFailed({ name: one.name, error: messageOf(error) }));
     },
   );
 }
@@ -94,7 +95,7 @@ function start(one: store.Stored, stage: LoginBackgroundStage) {
   void Promise.resolve()
     .then(() => {
       // 원본으로 만드는 단계인데 원본이 없다(봇 폴더에서 삭제됐다): 다시 올리게 한다
-      if (FROM_SOURCE.includes(stage) && !fs.existsSync(store.sourceOf(one.id))) throw codedError("background-failed", "원본 없음. 다시 업로드하세요");
+      if (FROM_SOURCE.includes(stage) && !fs.existsSync(store.sourceOf(one.id))) throw codedError("background-failed", L.dashboard.backgroundSourceMissingReupload());
       return executor(job);
     })
     .then(
@@ -118,9 +119,9 @@ function finished(one: store.Stored, run: Run, result: StageResult) {
   if (run.stage === "thumb") store.showIfLatest(one);
   if (store.isReady(one)) {
     one.resumed = false;
-    log.info({ sub: "admin" }, `로그인 배경 "${one.name}" 생성 완료`);
+    log.info({ sub: "admin" }, L.dashboard.backgroundBuilt({ name: one.name }));
     const removed = store.enforceLimits();
-    if (removed.length) log.info({ sub: "admin" }, `로그인 배경 기록이 한도를 넘어 삭제: ${removed.join(", ")}`);
+    if (removed.length) log.info({ sub: "admin" }, L.dashboard.backgroundHistoryTrimmed({ names: removed.join(", ") }));
   }
   store.save();
   kick();
@@ -133,7 +134,7 @@ function failed(one: store.Stored, run: Run, error: unknown) {
   one.problem = typeof code === "string" && isCode(code) ? code : "background-failed";
   one.stage = null;
   one.resumed = false;
-  log.error({ sub: "admin" }, `로그인 배경 "${one.name}" ${run.stage} 단계 실패: ${messageOf(error)}`);
+  log.error({ sub: "admin" }, L.dashboard.backgroundStageFailed({ name: one.name, stage: run.stage, error: messageOf(error) }));
   // 만든 것은 삭제하고 기록만 남긴다(운영자가 원인을 보고 삭제한 뒤 다시 올린다). 걸려 있던 배경이면 이전 배경으로
   const folder = store.folderOf(one.id);
   fs.rmSync(folder, { recursive: true, force: true });

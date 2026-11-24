@@ -11,9 +11,11 @@ import { LIFETIME, noticeSelf, toSelf } from "../../ui/delivery.ts";
 import { reply } from "../../ui/frame.ts";
 import { cellImagesOf } from "../../ui/queue-mosaic/thumbnails.ts";
 import { pageTracks, queueInfoOf, queueView, type QueueInfo, type Screen } from "../../ui/queue-view.ts";
-import * as errors from "../../ui/text/ko/errors.ts";
 import logger from "../../infra/log/logger.ts";
 import { isDj } from "../../usecases/permissions.ts";
+import { privateText } from "../../ui/language.ts";
+import type { BotText } from "../../ui/text/index.ts";
+import { L } from "../../infra/log/text.ts";
 
 const log = logger.child({ category: "commands" });
 
@@ -30,7 +32,7 @@ async function mosaicOf(info: QueueInfo, page: number, waitMs: number): Promise<
   const late = new Promise<null>(
     (resolve) =>
       (timer = setTimeout(() => {
-        log.debug(`/queue 썸네일 대기 시간 초과(이미지 없이 출력): ${waitMs}ms`);
+        log.debug(L.commands.queueThumbnailWaitTimedOut({ waitMs }));
         resolve(null);
       }, waitMs)),
   );
@@ -41,30 +43,32 @@ async function mosaicOf(info: QueueInfo, page: number, waitMs: number): Promise<
   }
 }
 
-/** 지금 대기열로 그린, member가 볼 화면(역할로 버튼을 고른다). 보기 화면이면 모자이크를 waitMs까지 기다린다. without은 뺄 곡(queueInfoOf) */
-async function queueScreen(player: Player, member: GuildMember, screen: Screen, { waitMs = WAIT.turn, without = null }: { waitMs?: number; without?: number | null } = {}) {
+/** 지금 대기열로 그린, member가 볼 화면(역할로 버튼을 고른다). T는 member의 문구표(본인에게만 보이는 화면). 보기 화면이면 모자이크를 waitMs까지 기다린다. without은 뺄 곡(queueInfoOf) */
+async function queueScreen(T: BotText, player: Player, member: GuildMember, screen: Screen, { waitMs = WAIT.turn, without = null }: { waitMs?: number; without?: number | null } = {}) {
   const info = queueInfoOf(player, { without, viewer: { id: member.id, dj: await isDj(member) } });
   const mosaic = screen.mode === "browse" ? await mosaicOf(info, screen.page, waitMs) : null;
-  return queueView(info, screen.mode === "browse" ? { ...screen, mosaic } : screen);
+  return queueView(T, info, screen.mode === "browse" ? { ...screen, mosaic } : screen);
 }
 
 /** 대기열 보기 화면을 본인에게 연다. 대기열이 비었으면 그렇다고 알린다 */
 async function openQueue(interaction: RepliableInteraction<"cached">, player: Player, page = 1) {
-  if (player.queue.length === 0) return noticeSelf(interaction, errors.notice("queue-empty"));
-  const { view, files } = await queueScreen(player, interaction.member, { mode: "browse", page }, { waitMs: WAIT.open });
+  if (player.queue.length === 0) return noticeSelf(interaction, privateText(interaction).errors.notice("queue-empty"));
+  const { view, files } = await queueScreen(privateText(interaction), player, interaction.member, { mode: "browse", page }, { waitMs: WAIT.open });
   await toSelf(interaction, reply(view, files), LIFETIME.screen);
 }
 
 const exported: GuildCommand = {
   help: { section: "queue", tier: "everyone" },
-  data: new SlashCommandBuilder()
-    .setName("queue")
-    .setDescription("대기열을 보여줘요")
-    .addIntegerOption((option) => option.setName("page").setNameLocalizations({ ko: "페이지" }).setDescription("페이지 번호 (기본값: 1)").setRequired(false).setMinValue(1)),
+  name: "queue",
+  data: (C) =>
+    new SlashCommandBuilder()
+      .setName("queue")
+      .setDescription(C.queue.description)
+      .addIntegerOption((option) => option.setName("page").setDescription(C.queue.options.page.description).setRequired(false).setMinValue(1)),
 
   async execute(interaction, bot) {
     const player = bot.players.get(interaction.guild.id);
-    if (!player) return noticeSelf(interaction, errors.notice("no-song"));
+    if (!player) return noticeSelf(interaction, privateText(interaction).errors.notice("no-song"));
     await openQueue(interaction, player, interaction.options.getInteger("page") ?? 1);
   },
 };

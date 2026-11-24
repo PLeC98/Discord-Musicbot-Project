@@ -1,7 +1,7 @@
 // 프로세스 수준에서 새어 나온 오류. 기동이 installErrorHandlers로 핸들러를 건다.
 //
 // 방침: 봇 전체를 내리지 않고 서버 하나로 가둔다.
-// - 아는 오류는 난 위치에서 구분한다(오류 목록). 여기까지 오는 것 가운데 이미 아는 디스코드 코드는 로그만 남긴다.
+// - 아는 오류는 난 위치에서 구분한다(오류 목록). 여기까지 오는 것 가운데 디스코드가 거절한 요청(rules/discord-rejection)은 로그만 남긴다(다시 시작해도 똑같이 거절된다).
 // - 서버 문맥(infra/guild-context)이 있으면 그 서버의 오류다. 그 서버만 다시 시작한다(guildFault).
 // - 서버를 모르면 경계가 빠진 위치다. 로그로 남기고 계속 돈다. 서버를 가리지 않고 쏟아질 때만 내린다(전역 폭주).
 // 네트워크 복구는 음성 연결 상태 기계(player/voice-link)와 discord.js가 맡는다. 여기서 플레이어를 복구하지 않는다.
@@ -9,16 +9,19 @@
 import logger from "../infra/log/logger.ts";
 import { Events } from "discord.js";
 import { currentGuild } from "../infra/guild-context.ts";
-import { errorKind, codeOf, messageOf } from "../rules/error-kind.ts";
+import { errorKind, messageOf } from "../rules/error-kind.ts";
+import { discordRejection, rejectionLine } from "../rules/discord-rejection.ts";
 import { EXIT } from "./exit-codes.ts";
 import { runRecord } from "./run-record.ts";
 import type { GuildFault } from "./guild-fault.ts";
+import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
 
 const flog = logger.child({ category: "core", sub: "fatal" });
 const coreLog = logger.child({ category: "core" });
 
 /** 치명적 오류로 내릴 때 세션을 저장하고 연결을 정리할 플레이어 */
-type Savable = { persistence: { saveNow(reason: string): unknown }; voice: { release(reason: string): unknown } };
+type Savable = { persistence: { saveNow(reason: string): unknown }; voice: { release(reason: LogText): unknown } };
 /** 서버마다의 플레이어 */
 type Savables = Pick<Map<string, Savable | null>, "forEach">;
 /** 오류 핸들러를 걸 클라이언트 */
@@ -40,16 +43,24 @@ function makeFloodGuard(windowMs = FLOOD_WINDOW_MS, max = FLOOD_MAX) {
   };
 }
 
-// 다시 해도 결과가 같은 디스코드 API 오류. 여기까지 왔으면 난 위치가 받지 않은 것이라 로그만 남긴다
-const KNOWN_DISCORD_ERRORS: Record<number, { level: "warn" | "error"; message: string }> = {
-  10062: { level: "warn", message: "상호작용에 3초 안에 응답하지 못함(봇이 바빴거나 네트워크가 느렸거나, 같은 토큰으로 다른 봇이 실행 중) (10062 Unknown interaction)" },
-  40060: { level: "warn", message: "이미 응답한 상호작용에 다시 응답함(코드가 두 번 응답했거나, 같은 토큰으로 다른 봇이 실행 중) (40060 Interaction already acknowledged)" },
-  50013: { level: "error", message: "해당 디스코드 작업을 실행할 권한이 없음(50013 Missing permissions)" },
-};
-
-function knownDiscordError(err: unknown) {
-  const code = codeOf(err);
-  return (typeof code === "number" && KNOWN_DISCORD_ERRORS[code]) || null;
+/**
+ * 디스코드가 거절한 요청이면 로그만 남기고 true. 여기까지 왔으면 호출한 곳이 받지 않은 것이라, 고칠 곳을 찾게 요청, 서버, 어디서를 남긴다.
+ * 스택은 error(권한, 그 밖)면 같은 줄에, warn(상호작용 수명, 사라진 대상)이면 debug로.
+ * 이벤트 경계(app/main의 onFault)와 프로세스 수준(loose)이 같이 쓴다. guildId: 그 서버(모르면 null), where: 어디서 새어 나왔나
+ */
+function logRejection(error: unknown, guildId: string | null, where: LogText): boolean {
+  const rejected = discordRejection(error);
+  if (!rejected) return false;
+  const line = rejectionLine(rejected, guildId, where);
+  if (rejected.level === "error") {
+    if (error instanceof Error) coreLog.error({ err: error }, line);
+    else coreLog.error(line);
+    return true;
+  }
+  coreLog.warn(line);
+  const stack = error instanceof Error ? error.stack : null;
+  if (stack) coreLog.debug(L.core.rejectionStack({ where, stack }));
+  return true;
 }
 
 // 치명적 오류: 세션을 저장하고 나가기 요청 없이 연결을 정리한 뒤 내린다(다시 시작하면 세션 복원이 이어 튼다).
@@ -61,10 +72,10 @@ function fatalShutdown(players: Savables | null | undefined, error: unknown, { e
     try {
       player.persistence.saveNow("shutdown");
     } catch (e) {
-      flog.error(`세션 저장 실패 (서버 ID ${guildId}): ${messageOf(e)}`);
+      flog.error(L.core.floodSessionSaveFailed({ guildId, error: messageOf(e) }));
     }
     try {
-      player.voice.release("치명적 오류");
+      player.voice.release(L.core.fatalErrorReason());
     } catch {
       // 내리는 중이다. 연결은 프로세스와 함께 닫힌다
     }
@@ -72,10 +83,7 @@ function fatalShutdown(players: Savables | null | undefined, error: unknown, { e
   record.end("global-flood");
   // 이 줄 다음에 프로세스가 죽는다. 레벨로 필터링할 때 "봇이 죽은 순간"만 추출할 수 있어야 한다
   const stack = error && typeof error === "object" && "stack" in error ? error.stack : undefined;
-  flog.fatal(
-    `특정 서버와 무관한 오류가 폭주해 봇을 종료함. 재생 세션은 저장함(다시 시작하면 이어서 재생)
-${String(stack || error)}`,
-  );
+  flog.fatal(L.core.errorFloodShutdown({ stack: String(stack || error) }));
   exit();
 }
 
@@ -86,30 +94,26 @@ type Options = { players?: Savables; fault?: GuildFault; proc?: Proc; exit?: () 
 function installErrorHandlers(client: WatchedClient, { players, fault, proc = process, exit, record }: Options = {}) {
   const flooding = makeFloodGuard();
 
-  const loose = (error: unknown, source: string) => {
-    const known = knownDiscordError(error);
-    if (known) {
-      coreLog[known.level](`${known.message} (${source})`);
-      return;
-    }
+  const loose = (error: unknown, source: LogText) => {
     const guildId = currentGuild();
+    if (logRejection(error, guildId, source)) return;
     if (guildId && fault) {
-      fault(guildId, error, source).catch((e: unknown) => coreLog.error(`서버 ${guildId} 오류 처리 실패:`, e));
+      fault(guildId, error, source).catch((e: unknown) => coreLog.error(L.core.guildFaultHandleFailed({ guildId }), e));
       return;
     }
     // 서버를 모른다: 경계가 빠진 위치다. 게이트웨이, 네트워크 오류는 discord.js가 알아서 재연결한다
-    if (errorKind(error) === "network-error") coreLog.warn(`오류 경계 밖의 네트워크 오류 (${source}): ${messageOf(error)}`);
-    else coreLog.error(`오류 경계가 없는 경로에서 발생한 미처리 오류 (${source}):`, error);
+    if (errorKind(error) === "network-error") coreLog.warn(L.core.looseNetworkError({ source, error: messageOf(error) }));
+    else coreLog.error(L.core.looseUnhandledError({ source }), error);
     if (flooding()) {
-      coreLog.error(`${FLOOD_WINDOW_MS / 1000}초 동안 서버를 특정할 수 없는 오류가 ${FLOOD_MAX}회를 초과함`);
+      coreLog.error(L.core.errorFloodDetected({ seconds: FLOOD_WINDOW_MS / 1000, limit: FLOOD_MAX }));
       fatalShutdown(players, error, { exit, record });
     }
   };
 
   // discord.js가 알리는 오류. 핸들러의 거부는 경계(app/event-boundary)가 받으므로 여기는 라이브러리 안의 오류다
-  client.on(Events.Error, (error) => loose(error, "client"));
-  proc.on("unhandledRejection", (reason) => loose(reason, "rejection"));
-  proc.on("uncaughtException", (error) => loose(error, "exception"));
+  client.on(Events.Error, (error) => loose(error, L.core.looseFromClient()));
+  proc.on("unhandledRejection", (reason) => loose(reason, L.core.looseFromRejection()));
+  proc.on("uncaughtException", (error) => loose(error, L.core.looseFromException()));
 }
 
-export { installErrorHandlers, fatalShutdown, makeFloodGuard, knownDiscordError, FLOOD_WINDOW_MS, FLOOD_MAX };
+export { installErrorHandlers, fatalShutdown, makeFloodGuard, logRejection, FLOOD_WINDOW_MS, FLOOD_MAX };

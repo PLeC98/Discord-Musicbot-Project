@@ -13,7 +13,7 @@
       <BaseButton v-if="found?.latest && found.latest !== state.version" @click="update">{{ T.update(found.latest, mb(found.size)) }}</BaseButton>
       <span v-else-if="found" class="text-sm text-on-surface-variant">{{ found.latest ? T.latest : T.notFound }}</span>
     </div>
-    <p v-if="state?.error && state.job === 'idle'" class="text-xs text-(--warn-ink)">{{ T.failed(state.error) }}</p>
+    <p v-if="state?.error && state.job === 'idle'" class="text-xs text-(--warn-ink)">{{ T.failed(ruleLine(state.error)) }}</p>
   </div>
 </template>
 
@@ -25,6 +25,7 @@ import { notifyDone, notifyProblem } from "../composables/toasts.ts";
 import { saved } from "../composables/tunables.ts";
 import type { GeoipCheck, GeoipStatus } from "../../../src/dashboard/contract/admin.ts";
 import { text } from "../text/index.ts";
+import { ruleLine } from "../utils/rule-line.ts";
 const T = text.geoip;
 
 const state = ref<GeoipStatus | null>(null);

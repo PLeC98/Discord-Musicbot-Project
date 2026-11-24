@@ -9,7 +9,7 @@
       <div class="flex flex-col @xl/card:flex-row gap-3 items-start">
         <label class="block flex-1 min-w-0 w-full">
           <span :class="FIELD_LABEL">{{ TJ.urls }}</span>
-          <textarea :value="judgeUrls" rows="3" wrap="off" :placeholder="TJ.urlsPlaceholder" :class="[AREA, 'font-mono text-xs']" @input="judgeUrls = valueOf($event)"></textarea>
+          <textarea :value="judgeUrls" rows="3" wrap="off" :placeholder="TJ.urlsPlaceholder('https://www.youtube.com/watch?v=...')" :class="[AREA, 'font-mono text-xs']" @input="judgeUrls = valueOf($event)"></textarea>
         </label>
         <div class="w-full @xl/card:w-60 @3xl/card:w-72 shrink-0 flex flex-col gap-3">
           <label class="block">
@@ -29,6 +29,9 @@
         ></NoticeBox
       >
       <NoticeBox v-if="judgeError" variant="note" tone="error" icon="cancel" class="mt-0!">{{ judgeError }}</NoticeBox>
+      <NoticeBox v-else-if="judgeOutcome" variant="note" :tone="judgeOutcome.ok ? 'info' : 'error'" :icon="judgeOutcome.ok ? 'check_circle' : 'cancel'" :fill="judgeOutcome.ok" class="mt-0!"
+        >{{ judgeOutcome.head }}<template v-if="judgeOutcome.why">{{ NL }}{{ judgeOutcome.why }}</template></NoticeBox
+      >
 
       <section v-if="judgeCands.length" class="flex flex-col gap-2">
         <div class="flex items-center gap-2">
@@ -38,7 +41,7 @@
         <ul class="flex flex-col rounded-(--r-inner) bg-surface-container-highest divide-y divide-outline-variant/40">
           <li v-for="(cand, i) in judgeCands" :key="cand.url" class="flex items-start gap-3 px-3 py-2">
             <span v-if="judgeVerdicts" class="shrink-0 w-16 text-xs font-semibold" :class="verdictOk(judgeVerdicts[i]) ? 'text-primary' : 'text-error'">{{ verdictText(judgeVerdicts[i]) }}</span>
-            <p v-if="cand.error" class="min-w-0 flex-1 text-xs text-error break-all">{{ cand.url }}: {{ cand.error }}</p>
+            <p v-if="cand.error" class="min-w-0 flex-1 text-xs text-error break-all">{{ cand.url }}: {{ ruleLine(cand.error) }}</p>
             <p v-else class="min-w-0 flex-1 font-mono text-xs text-on-surface break-all">{{ lineFor(cand) }}</p>
           </li>
         </ul>
@@ -74,8 +77,9 @@ import NoticeBox from "./NoticeBox.vue";
 import { FIELD, FIELD_LABEL, AREA, CODE_BOX } from "../utils/field.ts";
 import { valueOf } from "../utils/dom.ts";
 import { text } from "../text/index.ts";
+import { ruleLine } from "../utils/rule-line.ts";
 import { useAiEditor } from "../composables/ai-editor.ts";
 const TJ = text.ai.judge;
 
-const { NL, judgeUrls, judgeGenre, judging, judgeError, judgeCands, judgeList, judgeVerdicts, judgeSent, showJudgeRaw, copy, SAMPLE_LINES, judgeStale, judgeBoxes, lineFor, verdictOk, verdictText, lookupJudge, askPaid } = useAiEditor();
+const { NL, judgeUrls, judgeGenre, judging, judgeError, judgeCands, judgeList, judgeVerdicts, judgeSent, judgeOutcome, showJudgeRaw, copy, SAMPLE_LINES, judgeStale, judgeBoxes, lineFor, verdictOk, verdictText, lookupJudge, askPaid } = useAiEditor();
 </script>

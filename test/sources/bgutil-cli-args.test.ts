@@ -3,6 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { parseInstallArgs } from "../../src/sources/bgutil/cli-args.ts";
+import { asText, type LogText } from "../../src/infra/log/log-text.ts";
 
 const SHA = "a".repeat(40);
 const parse = (...args: string[]) => parseInstallArgs(["node", "install-bgutil.ts", ...args]);
@@ -20,11 +21,11 @@ test("--pin은 커밋이 없으면 저장소에서 확인하고, --commit을 주
 
 test("--tag는 --commit과 함께만(봇의 설치 작업)", () => {
   assert.deepEqual(parse("--tag", "2.0.3", "--commit", SHA), { mode: { kind: "exact", tag: "2.0.3", commit: SHA }, force: false });
-  assert.match((parse("--tag", "2.0.3") as { error: string }).error, /--commit을 함께/);
+  assert.match(asText((parse("--tag", "2.0.3") as { error: LogText }).error), /--commit을 함께/);
 });
 
 test("틀린 조합과 값은 사유를 돌려준다", () => {
-  const error = (...args: string[]) => (parse(...args) as { error?: string }).error ?? "";
+  const error = (...args: string[]) => asText((parse(...args) as { error?: LogText }).error ?? "");
   assert.match(error("--pin", "2.0.3", "--unpin"), /함께 쓸 수 없습니다/);
   assert.match(error("--pin", "2.0.3", "--tag", "2.0.3", "--commit", SHA), /함께 쓸 수 없습니다/);
   assert.match(error("--unpin", "--commit", SHA), /--unpin에는 --commit을/);

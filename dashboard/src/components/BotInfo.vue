@@ -18,7 +18,7 @@
                 <template v-for="r in g.rows" :key="r.key">
                   <span class="flex items-center gap-[1ch] pr-[1.5ch] whitespace-nowrap" :class="g.tone"><Icon :name="r.icon" :size="14" />{{ r.key }}</span>
                   <span class="pl-[calc(1.5ch-1px)] border-l border-current/30 truncate" :class="g.tone" :title="r.full"
-                    ><span class="text-on-surface">{{ r.value }}</span
+                    ><button v-if="r.tap" type="button" class="text-on-surface" @click="r.tap">{{ r.value }}</button><span v-else class="text-on-surface">{{ r.value }}</span
                     ><span v-if="r.note" class="ml-[1ch]" :class="r.warn ? 'text-(--warn-ink)' : 'text-on-surface-variant'">{{ r.note }}</span></span
                   >
                 </template>
@@ -49,6 +49,10 @@ import type { IconName } from "../icons.ts";
 import { shell } from "../shell/shell-state.ts";
 import BotInfoLogo from "./BotInfoLogo.vue";
 import { ffmpegLabel, releaseDay } from "../utils/ffmpeg-version.ts";
+import { devOptions, setDevOptions, tapOutcome } from "../composables/dev-options.ts";
+import { dismiss, notify, removeFromInbox } from "../composables/toasts.ts";
+import { text } from "../text/index.ts";
+const TD = text.dev.toggle;
 
 const props = defineProps<{ status: AdminStatus }>();
 
@@ -125,8 +129,26 @@ const dateTimeText = (ms: number) => {
   return `${date.getFullYear()}-${two(date.getMonth() + 1)}-${two(date.getDate())} ${two(date.getHours())}:${two(date.getMinutes())}`;
 };
 
-/** warn: 대비책을 쓰거나 물린 릴리스가 있으면 덧붙인 정보를 경고 색으로 보인다 */
-type InfoRow = { icon: IconName; key: string; value: string; note?: string; warn?: boolean; full?: string };
+/** warn: 대비책을 쓰거나 물린 릴리스가 있으면 덧붙인 정보를 경고 색으로 보인다. tap: 값을 누를 수 있다(겉모습은 그대로) */
+type InfoRow = { icon: IconName; key: string; value: string; note?: string; warn?: boolean; full?: string; tap?: () => void };
+
+// Version을 여러 번 누르면 개발자 옵션 탭이 생긴다(안드로이드의 빌드 번호). 알림은 한 번에 하나만 둔다(새로 누르면 지난 알림을 알림함에서도 지운다)
+let taps = 0;
+let lastToast: number | null = null;
+function tapVersion() {
+  if (!devOptions.value) taps++;
+  const outcome = tapOutcome(taps, devOptions.value);
+  if (outcome.kind === "quiet") return;
+  if (lastToast !== null) {
+    dismiss(lastToast);
+    removeFromInbox(lastToast);
+  }
+  if (outcome.kind === "unlocked") {
+    taps = 0;
+    setDevOptions(true);
+  }
+  lastToast = notify(outcome.kind === "left" ? { title: TD.left(outcome.left), severity: "info" } : outcome.kind === "unlocked" ? { title: TD.unlocked, severity: "success", actions: [{ label: TD.open, to: "/admin?tab=dev" }] } : { title: TD.already, severity: "info" });
+}
 
 // ffmpeg: 버전 옆에 출처(설치본이 아닐 때), 고정 여부, 실행되지 않아 물린 릴리스 수를 이 순서로 두 개까지만 덧붙여 줄이 길어지지 않게 한다.
 // 이전 설치본으로 떴으면 대개 새 빌드가 실행되지 않아 물린 것이라 물린 릴리스 수는 덧붙이지 않는다.
@@ -163,7 +185,7 @@ const infoGroups = computed<Array<{ title: string; tone: string; rows: InfoRow[]
       tone: "text-primary",
       rows: [
         { icon: "smart_toy", key: "Name", value: status.bot.tag },
-        { icon: "sell", key: "Version", value: status.bot.version },
+        { icon: "sell", key: "Version", value: status.bot.version, tap: tapVersion },
         { icon: "schedule", key: "Uptime", value: uptimeText(status.bot.uptime) },
         { icon: "event", key: "Started", value: dateTimeText(status.bot.startedAt) },
         { icon: "public", key: "Guilds", value: `${status.bot.guilds}` },

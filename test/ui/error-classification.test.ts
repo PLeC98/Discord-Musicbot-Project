@@ -10,6 +10,17 @@ import assert from "node:assert/strict";
 import * as youtubeSource from "../../src/sources/youtube/index.ts";
 import { errorKind, codedError } from "../../src/rules/error-kind.ts";
 import { ytDlpError } from "../helpers/errors.ts";
+import { testText } from "../helpers/log-text.ts";
+import { spawn } from "node:child_process";
+import * as ytErrors from "../../src/sources/youtube/errors.ts";
+import run, { useExec, type Exec, type YtDlpError } from "../../src/sources/ytdlp-spawn.ts";
+import { logTextError } from "../../src/infra/log/log-text.ts";
+import { L } from "../../src/infra/log/text.ts";
+import { timeoutError } from "../../src/infra/error-text.ts";
+import { SsrfError } from "../../src/infra/safe-url.ts";
+import { ruleError } from "../../src/rules/text/index.ts";
+import { plain } from "../../src/rules/rule-problem.ts";
+import { nameOf as soundcloudNameOf } from "../../src/sources/soundcloud/run.ts";
 const T = true;
 const F = false;
 // 문장, 분류, 판별 열(내려감, 연령 제한, 클라이언트 탓, 낡은 주소, 건너뛴 클라이언트)
@@ -146,7 +157,7 @@ test("errorKind는 이름(code)이 있으면 글보다 먼저 본다", () => {
 test("errorKind는 오류 자신 → 원인(cause) → 시스템, 디스코드 번호 순서로 이름을 본다", () => {
   // 글에 기대지 않는다: 글만 보면 unknown인 것들
   const quiet = (code: string | number) => Object.assign(new Error("무언가"), { code });
-  assert.equal(errorKind(codedError("stream-failed", "무언가")), "stream-failed");
+  assert.equal(errorKind(codedError("stream-failed", testText("무언가"))), "stream-failed");
   assert.equal(errorKind(new Error("무언가", { cause: quiet("ENOTFOUND") })), "network-error", "fetch는 원인에 시스템 이름을 단다");
   assert.equal(errorKind(quiet("UND_ERR_CONNECT_TIMEOUT")), "network-error");
   // 감싼 오류의 원인의 원인(fetch 오류는 원인에 시스템 이름이 붙는다)
@@ -163,8 +174,54 @@ test("errorKind는 오류 자신 → 원인(cause) → 시스템, 디스코드 �
   assert.equal(errorKind(refused(50013, "https://discord.com/api/v10/guilds/1/members/2")), "permission-other");
   assert.equal(errorKind(refused(50013)), "permission-other", "주소가 없으면 그 밖");
   assert.equal(errorKind(refused(10062, "https://discord.com/api/v10/channels/123/messages")), "unknown-error", "권한이 아닌 번호는 종류가 아니다");
-  assert.equal(errorKind(new Error("음성 채널에 다시 연결하지 못했습니다", { cause: codedError("voice-failed", "음성 채널에 붙지 못했습니다") })), "voice-failed");
+  assert.equal(errorKind(new Error("음성 채널에 다시 연결하지 못했습니다", { cause: codedError("voice-failed", testText("음성 채널에 붙지 못했습니다")) })), "voice-failed");
   // 포맷을 끝내 얻지 못한 소스 쪽 이름은 사슬에 다른 종류가 없을 때만 stream-failed
   for (const name of ["no-audio-only", "client-fault", "stale-media", "skipped-client", "no-formats"]) assert.equal(errorKind(quiet(name)), "stream-failed", name);
-  assert.equal(errorKind(Object.assign(new Error("포맷 없음", { cause: codedError("network-error", "연결 실패") }), { code: "client-fault" })), "network-error", "원인 사슬의 종류가 먼저 이긴다");
+  assert.equal(errorKind(Object.assign(new Error("포맷 없음", { cause: codedError("network-error", testText("연결 실패")) }), { code: "client-fault" })), "network-error", "원인 사슬의 종류가 먼저 이긴다");
+});
+
+// 우리 예외의 글은 로그 언어로 그린 것이라 번역하면 영어 패턴에 걸릴 수 있다. 판정은 yt-dlp와 외부 라이브러리가 쓴 글만 읽는다
+const EVERY_PATTERN = 'Video unavailable. Sign in to confirm your age. Sign in to confirm you are not a bot. Requested format is not available. PO Token. Skipping client "web". HTTP Error 429. timed out. ffmpeg. not available in your country. This live event will begin';
+const judged = (error: unknown) => [ytErrors.codeOf(error), ytErrors.isVideoUnavailableError(error), ytErrors.isAgeRestrictedError(error), ytErrors.isClientFault(error), ytErrors.isStaleMediaError(error), ytErrors.isSkippedClientError(error), ytErrors.isUpcomingError(error)];
+
+test("우리 예외의 message는 판정하지 않는다. 같은 글이 stderr에 있으면 판정한다", () => {
+  assert.deepEqual(judged(logTextError(testText(EVERY_PATTERN))), [null, F, F, F, F, F, F]);
+  assert.equal(ytErrors.codeOf(Object.assign(new Error("exit 1"), { stderr: EVERY_PATTERN })), "yt-age-no-cookies");
+  assert.equal(ytErrors.codeOf(new Error(EVERY_PATTERN)), "yt-age-no-cookies", "외부 라이브러리의 message는 읽는다");
+});
+
+test("서술자를 가진 우리 예외는 만든 함수와 상관없이 그대로 던지든 원인으로 들어가든 판정에서 제외한다", () => {
+  const text = testText(EVERY_PATTERN);
+  const ours = { logTextError: logTextError(text), codedError: codedError("stream-failed", text), timeoutError: timeoutError(text), SsrfError: new SsrfError(text), ruleError: ruleError(plain(EVERY_PATTERN)) };
+  for (const [made, error] of Object.entries(ours)) {
+    assert.deepEqual(judged(error), [null, F, F, F, F, F, F], made);
+    assert.deepEqual(judged(codedError("direct-unavailable", testText("x"), { cause: error })), [null, F, F, F, F, F, F], `${made}(원인)`);
+  }
+});
+
+test("사운드클라우드 실패 이름을 붙일 때도 우리 예외의 글은 보지 않는다", () => {
+  assert.equal(soundcloudNameOf(logTextError(testText("HTTP Error 404")), "track"), null);
+  assert.equal(soundcloudNameOf(Object.assign(new Error("exit 1"), { stderr: "ERROR: [soundcloud] 123: Unable to download JSON metadata: HTTP Error 404: Not Found" }), "track"), "unavailable-contents");
+});
+
+test("우리 예외가 yt-dlp 오류를 원인(cause)으로 가지면 그 원인을 판정한다", () => {
+  const cause = Object.assign(new Error("exit 1"), { stderr: "ERROR: [youtube] abc: Video unavailable" });
+  assert.equal(ytErrors.codeOf(logTextError(testText(EVERY_PATTERN), { cause })), "unavailable-contents");
+});
+
+test("yt-dlp가 stderr 없이 끝나면 명령줄이 든 종료 줄로 오류 이름을 붙이지 않는다(--ffmpeg-location이 stream-failed로 읽히지 않게)", async (t) => {
+  t.after(() => useExec(null));
+  const exited = logTextError(L.ytdlp.processExited({ exitCode: "1", signal: "null", command: "yt-dlp --ffmpeg-location C:/vendor/ffmpeg/ffmpeg.exe https://youtu.be/abcdefghijk" }));
+  useExec(((..._args: unknown[]) => {
+    const proc = spawn(process.execPath, ["-e", "process.exit(1)"], { windowsHide: true });
+    const done = new Promise((_resolve, reject) => proc.on("exit", (code) => reject(Object.assign(exited, { stderr: "", exitCode: code }))));
+    return Object.assign(done, proc);
+  }) as unknown as Exec);
+  const error = await run("https://youtu.be/abcdefghijk", { dumpSingleJson: true }).then(
+    () => assert.fail("실패해야 한다"),
+    (e: unknown) => e as YtDlpError,
+  );
+  assert.equal(error.code, undefined);
+  assert.deepEqual(judged(error), [null, F, F, F, F, F, F]);
+  assert.match(error.message, /ffmpeg\.exe/, "로그에 남길 글은 그대로다");
 });

@@ -3,12 +3,10 @@ import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "commands" });
 import { showFailureWith } from "../../ui/failure-notice.ts";
 import { addFailureMessage } from "../../ui/error-messages.ts";
-import * as searchText from "../../ui/text/ko/search.ts";
-import { requestPlayback } from "../../usecases/add-tracks.ts";
+import { requestPlayback, type Entrance } from "../../usecases/add-tracks.ts";
 import { interactionResponder } from "../../usecases/responders.ts";
-import { offerOnInteraction } from "../../usecases/playlist-more.ts";
+import { offerOnInteraction } from "../interactions/playlist-more-handler.ts";
 import { checkAdd, checkSummon } from "../../usecases/permissions.ts";
-import * as errors from "../../ui/text/ko/errors.ts";
 import { frame, noticeFrame, reply } from "../../ui/frame.ts";
 import type { PermissionDenied } from "../../usecases/permissions.ts";
 import type { GuildCommand } from "../../app/command-loader.ts";
@@ -16,11 +14,12 @@ import type { HelpEntry } from "../../ui/help-lines.ts";
 import type { ChatInputCommandInteraction, ContainerBuilder, GuildMember, StringSelectMenuInteraction } from "discord.js";
 import type { BotContext } from "../../app/bot-context.ts";
 import { noticeMs, noticeSelf, replaceSelf, unlessGone } from "../../ui/delivery.ts";
+import { privateText } from "../../ui/language.ts";
+import { L } from "../../infra/log/text.ts";
 
-/** 곡을 찾아 넣는 명령. /play와 /playfirst는 이름, 설명, 권한, 넣을 위치만 다르다 */
+/** 곡을 찾아 넣는 명령. /play와 /playfirst는 이름(문구도 이름으로 찾는다), 권한, 넣을 위치만 다르다 */
 type PlayOptions = {
-  name: string;
-  description: string;
+  name: "play" | "playfirst";
   help: HelpEntry;
   /** 막으면 안내 문장 */
   permission: (member: GuildMember) => Promise<PermissionDenied | null> | PermissionDenied | null;
@@ -29,9 +28,9 @@ type PlayOptions = {
 
 /**
  * 찾을 것(검색어, 링크)으로 곡을 넣고 이 상호작용의 답 메시지로 알린다. 권한은 호출부가 이미 보았다.
- * placeholder: 찾는 동안 본인에게 보일 줄, source: 로그 라벨, show: 자리표시자를 보이는 법(기본은 새 답. 검색 결과 메뉴는 그 메시지를 고친다)
+ * placeholder: 찾는 동안 본인에게 보일 줄, source: 요청이 들어온 입구, show: 자리표시자를 보이는 법(기본은 새 답. 검색 결과 메뉴는 그 메시지를 고친다)
  */
-async function playOnReply(interaction: ChatInputCommandInteraction<"cached"> | StringSelectMenuInteraction<"cached">, bot: BotContext, { query, placeholder, source, insertFirst = false, show = (view) => interaction.reply(reply(view)) }: { query: string; placeholder: string; source: string; insertFirst?: boolean; show?: (view: ContainerBuilder) => Promise<unknown> }) {
+async function playOnReply(interaction: ChatInputCommandInteraction<"cached"> | StringSelectMenuInteraction<"cached">, bot: BotContext, { query, placeholder, source, insertFirst = false, show = (view) => interaction.reply(reply(view)) }: { query: string; placeholder: string; source: Entrance; insertFirst?: boolean; show?: (view: ContainerBuilder) => Promise<unknown> }) {
   const { member, guild, channel } = interaction;
   // 자리표시자는 본인에게만. Components V2여야 이 자리표시자를 안내, 메뉴로 고칠 수 있다
   await show(frame({ body: placeholder }));
@@ -50,27 +49,29 @@ async function playOnReply(interaction: ChatInputCommandInteraction<"cached"> | 
   });
 
   if (!result.success) {
-    const failed = addFailureMessage(result);
+    const failed = addFailureMessage(privateText(interaction), result);
     return await replaceSelf(interaction, noticeFrame(failed), noticeMs(failed));
   }
   // 담은 안내는 모두에게 따로 갔다. 자리표시자는 더 넣기 메뉴로 고치거나 삭제한다
   if (result.more && (await offerOnInteraction(interaction, result.more, result.player))) return;
-  await interaction.deleteReply().catch(unlessGone(log, "자리표시자 삭제"));
+  await interaction.deleteReply().catch(unlessGone(log, L.commands.placeholderDelete()));
 }
 
-function playCommand({ name, description, help, permission, insertFirst = false }: PlayOptions): GuildCommand {
+function playCommand({ name, help, permission, insertFirst = false }: PlayOptions): GuildCommand {
   return {
+    name,
     help,
-    data: new SlashCommandBuilder()
-      .setName(name)
-      .setDescription(description)
-      .addStringOption((option) => option.setName("query").setNameLocalizations({ ko: "곡" }).setDescription("지원하는 플랫폼이나 미디어 파일 링크, 유튜브 검색어").setRequired(true)),
+    data: (C) =>
+      new SlashCommandBuilder()
+        .setName(name)
+        .setDescription(C[name].description)
+        .addStringOption((option) => option.setName("query").setDescription(C[name].options.query.description).setRequired(true)),
 
     async execute(interaction, bot) {
       const query = interaction.options.getString("query", true);
       const permErr = await permission(interaction.member);
-      if (permErr) return await noticeSelf(interaction, errors.notice(permErr));
-      await playOnReply(interaction, bot, { query, placeholder: searchText.searching(query), source: `/${name}`, insertFirst });
+      if (permErr) return await noticeSelf(interaction, privateText(interaction).errors.notice(permErr));
+      await playOnReply(interaction, bot, { query, placeholder: privateText(interaction).search.searching(query), source: `/${name}`, insertFirst });
     },
   };
 }
@@ -79,7 +80,6 @@ function playCommand({ name, description, help, permission, insertFirst = false 
 const exported = playCommand({
   help: { section: "play", tier: "everyone" },
   name: "play",
-  description: "곡을 재생해요",
   permission: (member) => checkAdd(member) || checkSummon(member),
 });
 export default exported;

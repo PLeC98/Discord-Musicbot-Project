@@ -22,6 +22,8 @@ import { codeOf, messageOf } from "../../src/rules/error-kind.ts";
 import runYtDlp, { useExec, type Exec, type RunYtDlp, type YtDlpFlags, type YtDlpError } from "../../src/sources/ytdlp-spawn.ts";
 import { useRecentInfo, recall } from "../../src/sources/youtube/recent-info.ts";
 import { plainText } from "../helpers/notice.ts";
+import { textFor } from "../../src/ui/text/index.ts";
+const KO = textFor("ko");
 
 // yt-dlp가 줄 것. 객체, 글자, 또는 실패(fail: stderr), 경고(warn)
 type Reply = ({ fail?: string; warn?: string } & Record<string, unknown>) | string | null;
@@ -140,7 +142,7 @@ test("정보: 못 트는 이유가 분명하면(비공개, 연령 제한) 예외
   const result = await lookup.findTracks("https://www.youtube.com/watch?v=ppppppppppp", "test");
   assert.equal(result.code, "lookup-failed");
   const { errorMessage } = await import("../../src/ui/error-messages.ts");
-  assert.equal(result.success ? "" : plainText(errorMessage(result.error)), "접근할 수 없거나 존재하지 않는 영상이에요!\n비공개이거나 삭제된 콘텐츠는 틀 수 없어요.");
+  assert.equal(result.success ? "" : plainText(errorMessage(KO, result.error)), "접근할 수 없거나 존재하지 않는 영상이에요!\n비공개이거나 삭제된 콘텐츠는 틀 수 없어요.");
 });
 
 // 시작 전 라이브(예정된 방송, 최초 공개)는 yt-dlp가 정보도 주지 않고 실패한다. 넣을 수 있게 포맷 없이 정보만 한 번 더 받는다

@@ -8,7 +8,7 @@
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "youtube", sub: "client" });
 import config from "../../config/index.ts";
-import { josa } from "../../rules/josa.ts";
+import { L } from "../../infra/log/text.ts";
 
 // yt-dlp가 알아듣는 것을 확인한 클라이언트 이름. 목록에 없는 이름은 기동 시 한 줄 알리고 상태 화면에 표시만 한다.
 // 필터링하지 않고 그대로 yt-dlp에 넘긴다(필터링하면 yt-dlp가 나중에 추가하는 클라이언트를 막게 된다).
@@ -62,7 +62,7 @@ class PlayerClients {
         this.excluded.delete(client);
         this.history.delete(client);
         this.exhaustedLogged = false;
-        log.info(`${client}${josa(client, "을")} 다시 테스트(제외한 지 ${Math.round((this.now() - at) / 60000)}분)`);
+        log.info(L.youtube.clientRetest({ client, minutes: Math.round((this.now() - at) / 60000) }));
       }
     }
     return this.order.filter((c) => !this.excluded.has(c));
@@ -85,15 +85,15 @@ class PlayerClients {
     if (ng < this.fails) return;
 
     this.excluded.set(client, this.now());
-    const until = this.retryMs > 0 ? `${Math.round(this.retryMs / 60000)}분 동안` : "이번 실행 동안";
-    log.warn(`${client}${josa(client, "을")} ${until} 건너뜀(최근 ${h.length}회 중 ${ng}회 실패). 계속 되풀이되면 유튜브 탭의 "유튜브 클라이언트 순서"에서 빼는 것을 검토하세요`);
+    const until = this.retryMs > 0 ? L.youtube.clientExcludedFor({ minutes: Math.round(this.retryMs / 60000) }) : L.youtube.clientExcludedThisRun();
+    log.warn(L.youtube.clientExcluded({ client, until, total: h.length, failed: ng }));
   }
 
   // 모든 클라이언트가 제외됐을 때 한 번만 알린다(곡마다 같은 줄을 쌓지 않게)
   noteExhausted() {
     if (this.exhaustedLogged) return;
     this.exhaustedLogged = true;
-    log.warn(`지정한 클라이언트가 모두 제외됨(yt-dlp 기본값으로 진행)`);
+    log.warn(L.youtube.allClientsExcluded());
   }
 
   // 로그, 대시보드용

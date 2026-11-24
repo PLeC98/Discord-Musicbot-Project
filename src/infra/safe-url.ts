@@ -22,6 +22,8 @@ import { pipeline, Transform } from "stream";
 import { isPublicIp } from "./public-address.ts";
 import { codeOf, messageOf, timeoutError } from "./error-text.ts";
 import config from "../config/index.ts";
+import { L } from "./log/text.ts";
+import { logTextError, renderLogText, type LogText } from "./log/log-text.ts";
 
 // 보안 상수. 잘못 설정해 방어가 꺼지지 않게 설정으로 빼지 않는다
 const ALLOWED_SCHEMES = new Set(["http:", "https:"]);
@@ -46,12 +48,19 @@ type Accept = { contentType: RegExp; maxBytes: number; timeoutMs: number; allowU
 /** 직접 링크(음원)의 조건 */
 const DIRECT_LINK: Accept = { contentType: ALLOWED_CONTENT_TYPE, maxBytes: MAX_BYTES, timeoutMs: GET_TIMEOUT_MS };
 
+/** 받지 않는 주소, 응답이라 막은 요청. 메시지는 로그 언어로 그린 글이고 서술자(logText)를 함께 갖는다 */
 class SsrfError extends Error {
-  constructor(message: string) {
-    super(message);
+  readonly logText: LogText;
+  constructor(message: LogText) {
+    super(renderLogText(message));
     this.name = "SsrfError";
+    this.logText = message;
   }
 }
+
+/** 받은 것이 최대 크기를 넘었다는 오류 코드(부르는 쪽이 공간 부족 같은 자기 이유로 바꿔 알린다) */
+const TOO_LARGE = "TOO_LARGE";
+const tooLarge = <E extends Error>(error: E) => Object.assign(error, { code: TOO_LARGE });
 
 // DNS가 붙인 이름(ENOTFOUND, EAI_AGAIN 등), 없으면 메시지. 원인으로 달지 않는다(오류 종류가 네트워크로 바뀐다)
 const dnsReason = (error: unknown) => codeOf(error) ?? messageOf(error);
@@ -71,10 +80,10 @@ function parseAllowed(rawUrl: string, allowUrl?: (url: URL) => boolean): URL {
   try {
     url = new URL(rawUrl);
   } catch {
-    throw new SsrfError(`잘못된 URL: ${rawUrl}`);
+    throw new SsrfError(L.net.badUrl({ rawUrl }));
   }
-  if (!ALLOWED_SCHEMES.has(url.protocol)) throw new SsrfError(`허용되지 않는 스키마: ${url.protocol}`);
-  if (allowUrl && !allowUrl(url)) throw new SsrfError(`받지 않는 주소: ${url.host}`);
+  if (!ALLOWED_SCHEMES.has(url.protocol)) throw new SsrfError(L.net.schemeNotAllowed({ protocol: url.protocol }));
+  if (allowUrl && !allowUrl(url)) throw new SsrfError(L.net.hostNotAllowed({ host: url.host }));
   return url;
 }
 
@@ -93,7 +102,7 @@ async function validateAndResolve(rawUrl: string, lookup: LookupFn = dns.lookup.
 
   // 호스트가 IP 리터럴이면 net이 DNS lookup을 건너뛰므로(=핀 에이전트 우회) 여기서 직접 검사
   if (net.isIP(host)) {
-    if (isBlockedIp(host)) throw new SsrfError(`차단된 IP(리터럴): ${host}`);
+    if (isBlockedIp(host)) throw new SsrfError(L.net.blockedIpLiteral({ host }));
     return { url, pinnedIp: host, family: net.isIPv6(host) ? 6 : 4 };
   }
 
@@ -101,11 +110,11 @@ async function validateAndResolve(rawUrl: string, lookup: LookupFn = dns.lookup.
   try {
     addrs = await lookup(host, { all: true, verbatim: true });
   } catch (error) {
-    throw new SsrfError(`DNS 해석 실패: ${host} (${dnsReason(error)})`);
+    throw new SsrfError(L.net.dnsFailed({ host, reason: dnsReason(error) }));
   }
-  if (!addrs || addrs.length === 0) throw new SsrfError(`DNS 결과 없음: ${host}`);
+  if (!addrs || addrs.length === 0) throw new SsrfError(L.net.dnsEmpty({ host }));
   for (const a of addrs) {
-    if (isBlockedIp(a.address)) throw new SsrfError(`차단된 IP: ${a.address} (${host})`);
+    if (isBlockedIp(a.address)) throw new SsrfError(L.net.blockedIp({ address: a.address, host }));
   }
   const chosen = addrs[0];
   return { url, pinnedIp: chosen.address, family: chosen.family };
@@ -141,9 +150,9 @@ function send({ method, url, agent, timeoutMs, headers, signal }: Outgoing): Pro
       signal?.removeEventListener("abort", stop);
       resolve({ status: res.statusCode ?? 0, headers: res.headers, body: res });
     });
-    const stop = () => req.destroy(signal?.reason instanceof Error ? signal.reason : new Error("요청이 취소됨"));
+    const stop = () => req.destroy(signal?.reason instanceof Error ? signal.reason : logTextError(L.net.requestCancelled()));
     signal?.addEventListener("abort", stop, { once: true });
-    req.on("timeout", () => req.destroy(timeoutError(`응답이 ${timeoutMs}ms 동안 없음`)));
+    req.on("timeout", () => req.destroy(timeoutError(L.net.noResponse({ ms: timeoutMs }))));
     req.on("error", (error) => {
       signal?.removeEventListener("abort", stop);
       reject(error);
@@ -192,7 +201,7 @@ async function guardedRequest(method: "HEAD" | "GET", rawUrl: string, { request 
       response.body.destroy();
       agent.destroy();
       const location = response.headers.location;
-      if (!location) throw new SsrfError("리다이렉트 응답에 Location 헤더 없음");
+      if (!location) throw new SsrfError(L.net.redirectNoLocation());
       currentUrl = new URL(String(location), url).href; // 상대 주소는 이 홉의 주소를 기준으로 푼다
       continue;
     }
@@ -200,13 +209,13 @@ async function guardedRequest(method: "HEAD" | "GET", rawUrl: string, { request 
       response.body.destroy();
       agent.destroy();
       // 받는 쪽이 상태로 구분한다(416은 받을 구간이 없음, 4xx는 재시도해도 같다)
-      throw Object.assign(new Error(`요청 실패: HTTP ${response.status}`), { status: response.status });
+      throw Object.assign(logTextError(L.net.httpFailed({ status: response.status })), { status: response.status });
     }
 
     return { response, agent, finalUrl: url.href };
   }
 
-  throw new SsrfError(`리다이렉트 횟수 초과(>${MAX_REDIRECTS})`);
+  throw new SsrfError(L.net.tooManyRedirects({ max: MAX_REDIRECTS }));
 }
 
 /** 최대 크기를 넘으면 오류로 스트림을 끊는 통과 Transform이다. 재시도해도 같으니 permanent를 단다 */
@@ -216,7 +225,7 @@ function byteCap(maxBytes: number) {
     transform(chunk, _enc, cb) {
       total += chunk.length;
       if (total > maxBytes) {
-        cb(Object.assign(new Error(`다운로드한 파일이 최대 크기(${maxBytes} bytes)를 초과함`), { permanent: true }));
+        cb(Object.assign(tooLarge(logTextError(L.net.downloadTooBig({ maxBytes }))), { permanent: true }));
         return;
       }
       cb(null, chunk);
@@ -229,11 +238,11 @@ function assertResponseAllowed(responseHeaders: object, accept = DIRECT_LINK) {
   const headers = responseHeaders as Record<string, unknown>;
   const ct = headers["content-type"] || "";
   if (!isAllowedContentType(ct, accept.contentType)) {
-    throw new SsrfError(`허용되지 않는 Content-Type: ${String(ct)}`);
+    throw new SsrfError(L.net.contentTypeNotAllowed({ type: String(ct) }));
   }
   const len = headers["content-length"];
   if (len && Number(len) > accept.maxBytes) {
-    throw new SsrfError(`파일이 최대 크기(${accept.maxBytes} bytes)를 초과: ${String(len)}`);
+    throw tooLarge(new SsrfError(L.net.tooBigDeclared({ maxBytes: accept.maxBytes, length: String(len) })));
   }
 }
 
@@ -267,7 +276,7 @@ function watchBodyIdle(source: Readable & { setTimeout?(ms: number): unknown }, 
   const timer = setInterval(
     () => {
       if (source.readableFlowing !== true) last = Date.now();
-      else if (Date.now() - last >= idleMs) source.destroy(timeoutError(`본문이 ${idleMs}ms 동안 오지 않음`));
+      else if (Date.now() - last >= idleMs) source.destroy(timeoutError(L.net.bodyStalled({ ms: idleMs })));
     },
     Math.min(BODY_CHECK_MS, idleMs),
   );
@@ -309,14 +318,14 @@ async function getStream(rawUrl: string, deps: RequestDeps = {}, { bodyIdleMs = 
 async function getBuffer(rawUrl: string, accept: Accept, deps: RequestDeps = {}): Promise<Buffer> {
   const { response, agent } = await guardedRequest("GET", rawUrl, deps, { timeoutMs: accept.timeoutMs, allowUrl: accept.allowUrl });
   const source = response.body;
-  const deadline = setTimeout(() => source.destroy(new Error(`다운로드가 ${accept.timeoutMs}ms 안에 끝나지 않음`)), accept.timeoutMs);
+  const deadline = setTimeout(() => source.destroy(logTextError(L.net.downloadTimedOut({ ms: accept.timeoutMs }))), accept.timeoutMs);
   try {
     assertResponseAllowed(response.headers, accept);
     const chunks: Buffer[] = [];
     let total = 0;
     for await (const chunk of source as AsyncIterable<Buffer>) {
       total += chunk.length;
-      if (total > accept.maxBytes) throw new SsrfError(`파일이 최대 크기(${accept.maxBytes} bytes)를 초과함`);
+      if (total > accept.maxBytes) throw tooLarge(new SsrfError(L.net.tooBig({ maxBytes: accept.maxBytes })));
       chunks.push(chunk);
     }
     return Buffer.concat(chunks);
@@ -340,7 +349,7 @@ function servedFrom({ status, headers }: { status: number; headers: Record<strin
   return range ? Number(range[1]) : null;
 }
 
-export { SsrfError, head, getStream, getBuffer, servedFrom, watchBodyIdle, isBlockedIp, isAllowedContentType, validateAndResolve, MAX_BYTES, DIRECT_LINK, HEAD_TIMEOUT_MS };
+export { SsrfError, TOO_LARGE, head, getStream, getBuffer, servedFrom, watchBodyIdle, isBlockedIp, isAllowedContentType, validateAndResolve, MAX_BYTES, DIRECT_LINK, HEAD_TIMEOUT_MS };
 // 테스트가 진짜 소켓으로 보는 것
 export const _internals = { send, createPinnedAgent };
 export type { Accept, LookupFn, HttpRequest, RequestDeps, Outgoing, Incoming };
