@@ -4,7 +4,8 @@
 
 import "../src/app/env-bootstrap.ts"; // 설정을 읽기 전에 .env를 읽는다(없으면 만든다)
 import * as configCheck from "../src/app/config-check.ts";
-import * as loadedConfig from "../src/config/index.ts"; // 설정 값과 함께 문제, 경고 목록
+import * as loadedConfig from "../src/config/index.ts";
+import { L } from "../src/infra/log/text.ts"; // 설정 값과 함께 문제, 경고 목록
 
 configCheck.stopOnConfigProblems(loadedConfig, console);
 
@@ -24,7 +25,7 @@ const { scriptLine } = await import("../src/infra/script-line.ts");
 const say = scriptLine("commands");
 // 배포 경로의 앱 ID는 봇 토큰으로 읽는다(기동과 같다)
 const app = await loadApp(() => readApp(loadedConfig.default.discord.token)).catch((error: unknown) => {
-  say("error", `디스코드 앱 설정 불러오기 실패: ${messageOf(error)}`);
+  say("error", L.commands.appLoadFailed({ error: messageOf(error) }));
   process.exit(1);
 });
 const args = process.argv.slice(2);
@@ -32,24 +33,24 @@ const clearAt = args.indexOf("--clear-guild");
 const clearGuild = clearAt >= 0 ? (args[clearAt + 1] ?? "") : null;
 if (args.includes("--clear-global") || clearGuild !== null) {
   if (clearGuild !== null && !isSnowflake(clearGuild)) {
-    say("error", "--clear-guild 뒤에 서버 ID(숫자)를 적어야 함");
+    say("error", L.commands.clearGuildIdMissing());
     process.exit(1);
   }
-  const where = clearGuild ? `서버 ${clearGuild}의` : "전역";
+  const where = clearGuild ? L.commands.scopeGuildOf({ guild: clearGuild }) : L.commands.scopeGlobal();
   const cleared = await clearCommands(clearGuild);
-  if (cleared.ok) say("info", `${where} 슬래시 명령어를 비움`);
+  if (cleared.ok) say("info", L.commands.cleared({ where }));
   else {
-    say("error", `${where} 슬래시 명령어 비우기 실패: ${messageOf(cleared.error)}`);
+    say("error", L.commands.clearFailed({ where, error: messageOf(cleared.error) }));
     process.exitCode = 1;
   }
   process.exit();
 }
-say("info", `슬래시 명령어 ${commands.length}개 배포 시작(앱 ${String(app.id)})`);
+say("info", L.commands.deployStarting({ count: commands.length, app: String(app.id) }));
 const r = await deployCommands({ force: true }); // 수동 실행은 명시적 재배포라 해시가 같아도 올린다
 
 if (r.ok) {
-  const where = r.scope === "guild" ? `서버 ${r.guildId ?? "없음"}` : "전역";
-  say("info", `명령어 ${r.count}개 배포 완료(${where}): ${r.names.map((n) => `/${n}`).join(", ")}`);
+  const where = r.scope === "guild" ? L.commands.scopeGuild({ guild: r.guildId ?? null }) : L.commands.scopeGlobal();
+  say("info", L.commands.deployed({ count: r.count, where, names: r.names.map((n) => `/${n}`).join(", ") }));
 } else {
   deployErrorLines(r).forEach((line) => say("error", line));
   process.exitCode = 1;

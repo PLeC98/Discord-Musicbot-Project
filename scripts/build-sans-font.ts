@@ -14,6 +14,8 @@ import subsetFont from "subset-font";
 import * as prettier from "prettier";
 import { PROJECT } from "../src/infra/project-paths.ts";
 import { setNames, toSfnt, LICENSE_NAME_IDS, OFL_NAMES } from "./font-names.ts";
+import { L } from "../src/infra/log/text.ts";
+import { asText, logTextError } from "../src/infra/log/log-text.ts";
 
 const DASHBOARD = path.join(PROJECT.root, "dashboard");
 const PACKAGE = path.join(DASHBOARD, "node_modules", "@fontsource-variable", "google-sans-flex");
@@ -32,7 +34,7 @@ function faces(): Face[] {
   return [...css.matchAll(/\/\* google-sans-flex-([a-z-]+)-full-normal \*\/\s*@font-face \{([^}]*)\}/g)].map(([, subset, body]) => {
     const pick = (re: RegExp) => {
       const m = re.exec(body);
-      if (!m) throw new Error(`${subset}: 찾지 못했습니다(${re})`);
+      if (!m) throw logTextError(L.build.sansFaceFieldMissing({ subset, pattern: String(re) }));
       return m[1].trim();
     };
     return { subset, file: pick(/src:\s*url\(\.\/files\/([^)]+)\)/), range: pick(/unicode-range:\s*([^;]+);/), style: pick(/font-style:\s*([^;]+);/) };
@@ -41,7 +43,7 @@ function faces(): Face[] {
 
 async function main() {
   const list = faces();
-  if (!list.length) throw new Error("full.css에서 @font-face를 찾지 못했습니다");
+  if (!list.length) throw logTextError(L.build.sansFacesMissing());
   fs.rmSync(OUT_DIR, { recursive: true, force: true });
   fs.mkdirSync(OUT_DIR, { recursive: true });
   fs.copyFileSync(path.join(PACKAGE, "LICENSE"), path.join(OUT_DIR, "OFL.txt"));
@@ -67,7 +69,7 @@ ${blocks.join("\n\n")}
 `;
   const options = (await prettier.resolveConfig(OUT_CSS)) ?? {};
   fs.writeFileSync(OUT_CSS, await prettier.format(body, { ...options, filepath: OUT_CSS }));
-  console.log(`서브셋 ${list.length}개, ${Math.round(before / 1024)}KB → ${Math.round(after / 1024)}KB`);
+  console.log(asText(L.build.sansFontWritten({ count: list.length, beforeKb: Math.round(before / 1024), afterKb: Math.round(after / 1024) })));
 }
 
 await main();

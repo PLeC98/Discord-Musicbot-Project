@@ -11,6 +11,8 @@ import path from "path";
 import { createRequire } from "module";
 import { PROJECT } from "../src/infra/project-paths.ts";
 import { tableOf } from "../src/infra/english-final.ts";
+import { L } from "../src/infra/log/text.ts";
+import { asText } from "../src/infra/log/log-text.ts";
 
 const OUT = path.join(PROJECT.data, "english-finals.json");
 
@@ -20,4 +22,4 @@ const { version } = createRequire(import.meta.url)("cmu-pronouncing-dictionary/p
 const table = tableOf(dictionary, `cmu-pronouncing-dictionary ${version}`);
 fs.writeFileSync(OUT, `${JSON.stringify(table)}\n`);
 const count = (words: string) => (words ? words.split(" ").length : 0);
-console.log(`사전 ${Object.keys(dictionary).length}낱말 → 받침 ${count(table.final)} · ㄹ ${count(table.rieul)} · 받침 없음 ${count(table.none)} → ${path.relative(process.cwd(), OUT)}`);
+console.log(asText(L.build.englishFinalsWritten({ words: Object.keys(dictionary).length, final: count(table.final), rieul: count(table.rieul), none: count(table.none), file: path.relative(process.cwd(), OUT) })));

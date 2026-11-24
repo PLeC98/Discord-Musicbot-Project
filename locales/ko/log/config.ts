@@ -1,4 +1,4 @@
-// 로그 문구: 설정(config 분류). 기동 때의 설정 검사와 로그 언어 고르기
+// 로그 문구: 설정(config 분류). 기동 때의 설정 검사와 로그 언어 고르기, .env 준비, AI 모델 정보 받기
 
 import { josa } from "../../../src/infra/josa.ts";
 
@@ -75,6 +75,11 @@ const config = {
   settingsDbQueryFailed: ({ file, doc, error }: { file: string; doc: string; error: number | string }) => `설정 DB 읽기 전용 조회 실패(기본값 사용): ${file}, 문서=${doc} | ${error}`,
   toolCardKeysUnknown: ({ names }: { names: string }) => `도구 카드의 값이 아님: ${names}`,
   toolCardConflict: ({ names }: { names: string }) => `그사이 바뀐 값: ${names}`,
+  modelsDownloading: ({ force }: { force: boolean }) => `다운로드 중${force ? " (강제)" : ""}`,
+  modelsRefreshed: ({ count }: { count: number }) => `모델 정보를 갱신했습니다. 모델 ${count}개`,
+  modelsUnchanged: ({ count, fetchedAt }: { count: number; fetchedAt: string | null }) => `바뀐 것이 없습니다. 모델 ${count}개 (${fetchedAt ?? "없음"})`,
+  modelsRefreshFailed: () => `실패:`,
+  envSetupFailed: ({ error }: { error: string }) => `.env 준비 실패: ${error}`,
 };
 
 export { config };

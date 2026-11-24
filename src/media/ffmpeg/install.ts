@@ -12,7 +12,7 @@ import { L } from "../../infra/log/text.ts";
 import { logTextError, type LogText } from "../../infra/log/log-text.ts";
 
 /** 실행 확인의 결과. ok면 ffmpeg -version이 출력한 버전 */
-type Probe = { ok: true; version: string } | { ok: false; reason: string };
+type Probe = { ok: true; version: string } | { ok: false; reason: string | LogText };
 
 /**
  * key: 플랫폼(`${process.platform}-${process.arch}`). fetchText: 본문, 없으면(404) null. fetchFile: 본문 바이트.

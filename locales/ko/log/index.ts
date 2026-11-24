@@ -33,3 +33,7 @@ export { soundcloud } from "./soundcloud.ts";
 export { commands } from "./commands.ts";
 export { events } from "./events.ts";
 export { dashboard } from "./dashboard.ts";
+export { backup } from "./backup.ts";
+export { build } from "./build.ts";
+export { move } from "./move.ts";
+export { install } from "./install.ts";

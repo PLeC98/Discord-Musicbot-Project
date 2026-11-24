@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { scriptLine, stripScriptPrefix } from "../../src/infra/script-line.ts";
 import { L } from "../../src/infra/log/text.ts";
 import { renderLogText } from "../../src/infra/log/log-text.ts";
+import { useTestLogLanguage } from "../../src/infra/log/language.ts";
 
 /** console.log, console.error로 나간 줄을 모은다 */
 function printed(run: () => void): { out: string[]; err: string[] } {
@@ -35,4 +36,17 @@ test("로그 문구 서술자는 로그 언어로 그려 찍고, 봇은 앞머�
   const seen = printed(() => scriptLine("setup")("warn", text));
   assert.deepEqual(seen.err, [`WARN  [setup] ${renderLogText(text)}`]);
   assert.equal(stripScriptPrefix(seen.err[0]), renderLogText(text));
+});
+
+test("로그 테스트 언어에서는 글만 바뀌고 앞머리는 그대로다", () => {
+  useTestLogLanguage(true);
+  try {
+    const seen = printed(() => scriptLine("install")("error", L.install.botRunning({ holder: 1234 })));
+    assert.equal(seen.err.length, 1);
+    assert.ok(seen.err[0].startsWith("ERROR [install] "), seen.err[0]);
+    assert.doesNotMatch(seen.err[0], /[가-힣]/);
+    assert.match(seen.err[0], /PID 1234/);
+  } finally {
+    useTestLogLanguage(false);
+  }
 });

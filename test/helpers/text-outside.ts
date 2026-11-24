@@ -42,6 +42,14 @@ const DATA_DECLARATIONS: Readonly<Record<string, readonly string[]>> = {
   "src/rules/languages.ts": ["LANGUAGES"],
   // 모델에 보내는 질문(화면에도 보낸 값을 그대로 보인다)
   "src/autoplay/assist/index.ts": ["PING_TEXT"],
+  // 빌드 도구가 만드는 파일의 내용(저장소에 넣는 파일이라 로그 언어를 따르지 않는다)과 읽는 원본의 절 제목
+  "scripts/build-emoji-list.ts": ["NOTE_SECTION", "source"],
+  "scripts/build-icon-font.ts": ["body"],
+  "scripts/build-mono-font.ts": ["body"],
+  "scripts/build-sans-font.ts": ["body"],
+  "scripts/build-twemoji-font.ts": ["body"],
+  // diff 줄을 짝짓는 키에 넣는 경로 자리표시
+  "scripts/verify-move.ts": ["normalize"],
 };
 
 const posix = (p: string) => p.split(path.sep).join("/");

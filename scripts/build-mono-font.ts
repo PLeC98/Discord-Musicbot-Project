@@ -19,6 +19,8 @@ import { unzip } from "../src/infra/zip.ts";
 import { setNames, LICENSE_NAME_IDS, OFL_NAMES } from "./font-names.ts";
 import { codepointsOf, rangeOf } from "./unicode-range.ts";
 import { PROJECT } from "../src/infra/project-paths.ts";
+import { L } from "../src/infra/log/text.ts";
+import { asText, logTextError } from "../src/infra/log/log-text.ts";
 
 const DASHBOARD = path.join(PROJECT.root, "dashboard");
 const OUT_DIR = path.join(DASHBOARD, "src", "assets", "mono");
@@ -42,8 +44,8 @@ async function releaseZip(): Promise<Buffer> {
   if (given) return fs.readFileSync(given);
   const latest = (await (await fetch(RELEASES, { headers: { Accept: "application/vnd.github+json" } })).json()) as { tag_name: string; assets: Array<{ name: string; browser_download_url: string }> };
   const asset = latest.assets.find((one) => one.name.endsWith(".zip"));
-  if (!asset) throw new Error(`릴리스 ${latest.tag_name}에 zip이 없습니다`);
-  console.log(`다운로드 중: ${asset.name}`);
+  if (!asset) throw logTextError(L.build.monoReleaseNoZip({ tag: latest.tag_name }));
+  console.log(asText(L.build.monoDownloading({ name: asset.name })));
   return Buffer.from(await (await fetch(asset.browser_download_url)).arrayBuffer());
 }
 
@@ -65,7 +67,7 @@ function chunksOf(charset: Set<number>): number[][] {
 async function main() {
   const entries = unzip(await releaseZip(), { maxEntries: 64, maxBytes: 512 * 1024 * 1024 });
   const license = entries.find((one) => one.name === "OFL.txt");
-  if (!license) throw new Error("릴리스에 OFL.txt가 없습니다");
+  if (!license) throw logTextError(L.build.monoReleaseNoLicense());
 
   fs.rmSync(OUT_DIR, { recursive: true, force: true });
   fs.mkdirSync(OUT_DIR, { recursive: true });
@@ -76,7 +78,7 @@ async function main() {
   let total = 0;
   for (const { weight, style, file } of WEIGHTS) {
     const entry = entries.find((one) => file.test(one.name));
-    if (!entry) throw new Error(`릴리스에 ${weight} 굵기 TTF가 없습니다`);
+    if (!entry) throw logTextError(L.build.monoReleaseNoWeight({ weight }));
     version = /Ver([\d.]+)/.exec(entry.name)?.[1] ?? version;
     const source = setNames(entry.data, { ...renamed(style), ...OFL_NAMES });
     const charset = new Set<number>((fontkit.create(source) as fontkit.Font).characterSet);
@@ -88,7 +90,7 @@ async function main() {
       total += font.length;
       faces.push(`@font-face {\n  font-family: "${FAMILY}";\n  font-style: normal;\n  font-weight: ${weight};\n  font-display: swap;\n  src: url("./assets/mono/${name}") format("woff2");\n  unicode-range: ${rangeOf(cps)};\n}`);
     }
-    console.log(`${weight}: 서브셋 ${chunks.length}개`);
+    console.log(asText(L.build.monoSubsets({ weight, count: chunks.length })));
   }
 
   const body = `/* ${FAMILY}: D2Coding ${version}(NAVER, SIL OFL 1.1, assets/mono/OFL.txt)의 서브셋 수정본, 예약된 글꼴 이름이라 이름을 바꿨다. 대시보드의 고정폭 글꼴(style.css의 --font-mono).
@@ -97,7 +99,7 @@ ${faces.join("\n")}
 `;
   const options = (await prettier.resolveConfig(OUT_CSS)) ?? {};
   fs.writeFileSync(OUT_CSS, await prettier.format(body, { ...options, filepath: OUT_CSS }));
-  console.log(`${FAMILY}(D2Coding ${version}): 서브셋 ${faces.length}개, 모두 ${(total / 1024).toFixed(0)}KB`);
+  console.log(asText(L.build.monoFontWritten({ family: FAMILY, version, count: faces.length, kb: (total / 1024).toFixed(0) })));
 }
 
 await main();

@@ -1,4 +1,4 @@
-// 로그 문구: bgutil(POToken 서버) 설치(bgutil 분류). 고정한 태그와 커밋의 git 체크아웃, 설치 인자, 설치 단계, 기록, 실행 테스트
+// 로그 문구: bgutil(POToken 서버) 설치(bgutil 분류). 고정한 태그와 커밋의 git 체크아웃, 설치 인자, 설치 단계, 기록, 실행 테스트, 터미널에서 고정 바꾸기
 
 import { josa } from "../../../src/infra/josa.ts";
 
@@ -39,6 +39,20 @@ const bgutil = {
   trialOtherVersion: ({ expected, version }: { expected: string; version: string | null }) => `다른 버전으로 응답함(기대 ${expected}, 응답 ${version ?? "없음"})`,
   /** output: 서버 출력(stderr)의 마지막 세 줄 */
   trialWithOutput: ({ reason, output }: { reason: string; output: string }) => `${reason} | 서버 출력: ${output}`,
+  tagNotFound: ({ tag, tagsUrl }: { tag: string; tagsUrl: string }) => `저장소에 태그가 없음: ${tag}(태그 목록: ${tagsUrl})`,
+  alreadyInUse: ({ tag, version }: { tag: string; version: string }) => `이미 ${tag}(서버 ${version}) 사용 중`,
+  restartBot: () => `켜져 있는 봇을 다시 시작하세요(다시 시작해야 새 버전 적용)`,
+  installFailed: ({ tag, reason }: { tag: string; reason: string }) => `${tag} 설치 실패(지금 쓰는 bgutil 그대로): ${reason}`,
+  installFailedHint: () => `git, node, canvas 네이티브 모듈용 빌드 도구가 있는지, 네트워크와 태그를 확인하세요`,
+  tagCommit: ({ tag, commit }: { tag: string; commit: string }) => `태그 ${tag}의 커밋: ${commit}`,
+  pinNone: () => `없음`,
+  pinKeptAfterFailure: ({ was }: { was: string }) => `설치하지 못해 설정은 그대로 둠(고정 ${was})`,
+  settingsUnread: ({ error }: { error: string }) => `설정 DB(database/settings.db)에서 bgutil 고정 값을 읽지 못해 설치하지 않음: ${error}`,
+  failed: ({ error }: { error: string }) => `설치 실패(지금 쓰는 bgutil 그대로): ${error}`,
+  installed: ({ tag, version, from }: { tag: string; version: string; from: string | null }) => `${tag}(서버 ${version}) 설치 완료${from ? `(이전 ${from})` : ""}`,
+  busy: ({ holder }: { holder: number | null }) => `설치 건너뜀: 다른 프로세스(${holder ? `PID ${holder}` : "PID 모름"})가 vendor/bgutil 사용 중`,
+  pinBotRunning: ({ holder }: { holder: number | null }) => `봇이 실행 중이라(${holder ? `PID ${holder}` : "PID 모름"}) bgutil 고정을 바꾸지 않습니다. 대시보드 운영자 패널의 업데이트 탭에서 바꾸거나, 봇을 끄고 다시 실행하세요`,
+  pinChanged: ({ was, now }: { was: string; now: string }) => `터미널에서 bgutil 고정 변경: ${was} → ${now}`,
 };
 
 export { bgutil };

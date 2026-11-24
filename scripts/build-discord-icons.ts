@@ -15,6 +15,8 @@ import subsetFont from "subset-font";
 import { PROJECT } from "../src/infra/project-paths.ts";
 import { ICONS, type IconSpec } from "../src/ui/icons.ts";
 import { CARD_ICONS, STATUS_ICONS } from "../src/ui/card-render/icons.ts";
+import { L } from "../src/infra/log/text.ts";
+import { asText } from "../src/infra/log/log-text.ts";
 
 const SOURCE = path.join(PROJECT.root, "dashboard", "node_modules", "@fontsource-variable", "material-symbols-rounded", "files", "material-symbols-rounded-latin-full-normal.woff2");
 const OUT = path.join(PROJECT.data, "discord-icons");
@@ -50,10 +52,10 @@ function write(file: string, data: object) {
 const emoji = [...new Set((Object.values(ICONS) as IconSpec[]).filter((spec) => spec.shape !== "logo").map((spec) => spec.glyph))].filter((name) => name !== "sponsorblock").sort();
 const unknown = [...emoji, ...CARD_ICONS, ...STATUS_ICONS].filter((name) => codepointOf(name) === null);
 if (unknown.length) {
-  console.error(`Material Symbols에 없는 이름: ${[...new Set(unknown)].join(", ")}`);
+  console.error(asText(L.build.iconsUnknown({ names: [...new Set(unknown)].join(", ") })));
   process.exit(1);
 }
 
-console.log(`앱 이모지 기호 ${emoji.length}개 → ${write("glyphs.json", { source: sourceName, axes: EMOJI_AXES, unitsPerEm: font.unitsPerEm, glyphs: await outlines(emoji, EMOJI_AXES) })}`);
+console.log(asText(L.build.discordEmojiWritten({ count: emoji.length, file: write("glyphs.json", { source: sourceName, axes: EMOJI_AXES, unitsPerEm: font.unitsPerEm, glyphs: await outlines(emoji, EMOJI_AXES) }) })));
 const card = { source: sourceName, axes: CARD_AXES, unitsPerEm: font.unitsPerEm, line: await outlines(CARD_ICONS, CARD_AXES.line), fill: await outlines(STATUS_ICONS, CARD_AXES.fill) };
-console.log(`그리는 이미지의 아이콘 ${CARD_ICONS.length + STATUS_ICONS.length}개 → ${write("card-icons.json", card)}`);
+console.log(asText(L.build.discordCardIconsWritten({ count: CARD_ICONS.length + STATUS_ICONS.length, file: write("card-icons.json", card) })));

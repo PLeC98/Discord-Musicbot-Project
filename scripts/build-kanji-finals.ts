@@ -10,6 +10,8 @@ import fs from "fs";
 import path from "path";
 import zlib from "zlib";
 import { PROJECT } from "../src/infra/project-paths.ts";
+import { L } from "../src/infra/log/text.ts";
+import { asText, logTextError } from "../src/infra/log/log-text.ts";
 
 const SOURCE = "https://www.unicode.org/Public/UCD/latest/ucd/Unihan.zip";
 const ENTRY = "Unihan_Readings.txt";
@@ -18,7 +20,7 @@ const OUT = path.join(PROJECT.data, "kanji-finals.json");
 // zip 안의 파일 하나를 꺼낸다. 중앙 디렉터리에서 크기와 위치를 읽고 deflate를 푼다
 function unzipEntry(zip: Buffer, name: string) {
   const end = zip.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
-  if (end < 0) throw new Error("zip 끝 마커가 없다");
+  if (end < 0) throw logTextError(L.build.kanjiZipEndMissing());
   let at = zip.readUInt32LE(end + 16);
   const count = zip.readUInt16LE(end + 10);
   for (let i = 0; i < count; i++) {
@@ -35,7 +37,7 @@ function unzipEntry(zip: Buffer, name: string) {
     }
     at += 46 + nameLength + extraLength + commentLength;
   }
-  throw new Error(`zip에 없다: ${name}`);
+  throw logTextError(L.build.kanjiZipEntryMissing({ name }));
 }
 
 const response = await fetch(SOURCE);
@@ -45,7 +47,7 @@ const text = unzipEntry(Buffer.from(await response.arrayBuffer()), ENTRY).toStri
 const header = text.split("\n").slice(0, 3).join(" ");
 const version = /Unicode Version ([\d.]+)/.exec(header)?.[1];
 const date = /Date: (\d{4}-\d{2}-\d{2})/.exec(header)?.[1];
-if (!version || !date) throw new Error(`버전 표기를 읽지 못했다: ${header}`);
+if (!version || !date) throw logTextError(L.build.kanjiVersionUnread({ header }));
 
 const readings = new Map<number, string[]>();
 for (const line of text.split("\n")) {
@@ -67,4 +69,4 @@ for (const [code, list] of [...readings].sort(([a], [b]) => a - b)) {
 // 버전 표기는 data/NOTICE의 출처 줄과 맞춘다
 const source = `Unicode Character Database, ${ENTRY} (Unicode ${version}, ${date})`;
 fs.writeFileSync(OUT, `${JSON.stringify({ source, endsN, endsVowel })}\n`);
-console.log(`Unicode ${version} (${date}): ん ${[...endsN].length}자 · 모음 ${[...endsVowel].length}자 → ${path.relative(process.cwd(), OUT)}`);
+console.log(asText(L.build.kanjiFinalsWritten({ version, date, endsN: [...endsN].length, endsVowel: [...endsVowel].length, file: path.relative(process.cwd(), OUT) })));

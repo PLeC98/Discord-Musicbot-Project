@@ -23,6 +23,8 @@ import twemojiPackage from "../dashboard/node_modules/@discordapp/twemoji/packag
 import { PROJECT } from "../src/infra/project-paths.ts";
 import { LANGUAGES, type TextLanguage } from "../src/rules/languages.ts";
 import type { EmojiGroupId } from "../dashboard/src/emoji-list/index.ts";
+import { L } from "../src/infra/log/text.ts";
+import { asText, logTextError } from "../src/infra/log/log-text.ts";
 const TWEMOJI = twemojiPackage.version;
 const GIST = "https://gist.githubusercontent.com/rigwild/1b509bf69e2a2391f44aa5de3f05b006/raw/discord_emojis.min.json";
 const PICKER = path.join(import.meta.dirname, "data", "discord-emoji-picker.md");
@@ -30,6 +32,8 @@ const PICKER = path.join(import.meta.dirname, "data", "discord-emoji-picker.md")
 const outFile = (language: TextLanguage) => path.join(PROJECT.root, "locales", language, "screen", "emoji.ts");
 // 원본의 분류 제목(디스코드 한국어 선택기) → 분류 id. 분류 이름은 화면 문구표에 있다
 const GROUP_IDS: Record<string, EmojiGroupId> = { 사람: "people", 자연: "nature", 음식: "food", 활동: "activities", 여행: "travel", 사물: "objects", 기호: "symbols", 국기: "flags" };
+// 원본에서 목록이 아닌 절(원본을 옮겨 적을 때의 메모)의 제목
+const NOTE_SECTION = "비고";
 // 언어별 emojibase 로케일
 const LOCALES: Record<TextLanguage, string> = { ko: "ko" };
 
@@ -75,11 +79,11 @@ function readPicker() {
     .readFileSync(PICKER, "utf8")
     .split(/^# /m)
     .slice(1)
-    .filter((section) => !section.startsWith("비고"))
+    .filter((section) => !section.startsWith(NOTE_SECTION))
     .map((section) => {
       const name = section.split("\n")[0].trim();
       const id = GROUP_IDS[name];
-      if (!id) throw new Error(`분류 id가 없는 분류: ${name}. GROUP_IDS와 화면 문구표의 분류 이름에 추가 필요`);
+      if (!id) throw logTextError(L.build.emojiGroupUnknown({ name }));
       return { id, codes: (section.match(/:([a-z0-9_+-]+):/g) || []).map((c) => c.slice(1, -1)) };
     });
 }
@@ -88,7 +92,7 @@ function readPicker() {
 function readAssets() {
   const dir = path.join(PROJECT.root, "dashboard", "node_modules", "@discordapp", "twemoji", "dist", "svg");
   const ids = fs.readdirSync(dir).filter((n) => n.endsWith(".svg"));
-  if (!ids.length) throw new Error("Twemoji 파일 목록을 읽지 못했다");
+  if (!ids.length) throw logTextError(L.build.twemojiListUnread());
   return new Set(ids.map((n) => n.slice(0, -".svg".length)));
 }
 
@@ -115,7 +119,7 @@ function shortcodes(compact: Compacted[], sets: z.output<typeof Shortcodes>[], g
 // 목록의 한 줄. 못 담으면 dropped, 이미지 파일이 없으면 noAsset에 이유를 적는다
 function rowOf(group: string, code: string, charOfCode: Map<string, string>, named: Map<string, Compacted>, assets: Set<string>): { line?: string; dropped?: string; noAsset?: string } {
   const found = charOfCode.get(code);
-  if (!found) return { dropped: `${group}:${code} (대응 없음)` };
+  if (!found) return { dropped: asText(L.build.emojiNoMatch({ group, code })) };
 
   const info = named.get(key(found));
   // 표준 표기로 바로잡는다. emojibase는 ⌚처럼 이미 그림으로 보이는 글자에도 VS16을 붙여 주는데,
@@ -123,7 +127,7 @@ function rowOf(group: string, code: string, charOfCode: Map<string, string>, nam
   // 안 되는 항목이 생기므로, 통과하는 쪽을 선택해 담는다.
   const standard = info?.unicode || found;
   const char = [standard, bare(standard)].find((c) => ONE_EMOJI.test(c));
-  if (!char) return { dropped: `${group}:${code} (RGI 아님)` };
+  if (!char) return { dropped: asText(L.build.emojiNotRgi({ group, code })) };
 
   const label = clean(info?.label) || code.replace(/_/g, " ");
   const tags = clean([...new Set(info?.tags || [])].join(" "));
@@ -185,9 +189,9 @@ async function writeList(language: TextLanguage, picker: ReturnType<typeof readP
   fs.writeFileSync(out, await prettier.format(source, { ...(await prettier.resolveConfig(out)), filepath: out }));
 
   console.log(`[${language}] ${groups.map(([id, rows]) => `${id}(${rows.length})`).join(" ")}`);
-  console.log(`[${language}] 총 ${total}개, ${(fs.statSync(out).size / 1024).toFixed(0)}KB, @discordapp/twemoji@${TWEMOJI}`);
-  if (dropped.length) console.log(`[${language}] 뺀 것 ${dropped.length}개: ${dropped.slice(0, 6).join(" ")}${dropped.length > 6 ? " …" : ""}`);
-  console.log(noAsset.length ? `[${language}] 그림 파일이 없는 것 ${noAsset.length}개: ${noAsset.slice(0, 8).join(" ")}` : `[${language}] 그림 파일은 전부 있음`);
+  console.log(asText(L.build.emojiListWritten({ language, total, kb: (fs.statSync(out).size / 1024).toFixed(0), twemoji: TWEMOJI })));
+  if (dropped.length) console.log(asText(L.build.emojiDropped({ language, count: dropped.length, items: dropped.slice(0, 6).join(" "), more: dropped.length > 6 ? " …" : "" })));
+  console.log(asText(noAsset.length ? L.build.emojiNoAsset({ language, count: noAsset.length, items: noAsset.slice(0, 8).join(" ") }) : L.build.emojiAssetsComplete({ language })));
 }
 
 async function main() {

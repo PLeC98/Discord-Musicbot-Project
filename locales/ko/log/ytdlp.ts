@@ -1,4 +1,4 @@
-// 로그 문구: yt-dlp(ytdlp 분류). 실행 파일 업데이트와 버전 폴더 정리, 실행 대기, 다운로드 감시
+// 로그 문구: yt-dlp(ytdlp 분류). 실행 파일 업데이트와 버전 폴더 정리, 실행 대기, 다운로드 감시, 터미널에서 버전 맞추기
 
 const ytdlp = {
   oldFolderRemoveFailed: ({ folder, error }: { folder: string; error: string }) => `yt-dlp 옛 폴더 삭제 실패(${folder}): ${error}`,
@@ -52,6 +52,17 @@ const ytdlp = {
   /** 기동 줄. pin: 고정 버전(없으면 null), mode: 업데이트 방식, firstInstall: 이번 기동에 처음 설치했다 */
   binaryReady: ({ version, channel, pin, mode, firstInstall }: { version: string | null; channel: string; pin: string | null; mode: string; firstInstall: boolean }) => `yt-dlp ${version ?? "없음"} | 채널=${channel}${pin ? ` | 고정=${pin}` : ""} | 업데이트=${mode}${firstInstall ? " | 처음 설치" : ""}`,
   updateAvailable: ({ from, to, channel }: { from: string | null; to: string; channel: string }) => `yt-dlp 업데이트 있음: ${from ?? "없음"} → ${to} (${channel}, 업데이트: 운영자 패널 업데이트 탭의 yt-dlp 카드)`,
+  channelChangeWhilePinned: ({ pin }: { pin: string }) => `버전을 고정한 동안(${pin})에는 채널만 바꾸지 않습니다. --unpin이나 --pin <태그>를 함께 넣으세요`,
+  settingsUnreadNoDownload: () => `설정 DB(database/settings.db)에서 채널과 버전 고정을 읽지 못해 다운로드하지 않습니다`,
+  settingsUnread: ({ error }: { error: string }) => `설정 DB에서 yt-dlp 설정을 읽지 못했습니다: ${error}`,
+  botUsesNextRun: () => `실행 중인 봇은 다음 yt-dlp 실행부터 바뀐 버전을 씁니다`,
+  channelChanged: ({ from, to }: { from: string; to: string }) => `터미널에서 yt-dlp 채널 변경: ${from} → ${to}`,
+  signatureSkipped: () => `이번 실행은 yt-dlp 릴리스의 서명을 확인하지 않습니다(--skip-signature, 체크섬은 확인)`,
+  alignFailed: ({ error }: { error: string }) => `버전을 맞추지 못했습니다: ${error}`,
+  installedKept: ({ version }: { version: string | null }) => `설치된 yt-dlp를 그대로 씁니다(${version ?? "없음"})`,
+  settingsBotRunning: ({ holder }: { holder: number | null }) => `봇이 실행 중이라(${holder ? `PID ${holder}` : "PID 모름"}) yt-dlp 설정을 바꾸지 않습니다. 대시보드 운영자 패널의 업데이트 탭에서 바꾸거나, 봇을 끄고 다시 실행하세요`,
+  settingsKept: ({ pin, channel }: { pin: string | null; channel: string }) => `받지 못해 설정은 그대로 둡니다(고정 ${pin ?? "없음"}, 채널 ${channel})`,
+  pinChanged: ({ from, to }: { from: string | null; to: string | null }) => `터미널에서 yt-dlp 고정 버전 변경: ${from ?? "없음"} → ${to ?? "없음"}`,
 };
 
 export { ytdlp };

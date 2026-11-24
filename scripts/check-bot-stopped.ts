@@ -6,10 +6,11 @@ import "../src/infra/log/choose-at-start.ts"; // 다른 import보다 먼저 로�
 import { acquireInstanceLock } from "../src/infra/instance-lock.ts";
 import { PROJECT } from "../src/infra/project-paths.ts";
 import { scriptLine } from "../src/infra/script-line.ts";
+import { L } from "../src/infra/log/text.ts";
 
 const held = await acquireInstanceLock(PROJECT.database);
 if (!held.ok) {
-  scriptLine("install")("error", `봇이 실행 중이라(${held.holder ? `PID ${held.holder}` : "PID 모름"}) 설치 안 함. 봇을 끄고 다시 실행하세요`);
+  scriptLine("install")("error", L.install.botRunning({ holder: held.holder }));
   process.exit(1);
 }
 await held.release();

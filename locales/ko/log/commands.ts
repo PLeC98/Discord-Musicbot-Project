@@ -1,4 +1,4 @@
-// 로그 문구: 명령어 처리(commands 분류). /queue 썸네일, /system 이미지 그리기, 명령어로 바꾼 서버 설정 저장
+// 로그 문구: 명령어 처리(commands 분류). /queue 썸네일, /system 이미지 그리기, 명령어로 바꾼 서버 설정 저장, 슬래시 명령어 배포와 비우기
 
 const commands = {
   queueThumbnailWaitTimedOut: ({ waitMs }: { waitMs: number }) => `/queue 썸네일 대기 시간 초과(이미지 없이 출력): ${waitMs}ms`,
@@ -21,6 +21,15 @@ const commands = {
   renderWorkerStopped: ({ error }: { error: string }) => `워커 중단(${error})`,
   renderWorkerExitedCode: ({ code }: { code: number }) => `워커 비정상 종료(종료 코드=${code})`,
   renderWorkerTimedOut: ({ seconds }: { seconds: number }) => `${seconds}초 안에 끝나지 않아 워커 중단`,
+  appLoadFailed: ({ error }: { error: string }) => `디스코드 앱 설정 불러오기 실패: ${error}`,
+  clearGuildIdMissing: () => `--clear-guild 뒤에 서버 ID(숫자)를 적어야 함`,
+  scopeGuildOf: ({ guild }: { guild: string }) => `서버 ${guild}의`,
+  scopeGlobal: () => `전역`,
+  scopeGuild: ({ guild }: { guild: string | null }) => `서버 ${guild ?? "없음"}`,
+  cleared: ({ where }: { where: string }) => `${where} 슬래시 명령어를 비움`,
+  clearFailed: ({ where, error }: { where: string; error: string }) => `${where} 슬래시 명령어 비우기 실패: ${error}`,
+  deployStarting: ({ count, app }: { count: number; app: string }) => `슬래시 명령어 ${count}개 배포 시작(앱 ${app})`,
+  deployed: ({ count, where, names }: { count: number; where: string; names: string }) => `명령어 ${count}개 배포 완료(${where}): ${names}`,
 };
 
 export { commands };

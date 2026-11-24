@@ -1,5 +1,7 @@
 // 로그 문구: ffmpeg(ffmpeg 분류). 받기와 설치, 실행 파일 찾기, 기능 확인, 프로세스, 음량 측정
 
+import { josa } from "../../../src/infra/josa.ts";
+
 const ffmpeg = {
   ffmpegTargetUnsupported: ({ target }: { target: string }) => `${target}용 빌드가 제공되지 않음`,
   inputWriteFailed: ({ job, error }: { job: string; error: string }) => `ffmpeg(${job}) 입력 쓰기 실패: ${error}`,
@@ -54,6 +56,23 @@ const ffmpeg = {
   /** code: ffmpeg 종료 코드(모르면 null) */
   measureExited: ({ code }: { code: number | null }) => `ffmpeg 종료 코드 ${code ?? "없음"}`,
   selfTestExited: ({ code }: { code: number | null }) => `종료 코드 ${code ?? "없음"}`,
+  downloadIdle: ({ seconds, url }: { seconds: number; url: string }) => `${seconds}초 동안 받은 것이 없어 끊음. ${url}`,
+  archiveBinMissing: ({ binName }: { binName: string }) => `아카이브에서 bin/${binName}을 찾지 못했습니다`,
+  tarMissing: ({ errors }: { errors: string }) => `아카이브를 열 수 있는 tar가 없습니다 (.tar.xz는 xz-utils 필요)\n  ${errors}`,
+  versionUnread: () => `버전을 읽지 못함`,
+  restartBot: () => `켜져 있는 봇을 다시 시작하세요(다시 시작해야 새 버전 적용)`,
+  alreadyInUse: ({ release, version }: { release: string; version: string }) => `이미 ${release}(${version}) 사용 중`,
+  releaseSkipped: ({ release }: { release: string }) => `${release}: 이 환경에서 실행되지 않았던 릴리스라 받지 않음. 다시 받으려면 pnpm run install:ffmpeg --force로 실행하세요`,
+  installFailed: ({ release, reason }: { release: string; reason: string }) => `${release} 설치 실패(지금 쓰는 ffmpeg 그대로): ${reason}`,
+  pinBotRunning: () => `봇이 실행 중이라 버전 고정 안 함. 봇을 끄고 다시 실행하세요`,
+  ffmpegPathInUse: ({ path }: { path: string }) => `.env의 FFMPEG_PATH(${path}) 사용 중이라 받지 않음. 받은 ffmpeg를 쓰려면 .env의 FFMPEG_PATH를 비우세요`,
+  noBuild: ({ key, hint }: { key: string; hint: string }) => `${key}용 빌드 없음. ffmpeg를 직접 설치해 PATH에 두거나 .env의 FFMPEG_PATH로 지정하세요${hint}`,
+  pinned: ({ pin, defaultRelease }: { pin: string; defaultRelease: string }) => `${pin} 릴리스로 고정(기본값 ${defaultRelease}). 풀려면 --unpin`,
+  unpinned: ({ defaultRelease }: { defaultRelease: string }) => `고정 해제(기본값 ${defaultRelease})`,
+  failed: ({ error, cause }: { error: string; cause: string }) => `설치 실패(지금 쓰는 ffmpeg 그대로): ${error}${cause}`,
+  switched: ({ release, version }: { release: string; version: string }) => `받아 둔 ${release}(${version})${josa(version, "으로")} 교체`,
+  installed: ({ release, version, from }: { release: string; version: string; from: string | null }) => `${release}(${version}) 설치 완료${from ? `(이전 ${from})` : ""}`,
+  busy: ({ holder }: { holder: number | null }) => `설치 건너뜀: 다른 프로세스(${holder ? `PID ${holder}` : "PID 모름"})가 vendor/ffmpeg 사용 중`,
 };
 
 export { ffmpeg };

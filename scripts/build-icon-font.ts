@@ -15,6 +15,8 @@ import subsetFont from "subset-font";
 import * as prettier from "prettier";
 import { PROJECT } from "../src/infra/project-paths.ts";
 import { setNames, toSfnt, LICENSE_NAME_IDS, OFL_NAMES } from "./font-names.ts";
+import { L } from "../src/infra/log/text.ts";
+import { asText } from "../src/infra/log/log-text.ts";
 
 const SOURCE = path.join(PROJECT.root, "dashboard", "node_modules", "@fontsource-variable", "material-symbols-rounded", "files", "material-symbols-rounded-latin-fill-normal.woff2");
 const OUT_FONT = path.join(PROJECT.root, "dashboard", "src", "assets", "material-symbols.woff2");
@@ -45,7 +47,7 @@ async function main() {
   const table = names.map((name) => [name, codepointOf(name)] as const);
   const unknown = table.filter(([, cp]) => cp === null).map(([name]) => name);
   if (unknown.length) {
-    console.error(`Material Symbols에 없는 이름: ${unknown.join(", ")}`);
+    console.error(asText(L.build.iconsUnknown({ names: unknown.join(", ") })));
     process.exit(1);
   }
 
@@ -69,7 +71,7 @@ export type { IconName, DrawnIcon };
 `;
   const options = (await prettier.resolveConfig(OUT_TABLE)) ?? {};
   fs.writeFileSync(OUT_TABLE, await prettier.format(body, { ...options, filepath: OUT_TABLE }));
-  console.log(`기호 ${table.length}개, 글꼴 ${(font.length / 1024).toFixed(1)}KB (원본 ${(source.length / 1024).toFixed(0)}KB)`);
+  console.log(asText(L.build.iconFontWritten({ count: table.length, kb: (font.length / 1024).toFixed(1), sourceKb: (source.length / 1024).toFixed(0) })));
 }
 
 await main();
