@@ -8,12 +8,13 @@ type ScopeLock = "personal" | "override" | "not-app-owner" | "unknown";
 
 /**
  * 봇 운영자. kind: 앱 종류(모르면 null), source: 운영자를 정한 곳(app: 앱 정보, override: OWNER_ID), operators: 지금 운영자,
- * scope: 넓히는 범위(저장한 값), stale: 앱 정보를 오랫동안 받지 못해 넓힌 범위를 되돌렸다, lock: 바꿀 수 없으면 그 까닭
+ * teamId: 팀 앱의 팀 ID(개발자 포털의 팀 페이지 링크용, 모르면 null), scope: 넓히는 범위(저장한 값), stale: 앱 정보를 오랫동안 받지 못해 넓힌 범위를 되돌렸다, lock: 바꿀 수 없으면 그 까닭
  */
 type OperatorsView = {
   kind: "personal" | "team" | null;
   source: "app" | "override";
   operators: Array<{ id: string; name: string }>;
+  teamId: string | null;
   scope: OperatorScope;
   stale: boolean;
   lock: ScopeLock | null;

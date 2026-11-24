@@ -35,6 +35,7 @@ function view(req: Request): OperatorsView {
     kind: app?.kind ?? null,
     source: overrideIds(config.dashboard.ownerId) ? "override" : "app",
     operators: operators().map((id) => ({ id, name: app ? nameOf(app, id) : id })),
+    teamId: app?.kind === "team" ? app.teamId : null,
     scope: config.dashboard.operators.scope,
     stale: isStale(),
     lock: lockOf(signedIn(req).id),

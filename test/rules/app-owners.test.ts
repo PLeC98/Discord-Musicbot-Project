@@ -52,6 +52,8 @@ test("형식이 틀린 응답은 모르는 것으로 본다(team 이 없음, 팀
   const team = teamApp("t1", []);
   assert.equal(readAppOwners({ ...team, team: { ...team.team, owner_user_id: 5 } }), null);
   assert.equal(readAppOwners({ ...team, team: { ...team.team, members: [{ role: "admin" }] } }), null);
+  const noId = readAppOwners({ ...team, team: { ...team.team, id: undefined } });
+  assert.deepEqual([noId?.kind, noId?.kind === "team" && noId.teamId], ["team", null], "팀 ID 가 없어도 운영자는 정한다(팀 페이지 링크만 빠진다)");
   assert.equal(readAppOwners("x"), null);
 });
 

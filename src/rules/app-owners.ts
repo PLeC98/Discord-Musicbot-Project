@@ -11,8 +11,8 @@ type TeamMember = { id: string; name: string; role: string; accepted: boolean };
 /** 봇 공개 설정. 모르는 값은 null */
 type InviteFlags = { botPublic: boolean | null; requireCodeGrant: boolean | null };
 
-/** 형식을 확인한 앱 정보. 개인 앱이거나 팀 앱이다 */
-type AppOwners = ({ kind: "personal"; ownerId: string; ownerName: string } & InviteFlags) | ({ kind: "team"; ownerId: string; members: TeamMember[] } & InviteFlags);
+/** 형식을 확인한 앱 정보. 개인 앱이거나 팀 앱이다. teamId: 개발자 포털의 팀 페이지 링크에 쓴다(없으면 null) */
+type AppOwners = ({ kind: "personal"; ownerId: string; ownerName: string } & InviteFlags) | ({ kind: "team"; ownerId: string; teamId: string | null; members: TeamMember[] } & InviteFlags);
 
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 const text = (value: unknown) => (typeof value === "string" && value ? value : null);
@@ -43,7 +43,7 @@ function readAppOwners(raw: unknown): AppOwners | null {
   if (!ownerId) return null;
   const members = raw.team.members.map(memberOf);
   if (members.some((one) => one === null)) return null;
-  return { kind: "team", ownerId, members: members as TeamMember[], ...flags };
+  return { kind: "team", ownerId, teamId: text(raw.team.id), members: members as TeamMember[], ...flags };
 }
 
 /** 범위마다 운영자에 넣는 팀 역할 */

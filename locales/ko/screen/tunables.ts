@@ -117,15 +117,17 @@ const loadFailed = "운영 설정값을 불러오지 못했어요.";
 /** 봇 운영자 카드(설정 탭). 운영자는 디스코드 앱 소유자로 정한다 */
 const operators = {
   desc: "운영자 패널과 /system을 쓸 수 있는 사람이에요. 디스코드 개발자 포털의 앱 소유자로 정해요.",
-  current: "지금 운영자",
+  /** 팀 앱일 때 카드 오른쪽 위, 개발자 포털의 팀 페이지로 가는 링크 */
+  teamInfo: "팀 정보",
+  current: "현재 운영자",
   fromOverride: ".env에서 OWNER_ID로 지정됨",
-  scopeLabel: "팀에서 운영자로 볼 사람",
-  scopes: { owner: "팀 소유자만", admin: "팀 소유자와 Admin", developer: "팀 소유자, Admin, Developer" },
-  /** 넓히는 범위를 고를 때의 안내 */
-  widenNote: "Admin은 디스코드에서 팀원을 초대할 수 있어서, Admin까지 넓히면 Admin이 운영자를 늘릴 수 있어요.",
+  scopeLabel: "팀 내 운영자 범위",
+  scopes: { owner: "팀 소유자", admin: "팀 소유자, Admin", developer: "팀 소유자, Admin, Developer" },
+  /** 고른 범위에 Admin이 포함될 때의 안내 */
+  widenNote: "Admin은 팀원 초대가 가능하기에 운영자가 늘어날 수 있어요.",
   locks: {
     "not-app-owner": "디스코드 팀 소유자만 바꿀 수 있어요.",
-    override: "OWNER_ID로 운영자를 정해서 범위 설정은 쓰지 않아요.",
+    override: "OWNER_ID가 설정되어 있어 범위 설정은 무시돼요.",
     unknown: "디스코드 앱 정보를 아직 받지 못했어요.",
     personal: "",
   },

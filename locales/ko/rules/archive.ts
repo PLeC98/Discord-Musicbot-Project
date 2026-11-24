@@ -6,8 +6,8 @@ import type { RuleParams, RuleSentences } from "../../../src/rules/rule-problem.
 const cookiesName = (value: unknown) => (value === "" ? "쓰지 않음" : value === "file" ? "쿠키 직접 입력" : String(value));
 // 버전 고정 값: 빈 값은 없음
 const pinName = (value: unknown) => String(value) || "없음";
-// 봇 운영자 범위 값: 빈 값은 기본(팀 소유자만)
-const scopeName = (value: unknown) => ({ admin: "팀 소유자와 Admin", developer: "팀 소유자, Admin, Developer" })[String(value)] ?? "팀 소유자만";
+// 봇 운영자 범위 값(카드의 선택지 이름과 같게): 빈 값은 기본(팀 소유자)
+const scopeName = (value: unknown) => ({ admin: "팀 소유자, Admin", developer: "팀 소유자, Admin, Developer" })[String(value)] ?? "팀 소유자";
 // 로그인 배경 하나(이름)
 const background = (p: RuleParams) => `"${p.name}"`;
 

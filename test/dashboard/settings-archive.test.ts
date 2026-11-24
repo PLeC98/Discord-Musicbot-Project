@@ -438,7 +438,7 @@ test("봇 운영자 범위는 앱 소유자(팀 소유자)가 불러올 때만 �
     assert.equal(tunables.view().values.OPERATOR_SCOPE, undefined, "팀 소유자가 아니면 그대로");
 
     _setAppOwners(teamApp("owner", []));
-    assert.deepEqual(rowsOf((await preview(file)).json).tunables.warnings, ["봇 운영자 범위가 바뀌어요: 팀 소유자만 → 팀 소유자, Admin, Developer"]);
+    assert.deepEqual(rowsOf((await preview(file)).json).tunables.warnings, ["봇 운영자 범위가 바뀌어요: 팀 소유자 → 팀 소유자, Admin, Developer"]);
     assert.equal((await send("import?items=tunables", file)).status, 200);
     assert.deepEqual([tunables.view().values.OPERATOR_SCOPE, config.dashboard.operators.scope], ["developer", "developer"]);
   } finally {

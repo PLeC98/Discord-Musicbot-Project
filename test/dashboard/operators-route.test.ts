@@ -58,7 +58,7 @@ const put = (scope: unknown, expect?: string) => requestJson<ScopeSaved & Proble
 
 test("지금 운영자와 정한 곳, 범위, 바꿀 수 있는지를 보여 준다", async () => {
   const res = await get();
-  assert.deepEqual(res.json, { kind: "team", source: "app", operators: [{ id: "t1", name: "name-t1" }], scope: "owner", stale: false, lock: null });
+  assert.deepEqual(res.json, { kind: "team", source: "app", operators: [{ id: "t1", name: "name-t1" }], teamId: "team-1", scope: "owner", stale: false, lock: null });
 });
 
 test("팀 소유자가 넓히면 곧바로 운영자가 바뀌고 설정에 남는다. 되돌리면 저장한 값을 지운다", async () => {
