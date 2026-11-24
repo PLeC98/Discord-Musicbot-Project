@@ -8,6 +8,7 @@
         {{ view.operators.map((one) => one.name).join(", ") || "-" }}<span v-if="view.source === 'override'" class="ml-2 text-xs text-on-surface-variant">{{ T.fromOverride }}</span>
       </p>
       <p v-if="view.stale" class="mt-1 text-xs text-(--warn-ink)">{{ T.stale }}</p>
+      <p v-if="view.kind === null && view.lock" class="mt-1 text-xs text-on-surface-variant">{{ T.locks[view.lock] }}</p>
       <div v-if="view.kind === 'team'" class="mt-4 min-w-0">
         <span :class="FIELD_LABEL">{{ T.scopeLabel }}</span>
         <SingleSelect :model-value="view.scope" :options="SCOPES" :disabled="Boolean(view.lock) || busy" @update:model-value="change(String($event))" />
@@ -27,7 +28,8 @@ import { FIELD_LABEL } from "../utils/field.ts";
 import type { Option } from "../utils/options.ts";
 import { notifyDone, notifyProblem } from "../composables/toasts.ts";
 import { OPERATOR_SCOPES } from "../../../src/rules/app-owners.ts";
-import type { OperatorsView } from "../../../src/dashboard/contract/operators.ts";
+import type { OperatorsView, ScopeSaved } from "../../../src/dashboard/contract/operators.ts";
+import { applyCard } from "../composables/tunables.ts";
 import { text } from "../text/index.ts";
 const T = text.tunables.operators;
 const TG = text.tunables.groups.operators;
@@ -50,7 +52,10 @@ async function change(scope: string) {
   if (!view.value || scope === view.value.scope) return;
   busy.value = true;
   try {
-    view.value = (await axios.put<OperatorsView>("/api/admin/operators/scope", { scope, expect: view.value.scope })).data;
+    const { data } = await axios.put<ScopeSaved>("/api/admin/operators/scope", { scope, expect: view.value.scope });
+    view.value = data.operators;
+    // 범위는 운영 설정값에 저장된다. 저장 바의 다음 저장이 충돌로 거절되지 않게 저장 번호를 맞춘다
+    applyCard(data.tunables);
     notifyDone(T.saved);
   } catch (e) {
     notifyProblem(e, T.saveFailed);

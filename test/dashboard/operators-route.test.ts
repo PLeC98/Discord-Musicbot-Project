@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import express, { type NextFunction, type Request, type Response } from "express";
 import { fake } from "../helpers/fake.ts";
 import { personalApp, teamApp } from "../helpers/app-owners.ts";
-import type { OperatorsView } from "../../src/dashboard/contract/operators.ts";
+import type { OperatorsView, ScopeSaved } from "../../src/dashboard/contract/operators.ts";
 
 const { listenForFetch, baseUrl } = await import("../helpers/listen.ts");
 const { requestJson } = await import("../helpers/dashboard.ts");
@@ -54,7 +54,7 @@ after(() => {
 });
 
 const get = () => requestJson<OperatorsView>(base, "GET", "/api/admin/operators");
-const put = (scope: unknown, expect?: string) => requestJson<OperatorsView & ProblemReply>(base, "PUT", "/api/admin/operators/scope", { scope, ...(expect === undefined ? {} : { expect }) });
+const put = (scope: unknown, expect?: string) => requestJson<ScopeSaved & ProblemReply>(base, "PUT", "/api/admin/operators/scope", { scope, ...(expect === undefined ? {} : { expect }) });
 
 test("지금 운영자와 정한 곳, 범위, 바꿀 수 있는지를 보여 준다", async () => {
   const res = await get();
@@ -64,8 +64,9 @@ test("지금 운영자와 정한 곳, 범위, 바꿀 수 있는지를 보여 준
 test("팀 소유자가 넓히면 곧바로 운영자가 바뀌고 설정에 남는다. 되돌리면 저장한 값을 지운다", async () => {
   const wide = await put("developer", "owner");
   assert.equal(wide.status, 200);
-  assert.deepEqual([wide.json.scope, operators()], ["developer", ["t1", "t2", "t3"]]);
+  assert.deepEqual([wide.json.operators.scope, operators()], ["developer", ["t1", "t2", "t3"]]);
   assert.equal(tunables.view().values.OPERATOR_SCOPE, "developer");
+  assert.deepEqual(wide.json.tunables, tunables.view(), "저장한 운영 설정값을 함께 돌려준다(화면이 저장 번호를 맞춘다)");
   await put("owner");
   assert.deepEqual([operators(), tunables.view().values.OPERATOR_SCOPE], [["t1"], undefined]);
 });

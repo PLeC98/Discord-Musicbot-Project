@@ -15,7 +15,7 @@ import { isOperatorScope, nameOf, overrideIds } from "../../rules/app-owners.ts"
 import { appOwners, isAppOwner, isStale, operators } from "../../usecases/app-owners.ts";
 import * as tunables from "../../store/tunables.ts";
 import { L } from "../../infra/log/text.ts";
-import type { OperatorsView, ScopeLock } from "../contract/operators.ts";
+import type { OperatorsView, ScopeLock, ScopeSaved } from "../contract/operators.ts";
 
 const operatorsRouter = express.Router();
 operatorsRouter.use(requireOwner);
@@ -50,15 +50,16 @@ operatorsRouter.put("/scope", requireRecentLogin, (req: Request, res: Response) 
   if (lockOf(signedIn(req).id)) return sendProblem(res, "operator-scope-owner-only");
   const was = config.dashboard.operators.scope;
   if (req.body?.expect !== undefined && req.body.expect !== was) return sendProblem(res, "config-changed");
+  let saved;
   try {
-    tunables.saveCard({ OPERATOR_SCOPE: scope === "owner" ? null : scope });
+    saved = tunables.saveCard({ OPERATOR_SCOPE: scope === "owner" ? null : scope });
   } catch (error) {
     log.error({ sub: "admin" }, L.dashboard.operatorScopeSaveFailed({ error: messageOf(error) }));
     if (codeOf(error) === "CONFIG_INVALID") return sendProblem(res, "config-invalid");
     return sendProblem(res, "config-save-failed", {}, { errors: [{ code: "config-save-failed", rule: errorProblem(error) }] });
   }
   log.warn({ sub: "admin" }, L.dashboard.operatorScopeChanged({ from: was, to: scope, by: ranBy(req) }));
-  res.json(view(req));
+  res.json({ operators: view(req), tunables: saved } satisfies ScopeSaved);
 });
 
 export { operatorsRouter };

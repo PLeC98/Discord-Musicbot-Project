@@ -1,6 +1,7 @@
 // 운영자 패널 설정 탭의 봇 운영자 카드(/api/admin/operators)가 주고받는 형식
 
 import type { OperatorScope } from "../../rules/app-owners.ts";
+import type { TunablesView } from "./admin.ts";
 
 /** 범위를 바꿀 수 없는 까닭. personal: 개인 앱(넓힐 팀이 없다), override: OWNER_ID 로 정했다, not-app-owner: 팀 소유자가 아니다, unknown: 앱 정보를 받지 못했다 */
 type ScopeLock = "personal" | "override" | "not-app-owner" | "unknown";
@@ -18,4 +19,7 @@ type OperatorsView = {
   lock: ScopeLock | null;
 };
 
-export type { OperatorsView, ScopeLock };
+/** 범위를 바꾼 응답. tunables: 범위를 저장한 운영 설정값(화면이 저장 번호를 맞춰 저장 바의 다음 저장이 충돌로 거절되지 않게 한다) */
+type ScopeSaved = { operators: OperatorsView; tunables: TunablesView };
+
+export type { OperatorsView, ScopeLock, ScopeSaved };
