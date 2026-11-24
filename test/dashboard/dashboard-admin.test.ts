@@ -14,6 +14,7 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import type { Server } from "node:http";
 import type { Player } from "../../src/player/player.ts";
+import { asText, type LogText } from "../../src/infra/log/log-text.ts";
 import type { PutCommands } from "../../src/app/command-loader.ts";
 import type { AdminGuilds, AdminStatus } from "../../src/dashboard/contract/admin.ts";
 import type { PlayerStream } from "../../src/dashboard/player-stream.ts";
@@ -273,7 +274,8 @@ test("POST leave: 재생 중 서버는 플레이어를 버리고(세션 삭제, 
   assert.equal(r.status, 200);
   assert.equal(r.json.name, "AlphaGuild");
   assert.equal(g1.leftCount, 1);
-  assert.deepEqual(playerG1.disposed, [{ reason: "운영자 패널에서 서버 나가기", session: "remove", panel: "disconnected", end: "operator-leave" }]);
+  const disposed = (playerG1.disposed as Array<{ reason: LogText }>).map((one) => ({ ...one, event: one.reason.event, reason: asText(one.reason) }));
+  assert.deepEqual(disposed, [{ reason: "운영자 패널에서 서버 나가기", event: "dashboard.operatorLeaveReason", session: "remove", panel: "disconnected", end: "operator-leave" }]);
 });
 
 test("POST leave: 플레이어 없는 서버도 정상", async () => {
@@ -286,7 +288,7 @@ test("POST leave: 없는 서버 404 / leave 실패 502", async () => {
   assert.equal((await req("POST", "/api/admin/guilds/999/leave")).status, 404);
 
   const r = await req("POST", "/api/admin/guilds/300/leave");
-  assert.deepEqual([r.status, r.json.code], [502, "leave-guild-failed"]);
+  assert.deepEqual([r.status, r.json.code, r.json.detail, r.json.errors?.[0]?.code, r.json.errors?.[0]?.rule?.code], [502, "leave-guild-failed", undefined, "leave-guild-failed", "plain"]);
   assert.ok(detailsOf(r.json).includes("Cannot leave"));
 });
 
@@ -309,6 +311,7 @@ test("POST redeploy-commands: 거절되면 502, 운영자용 원문 필드에 �
     const r = await req<ProblemReply & { discordCode: number }>("POST", "/api/admin/redeploy-commands");
     assert.equal(r.status, 502);
     assert.equal(r.json.discordCode, 50001);
+    assert.deepEqual(r.json.errors?.[0]?.rule, { code: "plain", params: { text: "Missing Access" } });
     const [message, hint] = detailsOf(r.json).split("\n");
     assert.equal(message, "Missing Access");
     assert.match(hint, /^GUILD_ID 서버\(112233445566778899\)에 봇이 없음\. /);

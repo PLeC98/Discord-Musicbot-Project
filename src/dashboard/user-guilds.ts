@@ -94,7 +94,7 @@ async function userGuilds(key: string, token: string, options: ListOptions = {})
   next.catch((error: unknown) => {
     // 뒤에서 받다 실패하면 다음 요청이 다시 받는다
     const status = statusOf(error);
-    if (status !== 401 && status !== 429) failuresOf(key).refresh.fail(`${failureOf(error)} (stale 목록 유지)`);
+    if (status !== 401 && status !== 429) failuresOf(key).refresh.fail(L.dashboard.userGuildsRefreshFailure({ error: failureOf(error) }));
   });
   return hit.guilds;
 }
@@ -111,7 +111,7 @@ async function memberGuildIds(req: Pick<Request, "sessionID" | "sessionStore">, 
     return { ids: new Set(guilds.map((g) => g.id)), relogin: false };
   } catch (error) {
     const status = statusOf(error);
-    if (status !== 401 && status !== 429) failuresOf(req.sessionID).list.fail(`${failureOf(error)} (멤버 캐시로 대체)`);
+    if (status !== 401 && status !== 429) failuresOf(req.sessionID).list.fail(L.dashboard.userGuildsListFailure({ error: failureOf(error) }));
     return { ids: null, relogin: status === 401 };
   }
 }

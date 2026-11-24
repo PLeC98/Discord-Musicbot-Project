@@ -62,6 +62,7 @@ import { bindLine, bindNotes, inContainer, planBind, reachableAddresses, scopeOf
 import { isLoopbackName } from "../rules/net-address.ts";
 import { checkTls, findTlsFiles, rotateTicketKeys, tlsOptions, watchExpiry, worldReadable, type TlsFiles } from "./tls-files.ts";
 import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
 
 /** 조립이 넘기는 것. sessionMiddleware, clientDist(빌드한 화면)는 테스트가 바꿔 넘긴다 */
 type AppDeps = { stream: PlayerStream; deployCommands: Express.Locals["deployCommands"]; restart?: Express.Locals["restart"]; sessionMiddleware?: RequestHandler; clientDist?: string };
@@ -136,8 +137,8 @@ function createSessionMiddleware({ store = new SqliteSessionStore(), secret = re
     }
     return (req.secure ? secure : plain)(req, res, (err?: unknown) => {
       if (err || !req.session || (req.session.createdOverHttps === true) === req.secure) return next(err);
-      const how = req.secure ? "평문에서 만든 세션이 HTTPS 요청으로" : "HTTPS에서 만든 세션이 평문 요청으로";
-      log.info(`${how} 와서 받지 않고 삭제(사용자 ${req.session.user?.id ?? "없음"})`);
+      const how = req.secure ? L.dashboard.sessionPlainToHttps() : L.dashboard.sessionHttpsToPlain();
+      log.info(L.dashboard.sessionSchemeDropped({ how, user: req.session.user?.id ?? null }));
       req.session.regenerate((e) => next(e));
     });
   };
@@ -335,11 +336,11 @@ async function plainUrlAllowed(url: string, allowPlaintext: boolean) {
   return true;
 }
 
-type LoadedTls = { files: TlsFiles; options: ReturnType<typeof tlsOptions>; leaf: X509Certificate; notes: Array<{ level: "info" | "warn"; text: string }> };
+type LoadedTls = { files: TlsFiles; options: ReturnType<typeof tlsOptions>; leaf: X509Certificate; notes: Array<{ level: "info" | "warn"; text: LogText }> };
 
 /** 연 뒤: 쓴 인증서와 기한, 확인에서 나온 warn. 하루 한 번 남은 기한을 다시 계산한다 */
 function logTls(tls: LoadedTls) {
-  log.info(`대시보드 인증서: ${tls.files.from === "env" ? `.env의 DASHBOARD_TLS_CERT(${tls.files.cert})` : "certs/cert.pem"}, 기한 ${tls.leaf.validTo}`);
+  log.info(L.dashboard.tlsInUse({ cert: tls.files.from === "env" ? tls.files.cert : null, validTo: tls.leaf.validTo }));
   for (const note of tls.notes) log[note.level](note.text);
   watchExpiry(tls.leaf, tls.files.from);
 }

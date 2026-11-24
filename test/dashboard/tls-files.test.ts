@@ -21,6 +21,7 @@ const { default: config } = await import("../../src/config/index.ts");
 const { createApp, openDashboard } = await import("../../src/dashboard/index.ts");
 const { createPlayerStream } = await import("../../src/dashboard/player-stream.ts");
 const { findTlsFiles, checkTls, tlsOptions, worldReadable, tlsStatus, isCloudflareOrigin, validRange, rotateTicketKeys, fatalProblems } = await import("../../src/dashboard/tls-files.ts");
+const { asText } = await import("../../src/infra/log/log-text.ts");
 
 const FIXTURES = path.join(import.meta.dirname, "..", "fixtures", "tls");
 const read = (name: string) => fs.readFileSync(path.join(FIXTURES, name), "utf8");
@@ -41,14 +42,14 @@ test("인증서 파일 찾기: .env 경로가 있으면 그것만(둘 다, .env 
   const inCerts = [path.join(certsDir, "cert.pem"), path.join(certsDir, "key.pem")];
   assert.deepEqual(findTlsFiles({ envCert: null, envKey: null, root, certsDir, exists: has(inCerts) }), { files: { cert: inCerts[0], key: inCerts[1], from: "certs" }, error: null });
   assert.deepEqual(findTlsFiles({ envCert: null, envKey: null, root, certsDir, exists: has([]) }), { files: null, error: null });
-  assert.match(findTlsFiles({ envCert: null, envKey: null, root, certsDir, exists: has([inCerts[0]]) }).error ?? "", /key\.pem이 없음/);
+  assert.match(asText(findTlsFiles({ envCert: null, envKey: null, root, certsDir, exists: has([inCerts[0]]) }).error ?? ""), /key\.pem이 없음/);
 
   const live = [path.resolve(root, "le/fullchain.pem"), path.resolve(root, "le/privkey.pem")];
   assert.deepEqual(findTlsFiles({ envCert: "le/fullchain.pem", envKey: "le/privkey.pem", root, certsDir, exists: has([...live, ...inCerts]) }).files, { cert: live[0], key: live[1], from: "env" });
-  assert.match(findTlsFiles({ envCert: "le/fullchain.pem", envKey: null, root, certsDir, exists: has([...live, ...inCerts]) }).error ?? "", /둘 다/);
+  assert.match(asText(findTlsFiles({ envCert: "le/fullchain.pem", envKey: null, root, certsDir, exists: has([...live, ...inCerts]) }).error ?? ""), /둘 다/);
   const missing = findTlsFiles({ envCert: "le/fullchain.pem", envKey: "le/privkey.pem", root, certsDir, exists: has(inCerts) });
   assert.equal(missing.files, null, "경로가 틀리면 certs/로 폴백하지 않는다");
-  assert.match(missing.error ?? "", /파일이 없음/);
+  assert.match(asText(missing.error ?? ""), /파일이 없음/);
 });
 
 test("확인: 서버 인증서 다음에 중간 인증서, 짝이 맞는 키, 일치하는 이름(SAN, 와일드카드, IP)이면 통과한다", () => {
@@ -62,7 +63,7 @@ test("확인: 서버 인증서 다음에 중간 인증서, 짝이 맞는 키, �
 test("확인: 열지 않는 문제(PEM이 아님, 맨 앞이 CA, 짝이 아닌 키, 암호가 걸린 키, 아직 유효하지 않음, 기한 지남)는 실패한다", () => {
   const errorsOf = (over: Partial<Parameters<typeof checkTls>[0]>) => {
     const checked = checkTls({ certPem: read("chain.pem"), keyPem: read("key.pem"), urlHost: "music.example.com", now: VALID, ...over });
-    return checked.ok ? [] : checked.errors;
+    return checked.ok ? [] : checked.errors.map(asText);
   };
   assert.match(errorsOf({ certPem: "그냥 글자" }).join(), /PEM 형식이 아님/);
   assert.match(errorsOf({ certPem: read("ca-first.pem") }).join(), /맨 앞이 서버 인증서가 아님/);
@@ -77,7 +78,7 @@ test("확인: 열고 warn하는 문제(중간 인증서 없음(Cloudflare Origin
   const notesOf = (over: Partial<Parameters<typeof checkTls>[0]>) => {
     const checked = checkTls({ certPem: read("chain.pem"), keyPem: read("key.pem"), urlHost: "music.example.com", now: VALID, ...over });
     assert.ok(checked.ok);
-    return checked.ok ? checked.notes.map((n) => n.text).join("\n") : "";
+    return checked.ok ? checked.notes.map((n) => asText(n.text)).join("\n") : "";
   };
   assert.match(notesOf({ certPem: read("leaf.pem") }), /중간 인증서가 없음/);
   assert.equal(notesOf({ certPem: read("cf-origin.pem") }), "", "Cloudflare Origin 인증서는 중간 인증서 없이 쓰는 것이 정상");
@@ -207,5 +208,5 @@ test("기동: 공개 주소가 끝에 점이 붙은 이 기기 주소(https://lo
 test("확인: 유효 기간을 읽지 못한 인증서는 대시보드를 열지 않는다", () => {
   // 깨진 날짜는 OpenSSL의 X509Certificate에서 이 문자열이 된다(그런 인증서를 만들기 어려워 속성만 흉내 낸다)
   const broken = fake<X509Certificate>({ ca: false, validFrom: "Bad time value", validTo: "Bad time value", checkPrivateKey: () => true });
-  assert.match(fatalProblems(broken, read("key.pem"), VALID).join(), /유효 기간 읽기 실패/);
+  assert.match(fatalProblems(broken, read("key.pem"), VALID).map(asText).join(), /유효 기간 읽기 실패/);
 });

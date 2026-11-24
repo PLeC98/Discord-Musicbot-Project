@@ -9,6 +9,7 @@ import { messageOf } from "../rules/error-kind.ts";
 import * as requests from "../store/ai-requests.ts";
 import type { AiLogEntry, AiLogPushed } from "./contract/ai-log.ts";
 import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
 const log = logger.child({ category: "dashboard" });
 
 /** 재연결할 때 보내는 놓친 줄의 상한(줄 수, 바이트). 각 줄의 요약 텍스트는 길이가 일정하지 않다. 상한을 넘어 생략된 줄은 화면이 목록을 다시 불러올 때 받는다 */
@@ -36,7 +37,7 @@ function pushedOf(entry: AiLogEntry): AiLogPushed {
 }
 
 // 프레임을 쓴다. 쌓인 양이 상한을 넘었으면 쓰지 않고 연결을 끊는다(end만으로는 읽지 않는 소켓이 남으므로 destroy로 닫는다. 브라우저가 Last-Event-ID로 이어 받는다)
-function send(res: Response, frame: string, what: string) {
+function send(res: Response, frame: string, what: string | LogText) {
   try {
     if (res.writableLength > MAX_PENDING_BYTES) {
       drop(res);
@@ -53,7 +54,7 @@ function send(res: Response, frame: string, what: string) {
 function broadcast(entry: AiLogEntry) {
   if (!clients.size) return;
   const frame = frameOf(pushedOf(entry));
-  for (const res of [...clients.keys()]) send(res, frame, "쓰기");
+  for (const res of [...clients.keys()]) send(res, frame, L.dashboard.aiLogStreamWrite());
 }
 
 /** 하트비트 간격이 바뀌었으면 다시 건다(운영 설정값을 저장하면 부른다). 연결이 없으면 걸지 않는다 */
@@ -68,7 +69,7 @@ function syncHeartbeat() {
   if (heartbeat) clearInterval(heartbeat);
   heartbeatMs = ms;
   heartbeat = setInterval(() => {
-    for (const res of [...clients.keys()]) send(res, ": ping\n\n", "하트비트 쓰기");
+    for (const res of [...clients.keys()]) send(res, ": ping\n\n", L.dashboard.aiLogStreamHeartbeatWrite());
   }, ms);
   heartbeat.unref?.();
 }

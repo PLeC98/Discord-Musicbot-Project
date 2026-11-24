@@ -17,6 +17,7 @@ import * as secrets from "../../store/secrets.ts";
 import { sendProblem } from "../problem.ts";
 import { messageOf } from "../../rules/error-kind.ts";
 import { L } from "../../infra/log/text.ts";
+import type { LogText } from "../../infra/log/log-text.ts";
 import { logTextError } from "../../infra/log/log-text.ts";
 
 /** 여기서 읽는 필드만 */
@@ -38,8 +39,8 @@ function callbackFailure(error: unknown, redirectUri: string): LoginError {
     return "bad_client";
   }
   // 응답 없는 실패(시간 초과, 연결 실패)도 읽히게
-  const what = response ? `상태 코드 ${response.status ?? "없음"}` : name === "TimeoutError" ? "응답 시간 초과" : cause?.code || message;
-  log.error({ status: response?.status, body: JSON.stringify(response?.data), redirectUri }, `OAuth 콜백 오류: ${what ?? "없음"}`);
+  const what = response ? L.dashboard.oauthStatusCode({ status: response.status ?? null }) : name === "TimeoutError" ? L.dashboard.oauthResponseTimedOut() : cause?.code || message;
+  log.error({ status: response?.status, body: JSON.stringify(response?.data), redirectUri }, L.dashboard.oauthCallbackError({ what: what ?? L.dashboard.oauthNoCause() }));
   return "auth_failed";
 }
 
@@ -103,7 +104,7 @@ function sameText(a: string, b: string) {
 const USED_MAX = 10_000;
 
 /** 새 세션 id로 여는 세션에 담을 값. token: 디스코드 토큰(없으면 적지 않는다), signedInAt: 기기 기록의 로그인 시각, failure: 실패 로그의 앞부분 */
-type Fresh = { user: SessionUser; loginAt: number; viewAs?: Tier; token: string | null; signedInAt: number; failure: string };
+type Fresh = { user: SessionUser; loginAt: number; viewAs?: Tier; token: string | null; signedInAt: number; failure: LogText };
 
 // 이 요청의 세션을 끝내고 새 세션 id로 연다(로그인, 다른 기기 로그아웃). 사용자 정보를 담아 저장하고 같은 행에 디스코드 토큰과 기기 기록을 적는다.
 // 이전 세션 삭제나 새 세션 저장에 실패하면 요청에서 세션을 분리하고 false를 반환한다:
@@ -125,7 +126,7 @@ async function startSession(req: express.Request, fresh: Fresh) {
     if (store) recordFirstDevice(req, store, fresh.signedInAt);
     return true;
   } catch (error) {
-    log.error(`${fresh.failure}: ${messageOf(error)}`);
+    log.error(L.dashboard.sessionStartFailed({ failure: fresh.failure, error: messageOf(error) }));
     const sid = req.sessionID;
     (req as { session: unknown }).session = null;
     tokenStoreOf(req)?.destroy(sid, () => undefined);
@@ -135,7 +136,7 @@ async function startSession(req: express.Request, fresh: Fresh) {
 
 function signIn(req: express.Request, user: SessionUser, token: string) {
   const now = Date.now();
-  return startSession(req, { user, loginAt: now, token, signedInAt: now, failure: "로그인 세션 저장 실패(로그인 실패로 처리)" });
+  return startSession(req, { user, loginAt: now, token, signedInAt: now, failure: L.dashboard.loginSessionSaveFailed() });
 }
 
 // 로그인한 기기의 첫 기록. 적지 못해도 로그인은 그대로 유지된다(다음 요청에서 noteDevice가 적는다)
@@ -247,7 +248,7 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
     if (!req.session?.user) return res.status(204).end();
     try {
       const token = tokenStoreOf(req)?.readDiscordToken(req.sessionID) ?? null;
-      if (token) bestEffort(log, revokeToken(http, token), "디스코드 토큰 폐기", "warn");
+      if (token) bestEffort(log, revokeToken(http, token), L.dashboard.discordTokenRevoke(), "warn");
     } catch (error) {
       log.warn(L.dashboard.discordTokenReadFailed({ error: messageOf(error) }));
     }

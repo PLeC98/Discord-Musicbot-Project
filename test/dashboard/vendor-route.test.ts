@@ -128,7 +128,8 @@ test("확인은 최신을 보이기만 하고, 업데이트는 확인한 그 태
 test("최신 조회가 실패하면 tool-check-failed와 원인", async () => {
   ytdlpBinary.io = { ...ytdlpBinary.io, latestTag: async () => Promise.reject(new Error("GitHub 최신 릴리스 조회 503")) };
   const res = await req<ProblemReply>("POST", "/ytdlp/check");
-  assert.deepEqual([res.status, res.json.code, res.json.detail], [502, "tool-check-failed", "GitHub 최신 릴리스 조회 503"]);
+  assert.deepEqual([res.status, res.json.code, res.json.detail], [502, "tool-check-failed", undefined]);
+  assert.deepEqual(res.json.errors?.[0]?.rule, { code: "plain", params: { text: "GitHub 최신 릴리스 조회 503" } });
 });
 
 test("채널, 자동 업데이트는 저장 바에서 저장한다. 저장하면 새 설정으로 맞춘다(수동이면 다운로드하지 않는다)", async () => {

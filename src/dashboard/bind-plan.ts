@@ -8,11 +8,13 @@ import fs from "node:fs";
 import os from "node:os";
 import { isIP } from "node:net";
 import { hostOf, isLoopbackName, kindOf, normalizeIp } from "../rules/net-address.ts";
+import { L } from "../infra/log/text.ts";
+import { asText, type LogText } from "../infra/log/log-text.ts";
 
 type BindReason = "env" | "container" | "loopback-url" | "certs" | "https-url" | "plain-url";
 /** hosts: 열 주소(::는 열지 못하면 0.0.0.0으로), all: 모든 주소인지 */
 type BindPlan = { hosts: string[]; all: boolean; reason: BindReason };
-type Note = { level: "info" | "warn"; text: string };
+type Note = { level: "info" | "warn"; text: LogText };
 
 const LOOPBACK = ["127.0.0.1", "::1"];
 const ALL = ["::"];
@@ -33,19 +35,19 @@ function planBind({ envHost, url, container, certs }: { envHost: string | null; 
 }
 
 // 그 주소로 연 이유만. 판단이 틀렸을 때 고칠 곳은 docs/dashboard-network.md
-const REASONS: Record<BindReason, string> = {
+const REASONS: Record<BindReason, string | LogText> = {
   env: "DASHBOARD_HOST",
-  container: "컨테이너 안. 밖에 여는 범위는 -p가 정함",
-  "loopback-url": "공개 주소가 없거나 이 기기 주소",
-  certs: "인증서 파일이 있어 직접 HTTPS",
-  "https-url": "공개 주소가 https라 프록시가 같은 기기에 있다고 판단",
-  "plain-url": "공개 주소가 http라 다른 기기에서 바로 접속한다고 판단",
+  container: L.dashboard.bindReasonContainer(),
+  "loopback-url": L.dashboard.bindReasonLoopbackUrl(),
+  certs: L.dashboard.bindReasonCerts(),
+  "https-url": L.dashboard.bindReasonHttpsUrl(),
+  "plain-url": L.dashboard.bindReasonPlainUrl(),
 };
 
 /** 기동 로그의 연 주소 한 줄. opened: 실제로 연 주소(0.0.0.0으로 바꿔 연 것 포함). 범위는 주소가 보여 준다 */
 function bindLine(plan: BindPlan, opened: string[], port: number, scheme: "http" | "https") {
-  const shown = opened.map((h) => (h === "::" || h === "0.0.0.0" ? `모든 주소(${h}):${port}` : `${scheme}://${isIP(h) === 6 ? `[${h}]` : h}:${port}`));
-  return `🌐 Dashboard: ${shown.join(", ")} (${REASONS[plan.reason]})`;
+  const shown = opened.map((h) => (h === "::" || h === "0.0.0.0" ? L.dashboard.bindAllAddresses({ host: h, port }) : `${scheme}://${isIP(h) === 6 ? `[${h}]` : h}:${port}`));
+  return L.dashboard.bindLine({ addresses: shown.map(asText).join(", "), reason: REASONS[plan.reason] });
 }
 
 /** 다른 기기에서 접속할 수 있는 이 기기의 주소(loopback, 링크 로컬 제외) */
@@ -66,11 +68,11 @@ function bindNotes(plan: BindPlan, { url, port, envHost, container, reachable, s
   const notes: Note[] = [];
   const https = url.startsWith("https:");
   const addresses = reachable.map((ip) => `${scheme}://${isIP(ip) === 6 ? `[${ip}]` : ip}:${port}`).join(", ");
-  if (plan.reason === "loopback-url" && !container) notes.push({ level: "info", text: `다른 기기에서 쓰려면 .env의 DASHBOARD_URL에 그 기기에서 접속할 주소를 넣으세요.${addresses ? `이 기기의 주소: ${addresses}` : ""}` });
+  if (plan.reason === "loopback-url" && !container) notes.push({ level: "info", text: L.dashboard.bindOtherDeviceHint({ addresses }) });
   if (container) notes.push(...containerNotes(url));
-  if (plan.all && plan.reason !== "container" && addresses) notes.push({ level: "info", text: `다른 기기에서 접속할 수 있는 주소: ${addresses}` });
-  if (https && plan.reason === "env" && !envHostIsLoopback(envHost)) notes.push({ level: "info", text: "공개 주소가 https라 다른 기기에서 평문으로 바로 접속하면 로그인되지 않음(브라우저가 Secure 쿠키를 받지 않음)" });
-  if (!https && plan.reason === "plain-url") notes.push({ level: "info", text: "도메인과 인증서가 있으면 HTTPS로 쓸 수 있음(docs/dashboard-network.md)" });
+  if (plan.all && plan.reason !== "container" && addresses) notes.push({ level: "info", text: L.dashboard.bindReachableAddresses({ addresses }) });
+  if (https && plan.reason === "env" && !envHostIsLoopback(envHost)) notes.push({ level: "info", text: L.dashboard.bindHttpsPlainNoLogin() });
+  if (!https && plan.reason === "plain-url") notes.push({ level: "info", text: L.dashboard.bindHttpsPossible() });
   return notes;
 }
 
@@ -79,8 +81,8 @@ const envHostIsLoopback = (envHost: string | null) => !envHost || isLoopbackName
 /** 컨테이너 안일 때의 안내: 공개 주소가 이 기기 주소면 컨테이너 밖 주소를 안내하고, 출발지 IP가 바뀌는 환경의 한계는 늘 알린다 */
 function containerNotes(url: string): Note[] {
   const notes: Note[] = [];
-  if (isLoopbackName(hostOf(new URL(url)))) notes.push({ level: "info", text: "컨테이너 밖에서 쓰려면 .env의 DASHBOARD_URL에 컨테이너 밖에서 접속할 주소를 넣으세요" });
-  notes.push({ level: "info", text: "컨테이너 안. 출발지 IP가 바뀌는 환경(Docker Desktop, rootless Docker)에서는 인터넷 평문 접속을 감지하지 못함. 운영에는 리눅스 Docker의 bridge 네트워크를 권장" });
+  if (isLoopbackName(hostOf(new URL(url)))) notes.push({ level: "info", text: L.dashboard.bindContainerUrlHint() });
+  notes.push({ level: "info", text: L.dashboard.bindContainerLimits() });
   return notes;
 }
 
@@ -94,7 +96,7 @@ function scopeOf(plan: BindPlan) {
 function widenedNote(previous: string | null, plan: BindPlan): Note | null {
   const now = scopeOf(plan);
   if (previous !== "loopback" || now === "loopback") return null;
-  return { level: "warn", text: `이전 실행은 이 기기 전용이었는데 이번에는 더 넓게 열림(${now === "all" ? "모든 주소" : now}: ${REASONS[plan.reason]}). 의도한 것이 아니면 .env의 DASHBOARD_URL, DASHBOARD_HOST를 확인하세요` };
+  return { level: "warn", text: L.dashboard.bindWidened({ scope: now, reason: REASONS[plan.reason] }) };
 }
 
 export { planBind, inContainer, bindLine, bindNotes, reachableAddresses, scopeOf, widenedNote };

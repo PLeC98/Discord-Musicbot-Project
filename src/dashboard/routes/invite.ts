@@ -13,6 +13,7 @@ import { messageOf } from "../../rules/error-kind.ts";
 import { appIdOf } from "../../infra/app-id.ts";
 import { discordHttp, type DiscordHttp } from "../discord-api.ts";
 import type { InviteList } from "../contract/invite.ts";
+import { L } from "../../infra/log/text.ts";
 
 const statusOf = (error: unknown) => (error as { response?: { status?: number } } | null)?.response?.status;
 
@@ -42,7 +43,7 @@ function createInviteRouter({ http = discordHttp }: { http?: DiscordHttp } = {})
       // 토큰이 만료됐거나 사용자가 디스코드에서 승인을 취소했다
       if (status === 401) return res.json(relogin);
       if (status === 429) return sendProblem(res, "rate-limited");
-      log.warn(`디스코드에서 초대 화면의 서버 목록 불러오기 실패: ${status ? `상태 코드 ${status}` : messageOf(error)}`);
+      log.warn(L.dashboard.inviteGuildsFailed({ status: status ?? null, error: messageOf(error) }));
       sendProblem(res, "unknown-error");
     }
   });

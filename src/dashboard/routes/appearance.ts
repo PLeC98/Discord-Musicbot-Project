@@ -8,12 +8,13 @@ import { requireOwner } from "../middleware/require-owner.ts";
 import { signedIn } from "../middleware/require-auth.ts";
 import { sendProblem } from "../problem.ts";
 import { parse, FaviconLinkBody, FaviconUseBody } from "../request-schemas.ts";
-import { messageOf } from "../../rules/error-kind.ts";
+import { errorProblem, messageOf } from "../../rules/error-kind.ts";
 import * as safeUrl from "../../infra/safe-url.ts";
 import { APPEARANCE_MAX_BYTES, FAVICON_SIZES, type FaviconSlots } from "../contract/appearance.ts";
 import * as store from "../appearance.ts";
 import { assertSignedIn, sessionEnded } from "../session-requests.ts";
 import { L } from "../../infra/log/text.ts";
+import type { LogText } from "../../infra/log/log-text.ts";
 
 /** 매니페스트가 부르는 아이콘 크기(안드로이드 홈 화면) */
 const MANIFEST_SIZES = [192, 256, 512];
@@ -61,14 +62,14 @@ const ranBy = (req: Request) => signedIn(req).username || signedIn(req).id;
 const reply = (req: Request): FaviconSlots => store.faviconSlots(Boolean(avatarUrl(req)));
 
 /** 저장을 바꾸는 작업 하나. 파일 쓰기에 실패하면 appearance-save-failed, 됐으면 로그를 남기고 슬롯들로 응답한다. what: [한 일, 실패했을 때의 일] */
-async function changing(req: Request, res: Response, what: [string, string], job: () => Promise<boolean | store.Added> | boolean) {
+async function changing(req: Request, res: Response, what: [LogText, LogText], job: () => Promise<boolean | store.Added> | boolean) {
   let done: boolean | store.Added;
   try {
     done = await job();
   } catch (error) {
     if (sessionEnded(res, error)) return;
     log.error({ sub: "admin" }, L.dashboard.faviconFailed({ action: what[1], error: messageOf(error) }));
-    return sendProblem(res, "appearance-save-failed", {}, { detail: messageOf(error) });
+    return sendProblem(res, "appearance-save-failed", {}, { errors: [{ code: "appearance-save-failed", rule: errorProblem(error) }] });
   }
   if (done === false) return sendProblem(res, "route-not-found");
   if (typeof done === "object" && !done.ok) return sendProblem(res, done.code, done.params);
@@ -110,7 +111,7 @@ appearanceRouter.put("/favicon/:size", express.raw({ type: "image/*", limit: APP
   if (size === null) return sendProblem(res, "route-not-found");
   if (!Buffer.isBuffer(req.body) || !req.body.length) return sendProblem(res, "bad-image");
   // 본문을 받고 이미지를 바꾸는 사이 세션이 끝났으면 저장하지 않는다
-  return changing(req, res, [`${size}px에 이미지 업로드`, `${size}px 이미지 업로드`], () => store.addFavicon(size, req.body as Buffer, () => assertSignedIn(req)));
+  return changing(req, res, [L.dashboard.faviconUploaded({ size }), L.dashboard.faviconUpload({ size })], () => store.addFavicon(size, req.body as Buffer, () => assertSignedIn(req)));
 });
 
 appearanceRouter.put("/favicon/:size/current", (req, res) => {
@@ -118,19 +119,19 @@ appearanceRouter.put("/favicon/:size/current", (req, res) => {
   if (size === null) return sendProblem(res, "route-not-found");
   const body = parse(FaviconUseBody, req.body ?? {});
   if (!body.ok) return sendProblem(res, body.code);
-  return changing(req, res, [`${size}px을 기록의 이미지로 바꿈`, `${size}px 기록의 이미지로 바꾸기`], () => store.useFavicon(size, body.value.id));
+  return changing(req, res, [L.dashboard.faviconUsedHistory({ size }), L.dashboard.faviconUseHistory({ size })], () => store.useFavicon(size, body.value.id));
 });
 
 appearanceRouter.delete("/favicon/:size", (req, res) => {
   const size = sizeOf(req);
   if (size === null) return sendProblem(res, "route-not-found");
-  return changing(req, res, [`${size}px을 비움`, `${size}px 비우기`], () => store.clearFavicon(size));
+  return changing(req, res, [L.dashboard.faviconCleared({ size }), L.dashboard.faviconClear({ size })], () => store.clearFavicon(size));
 });
 
 appearanceRouter.delete("/favicon/:size/history/:id", (req, res) => {
   const size = sizeOf(req);
   if (size === null) return sendProblem(res, "route-not-found");
-  return changing(req, res, [`${size}px의 기록에서 이미지 삭제`, `${size}px 기록에서 이미지 삭제`], () => store.removeFavicon(size, req.params.id));
+  return changing(req, res, [L.dashboard.faviconHistoryRemoved({ size }), L.dashboard.faviconHistoryRemove({ size })], () => store.removeFavicon(size, req.params.id));
 });
 
 // 기록의 이미지 미리 보기(슬롯 크기 png). id는 다시 쓰지 않으므로 오래 캐시한다

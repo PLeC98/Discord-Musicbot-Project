@@ -11,6 +11,7 @@ import { readsAnimatedWebp, tryEncoder, tryFilter } from "../../media/ffmpeg/tri
 import { HDR_TO_SDR } from "./ladder.ts";
 import { LOGIN_BG_CODECS, type LoginBackgroundCodec, type LoginBackgroundEncoder } from "../contract/login-background.ts";
 import { L } from "../../infra/log/text.ts";
+import { asText } from "../../infra/log/log-text.ts";
 import { ruleLogText } from "../../rules/text/index.ts";
 
 /** 후보 하나. options는 테스트에 거는 옵션(실제 인코딩의 핵심만: 10비트, 비트레이트 방식 등, 거기서 실패하면 인코딩도 실패한다) */
@@ -52,7 +53,7 @@ async function check() {
   encoders = picked;
   animatedWebp = await readsAnimatedWebp();
   hdrToSdr = await tryFilter(HDR_TO_SDR, HDR_TRIAL_SOURCE);
-  log.info(`로그인 배경 인코더: ${picked.map((one) => `${one.codec} ${one.encoder ?? "없음"}`).join(", ")}${animatedWebp ? "" : ". 움직이는 WebP를 읽지 못함(ffmpeg 9.0 이상 필요)"}`);
+  log.info(L.dashboard.backgroundEncodersPicked({ picked: picked.map((one) => asText(L.dashboard.backgroundEncoderPicked({ codec: one.codec, encoder: one.encoder }))).join(", "), animatedWebp }));
   for (const one of picked) {
     const why = one.why ?? (one.encoder ? null : rule("encoder-none"));
     if (why) log.warn(L.dashboard.backgroundEncoderUnavailable({ codec: one.codec, why: ruleLogText(why) }));

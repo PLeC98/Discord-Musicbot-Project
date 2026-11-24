@@ -242,7 +242,7 @@ function removeFolder(id: string) {
   try {
     fs.rmSync(folder, { recursive: true, force: true });
   } catch {
-    bestEffort(log, fs.promises.rm(folder, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 }), `로그인 배경 폴더(${id}) 삭제`, "warn");
+    bestEffort(log, fs.promises.rm(folder, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 }), L.dashboard.backgroundFolderRemove({ id }), "warn");
   }
 }
 

@@ -19,7 +19,7 @@ const CLIENT_ERROR_STATUS: Record<string, string> = { HPE_HEADER_OVERFLOW: "431 
 function onClientError(error: Error & { code?: string }, duplex: Duplex) {
   const socket = duplex as Socket & { _httpMessage?: { _headerSent?: boolean } | null };
   // 받는 도중 브라우저가 끊는 것(ECONNRESET)은 흔해 남기지 않는다
-  if (error.code !== "ECONNRESET") log.trace(`대시보드 요청 읽기 실패(${socket.remoteAddress ?? "주소 모름"}): ${describeError(error)}`);
+  if (error.code !== "ECONNRESET") log.trace(L.dashboard.clientRequestReadFailed({ address: socket.remoteAddress ?? null, error: describeError(error) }));
   // 나가던 응답의 헤더가 이미 소켓에 나갔으면 오류 응답을 끼워 쓰지 않는다
   if (socket.writable && !socket._httpMessage?._headerSent) socket.write(`HTTP/1.1 ${CLIENT_ERROR_STATUS[error.code ?? ""] ?? "400 Bad Request"}\r\nConnection: close\r\n\r\n`);
   socket.destroy(error);

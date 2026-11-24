@@ -35,7 +35,7 @@ function createLoginDevicesRouter({ places, http = discordHttp }: { places: Plac
     for (const sid of sids) {
       try {
         const token = store.readDiscordToken(sid);
-        if (token) bestEffort(log, revokeToken(http, token), "다른 기기의 디스코드 토큰 폐기", "warn");
+        if (token) bestEffort(log, revokeToken(http, token), L.dashboard.otherDeviceTokenRevoke(), "warn");
       } catch (error) {
         log.warn(L.dashboard.otherDeviceTokenReadFailed({ error: messageOf(error) }));
       }
@@ -106,7 +106,7 @@ function createLoginDevicesRouter({ places, http = discordHttp }: { places: Plac
     const oldSid = req.sessionID;
     // 최근 로그인 확인을 지났으니 있다. 없으면 0(새 세션은 절대 기한이 지나 곧바로 끝난다). 기기 기록의 로그인 시각도 이것이다
     const loginAt = req.session.loginAt ?? 0;
-    const moved = await startSession(req, { user, loginAt, viewAs: req.session.viewAs, token: tokenOf(store, oldSid), signedInAt: loginAt, failure: "다른 기기 로그아웃 뒤 요청한 기기의 새 세션 저장 실패(요청한 기기도 로그아웃)" });
+    const moved = await startSession(req, { user, loginAt, viewAs: req.session.viewAs, token: tokenOf(store, oldSid), signedInAt: loginAt, failure: L.dashboard.requestingDeviceSessionSaveFailed() });
     // 이전 세션 행을 지우지 못했으면 다른 기기와 같게 성공으로 응답하지 않는다. 새 세션을 저장하지 못했으면 이 기기도 로그아웃이다
     if (!moved) return store.isUnsaved(oldSid) ? answer(res, results, [...retriedResults, false]) : sendProblem(res, "login-required");
     // 여전히 삭제하지 못했으면 성공으로 응답하지 않는다

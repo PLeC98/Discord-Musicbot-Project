@@ -103,7 +103,7 @@ adminRouter.post("/restart", (req, res) => {
   const announce = req.body?.announce === true;
   // 실행자 정보는 먼저 읽어 둔다(응답을 보낸 뒤에는 요청에서 세션을 뗐을 수 있다)
   const by = ranBy(req);
-  log.warn({ sub: "admin" }, `대시보드에서 봇 다시 시작${announce ? "(재생 중인 서버에 공지)" : ""}. 실행 ${by}`);
+  log.warn({ sub: "admin" }, L.dashboard.botRestartRequested({ announce, by }));
   res.on("finish", () => restart(by, { announce }));
   res.status(202).json({ restarting: true } satisfies RestartReply);
 });
@@ -182,13 +182,13 @@ adminRouter.post("/guilds/:guildId/leave", requireRecentLogin, async (req, res) 
 
   const name = guild.name;
   try {
-    await leaveGuild(players, guild, { reason: "운영자 패널에서 서버 나가기", end: "operator-leave", go: () => sessionRequests.assertSignedIn(req) });
+    await leaveGuild(players, guild, { reason: L.dashboard.operatorLeaveReason(), end: "operator-leave", go: () => sessionRequests.assertSignedIn(req) });
     log.info({ sub: "admin" }, L.dashboard.guildLeft({ name, id: guild.id }));
     res.json({ success: true, name } satisfies LeaveReply);
   } catch (error) {
     if (sessionRequests.sessionEnded(res, error)) return;
     log.error({ sub: "admin" }, L.dashboard.guildLeaveFailed(), error);
-    sendProblem(res, "leave-guild-failed", {}, { detail: messageOf(error) });
+    sendProblem(res, "leave-guild-failed", {}, { errors: [{ code: "leave-guild-failed", rule: errorProblem(error) }] });
   }
 });
 
@@ -212,7 +212,7 @@ adminRouter.post("/intents/:name/enable", requireRecentLogin, async (req, res) =
   } catch (error) {
     if (sessionRequests.sessionEnded(res, error)) return;
     log.warn({ sub: "admin" }, L.dashboard.intentEnableFailed({ intent: INTENT_NAMES[name], by, error: messageOf(error) }));
-    sendProblem(res, "intent-enable-failed", {}, { detail: messageOf(error) });
+    sendProblem(res, "intent-enable-failed", {}, { errors: [{ code: "intent-enable-failed", rule: errorProblem(error) }] });
   }
 });
 
@@ -223,12 +223,12 @@ adminRouter.post("/redeploy-commands", async (req, res) => {
   const r = await req.app.locals.deployCommands({ force: true }); // 대시보드 버튼은 명시적 재배포라 해시가 같아도 등록한다
   if (r.ok) {
     // 개수는 디스코드가 등록을 받고 돌려준 것이다
-    log.info({ sub: "admin" }, `대시보드 운영자 패널에서 슬래시 명령어 ${r.count}개를 ${r.scope === "guild" ? `서버 ${r.guildId ?? "없음"}에` : "전역으로"} 다시 등록`);
+    log.info({ sub: "admin" }, L.dashboard.commandsRedeployed({ count: r.count, toGuild: r.scope === "guild", guildId: r.guildId ?? null }));
     return res.json({ success: true, count: r.count, scope: r.scope, guildId: r.guildId, names: r.names } satisfies RedeployReply);
   }
   // 원인 안내는 기동 로그, pnpm commands와 같은 문장이다(운영자용 원문 필드)
   log.error({ sub: "admin" }, L.dashboard.commandsDeployFailed({ error: messageOf(r.error), hint: r.hint ? ` | ${logRuleLine(r.hint)}` : "" }));
-  return sendProblem(res, "deploy-failed", {}, { errors: [{ code: "deploy-failed", detail: messageOf(r.error) }, ...(r.hint ? [{ code: "deploy-failed" as const, rule: r.hint }] : [])], discordCode: codeOf(r.error) ?? null });
+  return sendProblem(res, "deploy-failed", {}, { errors: [{ code: "deploy-failed", rule: errorProblem(r.error) }, ...(r.hint ? [{ code: "deploy-failed" as const, rule: r.hint }] : [])], discordCode: codeOf(r.error) ?? null });
 });
 
 // ── 설정 문서(장르, 상태 문구, AI 설정, settings.db) ──
@@ -274,7 +274,7 @@ adminRouter.get("/source-suggest", async (req, res) => {
     res.json({ items } satisfies Suggestions);
   } catch (error) {
     suggestFailure(type, what).fail(messageOf(error));
-    sendProblem(res, "suggest-failed", {}, { detail: messageOf(error) });
+    sendProblem(res, "suggest-failed", {}, { errors: [{ code: "suggest-failed", rule: errorProblem(error) }] });
   }
 });
 
@@ -329,7 +329,7 @@ async function countByClaude(texts: string[], provider: string, model: string) {
         return got - wrap;
       },
       (error: unknown) => {
-        claudeCountFailure.fail(`${model} | ${messageOf(error)} (추산값으로 대체)`);
+        claudeCountFailure.fail(L.dashboard.claudeTokenCountFailure({ model, error: messageOf(error) }));
         return null;
       },
     );
@@ -362,7 +362,7 @@ adminRouter.post("/ai/tokens", async (req, res) => {
     res.json({ each, total: each.reduce((sum, one) => sum + one, 0), by, exact } satisfies TokensReply);
   } catch (error) {
     tokenCountFailure.fail(messageOf(error));
-    sendProblem(res, "token-count-failed", {}, { detail: messageOf(error) });
+    sendProblem(res, "token-count-failed", {}, { errors: [{ code: "token-count-failed", rule: errorProblem(error) }] });
   }
 });
 
@@ -372,7 +372,7 @@ adminRouter.post("/ai/models/refresh", async (req, res) => {
     res.json(await refreshModelInfo({ force: !!req.body?.force }));
   } catch (error) {
     // 모델 정보 갱신 실패는 config/ai-model-info가 warn으로 남기고 다시 던진다
-    sendProblem(res, "model-refresh-failed", {}, { detail: messageOf(error) });
+    sendProblem(res, "model-refresh-failed", {}, { errors: [{ code: "model-refresh-failed", rule: errorProblem(error) }] });
   }
 });
 
@@ -418,7 +418,7 @@ adminRouter.put("/ai/keys", requireRecentLogin, (req, res) => {
     }
   } catch (error) {
     log.error({ sub: "admin" }, L.dashboard.aiKeysSaveFailed({ keys: Object.keys(keys).join(", "), by: ranBy(req), error: messageOf(error) }));
-    return sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
+    return sendProblem(res, "config-save-failed", {}, { errors: [{ code: "config-save-failed", rule: errorProblem(error) }] });
   }
   log.warn({ sub: "admin" }, L.dashboard.aiKeysSaved({ keys: Object.keys(keys).join(", "), by: ranBy(req) }));
   res.json(keysReply({ ...draft }) satisfies KeysReply);
@@ -485,7 +485,7 @@ adminRouter.put("/ai/settings", (req, res) => {
   } catch (error) {
     if (codeOf(error) === "REVISION_CONFLICT") return sendProblem(res, "config-changed");
     log.error({ sub: "admin" }, L.dashboard.aiSettingsSaveFailed({ error: messageOf(error) }));
-    sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
+    sendProblem(res, "config-save-failed", {}, { errors: [{ code: "config-save-failed", rule: errorProblem(error) }] });
   }
 });
 
@@ -505,12 +505,12 @@ adminRouter.put("/cookies", requireRecentLogin, (req, res) => {
 
   try {
     // 내용은 절대 남기지 않는다. 로그인된 세션 그 자체다
-    log.warn({ sub: "admin" }, `대시보드에서 유튜브 쿠키 ${text.trim() ? "저장" : "삭제"}. 실행 ${ranBy(req)}`);
+    log.warn({ sub: "admin" }, L.dashboard.cookiesChanged({ saved: Boolean(text.trim()), by: ranBy(req) }));
     cookieJar.save(text);
     res.json(cookieState());
   } catch (error) {
-    log.error({ sub: "admin" }, `유튜브 쿠키 ${text.trim() ? "저장" : "삭제"} 실패: 요청자=${ranBy(req)} | ${messageOf(error)}`);
-    sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
+    log.error({ sub: "admin" }, L.dashboard.cookiesChangeFailed({ saved: Boolean(text.trim()), by: ranBy(req), error: messageOf(error) }));
+    sendProblem(res, "config-save-failed", {}, { errors: [{ code: "config-save-failed", rule: errorProblem(error) }] });
   }
 });
 
@@ -558,7 +558,7 @@ adminRouter.put("/age-content", (req, res) => {
   const before = ageContent().enabled;
   const next = setAgeContent(enabled);
   if (next.enabled !== before) {
-    log.warn({ sub: "admin" }, `대시보드에서 연령 제한 콘텐츠 ${enabled ? "켬" : "끔"}. 실행 ${ranBy(req)}`);
+    log.warn({ sub: "admin" }, L.dashboard.ageContentChanged({ enabled, by: ranBy(req) }));
     youtubeSource.logAuthMode();
   }
   res.json(next satisfies AgeContent);
@@ -615,7 +615,7 @@ adminRouter.put("/config/:name", (req, res) => {
   } catch (error) {
     if (codeOf(error) === "REVISION_CONFLICT") return sendProblem(res, "config-changed");
     log.error({ sub: "admin" }, L.dashboard.settingSaveFailed({ name, error: messageOf(error) }));
-    sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
+    sendProblem(res, "config-save-failed", {}, { errors: [{ code: "config-save-failed", rule: errorProblem(error) }] });
   }
 });
 
@@ -626,7 +626,7 @@ adminRouter.get("/logs/stream", (req, res) => {
   // 열자마자 쌓아 둔 줄을 보내므로 열기 바로 앞에서 세션을 본다. 연 뒤 세션에 묶는다(끝나면 끊긴다)
   if (!sessionRequests.admit(req)) return sendProblem(res, "login-required");
   if (!logSink.addClient(res, signedIn(req).id, after)) return sendProblem(res, "too-many-streams");
-  sessionRequests.track(req, res, "실시간 로그", () => logSink.drop(res));
+  sessionRequests.track(req, res, L.dashboard.liveLogStream(), () => logSink.drop(res));
 });
 
 // 권한 수준 오버라이드. { tier: "server-manager"|"dj"|"user"|null }. null이면 해제.
@@ -640,7 +640,7 @@ adminRouter.post("/view-as", (req, res) => {
   if (tier === null) delete req.session.viewAs;
   else req.session.viewAs = tier;
 
-  log.info({ sub: "admin" }, `권한 수준 오버라이드: ${String(tier || "해제")}. 실행 ${ranBy(req)}`);
+  log.info({ sub: "admin" }, L.dashboard.viewAsOverride({ tier: tier === null ? null : String(tier), by: ranBy(req) }));
   res.json({ viewAs: getViewAs(req) } satisfies ViewAsReply);
 });
 

@@ -57,7 +57,7 @@ aiLogRouter.get("/logs/stream", (req, res) => {
   // 열자마자 놓친 줄을 보내므로 열기 바로 앞에서 세션을 본다. 연 뒤 세션에 묶는다(끝나면 끊긴다)
   if (!sessionRequests.admit(req)) return sendProblem(res, "login-required");
   if (!aiLogStream.addClient(res, signedIn(req).id, after)) return sendProblem(res, "too-many-streams");
-  sessionRequests.track(req, res, "AI 리퀘스트 로그", () => aiLogStream.drop(res));
+  sessionRequests.track(req, res, L.dashboard.aiLogStream(), () => aiLogStream.drop(res));
 });
 
 aiLogRouter.get("/logs", (req, res) => {

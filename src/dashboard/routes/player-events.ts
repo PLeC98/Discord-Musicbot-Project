@@ -9,6 +9,7 @@ import { memberOf, seesGuild } from "../guild-access.ts";
 import { memberGuildIds } from "../user-guilds.ts";
 import type { DiscordHttp } from "../discord-api.ts";
 import * as sessionRequests from "../session-requests.ts";
+import { L } from "../../infra/log/text.ts";
 
 // 대시보드발 상태 변경(비-GET 성공) → 그 서버를 볼 수 있는 SSE 구독자에게 넛지.
 // req.params는 라우터를 빠져나오면 되돌아가므로, 요청 주소(originalUrl)에서 서버 ID를 미리 추출해 finish에서 쓴다.
@@ -55,7 +56,7 @@ function createPlayerEventsRouter({ stream, http }: { stream: PlayerStream; http
       if (!sessionRequests.admit(req)) return sendProblem(res, "login-required");
       if (!stream.open(res, slot, canSee, new Set(checked.filter((id) => id !== null)))) return;
       handed = true;
-      sessionRequests.track(req, res, "재생 상태", () => stream.drop(res));
+      sessionRequests.track(req, res, L.dashboard.playerStateStream(), () => stream.drop(res));
     } finally {
       if (!handed) slot.release();
     }

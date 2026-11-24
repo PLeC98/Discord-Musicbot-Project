@@ -23,7 +23,7 @@ import { AT_AFTER_LINES, matchesLog, type FileLine, type FilePage, type LogFile,
 import type { LogText } from "../infra/log/log-text.ts";
 import { L } from "../infra/log/text.ts";
 const log = logger.child({ category: "dashboard" });
-const viewerReport = { caller: "로그 뷰어", line: (text: LogText) => log.warn(text) };
+const viewerReport = { caller: L.dashboard.logViewerCaller(), line: (text: LogText) => log.warn(text) };
 
 /** 짧게 읽을 때(첫 줄, 시각 찾기) 한 번에 읽는 바이트 */
 const CHUNK = 64 * 1024;

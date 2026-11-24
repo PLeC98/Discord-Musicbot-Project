@@ -91,7 +91,7 @@ import { AppEmojis, apiOf } from "./app-emojis.ts";
 import { missingText } from "../ui/text/index.ts";
 import { missingRuleText } from "../rules/text/index.ts";
 import { missingLogText } from "../infra/log/text.ts";
-import type { LogText } from "../infra/log/log-text.ts";
+import { asText, type LogText } from "../infra/log/log-text.ts";
 import { BASE_LANGUAGE } from "../rules/languages.ts";
 import { L } from "../infra/log/text.ts";
 
@@ -194,7 +194,7 @@ function openSettings({ potServer, logFile }: { potServer: PotServer; logFile: L
 async function restoreAudioCache() {
   try {
     const done = await archive.applyStagedAudio(PROJECT.database);
-    if (done) log.info(L.core.backupAudioCacheMerged({ items: (Object.entries(done.added ?? {}) as Array<[ArchiveItem, number]>).map(([item, n]) => `${archive.ITEM_LABELS[item]} ${n}`).join(", ") || null }));
+    if (done) log.info(L.core.backupAudioCacheMerged({ items: (Object.entries(done.added ?? {}) as Array<[ArchiveItem, number]>).map(([item, n]) => `${asText(archive.ITEM_LABELS[item])} ${n}`).join(", ") || null }));
   } catch (error) {
     log.warn(L.core.backupAudioCacheMergeFailed({ error: messageOf(error) }));
   }

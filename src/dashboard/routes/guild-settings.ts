@@ -2,7 +2,7 @@
 
 import express from "express";
 import logger from "../../infra/log/logger.ts";
-import { messageOf } from "../../rules/error-kind.ts";
+import { errorProblem, messageOf } from "../../rules/error-kind.ts";
 import { asText } from "../../infra/log/log-text.ts";
 const log = logger.child({ category: "dashboard" });
 import { ChannelType, PermissionFlagsBits, type Guild, type GuildMember } from "discord.js";
@@ -269,13 +269,13 @@ function createGuildSettingsRouter() {
     const user = signedIn(req);
     const who = `${user.username || "?"} (${user.id})`;
     try {
-      await leaveGuild(bot.players, guild, { reason: "대시보드 서버 설정에서 봇 내보내기", end: "dashboard-leave", go: () => assertSignedIn(req) });
+      await leaveGuild(bot.players, guild, { reason: L.dashboard.guildSettingsLeaveReason(), end: "dashboard-leave", go: () => assertSignedIn(req) });
       log.info(L.dashboard.botRemovedFromGuild({ guild: guild.name, id: guild.id, by: who }));
       res.json({ success: true } satisfies Saved);
     } catch (error) {
       if (sessionEnded(res, error)) return void log.warn(L.dashboard.botRemoveStopped({ guild: guild.name, id: guild.id, by: who }));
       log.error(L.dashboard.botRemoveFailed({ guild: guild.name, id: guild.id, by: who }), error);
-      sendProblem(res, "leave-guild-failed", {}, { detail: messageOf(error) });
+      sendProblem(res, "leave-guild-failed", {}, { errors: [{ code: "leave-guild-failed", rule: errorProblem(error) }] });
     }
   });
 

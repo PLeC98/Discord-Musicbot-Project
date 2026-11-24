@@ -14,6 +14,7 @@ import { clientIp, isInside } from "./client-ip.ts";
 import { warnGate } from "./warn-gate.ts";
 import { htmlPage } from "./html-page.ts";
 import { L } from "../infra/log/text.ts";
+import type { LogText } from "../infra/log/log-text.ts";
 
 const log = logger.child({ category: "dashboard" });
 
@@ -29,9 +30,9 @@ function plaintextReason(req: Request): Reason | null {
   return null;
 }
 
-const REASON_TEXT: Record<Reason, string> = {
-  hop: "인터넷 주소가 봇 포트에 평문으로 바로 붙음",
-  browser: "프록시가 인터넷 사용자의 평문(http) 접속을 알림",
+const REASON_TEXT: Record<Reason, LogText> = {
+  hop: L.dashboard.plaintextReasonHop(),
+  browser: L.dashboard.plaintextReasonBrowser(),
 };
 
 /** 모든 요청의 앞(Host 확인 뒤, 정적 파일, 세션보다 앞): 인터넷 평문 요청에 403과 안내 */
@@ -53,7 +54,7 @@ function plaintextGate(allow: boolean): RequestHandler {
 
 type Lookup = (host: string) => Promise<Array<{ address: string }>>;
 /** open이 false면 detail: 공인 주소(도메인이면 도메인 → 주소) */
-type UrlVerdict = { open: true; note?: string } | { open: false; detail: string };
+type UrlVerdict = { open: true; note?: LogText } | { open: false; detail: string };
 
 const defaultLookup: Lookup = (host) => dns.lookup(host, { all: true, verbatim: true });
 
@@ -87,10 +88,10 @@ async function checkPublicUrl(url: string, { lookup = defaultLookup, timeoutMs =
     found = await lookupWithin(lookup, host, timeoutMs);
   } catch (error) {
     const code = (error as { code?: string }).code;
-    const why = code === "ENOTFOUND" || code === "EAI_NONAME" ? "찾지 못해" : `조회하지 못해(${code ?? "알 수 없음"})`;
-    return { open: true, note: `DASHBOARD_URL의 호스트(${host})를 ${why} 공인 주소인지 확인하지 못함. 대시보드는 열고 요청마다 인터넷 평문을 검사` };
+    const why = code === "ENOTFOUND" || code === "EAI_NONAME" ? L.dashboard.publicUrlNotFound() : L.dashboard.publicUrlLookupError({ code: code ?? null });
+    return { open: true, note: L.dashboard.publicUrlLookupFailed({ host, why }) };
   }
-  if (found === "timeout") return { open: true, note: `DASHBOARD_URL의 호스트(${host})를 ${timeoutMs / 1000}초 안에 조회하지 못해 공인 주소인지 확인하지 못함. 대시보드는 열고 요청마다 인터넷 평문을 검사` };
+  if (found === "timeout") return { open: true, note: L.dashboard.publicUrlLookupTimedOut({ host, seconds: timeoutMs / 1000 }) };
   const publicAddress = found.map((a) => a.address).find((a) => kindOf(a) === "public");
   return publicAddress ? { open: false, detail: `${host} → ${publicAddress}` } : { open: true };
 }
@@ -99,12 +100,12 @@ async function checkPublicUrl(url: string, { lookup = defaultLookup, timeoutMs =
  * 기동 시: 공개 주소가 http이고 호스트가 점이 있는 도메인 이름이면 안내 한 줄(평문 허용과 상관없이). 아니면 null.
  * 같은 상위 도메인의 다른 사이트가 쿠키를 심을 수 있다. 같은 이름이 둘이면 받지 않지만(dashboard/cookies), 우리 쿠키가 없는 브라우저에 심은 하나는 가를 수 없다
  */
-function siblingCookieNote(url: string): string | null {
+function siblingCookieNote(url: string): LogText | null {
   const parsed = new URL(url);
   if (parsed.protocol !== "http:") return null;
   const host = parsed.hostname.replace(/\.$/, "").toLowerCase();
   if (!host.includes(".") || isLoopbackName(host) || kindOf(host.replace(/^\[(.*)\]$/, "$1"))) return null;
-  return `DASHBOARD_URL이 http이고 호스트가 도메인 이름(${host})이라 같은 상위 도메인의 다른 사이트가 쿠키를 심어 다른 계정으로 로그인시키거나 공격자의 세션을 쓰게 할 수 있음. 대시보드를 HTTPS로 열어야 함`;
+  return L.dashboard.siblingCookieRisk({ host });
 }
 
 export { plaintextGate, plaintextReason, checkPublicUrl, siblingCookieNote, LOOKUP_TIMEOUT_MS };

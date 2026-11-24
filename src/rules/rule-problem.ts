@@ -176,6 +176,8 @@ const RULE_CODES = [
   "error-no-message",
   // 설정 문서를 읽은 뒤 그사이 다른 저장이 있었다(config/documents). name: 문서 이름, read: 읽은 번호, now: 지금 번호
   "doc-revision-conflict",
+  // 복원할 스냅샷의 구조 버전이 이 봇과 다르다(store/snapshots). version: 스냅샷의 것, botVersion: 봇의 것
+  "snapshot-version",
   // 봇 상태 탭의 연결(dashboard/status/links)
   "link-off",
   "link-no-key",

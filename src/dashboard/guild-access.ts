@@ -36,7 +36,7 @@ const notMember = (guildId: string, userId: string) => (error: unknown) => {
     memberAnswered(guildId);
     return null;
   }
-  memberFailureOf(guildId).fail(`${code === undefined ? "" : `${code} | `}${messageOf(error)} (멤버 아님으로 처리)`);
+  memberFailureOf(guildId).fail(L.dashboard.memberLookupFailure({ code: code === undefined ? "" : `${code} | `, error: messageOf(error) }));
   log.debug(L.dashboard.memberLookupFailed({ guildId, userId, error: describeError(error) }));
   return null;
 };

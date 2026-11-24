@@ -93,7 +93,7 @@ async function receiveChunk(req: Request, res: Response, one: uploads.Upload) {
     chunk = await bodyOf(req, res);
   } catch (error) {
     // 업로드하던 사용자가 연결을 끊었거나 세션이 끝나 봇이 끊은 것이면 debug(그 사용자 문제라 봇에는 영향이 없다)
-    log[isEnded(req) || CLIENT_ABORTED.has(codeOf(error)) ? "debug" : "warn"]({ sub: "admin" }, `대시보드 업로드 중단(${one.purpose}, ${one.received}/${one.size}바이트): ${messageOf(error)}`);
+    log[isEnded(req) || CLIENT_ABORTED.has(codeOf(error)) ? "debug" : "warn"]({ sub: "admin" }, L.dashboard.uploadAborted({ purpose: one.purpose, received: one.received, size: one.size, error: messageOf(error) }));
     if (!res.headersSent && !req.destroyed) sendProblem(res, "bad-request");
     return;
   }

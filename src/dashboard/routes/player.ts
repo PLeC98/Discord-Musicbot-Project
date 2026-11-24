@@ -354,7 +354,7 @@ function searchRoute(router: Router) {
       const queued = queuedUrls(player);
       const tracks = found.songs.map((song) => searchTrack(guildId, song, queued));
       const spotify = tracks.filter((t) => t.platform === "spotify").length;
-      log.debug({ sub: "search" }, `곡 검색: 대시보드 | ${requester.username} | "${q}" → ${tracks.length ? `유튜브 ${tracks.length - spotify}, 스포티파이 ${spotify}` : "결과 없음"}${found.gated ? "(유튜브 연령 인증 안내)" : ""}`);
+      log.debug({ sub: "search" }, L.dashboard.searchResults({ who: requester.username, query: q, youtube: tracks.length - spotify, spotify, gated: found.gated }));
       res.json({ tracks, gated: found.gated } satisfies SearchReply);
     } catch (e) {
       searchFailed(guildId, q, e);
@@ -423,7 +423,7 @@ function addRoutes(router: Router) {
         query,
         single,
         insertFirst: first,
-        source: "대시보드",
+        source: L.player.sourceDashboard(),
         responder: dashboardResponder(bot, guildId),
         lookup: req.app.locals.lookup, // 테스트가 조회를 가짜로 넘기는 슬롯. 없으면 진짜
         go: () => assertSignedIn(req),
@@ -464,7 +464,7 @@ function addRoutes(router: Router) {
         requester: requesterOf(req),
         state,
         count: count.value,
-        source: "대시보드 더 넣기",
+        source: L.player.sourceDashboardMore(),
         lookup: req.app.locals.lookup,
         go: () => assertSignedIn(req),
       });

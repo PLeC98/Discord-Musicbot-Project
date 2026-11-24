@@ -117,7 +117,7 @@ async function previewOfVideo(item: Readonly<Stored>, signal: AbortSignal, progr
   // 이어 하기: 끊긴 몫이 남아 있으면 ffmpeg가 덮어쓰지 않는다
   fs.rmSync(part, { force: true });
   // 추산(AV1 preset 12)은 1.5GB 남짓: 다른 배경을 인코딩하는 중이면 남은 메모리를 기다린다
-  if (probe) await enoughMemory(needOf({ codec: "probe" }), "크기 어림", signal);
+  if (probe) await enoughMemory(needOf({ codec: "probe" }), L.dashboard.backgroundSizeEstimate(), signal);
   const started = Date.now();
   const run = await ffmpeg([...["-v", "error", ...PROGRESS_ARGS, ...READ_ARGS, "-i", source, "-filter_complex", graph, "-an", "-sn", "-dn"], ...["-map", "[p]", "-c:v", encoder, ...(PREVIEW_OPTIONS[encoder] ?? []), "-g", "60", ...container, part], ...(probe ? probeOutput("[e]") : [])], {
     signal,
@@ -130,7 +130,7 @@ async function previewOfVideo(item: Readonly<Stored>, signal: AbortSignal, progr
   if (run.aborted) throw codedError("aborted", L.dashboard.backgroundAborted());
   if (run.code !== 0) {
     fs.rmSync(part, { force: true });
-    throw codedError("background-failed", `미리보기 만들기 실패: ${run.timedOut ? "시간 초과" : run.stderr.split("\n").filter(Boolean).slice(-3).join(" ")}`);
+    throw codedError("background-failed", L.dashboard.backgroundPreviewFailed({ reason: run.timedOut ? L.dashboard.backgroundTimedOut() : run.stderr.split("\n").filter(Boolean).slice(-3).join(" ") }));
   }
   fs.renameSync(part, previewVideo(item.id, ext));
   if (!probe) return {};

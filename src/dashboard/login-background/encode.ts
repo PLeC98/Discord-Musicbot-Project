@@ -22,9 +22,9 @@ import { cropped, FHD, FPS_CAP, fitShort, frameRate, scaleTo, seekArgs, sourceFi
 import { probeVideo, READ_ARGS, type Probed } from "./source.ts";
 import { encoderFor, encodersReady, recheck } from "./encoders.ts";
 import { AV1_LP_MAX, av1LpFor, enoughMemory, needOf, splitLp } from "./memory.ts";
-import { josa } from "../../infra/josa.ts";
 import { formatBytes } from "../../ui/format.ts";
 import { L } from "../../infra/log/text.ts";
+import type { LogText } from "../../infra/log/log-text.ts";
 
 /** H.264 단계의 짧은 변 */
 const H264_SHORT = 720;
@@ -95,7 +95,7 @@ const hlsOutput = (dir: string) => {
 };
 
 /** 단계들을 한 번 풀어 함께 인코딩한다(하나면 따로 인코딩하는 것과 같다). lp는 AV1의 병렬 단계. 실패면 ffmpeg가 낸 원인 */
-async function encodeTogether(item: Readonly<store.Stored>, probed: Probed, batch: { plans: Plan[]; lp: number }, signal: AbortSignal, progress: (value: number) => void): Promise<string | null> {
+async function encodeTogether(item: Readonly<store.Stored>, probed: Probed, batch: { plans: Plan[]; lp: number }, signal: AbortSignal, progress: (value: number) => void): Promise<string | LogText | null> {
   const plans = batch.plans.map((plan) => withLp(plan, batch.lp));
   const [from, to] = item.edit!.range ?? [0, item.duration];
   const mine = { id: item.id, rungs: plans.map((plan) => ({ codec: plan.codec, short: plan.short })), lp: plans.some((plan) => plan.codec === "av1") ? batch.lp : null, startedAt: Date.now(), done: 0 };
@@ -111,7 +111,7 @@ async function encodeTogether(item: Readonly<store.Stored>, probed: Probed, batc
 }
 
 /** ffmpeg 한 번으로 인코딩한다. onSeconds는 인코딩한 영상 초 */
-async function bake(item: Readonly<store.Stored>, probed: Probed, plans: Plan[], signal: AbortSignal, onSeconds: (seconds: number) => void): Promise<string | null> {
+async function bake(item: Readonly<store.Stored>, probed: Probed, plans: Plan[], signal: AbortSignal, onSeconds: (seconds: number) => void): Promise<string | LogText | null> {
   const edit = item.edit!;
   const [from, to] = edit.range ?? [0, item.duration];
   const tmp = plans.map((plan) => `${rungDir(item.id, plan)}.tmp`);
@@ -138,7 +138,7 @@ async function bake(item: Readonly<store.Stored>, probed: Probed, plans: Plan[],
   if (run.aborted) throw codedError("aborted", L.dashboard.backgroundAborted());
   if (run.code !== 0) {
     for (const dir of tmp) fs.rmSync(dir, { recursive: true, force: true });
-    return run.timedOut ? "시간 초과" : run.stderr.split("\n").filter(Boolean).slice(-3).join(" ");
+    return run.timedOut ? L.dashboard.backgroundTimedOut() : run.stderr.split("\n").filter(Boolean).slice(-3).join(" ");
   }
   plans.forEach((plan, i) => {
     fs.rmSync(rungDir(item.id, plan), { recursive: true, force: true });
@@ -223,7 +223,7 @@ async function encodePlans({ item, signal, progress }: StageJob, codecs: LoginBa
   for (;;) {
     const plan = plansFor(codecs, size, fps).find((one) => !made(item.id, one));
     if (!plan) break;
-    const what = `${plan.codec} ${plan.short}p 인코딩`;
+    const what = L.dashboard.backgroundEncodeStep({ codec: plan.codec, short: plan.short });
     const uhd = plan.short >= UHD;
     const lp = plan.codec === "av1" ? await av1LpFor(uhd, what, signal) : AV1_LP_MAX;
     if (plan.codec !== "av1") await enoughMemory(needOf({ codec: plan.codec, uhd }), what, signal);
@@ -239,7 +239,7 @@ async function encodePlans({ item, signal, progress }: StageJob, codecs: LoginBa
     await recheck();
     const next = encoderFor(plan.codec);
     if (next !== null && failedNow.has(next)) throw codedError("background-failed", L.dashboard.backgroundEncoderFailedAfterTest({ encoder: next, what, failure }));
-    log.warn({ sub: "admin" }, `로그인 배경 "${item.name}"의 ${what}이 ${plan.encoder}에서 실패해 인코더를 다시 테스트함(${failure}). ${next ? `${next}${josa(next, "으로")} 다시 인코딩` : `${plan.codec}${josa(plan.codec, "은")} 쓸 수 있는 인코더가 없어 빼고 계속`}`);
+    log.warn({ sub: "admin" }, L.dashboard.backgroundEncoderRetest({ name: item.name, what, encoder: plan.encoder, failure, next, codec: plan.codec }));
   }
   return { media: { ...item.media, rungs: { ...item.media.rungs, ...writeMasters(item, shapesFor(LOGIN_BG_CODECS, size), fps) } } };
 }

@@ -28,11 +28,11 @@ import * as sponsorBlock from "../sources/sponsor-block.ts";
 import * as spotify from "../sources/spotify.ts";
 import type { AudioCachePart } from "../rules/audio-cache-parts.ts";
 import logger from "../infra/log/logger.ts";
-import { josa } from "../infra/josa.ts";
 import { L } from "../infra/log/text.ts";
+import { asText, type LogText } from "../infra/log/log-text.ts";
 const log = logger.child({ category: "dashboard" });
 
-const PART_NAMES: Record<AudioCachePart, string> = { files: "캐시 파일", ledger: "곡 찾기 기록", external: "바깥 서비스 데이터", pins: "직접 지정한 음원" };
+const PART_NAMES: Record<AudioCachePart, LogText> = { files: L.dashboard.cachePartFiles(), ledger: L.dashboard.cachePartLedger(), external: L.dashboard.cachePartExternal(), pins: L.dashboard.cachePartPins() };
 const MB = (bytes: number) => Math.round(bytes / 1024 / 1024);
 
 /**
@@ -50,9 +50,9 @@ async function resetAudioCache(parts: readonly AudioCachePart[], by: string, go?
     sponsorBlock.forget();
     spotify.forgetAnonState();
   }
-  const files = parts.includes("files") ? [`캐시 파일 ${result.removed}개(${MB(result.freedBytes)}MB) 삭제${result.kept ? `(재생 중이거나 대기열 앞에 있는 곡, 또는 삭제하지 못한 ${result.kept}개는 남김)` : ""}`] : [];
-  const rows = parts.filter((part) => part !== "files").map((part) => `${PART_NAMES[part]} ${result.cleared[part] ?? 0}행`);
-  log.warn({ sub: "admin" }, L.dashboard.audioCacheReset({ targets: [...files, ...rows].join(", "), by }));
+  const files = parts.includes("files") ? [L.dashboard.cacheFilesReset({ removed: result.removed, mb: MB(result.freedBytes), kept: result.kept })] : [];
+  const rows = parts.filter((part) => part !== "files").map((part) => L.dashboard.cachePartRows({ part: PART_NAMES[part], rows: result.cleared[part] ?? 0 }));
+  log.warn({ sub: "admin" }, L.dashboard.audioCacheReset({ targets: [...files, ...rows].map(asText).join(", "), by }));
   return result;
 }
 
@@ -70,7 +70,7 @@ async function resetBotSettings(by: string, go?: () => void) {
   tunables.reload();
   serviceKeys.load();
   const restart = tunables.view().pending.length > 0;
-  log.warn({ sub: "admin" }, `대시보드에서 봇 설정 초기화: 설정 문서 ${removed.documents}개, 비밀값 ${removed.secrets}개 삭제(되돌릴 스냅샷 ${snapshot})${restart ? ". 다시 시작해야 적용되는 값이 있음" : ""}. 실행 ${by}`);
+  log.warn({ sub: "admin" }, L.dashboard.botSettingsReset({ documents: removed.documents, secrets: removed.secrets, snapshot, restart, by }));
   return { snapshot, restart };
 }
 
@@ -142,7 +142,7 @@ async function stageFullReset(by: string, restarting: boolean, go?: () => void) 
   snapshots.unstage();
   fs.rmSync(stagedAudioFile(), { force: true });
   fullReset.request();
-  log.warn({ sub: "admin" }, `대시보드에서 봇 전체 초기화 예약(${restarting ? "곧바로 다시 시작해 삭제" : "다음 기동 시 삭제"}, 되돌릴 스냅샷 ${snapshot}${unstaged.snapshot ? `, 예약한 복원 ${unstaged.snapshot}${josa(unstaged.snapshot, "은")} 취소` : ""}${unstaged.audioCache ? ", 예약한 오디오 캐시 번들은 삭제" : ""}). 실행 ${by}`);
+  log.warn({ sub: "admin" }, L.dashboard.fullResetScheduled({ restarting, snapshot, restore: unstaged.snapshot, audioCache: unstaged.audioCache, by }));
   return { snapshot, unstaged };
 }
 

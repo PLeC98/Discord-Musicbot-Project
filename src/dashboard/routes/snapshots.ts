@@ -28,7 +28,7 @@ snapshotsRouter.post("/restore", requireRecentLogin, (req, res) => {
     snapshots.stage(name);
   } catch (error) {
     if (codeOf(error) === "SNAPSHOT_NOT_FOUND") return sendProblem(res, "snapshot-not-found");
-    if (codeOf(error) === "SNAPSHOT_MISMATCH") return sendProblem(res, "snapshot-mismatch", {}, { detail: messageOf(error) });
+    if (codeOf(error) === "SNAPSHOT_MISMATCH") return sendProblem(res, "snapshot-mismatch", {}, { errors: [{ code: "snapshot-mismatch", rule: errorProblem(error) }] });
     log.error({ sub: "admin" }, L.dashboard.restoreScheduleFailed({ error: messageOf(error) }));
     // 실패 상세는 규칙 문제로 보낸다(화면이 보는 사람의 언어로 그린다. 바깥 글이면 그 글 그대로)
     return sendProblem(res, "config-save-failed", {}, { errors: [{ code: "config-save-failed", rule: errorProblem(error) }] });

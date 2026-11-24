@@ -35,7 +35,7 @@ import { UNSAFE_KEYS, delPath, setPath } from "../../rules/dot-path.ts";
 import { readExtra, type Extra } from "../../rules/ai-extra.ts";
 import { L } from "../../infra/log/text.ts";
 import { asText, logTextError, type LogText } from "../../infra/log/log-text.ts";
-import { ruleError } from "../../rules/text/index.ts";
+import { errorText, ruleError } from "../../rules/text/index.ts";
 import { bug } from "../../infra/bug.ts";
 
 // 바깥으로 나가는 요청은 공유 HTTP 클라이언트로(부른 결과가 남는다). 테스트는 useFetch로 가짜를 넘긴다(null이면 진짜 fetch)
@@ -680,7 +680,7 @@ async function attempt(one: AiSettings, request: Awaited<ReturnType<typeof build
   } catch (error) {
     if (total?.aborted) return { ok: false, reason: L.autoplay.judgeTotalTimedOut(), detail: L.autoplay.secondsText({ seconds: Number(one.totalTimeoutMs) / 1000 }), retry: false };
     if (perCall.aborted) return { ok: false, reason: L.autoplay.callTimedOut(), detail: L.autoplay.secondsText({ seconds: Number(one.timeoutMs) / 1000 }), retry: !!one.retryTimeouts };
-    if (errorKind(error) === "network-error") return { ok: false, reason: L.autoplay.networkError(), detail: messageOf(error), retry: true };
+    if (errorKind(error) === "network-error") return { ok: false, reason: L.autoplay.networkError(), detail: errorText(error), retry: true };
     // 200인데 본문이 JSON이 아니다(앞에 둔 프록시의 안내 페이지 등). 판정을 못 읽은 응답과 같이 한 번 더 묻는다
     if (error instanceof SyntaxError) return { ok: false, reason: L.autoplay.verdictUnreadable(), detail: L.autoplay.verdictNotJson({ error: messageOf(error) }), retry: false, unreadable: true };
     return { ok: false, reason: messageOf(error), detail: "", retry: false };

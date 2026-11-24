@@ -45,6 +45,7 @@ import { messageOf } from "../rules/error-kind.ts";
 import logger from "../infra/log/logger.ts";
 import { matchRegexes } from "./regex-filter.ts";
 import { L } from "../infra/log/text.ts";
+import { asText, type LogText } from "../infra/log/log-text.ts";
 const log = logger.child({ category: "dashboard" });
 
 /** 거절. 경로가 문제로 응답한다(errors의 pointer는 읽기면 /filters/<열>, /q, /sort, 쓰기면 /ops/<번호>/<필드>) */
@@ -360,7 +361,7 @@ async function applyFileOp(op: Extract<TrackCacheOp, { op: "deleteFile" }>, go?:
 }
 
 // 로그의 조작 이름
-const OP_NAMES: Record<TrackCacheOpName, string> = { pin: "직접 지정", unpin: "지정 해제", clearResult: "자동 검색 결과 삭제", deleteRequest: "요청 삭제", deleteFile: "캐시 파일 삭제", clearAge: "연령 제한 표시 삭제" };
+const OP_NAMES: Record<TrackCacheOpName, LogText> = { pin: L.dashboard.cacheOpPin(), unpin: L.dashboard.cacheOpUnpin(), clearResult: L.dashboard.cacheOpClearResult(), deleteRequest: L.dashboard.cacheOpDeleteRequest(), deleteFile: L.dashboard.cacheOpDeleteFile(), clearAge: L.dashboard.cacheOpClearAge() };
 const targetOf = (op: TrackCacheOp) => (op.op === "deleteFile" ? op.audioKey : op.op === "clearAge" ? op.videoId : op.requestKey);
 
 /**
@@ -387,9 +388,9 @@ async function write(input: TrackCacheOp[], by: string, go?: () => void): Promis
     const count = counts.get(op.op) ?? { done: 0, failed: 0 };
     count[results[i].ok ? "done" : "failed"]++;
     counts.set(op.op, count);
-    log.debug({ sub: "track-cache" }, `캐시 DB ${OP_NAMES[op.op]}: ${targetOf(op)} | ${results[i].ok ? "됨" : JSON.stringify(results[i])}`);
+    log.debug({ sub: "track-cache" }, L.dashboard.cacheOpResult({ op: OP_NAMES[op.op], target: targetOf(op), result: results[i].ok ? null : JSON.stringify(results[i]) }));
   }
-  const summary = [...counts].map(([name, { done, failed }]) => `${OP_NAMES[name]} ${done + failed}${failed ? `(실패 ${failed})` : ""}`).join(", ");
+  const summary = [...counts].map(([name, { done, failed }]) => asText(L.dashboard.cacheOpCount({ op: OP_NAMES[name], count: done + failed, failed }))).join(", ");
   log.warn({ sub: "admin" }, L.dashboard.trackCacheSaved({ summary, by }));
   return { ok: true, written: { results, revision: cacheRevision().revision } };
 }

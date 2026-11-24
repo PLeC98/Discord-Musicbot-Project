@@ -39,6 +39,7 @@ const problems = {
   "error-code": (p) => `오류 코드 ${p.code}`,
   "error-no-message": (p) => `메시지 없는 ${p.name || "오류"}${p.at ? ` (${p.at})` : ""}`,
   "doc-revision-conflict": (p) => `${p.name} 문서가 그사이 바뀜(읽은 번호 ${p.read}, 지금 ${p.now})`,
+  "snapshot-version": (p) => `구조 버전이 다른 스냅샷(v${p.version}, 봇 v${p.botVersion})`,
   "link-off": () => "꺼 둠",
   "link-no-key": () => "키 없음",
   "link-no-token": () => "토큰 없음",

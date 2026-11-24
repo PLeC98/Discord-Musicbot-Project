@@ -48,7 +48,7 @@ async function sendTo(channel: Promise<Channel>, view: ContainerBuilder, ms: num
 function announcer(bot: Pick<BotContext, "panels">, player: Player | null | undefined) {
   const channel = channelOf(bot, player);
   return (view: ContainerBuilder, ms: number = LIFETIME.result) => {
-    bestEffort(log, sendTo(channel, view, ms), "대시보드 조작 안내", "warn");
+    bestEffort(log, sendTo(channel, view, ms), L.dashboard.actionNotice(), "warn");
   };
 }
 

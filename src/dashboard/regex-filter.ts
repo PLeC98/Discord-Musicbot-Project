@@ -28,7 +28,7 @@ function spawn() {
     const { job } = finish();
     if (hits) job.resolve({ kind: "hits", hits });
     else if (tooLarge) job.resolve({ kind: "timeout" });
-    else job.reject(new Error(error || "정규식 검사 실패"));
+    else job.reject(error ? new Error(error) : logTextError(L.dashboard.regexCheckFailed()));
     next();
   });
   one.on("error", (error) => stop(one, error));

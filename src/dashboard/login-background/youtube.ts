@@ -15,6 +15,7 @@ import * as store from "./store.ts";
 import { UHD } from "./ladder.ts";
 import { inspectSource } from "./source.ts";
 import { L } from "../../infra/log/text.ts";
+import type { LogText } from "../../infra/log/log-text.ts";
 
 /** 편집 창용 미리보기의 짧은 변(그 아래에서 가장 좋은 것) */
 const PREVIEW_RES = 480;
@@ -73,9 +74,9 @@ async function receiveYoutube({ item, folder, signal }: StageJob): Promise<Stage
 }
 
 /** 받은 고해상도가 다운로드 단계에서 본 크기(받을 크기)보다 작으면 그 차이. 그때 유튜브가 낮은 형식만 주면 정지 화면, 영상이 그 화질로 만들어진다 */
-function shortfall(expected: { width: number; height: number }, got: { width: number; height: number }): string | null {
+function shortfall(expected: { width: number; height: number }, got: { width: number; height: number }): LogText | null {
   if (!expected.width || !expected.height || Math.min(got.width, got.height) >= Math.min(expected.width, expected.height)) return null;
-  return `${got.width} × ${got.height}(다운로드 단계에서 본 크기 ${expected.width} × ${expected.height})`;
+  return L.dashboard.backgroundHighResShortfall({ width: got.width, height: got.height, expectedWidth: expected.width, expectedHeight: expected.height });
 }
 
 /** 고해상도 다운로드 단계(유튜브, 편집을 적용한 뒤): 원본을 짧은 변 2160 이하의 가장 좋은 영상으로 바꾼다 */

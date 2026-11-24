@@ -14,6 +14,7 @@ import * as store from "./store.ts";
 import { frameRate, stacked } from "./ladder.ts";
 import { inputFilter, VIDEO_FORMATS } from "../../media/ffmpeg/input-filter.ts";
 import { L } from "../../infra/log/text.ts";
+import type { LogText } from "../../infra/log/log-text.ts";
 
 /** 원본을 읽는 ffmpeg에 늘 붙이는 것(영상 컨테이너와 움직이는 그림만, 파일만) */
 const READ_ARGS = inputFilter(VIDEO_FORMATS, "file");
@@ -37,7 +38,7 @@ sharp.cache({ files: 0 });
 /** 원본을 읽은 것 */
 type Inspected = Required<Pick<StageResult, "kind" | "width" | "height" | "duration" | "fps">>;
 
-const badSource = (why: string) => codedError("background-bad-source", why);
+const badSource = (why: LogText) => codedError("background-bad-source", why);
 const sideOk = (side: number) => Number.isFinite(side) && side >= MIN_SIDE && side <= MAX_SIDE;
 
 /** PNG가 움직이는 것(APNG)인지: 이미지 데이터(IDAT) 앞에 acTL 청크가 있다. sharp는 APNG를 한 장으로 읽는다 */
@@ -63,7 +64,7 @@ async function inspectStill(file: string): Promise<Inspected | null> {
   if ((meta.pages ?? 1) > 1 || (meta.format === "png" && isApng(file))) return null;
   // EXIF 방향을 따른 크기
   const { width, height } = meta.autoOrient;
-  if (!sideOk(width) || !sideOk(height)) throw badSource(`이미지 크기가 범위를 벗어남: ${width} × ${height}`);
+  if (!sideOk(width) || !sideOk(height)) throw badSource(L.dashboard.backgroundImageSizeOut({ width, height }));
   return { kind: "image", width, height, duration: 0, fps: 0 };
 }
 
@@ -102,7 +103,7 @@ async function probeVideo(file: string, signal: AbortSignal): Promise<Probed> {
   const { stderr, aborted } = await ffmpeg([...READ_ARGS, "-i", file], { signal, timeoutMs: INSPECT_MS });
   if (aborted) throw codedError("aborted", L.dashboard.backgroundAborted());
   const input = parseInput(stderr);
-  if (!input) throw badSource(`ffmpeg가 영상으로 읽지 못함: ${stderr.split("\n").filter(Boolean).at(-1) ?? ""}`);
+  if (!input) throw badSource(L.dashboard.backgroundFfmpegUnreadable({ line: stderr.split("\n").filter(Boolean).at(-1) ?? "" }));
   return input;
 }
 
@@ -124,13 +125,13 @@ async function countedDuration(file: string, signal: AbortSignal): Promise<numbe
 /** 영상, 움직이는 그림 */
 async function inspectMoving(file: string, signal: AbortSignal): Promise<Inspected> {
   const input = await probeVideo(file, signal);
-  if (!sideOk(input.width) || !sideOk(input.height)) throw badSource(`영상 크기가 범위를 벗어남: ${input.width} × ${input.height}`);
+  if (!sideOk(input.width) || !sideOk(input.height)) throw badSource(L.dashboard.backgroundVideoSizeOut({ width: input.width, height: input.height }));
   const fps = input.fps ?? 30;
-  if (!(fps > 0 && fps <= MAX_FPS)) throw badSource(`초당 프레임 수가 범위를 벗어남: ${fps}`);
+  if (!(fps > 0 && fps <= MAX_FPS)) throw badSource(L.dashboard.backgroundFpsOut({ fps }));
   const duration = input.duration ?? (await countedDuration(file, signal));
-  if (!duration || !Number.isFinite(duration) || duration <= 0) throw badSource("길이를 알 수 없음");
+  if (!duration || !Number.isFinite(duration) || duration <= 0) throw badSource(L.dashboard.backgroundDurationUnknown());
   // 장면이 하나뿐인 것(sharp가 못 읽은 정지 그림이 영상 형식으로 열린 것 등)은 영상이 아니다
-  if (duration * fps < 1.5) throw badSource(`움직이는 장면이 없음(${duration}초)`);
+  if (duration * fps < 1.5) throw badSource(L.dashboard.backgroundNoMotion({ seconds: duration }));
   // 움직이는 그림은 고르게 편 초당 프레임 수(편집 창의 미리보기, 한 프레임 이동이 그것)
   return { kind: "video", width: input.width, height: input.height, duration: Math.round(duration * 1000) / 1000, fps: stacked(input) ? frameRate(input) : fps };
 }

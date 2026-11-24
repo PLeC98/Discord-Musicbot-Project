@@ -9,7 +9,7 @@ import { requireOwner } from "../middleware/require-owner.ts";
 import { requireRecentLogin } from "../middleware/recent-login.ts";
 import { sendProblem } from "../problem.ts";
 import { ranBy } from "../ran-by.ts";
-import { codeOf, messageOf } from "../../rules/error-kind.ts";
+import { codeOf, errorProblem, messageOf } from "../../rules/error-kind.ts";
 import { isServiceId, type KeyCheck, type ServiceId } from "../../rules/service-keys.ts";
 import * as serviceKeys from "../../store/service-keys.ts";
 import { checkCredentials as checkSpotify } from "../../sources/spotify.ts";
@@ -33,7 +33,7 @@ serviceKeysRouter.put("/:service", requireRecentLogin, (req, res) => {
   } catch (error) {
     if (codeOf(error) === "SECRET_INVALID") return sendProblem(res, "nothing-to-save");
     log.error({ sub: "admin" }, L.dashboard.serviceKeySaveFailed({ service: serviceKeys.LABELS[service], error: messageOf(error) }));
-    return sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
+    return sendProblem(res, "config-save-failed", {}, { errors: [{ code: "config-save-failed", rule: errorProblem(error) }] });
   }
   log.warn({ sub: "admin" }, L.dashboard.serviceKeySaved({ service: serviceKeys.LABELS[service], fields: Object.keys(values).join(", "), by: ranBy(req) }));
   res.json(serviceKeys.view());

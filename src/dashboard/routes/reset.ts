@@ -9,7 +9,7 @@ import { requireRecentLogin } from "../middleware/recent-login.ts";
 import { sendProblem } from "../problem.ts";
 import { ranBy } from "../ran-by.ts";
 import { parse, ResetBody } from "../request-schemas.ts";
-import { messageOf } from "../../rules/error-kind.ts";
+import { errorProblem, messageOf } from "../../rules/error-kind.ts";
 import * as reset from "../reset.ts";
 import * as fullReset from "../../store/full-reset.ts";
 import type { ResetDone, ResetOverview } from "../contract/reset.ts";
@@ -56,7 +56,7 @@ resetRouter.post("/", requireRecentLogin, async (req, res) => {
   } catch (error) {
     if (sessionEnded(res, error)) return;
     log.error({ sub: "admin" }, L.dashboard.resetFailed({ kind: request.kind, error: messageOf(error) }));
-    return sendProblem(res, "reset-failed", {}, { detail: messageOf(error) });
+    return sendProblem(res, "reset-failed", {}, { errors: [{ code: "reset-failed", rule: errorProblem(error) }] });
   }
   res.json(done);
 });

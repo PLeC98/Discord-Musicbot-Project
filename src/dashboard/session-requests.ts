@@ -17,6 +17,8 @@ import logger from "../infra/log/logger.ts";
 import { messageOf } from "../rules/error-kind.ts";
 import { repeatingFailure } from "../infra/repeating-failure.ts";
 import { L } from "../infra/log/text.ts";
+import { renderLogText, type LogText } from "../infra/log/log-text.ts";
+import { bug } from "../infra/bug.ts";
 const log = logger.child({ category: "dashboard" });
 
 /** 알림 없이 끝난 세션을 다시 확인하는 간격 */
@@ -37,14 +39,17 @@ const SAFE = new Set(["GET", "HEAD"]);
 
 /** 상태 변경 직전의 확인(assertSignedIn)이 던진다. 경로의 catch는 sessionEnded로 먼저 받는다 */
 class SessionEndedError extends Error {
+  readonly logText: LogText;
   constructor() {
-    super("로그인 세션이 끝났다");
+    const text = L.dashboard.sessionEndedError();
+    super(renderLogText(text));
     this.name = "SessionEndedError";
+    this.logText = text;
   }
 }
 
 /** 묶인 요청. stream: 스트림이면 그 이름(로그), drop: 그 스트림 모듈의 정리 */
-type Entry = { req: Request; res: Response; socket: Socket; sid: string; userId: string; name: string; deadline: number; store: SqliteSessionStore; stream: string | null; drop: () => void };
+type Entry = { req: Request; res: Response; socket: Socket; sid: string; userId: string; name: string; deadline: number; store: SqliteSessionStore; stream: string | LogText | null; drop: () => void };
 
 /** 진행 중인 묶인 요청(응답이 닫히면 빠진다) */
 const entries = new Map<Response, Entry>();
@@ -165,7 +170,7 @@ function assertSignedIn(req: Request) {
   const entry = entryOf.get(req);
   if (!entry) {
     // 저장소가 있는데 묶이지 않은 로그인 요청: 묶기 미들웨어를 빠뜨렸다
-    if (req.session?.user) throw new Error("로그인한 요청이 세션 묶기(session-requests의 bind)를 지나지 않았다");
+    if (req.session?.user) throw bug("로그인한 요청이 세션 묶기(session-requests의 bind)를 지나지 않았다");
     return;
   }
   if (ended.has(req) || entry.deadline <= Date.now()) throw new SessionEndedError();
@@ -195,11 +200,11 @@ function admit(req: Request): boolean {
  * 연 스트림을 그 요청의 항목에 스트림으로 적고 요청에서 세션을 뗀다. 헤더를 보낸 뒤에 부른다. kind: 로그에 적을 스트림 이름,
  * drop: 그 스트림 모듈의 정리(끊을 때 곧바로 부른다. 닫힘을 기다리면 그사이 하트비트가 끝낸 응답에 쓴다)
  */
-function track(req: Request, res: Response, kind: string, drop?: () => void) {
+function track(req: Request, res: Response, kind: string | LogText, drop?: () => void) {
   const store = tokenStoreOf(req);
   if (!store || !req.session?.user) return;
   const entry = entryOf.get(req);
-  if (!entry) throw new Error("스트림을 연 요청이 세션 묶기(session-requests의 bind)를 지나지 않았다");
+  if (!entry) throw bug("스트림을 연 요청이 세션 묶기(session-requests의 bind)를 지나지 않았다");
   entry.stream = kind;
   entry.drop = drop ?? (() => undefined);
   (req as { session: unknown }).session = null;
@@ -216,7 +221,7 @@ function onEnded(sid: string) {
   for (const entry of [...entries.values()]) {
     if (entry.sid !== sid || released.has(entry.req)) continue;
     live.add(entry.req);
-    stop(entry, "세션이 끝남");
+    stop(entry, L.dashboard.requestStopSessionEnded());
   }
   sweepSockets(sid, live);
 }
@@ -233,7 +238,7 @@ function sweepSockets(sid: string, live: Set<Request>) {
 
 // 끝난 요청을 멈춘다. 스트림은 끝 이벤트와 함께 끊고, 헤더를 보냈는데 다 나가지 않은 응답(end를 불렀어도 버퍼에 남은 것 포함)과 받는 중인 본문은 소켓을 강제로 닫는다.
 // 나머지는 표시만 한다(감싸기와 확인이 멈춘다)
-function stop(entry: Entry, why: string) {
+function stop(entry: Entry, why: string | LogText) {
   const { req, res } = entry;
   ended.add(req);
   if (entry.stream) return closeStream(entry, why);
@@ -253,7 +258,7 @@ function receiving(req: Request) {
 }
 
 // 스트림을 끊는다. 목록에서 곧바로 빼고 모듈 정리를 부른다
-function closeStream(entry: Entry, why: string) {
+function closeStream(entry: Entry, why: string | LogText) {
   if (entries.get(entry.res) !== entry) return;
   entries.delete(entry.res);
   if (!entries.size) disarm();
@@ -287,7 +292,7 @@ function recheck(now = Date.now()) {
     const keep = liveOf(sid);
     const alive = list.filter((entry) => {
       if (entry.deadline > now) return true;
-      stop(entry, "로그인 기한이 지남");
+      stop(entry, L.dashboard.requestStopLoginExpired());
       return false;
     });
     if (alive.length < list.length) sweepSockets(sid, keep);
@@ -301,7 +306,7 @@ function recheck(now = Date.now()) {
       continue;
     }
     const gone = alive.filter((entry) => session?.user?.id !== entry.userId);
-    for (const entry of gone) stop(entry, "세션이 끝남");
+    for (const entry of gone) stop(entry, L.dashboard.requestStopSessionEnded());
     if (gone.length) sweepSockets(sid, keep);
   }
   if (!firstError) {
@@ -312,7 +317,7 @@ function recheck(now = Date.now()) {
   failures++;
   readFailure.fail(messageOf(firstError));
   if (failures < FAILURES_TO_CLOSE) return;
-  for (const entry of unchecked) stop(entry, "세션을 확인하지 못함");
+  for (const entry of unchecked) stop(entry, L.dashboard.requestStopSessionUnchecked());
   failures = 0;
 }
 

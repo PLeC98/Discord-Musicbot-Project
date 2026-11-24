@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import express from "express";
 import fs from "node:fs";
 import path from "node:path";
+import Database from "better-sqlite3";
 
 const { listenForFetch, baseUrl } = await import("../helpers/listen.ts");
 const { fake } = await import("../helpers/fake.ts");
@@ -80,4 +81,15 @@ test("예약하다 실패하면 원인을 규칙 문제로 보낸다(화면이 �
   } finally {
     fs.rmSync(blocked, { recursive: true, force: true });
   }
+});
+
+test("구조 버전이 다른 스냅샷은 snapshot-mismatch와 그 버전을 규칙 문제로 보낸다", async () => {
+  const name = await snapshots.take("daily", new Date(2026, 9, 7));
+  const db = new Database(path.join(store.dir, "backups", name));
+  db.pragma("user_version = 99");
+  db.close();
+  const res = await fetch(`${base}/restore`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+  const json = (await res.json()) as { code: string; detail?: string; errors: { code: string; rule: { code: string; params: { version: number } } }[] };
+  assert.deepEqual([res.status, json.code, json.detail, json.errors[0].code, json.errors[0].rule.code, json.errors[0].rule.params.version], [409, "snapshot-mismatch", undefined, "snapshot-mismatch", "snapshot-version", 99]);
+  assert.equal(snapshots.staged(), null);
 });

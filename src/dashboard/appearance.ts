@@ -239,7 +239,7 @@ async function avatarInput(url: string | null): Promise<Buffer | null> {
     avatarFailure.ok();
   } catch (error) {
     // 디스코드에 닿지 못했다: 기억하지 않고 다음 요청에서 다시 다운로드한다
-    avatarFailure.fail(`${url}, 타임아웃=${timeoutMs}ms | ${messageOf(error)}`);
+    avatarFailure.fail(L.dashboard.avatarDownloadFailure({ url, timeoutMs, error: messageOf(error) }));
     return null;
   }
   avatar = { url, input };

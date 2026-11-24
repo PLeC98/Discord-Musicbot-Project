@@ -11,6 +11,7 @@ import { trustedPeer } from "./browser-side.ts";
 import { warnGate } from "./warn-gate.ts";
 import { htmlPage } from "./html-page.ts";
 import { L } from "../infra/log/text.ts";
+import { asText, type LogText } from "../infra/log/log-text.ts";
 
 const log = logger.child({ category: "dashboard" });
 
@@ -40,7 +41,7 @@ function allowedHost(host: string, urlHost: string | null) {
   return LOCAL_SUFFIXES.some((s) => host.endsWith(s));
 }
 
-type HostValue = { header: string; value: string };
+type HostValue = { header: string | LogText; value: string };
 
 /** 이 요청에서 검사할 호스트 값들(어느 헤더에서 왔는지와 함께). Host 헤더가 없거나 여러 개면 null */
 function hostValues(req: Request): HostValue[] | null {
@@ -48,7 +49,7 @@ function hostValues(req: Request): HostValue[] | null {
   if (hosts.length !== 1 || req.headers.host === undefined) return null;
   const values: HostValue[] = [{ header: "Host", value: req.headers.host }];
   const absolute = /^[a-z][a-z0-9+.-]*:\/\/([^/?#]*)/i.exec(req.url);
-  if (absolute) values.push({ header: "요청 대상", value: absolute[1] });
+  if (absolute) values.push({ header: L.dashboard.hostHeaderRequestTarget(), value: absolute[1] });
   const forwarded = trustedPeer(req) ? req.headers["x-forwarded-host"] : undefined;
   for (const value of String(forwarded ?? "").split(",")) if (value.trim()) values.push({ header: "X-Forwarded-Host", value });
   return values;
@@ -72,9 +73,9 @@ function hostCheck(url: string): RequestHandler {
     const bad = checked.find(({ host }) => host === null || !allowedHost(host, urlHost));
     if (!bad) return next();
     const shown = bad.host;
-    const verdict = gate(`${bad.header}:${shown ?? ""}`);
+    const verdict = gate(`${asText(bad.header)}:${shown ?? ""}`);
     if (verdict === "warn") {
-      log.warn(shown ? `허용하지 않은 호스트로 온 요청 차단(${bad.header}): ${shown}. 이 주소로 접속하려면 DASHBOARD_URL을 이 주소로 바꾸세요.` : "Host 헤더가 없거나 여러 개이거나 형식이 잘못된 요청 차단");
+      log.warn(shown ? L.dashboard.hostBlocked({ header: bad.header, host: shown }) : L.dashboard.hostHeaderBad());
     } else if (verdict === "cap") {
       log.warn(L.dashboard.badHostMuted());
     }

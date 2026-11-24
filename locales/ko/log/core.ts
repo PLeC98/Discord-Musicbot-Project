@@ -136,7 +136,6 @@ const core = {
   dbCopyJournalFailed: ({ file, error }: { file: string; error: string }) => `DB 사본의 저널 방식 변경 실패(읽기 전용으로 열면 -wal, -shm 파일이 생길 수 있음): ${file} | ${error}`,
   snapshotSaved: ({ name }: { name: string }) => `설정 DB 스냅샷 기록: ${name}`,
   snapshotSaveFailed: ({ error }: { error: string }) => `설정 DB 스냅샷 기록 실패: ${error}`,
-  snapshotVersionMismatch: ({ version, botVersion }: { version: number; botVersion: number }) => `구조 버전이 다른 스냅샷(v${version}, 봇 v${botVersion})`,
   snapshotNotFound: ({ name }: { name: string }) => `없는 스냅샷: ${name}`,
   stagedSettingsDbNoteReadFailed: ({ error }: { error: string }) => `예약한 설정 DB의 설명 읽기 실패: ${error}`,
   replacedSettingsDbReadFailed: ({ error }: { error: string }) => `교체할 설정 DB 읽기 실패(파일 그대로 남김): ${error}`,

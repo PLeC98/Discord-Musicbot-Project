@@ -14,6 +14,8 @@ import { ownerOnly } from "../infra/owner-only.ts";
 import { repeatingFailure } from "../infra/repeating-failure.ts";
 import type { Snapshot, SnapshotKind } from "../rules/snapshots.ts";
 import { L } from "../infra/log/text.ts";
+import { rule } from "../rules/rule-problem.ts";
+import { ruleError } from "../rules/text/index.ts";
 
 const KEEP_DAILY = 7;
 const KEEP_OTHERS = 5;
@@ -182,7 +184,7 @@ function checkSnapshot(file: string) {
   const db = new Database(file, { readonly: true, fileMustExist: true });
   try {
     const found = db.pragma("user_version", { simple: true }) as number;
-    if (found !== VERSION) throw codedError("SNAPSHOT_MISMATCH", L.core.snapshotVersionMismatch({ version: found, botVersion: VERSION }));
+    if (found !== VERSION) throw ruleError(rule("snapshot-version", { version: found, botVersion: VERSION }), { code: "SNAPSHOT_MISMATCH" });
     db.prepare("SELECT COUNT(*) FROM documents").get();
   } finally {
     db.close();

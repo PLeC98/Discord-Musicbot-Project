@@ -11,7 +11,6 @@ import { sendProblem } from "../problem.ts";
 import * as uploads from "../uploads.ts";
 import { assertSignedIn, sessionEnded } from "../session-requests.ts";
 import { isHttpLink, isYouTubeURL } from "../../rules/links.ts";
-import { josa } from "../../infra/josa.ts";
 import { formatBytes } from "../../ui/format.ts";
 import { parse, BackgroundEditBody, BackgroundEstimateBody, BackgroundLimitsBody, BackgroundLinkBody, BackgroundOptionsBody, BackgroundPositionBody, BackgroundUseBody, BackgroundUploadBody } from "../request-schemas.ts";
 import type { LoginBackgroundItem, LoginBackgroundState } from "../contract/login-background.ts";
@@ -23,6 +22,7 @@ import { previewOf } from "../login-background/preview.ts";
 import { stripOf } from "../login-background/strip.ts";
 import { cropKeyOf, estimatedBytes } from "../../rules/background-estimate.ts";
 import { L } from "../../infra/log/text.ts";
+import type { LogText } from "../../infra/log/log-text.ts";
 
 const loginBackgroundRouter = express.Router();
 loginBackgroundRouter.use(requireOwner);
@@ -86,7 +86,7 @@ function itemFor(req: Request<{ id: string }>, res: Response) {
   return one;
 }
 /** 바꾼 것을 적고 로그를 남기고 상태로 응답한다 */
-function changed<P>(req: Request<P>, res: Response, what: string) {
+function changed<P>(req: Request<P>, res: Response, what: string | LogText) {
   store.save();
   log.info({ sub: "admin" }, L.dashboard.backgroundChanged({ what, by: ranBy(req) }));
   reply(res);
@@ -120,7 +120,7 @@ loginBackgroundRouter.post("/upload", (req, res) => {
   const created = store.create({ id, kind: type.startsWith("video/") || type === "image/gif" ? "video" : "image", from: "upload", name });
   created.bytes = one.size;
   runner.kick();
-  changed(req, res, `"${name}"${josa(name, "을")} 업로드(${formatBytes(one.size)})`);
+  changed(req, res, L.dashboard.backgroundUploaded({ name, size: formatBytes(one.size) }));
 });
 
 // 링크로 추가. 유튜브는 다운로드 대행(고해상도는 편집을 적용한 뒤), 그 밖은 직접 링크의 그림, 영상
@@ -132,7 +132,7 @@ loginBackgroundRouter.post("/link", (req, res) => {
   const youtube = isYouTubeURL(url);
   store.create({ kind: youtube ? "video" : "image", from: youtube ? "youtube" : "link", name: url, link: url });
   runner.kick();
-  changed(req, res, `링크로 추가(${url})`);
+  changed(req, res, L.dashboard.backgroundLinkAdded({ url }));
 });
 
 // 편집 창의 미리보기(영상 480p, 그림). 원본과 함께 삭제하므로 없으면 404. 배경마다 같은 파일이라 오래 캐시한다
@@ -183,7 +183,7 @@ loginBackgroundRouter.put("/:id/edit", (req, res) => {
   one.estimate = null;
   runner.stopCounting(one.id);
   runner.kick();
-  changed(req, res, `"${one.name}"의 편집 적용`);
+  changed(req, res, L.dashboard.backgroundEditApplied({ name: one.name }));
 });
 
 loginBackgroundRouter.put("/:id/position", (req, res) => {
@@ -192,7 +192,7 @@ loginBackgroundRouter.put("/:id/position", (req, res) => {
   const body = parse(BackgroundPositionBody, req.body ?? {});
   if (!body.ok) return sendProblem(res, body.code);
   one.position = body.value;
-  changed(req, res, `"${one.name}"의 보일 위치를 ${body.value.x}%, ${body.value.y}%로 바꿈`);
+  changed(req, res, L.dashboard.backgroundPositionChanged({ name: one.name, x: body.value.x, y: body.value.y }));
 });
 
 // 편집 취소, 인코딩 취소: 배경을 버리고, 걸려 있던 배경이면 이전 배경으로
@@ -200,7 +200,7 @@ loginBackgroundRouter.post("/:id/cancel", (req, res) => {
   const one = itemFor(req, res);
   if (!one) return;
   runner.discard(one.id);
-  changed(req, res, `"${one.name}" 만들기 중단`);
+  changed(req, res, L.dashboard.backgroundMakingStopped({ name: one.name }));
 });
 
 loginBackgroundRouter.put("/current", (req, res) => {
@@ -210,13 +210,13 @@ loginBackgroundRouter.put("/current", (req, res) => {
   if (!one) return sendProblem(res, "route-not-found");
   if (!store.isReady(one)) return sendProblem(res, "background-not-ready");
   if (store.loaded().current !== one.id) store.show(one.id);
-  changed(req, res, `"${one.name}"${josa(one.name, "으로")} 바꿈`);
+  changed(req, res, L.dashboard.backgroundSwitched({ name: one.name }));
 });
 
 // 비우기(봇 프로필 이미지 배경으로). 기록은 남는다
 loginBackgroundRouter.delete("/current", (req, res) => {
   store.show(null);
-  changed(req, res, "배경을 비움");
+  changed(req, res, L.dashboard.backgroundCleared());
 });
 
 // 기록에서 삭제. 만드는 중이면 취소와 같다
@@ -224,13 +224,13 @@ loginBackgroundRouter.delete("/:id", (req, res) => {
   const one = itemFor(req, res);
   if (!one) return;
   runner.discard(one.id);
-  changed(req, res, `"${one.name}"${josa(one.name, "을")} 기록에서 삭제`);
+  changed(req, res, L.dashboard.backgroundRemoved({ name: one.name }));
 });
 
 // 인코더를 다시 테스트한다(드라이버를 바꾼 뒤 등). 끝나기를 기다리지 않고 checking으로 응답한다
 loginBackgroundRouter.post("/encoders/check", (req, res) => {
   void encoders.recheck();
-  changed(req, res, "인코더 다시 테스트");
+  changed(req, res, L.dashboard.backgroundEncoderRecheck());
 });
 
 loginBackgroundRouter.put("/options", (req, res) => {
@@ -238,7 +238,7 @@ loginBackgroundRouter.put("/options", (req, res) => {
   if (!body.ok) return sendProblem(res, body.code);
   const options = body.value;
   store.loaded().options = options;
-  changed(req, res, `화면 값을 바꿈(블러 ${options.blur}%, 오버레이 ${options.cover}%, 테마 색 ${options.follow ? "켬" : "끔"}, 반복 전환 ${options.seam.kind} ${options.seam.seconds}초)`);
+  changed(req, res, L.dashboard.backgroundOptionsChanged({ blur: options.blur, cover: options.cover, follow: options.follow, seam: options.seam.kind, seconds: options.seam.seconds }));
 });
 
 // 한도를 바꾸면 바로 지킨다
@@ -248,7 +248,7 @@ loginBackgroundRouter.put("/limits", (req, res) => {
   const limits = body.value;
   store.loaded().limits = limits;
   const removed = store.enforceLimits();
-  changed(req, res, `한도를 바꿈(보관 ${limits.history}개, 최대 ${limits.maxBytes ? formatBytes(limits.maxBytes) : "무제한"})${removed.length ? `. 기록에서 삭제: ${removed.join(", ")}` : ""}`);
+  changed(req, res, L.dashboard.backgroundLimitsChanged({ history: limits.history, max: limits.maxBytes ? formatBytes(limits.maxBytes) : null, removed: removed.join(", ") }));
 });
 
 export { loginBackgroundRouter };

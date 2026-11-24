@@ -309,6 +309,8 @@ const player = {
   disposeShuttingDown: () => `종료 중`,
   disposeRestoreFailed: () => `세션 복원 실패`,
   placeholderCleanup: () => `자리표시자 정리`,
+  sourceDashboard: () => `대시보드`,
+  sourceDashboardMore: () => `대시보드 더 넣기`,
 };
 
 export { player };

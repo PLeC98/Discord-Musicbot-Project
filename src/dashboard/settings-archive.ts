@@ -32,6 +32,8 @@ import * as loginBackground from "./login-background/archive.ts";
 import * as audioArchive from "./audio-cache-archive.ts";
 import type { ArchiveImported, ArchiveItem, ArchiveKind, ArchivePreview, ArchiveRow } from "./contract/settings-archive.ts";
 import { ARCHIVE_ITEMS, ARCHIVE_KINDS } from "./contract/settings-archive.ts";
+import { L } from "../infra/log/text.ts";
+import { asText, type LogText } from "../infra/log/log-text.ts";
 
 const FORMAT = 1;
 const JSON_NAME = "settings.json";
@@ -266,19 +268,19 @@ async function preview(file: string): Promise<Omit<ArchivePreview, "token">> {
 }
 
 /** 항목 이름(검사 문제, 로그) */
-const ITEM_LABELS: Record<ArchiveItem, string> = {
-  tunables: "운영 설정값",
-  genres: "자동재생 장르",
-  status: "활동 문구",
-  ai: "AI 설정",
-  "ai-prompt": "AI 프롬프트",
-  favicon: "파비콘",
-  "login-background": "로그인 배경",
-  "audio-files": "캐시 파일",
-  "audio-ledger": "자동 검색 결과",
-  "audio-pins": "직접 지정한 음원",
-  "audio-age": "연령 제한 기록",
-  "audio-sponsorblock": "SponsorBlock 구간",
+const ITEM_LABELS: Record<ArchiveItem, LogText> = {
+  tunables: L.dashboard.archiveItemTunables(),
+  genres: L.dashboard.archiveItemGenres(),
+  status: L.dashboard.archiveItemStatus(),
+  ai: L.dashboard.archiveItemAi(),
+  "ai-prompt": L.dashboard.archiveItemAiPrompt(),
+  favicon: L.dashboard.archiveItemFavicon(),
+  "login-background": L.dashboard.archiveItemLoginBackground(),
+  "audio-files": L.dashboard.archiveItemAudioFiles(),
+  "audio-ledger": L.dashboard.archiveItemAudioLedger(),
+  "audio-pins": L.dashboard.archiveItemAudioPins(),
+  "audio-age": L.dashboard.archiveItemAudioAge(),
+  "audio-sponsorblock": L.dashboard.archiveItemAudioSponsorblock(),
 };
 
 // 선택한 항목이 모두 파일에 있고 검사를 지나는지. 아니면 CONFIG_INVALID(problems: 항목마다 감싼 문제, 메시지는 "항목: 원인" 줄). 지나면 저장할 파비콘, 불러올 로그인 배경(선택하지 않았으면 null)
@@ -292,7 +294,7 @@ async function checkChosen(parsed: Parsed, items: ArchiveItem[]): Promise<{ favi
   const causes = rows.flatMap((row) => [...(row.inFile ? [] : [rule("archive-missing")]), ...row.problems].map((cause) => ({ item: row.item, cause })));
   if (causes.length) {
     const problems = causes.map(({ item, cause }) => rule("archive-item", { item }, cause));
-    throw Object.assign(codedError("CONFIG_INVALID", causes.map(({ item, cause }) => `${ITEM_LABELS[item]}: ${logRuleLine(cause)}`).join("\n")), { problems });
+    throw Object.assign(codedError("CONFIG_INVALID", causes.map(({ item, cause }) => `${asText(ITEM_LABELS[item])}: ${logRuleLine(cause)}`).join("\n")), { problems });
   }
   const checked = items.includes("favicon") ? await appearance.checkFavicons(parsed.favicons) : null;
   return { favicons: checked?.ok ? checked.prepared : null, background: background?.plan ?? null };

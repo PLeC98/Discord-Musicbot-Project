@@ -7,6 +7,17 @@ const discord = {
   gatewayDisconnected: ({ shardId, cause }: { shardId: number; cause: string }) => `게이트웨이 연결 끊김(샤드 ${shardId}): ${cause}. 재연결 중`,
   gatewayReconnecting: ({ attempt }: { attempt: number }) => `게이트웨이 연결이 끊겨 재연결 중(${attempt}번째 시도)`,
   gatewayClosed: ({ shardId, code, closeName, firstError }: { shardId: number; code: number; closeName: string; firstError: string }) => `게이트웨이 연결이 닫혀 재연결하지 않음(샤드 ${shardId}): 닫힘 코드 ${code}${closeName}${firstError}`,
+  gatewayReasonReconnect: () => `디스코드가 재연결을 요청함(op 7)`,
+  gatewayReasonZombie: () => `하트비트 응답 없음`,
+  gatewayReasonDisconnected: () => `디스코드가 끊음`,
+  gatewayReasonInvalidSession: () => `세션이 무효`,
+  gatewayCloseCode: ({ code }: { code: number }) => `닫힘 코드 ${code}`,
+  gatewayCloseReason: ({ reason, code }: { reason: string; code: number }) => `${reason}, 코드 ${code}`,
+  gatewayErrors: ({ count, first }: { count: number; first: string }) => `연결 오류 ${count}번(첫: ${first})`,
+  gatewayCauseUnknown: () => `모름`,
+  gatewayReconnected: ({ how, attempt, cause }: { how: string; attempt: number; cause: string }) => `게이트웨이 재연결: ${how} | 시도 ${attempt}회 | 원인=${cause}`,
+  gatewaySessionResumed: () => `세션 재개`,
+  gatewayNewSession: () => `새 세션`,
 };
 
 export { discord };

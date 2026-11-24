@@ -76,7 +76,7 @@ function versionsOnDisk(): string[] {
     return versions;
   } catch (error) {
     // 폴더가 아직 없다(다운로드한 적이 없다)
-    if (codeOf(error) !== "ENOENT") folderFailure.fail(`${DIR} | ${codeOf(error) ?? messageOf(error)} (DB 없음으로 처리)`);
+    if (codeOf(error) !== "ENOENT") folderFailure.fail(L.dashboard.geoipFolderFailure({ dir: DIR, reason: codeOf(error) ?? messageOf(error) }));
     return [];
   }
 }
@@ -93,7 +93,7 @@ function status(): GeoipStatus {
       statFailure.ok();
     } catch (error) {
       // 그새 새 버전으로 바뀌었다
-      if (codeOf(error) !== "ENOENT") statFailure.fail(`${fileOf(version)} | stat ${codeOf(error) ?? messageOf(error)} (파일 크기 생략)`);
+      if (codeOf(error) !== "ENOENT") statFailure.fail(L.dashboard.geoipStatFailure({ file: fileOf(version), reason: codeOf(error) ?? messageOf(error) }));
       bytes = null;
     }
   }
