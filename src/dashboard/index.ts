@@ -31,6 +31,7 @@ import { requireOwner } from "./middleware/require-owner.ts";
 import * as aiLogStream from "./ai-log-stream.ts";
 import * as aiRequests from "../store/ai-requests.ts";
 import { sessionSecret } from "../store/secrets.ts";
+import { startClientSecretCheck } from "./client-secret-check.ts";
 import { onTunablesChanged } from "../config/tunables-changed.ts";
 import { createGuildsRouter } from "./routes/guilds.ts";
 import { identityRouter } from "./routes/identity.ts";
@@ -408,6 +409,8 @@ function startDashboard(bot: BotContext, { stream, deployCommands, restart }: Ap
   });
 
   logTrustProxy(trustProxy(config.dashboard.trustProxy));
+  // CLIENT_SECRET이 맞는지 디스코드에 확인한다(틀리면 아무도 로그인하지 못한다). 기다리지 않는다
+  void startClientSecretCheck();
   openDashboard(app).catch((error: unknown) => log.error(L.dashboard.startFailed({ error: messageOf(error) })));
 
   return app;
