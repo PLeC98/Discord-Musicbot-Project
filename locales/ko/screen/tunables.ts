@@ -118,7 +118,7 @@ const loadFailed = "운영 설정값을 불러오지 못했어요.";
 const operators = {
   desc: "운영자 패널과 /system을 쓸 수 있는 사람이에요. 디스코드 개발자 포털의 앱 소유자로 정해요.",
   current: "지금 운영자",
-  fromOverride: "OWNER_ID로 정함",
+  fromOverride: ".env에서 OWNER_ID로 지정됨",
   scopeLabel: "팀에서 운영자로 볼 사람",
   scopes: { owner: "팀 소유자만", admin: "팀 소유자와 Admin", developer: "팀 소유자, Admin, Developer" },
   /** 넓히는 범위를 고를 때의 안내 */
