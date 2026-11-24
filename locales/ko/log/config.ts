@@ -41,6 +41,7 @@ const config = {
   tabAge: () => `연령 제한(일반 탭에서 연령 제한 콘텐츠를 켜면 생긴다)`,
   tabAi: () => `AI 보조`,
   tabDev: () => `개발자 옵션`,
+  tabLogs: () => `실시간 로그(설정)`,
   envFileMissing: () => `.env 파일이 없음. 봇을 실행하면 .env.example로 만들고 비밀 키를 채움. 그 뒤 파일 안의 주석을 참고해 [필수] 값을 채우세요`,
   credentialsMissing: ({ names }: { names: string }) => `비어 있는 필수 값: ${names}. README의 "설정" 절과 .env.example의 주석을 참고해 .env에 채운 뒤 다시 실행하세요.`,
   secretsKeyRemake: ({ command }: { command: string }) => `만들기: ${command}의 출력을 .env의 SECRETS_KEY= 뒤에 넣고 다시 실행하세요. 새 키로는 대시보드에 저장해 둔 비밀값을 복호화하지 못해 다시 입력해야 함`,

@@ -258,7 +258,7 @@ function resolveFromRoot(p: string | null) {
 /** 비면 기동을 멈추는 자격증명. 봇 로그인, 명령 배포, 대시보드 로그인(OAuth) */
 const REQUIRED_CREDENTIALS = ["DISCORD_TOKEN", "CLIENT_SECRET"] as const;
 // 운영자 패널 탭 이름(운영 설정값의 그룹이 놓인 탭, rules/tunables의 GROUP_TAB). 연령 제한 탭은 연령 제한 콘텐츠를 켜야 생긴다
-const TAB_NAMES = { settings: L.config.tabSettings(), appearance: L.config.tabAppearance(), youtube: L.config.tabYoutube(), update: L.config.tabUpdate(), age: L.config.tabAge(), ai: L.config.tabAi(), dev: L.config.tabDev() } as const;
+const TAB_NAMES = { settings: L.config.tabSettings(), appearance: L.config.tabAppearance(), youtube: L.config.tabYoutube(), update: L.config.tabUpdate(), age: L.config.tabAge(), ai: L.config.tabAi(), logs: L.config.tabLogs(), dev: L.config.tabDev() } as const;
 
 /** 운영 설정값을 입력할 운영자 패널 탭별로(그 그룹의 탭) */
 function groupByTab(names: string[]): Map<LogText, string[]> {
@@ -415,7 +415,7 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {}, env
 }
 
 // 대시보드, 캐시, SponsorBlock, 음성 상태, 스트림, 로그
-function serviceConfig({ env, envInt, envEnum, envUrl, envOrigin, envAddress, envBool, tuneInt, tuneBool, tuneText, tuneEnum }: ReturnType<typeof envReaders>, dashboardPort: number) {
+function serviceConfig({ env, envInt, envUrl, envOrigin, envAddress, envBool, tuneInt, tuneBool, tuneText, tuneEnum }: ReturnType<typeof envReaders>, dashboardPort: number) {
   return {
     dashboard: {
       port: dashboardPort,
@@ -508,12 +508,12 @@ function serviceConfig({ env, envInt, envEnum, envUrl, envOrigin, envAddress, en
 
     // 로그. 파일(NDJSON)은 터미널, 대시보드와 따로 디스크에 남긴다(사후 분석용).
     logging: {
-      // 기록할 가장 낮은 레벨(터미널, 파일, 대시보드 모두).
+      // 기록할 가장 낮은 레벨(터미널, 파일, 대시보드 모두). 실시간 로그 탭의 설정 창에서 고치고 바로 적용한다(app/log-levels).
       // 조사용 로그는 debug로 남겨 두고 필요할 때만 이 값을 낮춰 본다.
-      level: envEnum("LOG_LEVEL", "info", LEVEL_NAMES),
-      // 그중 터미널에 찍을 것. LOG_LEVEL=debug + LOG_CONSOLE_LEVEL=info로 두면
+      level: tuneEnum("LOG_LEVEL", LEVEL_NAMES),
+      // 그중 터미널에 찍을 것(빈 값은 기록 수준과 같다). 기록 debug, 터미널 info로 두면
       // 파일, 대시보드는 debug를 받고 터미널만 조용하다.
-      consoleLevel: envEnum("LOG_CONSOLE_LEVEL", "", ["", ...LEVEL_NAMES]),
+      consoleLevel: tuneEnum("LOG_CONSOLE_LEVEL", ["", ...LEVEL_NAMES]),
       // 기본은 켬. 원하지 않으면 false
       fileEnabled: env("LOG_FILE_ENABLED", "true") === "true",
       file: resolveFromRoot(env("LOG_FILE", "logs/bot.log")),

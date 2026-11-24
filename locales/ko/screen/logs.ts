@@ -18,6 +18,17 @@ const restarted = "봇이 다시 시작했어요";
 
 /** 헤더의 "파일 보기 ›"(로그 파일 보기 페이지로), 밀려난 줄 표시 끝의 "파일에서 보기 ›"(그 시각으로) */
 const openFiles = "파일 보기";
+const settings = "설정";
+/** 설정 버튼이 여는 창: 로그 수준 둘 */
+const settingsDialog = {
+  title: "로그 설정",
+  fileLevel: "기록 수준",
+  fileLevelDesc: "로그 파일과 대시보드에 남길 가장 낮은 레벨",
+  consoleLevel: "터미널 수준",
+  consoleLevelDesc: "봇을 띄운 터미널에 출력할 가장 낮은 레벨",
+  /** 터미널 수준의 빈 값 */
+  sameAsFile: "기록 수준과 같음",
+};
 const gapToFile = "파일에서 보기";
 /** 필터 창의 그룹 */
 const filterLevels = "레벨";
@@ -47,4 +58,4 @@ const files = {
   off: "파일 로그가 꺼져 있어 지난 기록이 없어요",
 };
 
-export { title, connected, disconnected, lines, allCategories, allTags, autoScroll, clear, empty, search, missed, restarted, openFiles, gapToFile, filterLevels, filterCategories, filterView, files };
+export { title, connected, disconnected, lines, allCategories, allTags, autoScroll, clear, empty, search, missed, restarted, openFiles, settings, settingsDialog, gapToFile, filterLevels, filterCategories, filterView, files };

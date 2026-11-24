@@ -120,9 +120,22 @@ test("유튜브 클라이언트 이름은 영문 소문자, 숫자, _만", () =>
 });
 
 test("문제는 첫 하나에서 멈추지 않고 모두 모은다", () => {
-  const { problems } = load({ DASHBOARD_PORT: "x", DASHBOARD_URL: "y", LOG_LEVEL: "loud" });
+  const { problems } = load({ DASHBOARD_PORT: "x", DASHBOARD_URL: "y", GUILD_ID: "loud" });
   assert.equal(problems.length, 3);
-  assert.match(problems[2], /LOG_LEVEL.*trace, debug, info, warn, error, fatal 중 하나/);
+  assert.ok(problems.some((one) => /GUILD_ID/.test(one)));
+});
+
+test("로그 수준은 운영 설정값이다. 실시간 로그 탭의 설정 창에서 고치고, .env의 이름은 옮긴 이름으로 알린다. 틀린 값은 그 필드만 기본값으로 둔다", () => {
+  const { config: c, tuneProblems } = loadConfig({}, { tunables: { LOG_LEVEL: "debug", LOG_CONSOLE_LEVEL: "warn" } });
+  assert.deepEqual([c.logging.level, c.logging.consoleLevel, tuneProblems], ["debug", "warn", []]);
+  assert.deepEqual([loadConfig({}).config.logging.level, loadConfig({}).config.logging.consoleLevel], ["info", ""], "기본: info, 터미널은 기록 수준과 같다");
+  const bad = loadConfig({}, { tunables: { LOG_LEVEL: "loud" } });
+  assert.equal(bad.config.logging.level, "info");
+  assert.equal(bad.tuneProblems.length, 1);
+  const fromEnv = loadConfig({ DISCORD_TOKEN: "t", CLIENT_SECRET: "s", SECRETS_KEY: KEY, LOG_LEVEL: "debug", LOG_CONSOLE_LEVEL: "info" });
+  assert.equal(fromEnv.config.logging.level, "info", ".env의 값은 읽지 않는다");
+  const { warnings } = fromEnv;
+  assert.deepEqual(warnings, [".env의 LOG_LEVEL, LOG_CONSOLE_LEVEL은 이제 쓰지 않음. 운영자 패널의 실시간 로그(설정) 탭에서 입력하고 .env에서 삭제하세요"]);
 });
 
 test("자격증명: 봇 토큰, 클라이언트 ID, 시크릿이 없으면 문제(빈 것만 가리킨다). 운영자 ID 는 없어도 경고하지 않는다(앱 소유자로 정한다)", () => {

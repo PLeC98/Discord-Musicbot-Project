@@ -12,21 +12,22 @@
         >
       </template>
       <template #actions>
-        <!-- 지난 기록: 로그 파일 보기 페이지를 같은 창에서. 진짜 링크라 우클릭, Ctrl, 가운데 클릭으로 새 탭, 새 창 -->
-        <router-link v-slot="{ href, navigate }" to="/admin/log-files" custom>
-          <BaseButton variant="secondary" size="sm" class="gap-0!" :href="href" @click="navigate">{{ T.openFiles }}<Icon name="chevron_right" :size="18" class="-mr-1.5" /></BaseButton>
-        </router-link>
+        <!-- 넓으면 제목 줄 오른쪽에, 좁으면 아래 자동 스크롤 줄로 내려간다 -->
+        <div class="hidden @min-[36.75rem]/card:flex items-center gap-2"><LiveLogsActions @settings="settingsOpen = true" /></div>
       </template>
     </PaneHeader>
 
     <!-- 필터: 레벨은 여럿 켜기(심각한 것부터). 카테고리, 태그는 흘러온 로그에서 본 것만 드롭다운으로(종류가 늘어나는 목록이라 칩 대신, 많으면 검색창). 오른쪽 끝에 자동 스크롤(켜 두면 새 줄을 따라 내려간다), 지우기 -->
-    <!-- 카드 안쪽 587px 이하(휴대폰, 운영자 화면에서 사이드바를 접은 화면 795px 이하): 첫 줄은 필터 버튼, 자동 스크롤, 둘째 줄은 검색.
+    <!-- 카드 안쪽 587px 이하(휴대폰, 운영자 화면에서 사이드바를 접은 화면 795px 이하): 첫 줄은 자동 스크롤과 그 오른쪽의 설정, 파일 보기(제목 줄에서 내려온다), 둘째 줄은 필터 버튼과 그 오른쪽의 검색.
          레벨, 카테고리, 태그, 지우기는 필터 창에(선택하는 대로 반영. 휴대폰은 바텀 시트, 그 밖은 가운데 팝업) -->
     <div class="flex @min-[36.75rem]/card:hidden items-center gap-2">
-      <FilterButton :count="activeFilters" @open="openSheet" />
       <label class="ml-auto flex items-center gap-2 text-sm text-on-surface-variant cursor-pointer select-none">{{ T.autoScroll }}<BaseSwitch :model-value="follow" :label="T.autoScroll" @update:model-value="setFollow" /></label>
+      <LiveLogsActions @settings="settingsOpen = true" />
     </div>
-    <SearchInput v-model="term" :placeholder="T.search" :aria-label="T.search" :input-class="[SEARCH_FIELD, 'w-full']" :note="matchNote" class="@min-[36.75rem]/card:hidden w-full" />
+    <div class="flex @min-[36.75rem]/card:hidden items-center gap-2">
+      <FilterButton :count="activeFilters" @open="openSheet" />
+      <SearchInput v-model="term" :placeholder="T.search" :aria-label="T.search" :input-class="[SEARCH_FIELD, 'w-full']" :note="matchNote" class="min-w-0 flex-1" />
+    </div>
     <FilterSheet :open="sheetOpen" @close="sheetOpen = false" @reset="resetFilters">
       <section class="flex flex-col gap-2">
         <h3 class="text-label font-semibold text-primary">{{ T.filterLevels }}</h3>
@@ -82,6 +83,7 @@
         <LogLine v-else :entry="entry" :time="clock(entry.ts)" :query="term" />
       </div>
     </div>
+    <LogSettingsDialog :open="settingsOpen" @close="settingsOpen = false" />
   </section>
 </template>
 
@@ -94,6 +96,9 @@ import SingleSelect from "./SingleSelect.vue";
 import SearchInput from "./SearchInput.vue";
 import LogLine from "./LogLine.vue";
 import FilterSheet from "./FilterSheet.vue";
+import LogSettingsDialog from "./LogSettingsDialog.vue";
+import LiveLogsActions from "./LiveLogsActions.vue";
+import { loaded as tunablesLoaded, saved as savedTunables } from "../composables/tunables.ts";
 import FilterButton from "./FilterButton.vue";
 import Icon from "./BaseIcon.vue";
 import { useOverflowing } from "../composables/overflowing.ts";
@@ -114,19 +119,24 @@ const emit = defineEmits<{ clear: [] }>();
 
 // ── 레벨 ──
 
-// 처음 켜 둘 레벨은 봇의 LOG_LEVEL 이상. 봇이 debug를 안 보내면 그 칩은 꺼진 채로 시작한다(켜면 그때부터 오는 것이 보인다). 선택한 것은 기억하지 않는다
+// 처음 켜 둘 레벨은 봇의 기록 수준(LOG_LEVEL) 이상. 봇이 debug를 안 보내면 그 칩은 꺼진 채로 시작한다(켜면 그때부터 오는 것이 보인다). 선택한 것은 기억하지 않는다.
+// 기록 수준은 설정 창이 읽은 운영 설정값이고, 그 전에는 봇 상태의 값을 쓴다. 설정 창에서 낮추면 새로 포함되는 레벨의 칩을 켠다(그 줄이 보이게). 올리면 칩은 그대로 둔다
 const levelsOn = ref(new Set<LevelName>(["info", "warn", "error", "fatal"]));
 // 처음 켠 레벨(필터 시트의 초기화, 바꾼 필터 수의 기준)
 const baseLevels = ref(new Set<LevelName>(["info", "warn", "error", "fatal"]));
-let levelsSeeded = false;
+const fileLevel = computed(() => (tunablesLoaded.value ? savedTunables.value.LOG_LEVEL || "info" : props.serverLevel));
+let seededMin: number | null = null;
 watch(
-  () => props.serverLevel,
+  fileLevel,
   (level) => {
-    if (levelsSeeded || !level) return;
-    levelsSeeded = true;
+    if (!level) return;
     const min = isLevel(level) ? LEVELS[level] : LEVELS.info;
-    levelsOn.value = new Set(LEVEL_CHIPS.filter((l) => LEVELS[l.value] >= min).map((l) => l.value));
-    baseLevels.value = new Set(levelsOn.value);
+    const from = (value: LevelName) => LEVELS[value] >= min;
+    const before = seededMin;
+    if (before === null) levelsOn.value = new Set(LEVEL_CHIPS.filter((l) => from(l.value)).map((l) => l.value));
+    else if (min < before) levelsOn.value = new Set([...levelsOn.value, ...LEVEL_CHIPS.filter((l) => from(l.value) && LEVELS[l.value] < before).map((l) => l.value)]);
+    seededMin = min;
+    baseLevels.value = new Set(LEVEL_CHIPS.filter((l) => from(l.value)).map((l) => l.value));
   },
   { immediate: true },
 );
@@ -188,6 +198,8 @@ function setFollow(on: boolean) {
 // ── 필터 창(좁은 화면) ──
 // 안의 필터는 PC와 같은 값을 바로 바꾼다. 초기화는 처음 켠 레벨, 모든 카테고리, 모든 태그로
 const sheetOpen = ref(false);
+// 로그 설정 창
+const settingsOpen = ref(false);
 const sameSet = (a: Set<LevelName>, b: Set<LevelName>) => a.size === b.size && [...a].every((x) => b.has(x));
 // 바꾼 필터 수(레벨, 카테고리, 태그). 필터 버튼의 배지
 const activeFilters = computed(() => Number(!sameSet(levelsOn.value, baseLevels.value)) + Number(Boolean(category.value)) + Number(Boolean(tag.value)));

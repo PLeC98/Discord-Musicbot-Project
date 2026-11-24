@@ -20,6 +20,7 @@ import * as settingsDocs from "../store/settings-docs.ts";
 import * as documents from "../config/documents.ts";
 import { fetchIfMissing } from "../config/ai-model-info.ts";
 import { onTunablesChanged } from "../config/tunables-changed.ts";
+import { applyLogLevels } from "./log-levels.ts";
 import fs from "fs";
 import * as aiKeys from "../store/ai-keys.ts";
 import * as cookieJar from "../store/cookie-jar.ts";
@@ -174,6 +175,9 @@ function openSettings({ potServer, logFile }: { potServer: PotServer; logFile: L
   }
   snapshots.startDaily();
   tunables.load();
+  // 로그 수준: 올린 운영 설정값으로, 그 뒤 바뀔 때마다(실시간 로그 탭의 설정 창)
+  applyLogLevels();
+  onTunablesChanged(applyLogLevels);
   // 로그 스트림의 하트비트는 로그 계층이라 알림을 직접 듣지 않는다(설정 알림이 로그를 부른다)
   onTunablesChanged(() => logSink.syncHeartbeat());
   // 장르, 상태 문구, AI 설정, 프롬프트. 설정 계층이 메모리에 들고, 저장할 때 settings.db에 쓴다
@@ -211,8 +215,8 @@ function warnLegacyConfigFiles() {
 // 로그 레벨과 파일. 이보다 앞선 레코드(config 경고 등)는 sink가 모아뒀다가 파일에 재생한다.
 // 기본 레벨(info)로 이미 기록된 앞선 레코드는 어차피 warn 이상이라 잘려나갈 일이 없다.
 function setUpLogging() {
-  logger.level = config.logging.level;
-  if (config.logging.consoleLevel) logSink.setConsoleLevel(config.logging.consoleLevel);
+  // 설정 DB를 열기 전이라 기본 수준이다. 운영 설정값을 올린 뒤 다시 넣는다(openSettings)
+  applyLogLevels();
 
   const logFile = config.logging.fileEnabled ? createFileDestination(config.logging) : null;
   if (logFile) {

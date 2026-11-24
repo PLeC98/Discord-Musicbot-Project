@@ -13,7 +13,7 @@
 import { bug } from "../infra/bug.ts";
 
 /** 그룹(화면의 카드 순서) */
-const TUNABLE_GROUPS = ["operators", "language", "queue", "look", "ytdlp", "bgutil", "youtube", "sponsorblock", "ageyoutube", "cache", "stream", "geoip", "dashboard", "ailog"] as const;
+const TUNABLE_GROUPS = ["operators", "language", "queue", "look", "ytdlp", "bgutil", "youtube", "sponsorblock", "ageyoutube", "cache", "stream", "geoip", "dashboard", "ailog", "logs"] as const;
 type TunableGroup = (typeof TUNABLE_GROUPS)[number];
 
 /**
@@ -102,11 +102,14 @@ const TUNABLES: readonly Tunable[] = [
   // AI 리퀘스트 로그(AI 보조 탭의 리퀘스트 로그 화면). 끄면 사용량 통계도 멈춘다. 용량을 넘으면 오래된 로그부터 삭제한다(통계는 남는다)
   { key: "AI_LOG_ENABLED", group: "ailog", kind: "bool", def: "true", advanced: true },
   { key: "AI_LOG_MAX_MB", group: "ailog", kind: "int", def: "64", min: 1, max: 10240, advanced: true },
+  // 로그 수준(실시간 로그 탭의 설정 창). 기록할 가장 낮은 레벨(파일, 대시보드, 터미널)과 그중 터미널에 보일 것(빈 값은 기록 수준과 같다). 바로 적용한다(app/log-levels)
+  { key: "LOG_LEVEL", group: "logs", kind: "token", def: "info" },
+  { key: "LOG_CONSOLE_LEVEL", group: "logs", kind: "token", def: "" },
 ];
 
-/** 그룹을 둘 운영자 패널 탭(id): 표시는 디스플레이, 유튜브, SponsorBlock은 유튜브, 연령 제한 콘텐츠의 쿠키는 연령 제한, AI 리퀘스트 로그는 AI 보조, 테스트 언어는 개발자 옵션, 나머지는 설정. 화면은 탭마다 그 그룹만 그린다 */
-type TunableTab = "settings" | "appearance" | "youtube" | "age" | "update" | "ai";
-const GROUP_TAB: Readonly<Record<TunableGroup, TunableTab>> = { operators: "settings", language: "settings", queue: "settings", look: "appearance", ytdlp: "update", bgutil: "update", youtube: "youtube", sponsorblock: "youtube", ageyoutube: "age", cache: "settings", stream: "settings", geoip: "settings", dashboard: "settings", ailog: "ai" };
+/** 그룹을 둘 운영자 패널 탭(id): 표시는 디스플레이, 유튜브, SponsorBlock은 유튜브, 연령 제한 콘텐츠의 쿠키는 연령 제한, AI 리퀘스트 로그는 AI 보조, 로그 수준은 실시간 로그, 테스트 언어는 개발자 옵션, 나머지는 설정. 화면은 탭마다 그 그룹만 그린다 */
+type TunableTab = "settings" | "appearance" | "youtube" | "age" | "update" | "ai" | "logs";
+const GROUP_TAB: Readonly<Record<TunableGroup, TunableTab>> = { operators: "settings", language: "settings", queue: "settings", look: "appearance", ytdlp: "update", bgutil: "update", youtube: "youtube", sponsorblock: "youtube", ageyoutube: "age", cache: "settings", stream: "settings", geoip: "settings", dashboard: "settings", ailog: "ai", logs: "logs" };
 /** 제거된 운영 설정값. 예전 설정 내보내기 파일에 남아 있어도 모르는 이름이라고 거부하지 않고 무시한다 */
 const RETIRED_TUNABLES: ReadonlySet<string> = new Set(["TEST_LANGUAGE_ENABLED"]);
 const groupsIn = (tab: TunableTab) => TUNABLE_GROUPS.filter((group) => GROUP_TAB[group] === tab);
@@ -114,7 +117,7 @@ const groupsIn = (tab: TunableTab) => TUNABLE_GROUPS.filter((group) => GROUP_TAB
 const TUNABLE_KEYS: ReadonlySet<string> = new Set(TUNABLES.map((one) => one.key));
 const RESTART_KEYS: ReadonlySet<string> = new Set(TUNABLES.filter((one) => one.restart).map((one) => one.key));
 /** 그룹 중 자기 카드가 그리는 것(운영 설정값 카드에는 그리지 않는다. 값은 같은 저장 바에서 저장한다) */
-const OWN_CARD_GROUPS: ReadonlySet<TunableGroup> = new Set(["operators", "ytdlp", "bgutil"]);
+const OWN_CARD_GROUPS: ReadonlySet<TunableGroup> = new Set(["operators", "ytdlp", "bgutil", "logs"]);
 /** 도구 카드가 버튼으로 고치는 이름 */
 const CARD_KEYS: ReadonlySet<string> = new Set(TUNABLES.filter((one) => one.card).map((one) => one.key));
 
