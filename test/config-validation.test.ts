@@ -175,6 +175,12 @@ test(".env 파일에 봇이 읽지 않는 이름이 있으면(오타, 예전 설
   assert.deepEqual([c.spotify.clientSecret, c.sources.lastfmKey], [null, null], "예전 이름의 값은 쓰지 않는다");
 });
 
+test("개발 서버 허용(DASHBOARD_DEV_ORIGIN)은 실행기가 넘긴 값으로만 켜지고, .env에 적혀 있으면 읽지 않는 이름으로 알린다", () => {
+  assert.equal(loadConfig({ DASHBOARD_DEV_ORIGIN: "true" }).config.dashboard.devOrigin, true, "실행기(scripts/dev)가 넘긴 값");
+  assert.equal(loadConfig({}).config.dashboard.devOrigin, false);
+  assert.deepEqual(load({}, { envFileNames: ["DASHBOARD_DEV_ORIGIN"] }).warnings, [".env의 DASHBOARD_DEV_ORIGIN은 봇이 읽지 않는 이름. 오타이거나 예전 설정이면 .env에서 삭제하세요(쓰는 이름은 .env.example 참고)"]);
+});
+
 test(".env가 없으면 그 문제 하나만 알린다", () => {
   assert.deepEqual(loadConfig({}, { envFileFound: false }).problems, [".env 파일이 없음. 봇을 실행하면 .env.example로 만들고 비밀 키를 채움. 그 뒤 파일 안의 주석을 참고해 [필수] 값을 채우세요"]);
 });

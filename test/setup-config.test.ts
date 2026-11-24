@@ -63,3 +63,20 @@ test("읽기: 파일의 값을 process.env에 올리되 이미 있는 값(셸)�
     delete process.env.B96_FROM_SHELL;
   }
 });
+
+test("읽기: 실행기만 넘기는 이름(LAUNCHER_ONLY)은 .env에 있어도 올리지 않고, 실행기가 넘긴 값은 그대로 둔다", () => {
+  const target = path.join(dir, "launcher.env");
+  fs.writeFileSync(target, "DASHBOARD_DEV_ORIGIN=true\n");
+  const before = process.env.DASHBOARD_DEV_ORIGIN;
+  try {
+    delete process.env.DASHBOARD_DEV_ORIGIN;
+    loadEnv(target);
+    assert.equal(process.env.DASHBOARD_DEV_ORIGIN, undefined, ".env의 값");
+    process.env.DASHBOARD_DEV_ORIGIN = "true";
+    loadEnv(target);
+    assert.equal(process.env.DASHBOARD_DEV_ORIGIN, "true", "실행기(scripts/dev)가 넘긴 값");
+  } finally {
+    if (before === undefined) delete process.env.DASHBOARD_DEV_ORIGIN;
+    else process.env.DASHBOARD_DEV_ORIGIN = before;
+  }
+});

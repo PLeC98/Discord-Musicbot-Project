@@ -27,14 +27,19 @@ function setupEnv(target = PROJECT.env, example = path.join(PROJECT.root, ".env.
   return true;
 }
 
-/** .env가 있으면 process.env에 올린다. 이미 있는 환경 변수(셸이 준 값)는 덮지 않는다. 읽었으면 true */
+/** 실행기(scripts/dev)나 셸만 넘기는 이름. .env에 적혀 있어도 올리지 않는다(.env로 켜 둔 채 잊으면 같은 PC의 다른 웹 페이지가 로그인한 대시보드 세션으로 요청할 수 있다) */
+const LAUNCHER_ONLY = ["DASHBOARD_DEV_ORIGIN"];
+
+/** .env가 있으면 process.env에 올린다. 이미 있는 환경 변수(셸이 준 값)는 덮지 않고, LAUNCHER_ONLY는 올리지 않는다. 읽었으면 true */
 function loadEnv(target = PROJECT.env) {
   if (!fs.existsSync(target)) return false;
+  const given = new Set(LAUNCHER_ONLY.filter((name) => name in process.env));
   process.loadEnvFile(target);
+  for (const name of LAUNCHER_ONLY) if (!given.has(name)) delete process.env[name];
   return true;
 }
 
 /** 만든 뒤 알릴 한 줄 */
 const madeLine = () => L.config.envFileMade({ names: FILL_BY_HAND.join(", ") });
 
-export { setupEnv, loadEnv, fillLine, madeLine, FILL_BY_HAND };
+export { setupEnv, loadEnv, fillLine, madeLine, FILL_BY_HAND, LAUNCHER_ONLY };

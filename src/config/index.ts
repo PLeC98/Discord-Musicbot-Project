@@ -245,7 +245,10 @@ function envReaders(source: EnvSource, problems: LogText[], tuneProblems: RulePr
     return bad.length ? invalid(key, bad.join(","), rule("client-names"), []) : list;
   }
 
-  return { asked, env, envGuildId, envEnum, envInt, envUrl, envOrigin, envAddress, envColor, envQueueMax, envCookies, envYtdlpVersion, envBgutilTarget, envBool, envClients, tuneInt, tuneBool, tuneText, tuneEnum };
+  // 값은 보되 읽는 이름(asked)에는 넣지 않는다. 실행기만 넘기는 값(config/env-file의 LAUNCHER_ONLY)이라 .env에 적혀 있으면 읽지 않는 이름 경고가 나온다
+  const launcherOnly = (key: string) => source[key] ?? null;
+
+  return { asked, env, launcherOnly, envGuildId, envEnum, envInt, envUrl, envOrigin, envAddress, envColor, envQueueMax, envCookies, envYtdlpVersion, envBgutilTarget, envBool, envClients, tuneInt, tuneBool, tuneText, tuneEnum };
 }
 
 function resolveFromRoot(p: string): string;
@@ -415,7 +418,7 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {}, env
 }
 
 // 대시보드, 캐시, SponsorBlock, 음성 상태, 스트림, 로그
-function serviceConfig({ env, envInt, envUrl, envOrigin, envAddress, envBool, tuneInt, tuneBool, tuneText, tuneEnum }: ReturnType<typeof envReaders>, dashboardPort: number) {
+function serviceConfig({ env, launcherOnly, envInt, envUrl, envOrigin, envAddress, envBool, tuneInt, tuneBool, tuneText, tuneEnum }: ReturnType<typeof envReaders>, dashboardPort: number) {
   return {
     dashboard: {
       port: dashboardPort,
@@ -433,9 +436,8 @@ function serviceConfig({ env, envInt, envUrl, envOrigin, envAddress, envBool, tu
       ownerId: env("OWNER_ID"),
       // 팀 앱에서 운영자를 넓히는 범위. 기본은 팀 소유자만(usecases/app-owners)
       operators: { scope: tuneEnum("OPERATOR_SCOPE", OPERATOR_SCOPES) },
-      // Vite 개발 서버(5173)를 CORS 허용 목록에 넣을지. `pnpm run dev`가 켠다. 평상시 실행은 닫힌다.
-      devOrigin: env("DASHBOARD_DEV_ORIGIN") === "true",
-      // 세션 쿠키 서명 비밀. 비우면 기동마다 무작위로 만든다(다시 시작하면 대시보드 로그인이 풀린다). 기동 로그에 경고
+      // Vite 개발 서버(5173)를 CORS 허용 목록에 넣을지. `pnpm run dev`가 켠다(.env로는 켜지지 않는다)
+      devOrigin: launcherOnly("DASHBOARD_DEV_ORIGIN") === "true",
       // API 요청 제한. 정상 사용(5초 폴링 = 분당 12번, 재생목록 추가도 요청 한 번)을 넉넉히 넘는 값으로 도배만 막는다
       rateLimit: {
         windowMs: tuneInt("RATE_LIMIT_WINDOW_SEC") * 1000,
