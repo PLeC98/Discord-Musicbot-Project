@@ -43,7 +43,7 @@ function osLocale(): string | undefined {
   }
 }
 
-// 로거가 생기기 전에 고르므로 알림은 들고 있다가 기동 때 app/main이 꺼내 찍는다
+// 로거가 생기기 전에 고르므로 알림은 들고 있다가 설정 검사(app/config-check)가 꺼내 찍는다
 let pending: LogLanguageNotice | null = null;
 
 /** 로그 언어를 고르고 정한다. 진입 파일의 첫 줄만 부른다 */

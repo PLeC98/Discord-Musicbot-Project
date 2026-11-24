@@ -140,3 +140,8 @@ test("봇, 테스트, 스크립트의 파일 이름은 kebab-case", () => {
   const bad = ["src", "test", "scripts"].flatMap((dir) => files(dir).map((f) => `${dir}/${f.split(path.sep).join("/")}`)).filter((f) => !/^[a-z0-9]+(-[a-z0-9]+)*(\.[a-z0-9]+)*\.(ts|js|mjs)$/.test(path.posix.basename(f)));
   assert.deepEqual(bad, []);
 });
+
+test("워커는 로그 문구 진입점을 부르지 않는다(로그 언어를 고르지 않아 기준 언어로 그린다. 메인에 글이나 코드를 보낸다)", () => {
+  assert.ok(now.workerFiles.length > 0, "따라가기가 워커 진입 파일을 찾는다");
+  assert.deepEqual(now.workerLogText, []);
+});

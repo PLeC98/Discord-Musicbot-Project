@@ -360,6 +360,9 @@ function scan() {
     // 로그 문구 진입점(설정보다 먼저, node_modules 없이도 돈다)
     logTextReach: reachOf("src/infra/log/text.ts"),
     logTextBareImports: bareImportsOf(reachOf("src/infra/log/text.ts")),
+    // 워커 진입 파일(parentPort를 쓴다)과 그중 로그 문구 진입점에 닿는 것. 워커는 로그 언어를 고르지 않아 문구를 그리면 기준 언어가 된다
+    workerFiles: sources.filter((f) => /\bparentPort\b/.test(stripComments(f.rel))).map((f) => f.rel),
+    workerLogText: sources.filter((f) => /\bparentPort\b/.test(stripComments(f.rel)) && reachOf(f.rel).includes("src/infra/log/text.ts")).map((f) => f.rel),
     // .env를 process.env에 올리는 파일(주석은 뺀다)
     envFileLoad: [...sources, ...scripts].map((f) => f.rel).filter((rel) => /process\.loadEnvFile\b/.test(stripComments(rel))),
     // 실행 중 경로를 파일 위치에서 세는 파일(import.meta.dirname, 주석은 뺀다)
