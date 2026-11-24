@@ -16,6 +16,11 @@ import * as ytErrors from "../../src/sources/youtube/errors.ts";
 import run, { useExec, type Exec, type YtDlpError } from "../../src/sources/ytdlp-spawn.ts";
 import { logTextError } from "../../src/infra/log/log-text.ts";
 import { L } from "../../src/infra/log/text.ts";
+import { timeoutError } from "../../src/infra/error-text.ts";
+import { SsrfError } from "../../src/infra/safe-url.ts";
+import { ruleError } from "../../src/rules/text/index.ts";
+import { plain } from "../../src/rules/rule-problem.ts";
+import { nameOf as soundcloudNameOf } from "../../src/sources/soundcloud/run.ts";
 const T = true;
 const F = false;
 // 문장, 분류, 판별 열(내려감, 연령 제한, 클라이언트 탓, 낡은 주소, 건너뛴 클라이언트)
@@ -183,6 +188,20 @@ test("우리 예외의 message는 판정하지 않는다. 같은 글이 stderr�
   assert.deepEqual(judged(logTextError(testText(EVERY_PATTERN))), [null, F, F, F, F, F, F]);
   assert.equal(ytErrors.codeOf(Object.assign(new Error("exit 1"), { stderr: EVERY_PATTERN })), "yt-age-no-cookies");
   assert.equal(ytErrors.codeOf(new Error(EVERY_PATTERN)), "yt-age-no-cookies", "외부 라이브러리의 message는 읽는다");
+});
+
+test("서술자를 가진 우리 예외는 만든 함수와 상관없이 그대로 던지든 원인으로 들어가든 판정에서 제외한다", () => {
+  const text = testText(EVERY_PATTERN);
+  const ours = { logTextError: logTextError(text), codedError: codedError("stream-failed", text), timeoutError: timeoutError(text), SsrfError: new SsrfError(text), ruleError: ruleError(plain(EVERY_PATTERN)) };
+  for (const [made, error] of Object.entries(ours)) {
+    assert.deepEqual(judged(error), [null, F, F, F, F, F, F], made);
+    assert.deepEqual(judged(codedError("direct-unavailable", testText("x"), { cause: error })), [null, F, F, F, F, F, F], `${made}(원인)`);
+  }
+});
+
+test("사운드클라우드 실패 이름을 붙일 때도 우리 예외의 글은 보지 않는다", () => {
+  assert.equal(soundcloudNameOf(logTextError(testText("HTTP Error 404")), "track"), null);
+  assert.equal(soundcloudNameOf(Object.assign(new Error("exit 1"), { stderr: "ERROR: [soundcloud] 123: Unable to download JSON metadata: HTTP Error 404: Not Found" }), "track"), "unavailable-contents");
 });
 
 test("우리 예외가 yt-dlp 오류를 원인(cause)으로 가지면 그 원인을 판정한다", () => {
