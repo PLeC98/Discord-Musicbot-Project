@@ -34,3 +34,13 @@ test("acceptedTags: q 값이 큰 것부터, 같으면 적힌 순서, q=0은 뺀�
   assert.deepEqual(acceptedTags(""), []);
   assert.deepEqual(acceptedTags(undefined), []);
 });
+
+test("nameFor: 이름 표에서 언어 태그, 형식 로케일 순으로 가장 가까운 키를 찾는다. 문자 체계가 다른 이름은 고르지 않는다", async () => {
+  const { nameFor, useTestLanguage: useTest } = await import("../../src/rules/languages.ts");
+  const names = { en: "Seoul", "zh-CN": "首尔", "pt-BR": "Seul", ko: "서울" };
+  assert.equal(nameFor(names, "ko"), "서울");
+  assert.equal(nameFor({ en: "Seoul", "ko-KR": "서울" }, "ko"), "서울", "지역을 붙인 키");
+  assert.equal(nameFor({ en: "Seoul", "zh-CN": "首尔" }, "ko"), undefined, "없으면 undefined(부르는 쪽이 영어로)");
+  assert.equal(nameFor(undefined, "ko"), undefined);
+  useTest(false);
+});

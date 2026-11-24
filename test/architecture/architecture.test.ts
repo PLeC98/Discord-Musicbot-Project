@@ -89,8 +89,8 @@ test("실행을 시작하는 파일은 다른 무엇보다 먼저 로그 언어�
   assert.match(boot, /\nloadEnv\(\);\nchooseLogLanguage\(\);\n/, "env-bootstrap 은 .env를 읽은 바로 뒤에 고른다");
 });
 
-test("로그 언어를 고르는 모듈은 다른 프로젝트 모듈, Node 내장 모듈, 패키지를 부르지 않는다(화면 번들까지 닿고 설정, 로거보다 먼저 돈다)", () => {
-  assert.deepEqual(now.chooseReach, ["src/infra/log/choose-language.ts", "src/infra/log/language.ts"]);
+test("로그 언어를 고르는 모듈은 태그 맞추기와 그 데이터 말고 다른 프로젝트 모듈, Node 내장 모듈, 패키지를 부르지 않는다(화면 번들까지 닿고 설정, 로거보다 먼저 돈다)", () => {
+  assert.deepEqual(now.chooseReach, ["data/cldr-region-groups.json", "src/infra/language-tag.ts", "src/infra/log/choose-language.ts", "src/infra/log/language.ts"]);
   assert.deepEqual(now.chooseBareImports, []);
 });
 
@@ -108,7 +108,7 @@ test("로그 문구 진입점은 문구 번들 장치와 로그 문구표만 부
 });
 
 test(".env를 읽지 않는 진입의 첫 줄은 경로 모듈과 Node 내장 모듈만 더 부른다(node_modules 없이 돈다)", () => {
-  assert.deepEqual(now.atStartReach, ["src/infra/log/choose-at-start.ts", "src/infra/log/choose-language.ts", "src/infra/log/language.ts", "src/infra/project-paths.ts"]);
+  assert.deepEqual(now.atStartReach, ["data/cldr-region-groups.json", "src/infra/language-tag.ts", "src/infra/log/choose-at-start.ts", "src/infra/log/choose-language.ts", "src/infra/log/language.ts", "src/infra/project-paths.ts"]);
   assert.deepEqual(
     now.atStartBareImports.filter((spec) => !builtinModules.includes(spec.replace(/^node:/, ""))),
     [],

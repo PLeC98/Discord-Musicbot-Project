@@ -143,6 +143,20 @@ gemma-tokenizer.model
   limitations under the License.
 
 --------------------------------------------------------------------------------
+cldr-region-groups.json
+
+  Region groups that the language tag matcher (src/infra/language-tag.ts) uses
+  to pick the nearest regional variant of the same language and script:
+  the match variables $enUS, $cnsar, $americas and $maghreb and the
+  languageMatch rules for ar, en, es, pt and zh_Hant in languageInfo.xml, with
+  $americas (019) expanded through territoryContainment in
+  supplementalData.xml. Extracted by hand on 2026-11-24.
+  Source:  Unicode CLDR release-49
+           (https://github.com/unicode-org/cldr/tree/release-49/common/supplemental)
+  License: Unicode License v3 (https://www.unicode.org/license.txt); the full
+           text is reproduced under kanji-finals.json below.
+
+--------------------------------------------------------------------------------
 kanji-finals.json
 
   Derived from the Japanese readings (kJapaneseOn, kJapaneseKun) in the Unicode

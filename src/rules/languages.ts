@@ -3,6 +3,7 @@
 // 운영자가 고르는 봇 기본 언어와는 다르다(ui/language). 로그 언어는 infra/log/language가 들고 여기서 다시 내보낸다
 
 import { logLanguage } from "../infra/log/language.ts";
+import { matchTag } from "../infra/language-tag.ts";
 
 /** 언어 하나. locale: 숫자와 날짜 형식(Intl), discord: 이 언어로 받는 디스코드 로케일(정확히 같은 것만), htmlLang: 화면의 lang 속성 */
 type LanguageInfo = { tag: string; name: string; locale: string; discord: readonly string[]; htmlLang: string };
@@ -41,20 +42,15 @@ const isAvailable = (tag: string, languages: readonly LanguageInfo[]): tag is La
 const infoOf = (tag: Language): LanguageInfo => (tag === TEST_LANGUAGE ? TEST_INFO : (LANGUAGES.find((one) => one.tag === tag) ?? LANGUAGES[0]));
 
 /**
- * 원하는 언어 태그 목록(앞이 먼저)에서 쓸 수 있는 언어를 찾는다(RFC 4647의 lookup). 태그마다 정확히 같은 것, 그다음 언어 부분이 같은 것(en-GB는 en).
- * 없으면 null. 다른 언어로 넘겨짚지 않는다. 브라우저 언어, Accept-Language에 쓴다
+ * 원하는 언어 태그 목록(앞이 먼저)에서 쓸 수 있는 언어를 찾는다(infra/language-tag의 matchTag: 정확히 같은 것, 그다음 문자 체계가 같은 가장 가까운 지역).
+ * 없으면 null. 문자 체계가 다른 언어를 고르지 않는다. 브라우저 언어, Accept-Language에 쓴다
  */
 function matchLanguage(tags: readonly string[], languages: readonly LanguageInfo[]): Language | null {
-  for (const raw of tags) {
-    const tag = raw.trim().toLowerCase();
-    if (!tag || tag === "*") continue;
-    const exact = languages.find((one) => one.tag.toLowerCase() === tag);
-    if (exact) return exact.tag as Language;
-    const primary = tag.split("-")[0];
-    const sameBase = languages.find((one) => one.tag.toLowerCase() === primary);
-    if (sameBase) return sameBase.tag as Language;
-  }
-  return null;
+  const found = matchTag(
+    tags.filter((tag) => tag.trim() !== "*"),
+    languages.map((one) => one.tag),
+  );
+  return found as Language | null;
 }
 
 /** 디스코드 로케일(상호작용의 locale)의 언어. 언어 목록에 적힌 로케일과 정확히 같은 것만 받는다(zh-TW를 zh로 넘겨짚지 않는다). 없으면 null */
@@ -79,12 +75,15 @@ function acceptedTags(header: string | null | undefined): string[] {
     .map((one) => one.tag);
 }
 
-/** 언어 키로 된 이름 표(MaxMind의 names, AI 모델 프로필의 labelI18n: ko, en, zh-CN 등)에서 해당 언어의 이름. 언어 태그, 로케일, 각각의 기본 언어 코드 순으로 찾고 없으면 undefined */
+/** 언어 키로 된 이름 표(MaxMind의 names, AI 모델 프로필의 labelI18n: ko, en, zh-CN 등)에서 해당 언어의 이름. 언어 태그, 형식 로케일 차례로 맞추고(matchTag) 없으면 undefined */
 function nameFor(names: object | undefined, language: Language): string | undefined {
   if (!names) return undefined;
   const table = names as Partial<Record<string, string>>;
   const { tag, locale } = infoOf(language);
-  const key = [tag, locale, tag.split("-")[0], locale.split("-")[0]].find((one) => table[one]);
+  const key = matchTag(
+    [tag, locale],
+    Object.keys(table).filter((one) => table[one]),
+  );
   return key ? table[key] : undefined;
 }
 
